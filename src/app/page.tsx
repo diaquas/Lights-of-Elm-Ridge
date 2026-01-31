@@ -1,35 +1,8 @@
 import Link from 'next/link';
+import { sequences } from '@/data/sequences';
 
-// Featured sequences from the catalog
-const featuredSequences = [
-  {
-    id: 1,
-    title: "The Dead Dance",
-    artist: "Lady Gaga",
-    price: "$9",
-    isFree: false,
-    category: "Halloween",
-    url: "https://xlightsseq.com/sequences/the-dead-dance-lady-gaga.1404/",
-  },
-  {
-    id: 2,
-    title: "Mary Did You Know",
-    artist: "Pentatonix",
-    price: "$9",
-    isFree: false,
-    category: "Christmas",
-    url: "https://xlightsseq.com/sequences/mary-did-you-know-pentatonix.1324/",
-  },
-  {
-    id: 3,
-    title: "This Is Halloween",
-    artist: "Danny Elfman",
-    price: "$5",
-    isFree: false,
-    category: "Halloween",
-    url: "https://xlightsseq.com/sequences/this-is-halloween.1175/",
-  },
-];
+// Get featured sequences from the main catalog
+const featuredSequences = sequences.slice(0, 3);
 
 export default function Home() {
   return (
@@ -199,11 +172,9 @@ export default function Home() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {featuredSequences.map((sequence) => (
-              <a
+              <Link
                 key={sequence.id}
-                href={sequence.url}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/sequences/${sequence.slug}`}
                 className="bg-surface-light rounded-xl overflow-hidden card-hover border border-border block group"
               >
                 {/* Thumbnail placeholder */}
@@ -222,18 +193,18 @@ export default function Home() {
                       <p className="text-foreground/60 text-sm">{sequence.artist}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      sequence.isFree
+                      sequence.price === 0
                         ? 'bg-green-500/20 text-green-400'
                         : 'bg-accent/20 text-accent'
                     }`}>
-                      {sequence.price}
+                      {sequence.price === 0 ? 'FREE' : `$${sequence.price}`}
                     </span>
                   </div>
                   <span className="block w-full mt-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium text-center">
-                    View Sequence →
+                    View Sequence
                   </span>
                 </div>
-              </a>
+              </Link>
             ))}
           </div>
 

@@ -58,22 +58,20 @@ export default function Footer() {
             <h4 className="font-semibold mb-4 text-foreground/90">Connect</h4>
             <ul className="space-y-2 text-sm">
               <li>
-                <a href="#" className="text-foreground/60 hover:text-accent transition-colors">
+                <a
+                  href="https://www.youtube.com/channel/UCKvEDoz59mtUv2UCuJq6vuA"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground/60 hover:text-accent transition-colors"
+                >
                   YouTube
                 </a>
               </li>
               <li>
-                <a href="#" className="text-foreground/60 hover:text-accent transition-colors">
-                  Facebook
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-foreground/60 hover:text-accent transition-colors">
-                  Instagram
-                </a>
-              </li>
-              <li>
-                <a href="mailto:hello@lightofelm ridge.com" className="text-foreground/60 hover:text-accent transition-colors">
+                <a
+                  href="mailto:hello@lightsofelmridge.com"
+                  className="text-foreground/60 hover:text-accent transition-colors"
+                >
                   Contact
                 </a>
               </li>
