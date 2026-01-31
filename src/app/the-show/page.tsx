@@ -12,9 +12,9 @@ const playlists = {
 };
 
 const stats = [
-  { label: "Pixels", value: "15,000+" },
-  { label: "Props", value: "35" },
-  { label: "Channels", value: "45,000+" },
+  { label: "Pixels", value: "35,000+" },
+  { label: "Props", value: "150+" },
+  { label: "Channels", value: "100,000+" },
   { label: "Extension Cords", value: "Too Many" },
 ];
 
@@ -165,8 +165,8 @@ export default function TheShowPage() {
             <div>
               <h3 className="font-semibold mb-3 text-accent">The Setup</h3>
               <ul className="space-y-2 text-foreground/70">
-                <li>• 15,000+ individually addressable RGB pixels</li>
-                <li>• 35 custom props and elements</li>
+                <li>• 35,000+ individually addressable RGB pixels</li>
+                <li>• 150+ custom props and elements</li>
                 <li>• Multiple Falcon controllers</li>
                 <li>• FM transmitter for drive-by audio</li>
                 <li>• Way too many zip ties</li>
