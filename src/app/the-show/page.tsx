@@ -5,93 +5,12 @@ export const metadata: Metadata = {
   description: 'Watch real footage from our RGB pixel light show. See xLights mockups, live performances, and behind the scenes content.',
 };
 
-// Mockup videos - xLights sequence previews
-const mockupVideos = [
-  {
-    id: 1,
-    title: "The Dead Dance",
-    artist: "A. Vex",
-    youtubeId: "eyXwPMxZ7-E",
-    description: "Spooky season vibes with this eerie dance sequence. Perfect for Halloween displays.",
-  },
-  {
-    id: 2,
-    title: "Abracadabra",
-    artist: "Steve Miller Band",
-    youtubeId: "U_h451HtYt4",
-    description: "Classic rock magic brought to life in pixels. One of our most popular sequences.",
-  },
-  {
-    id: 3,
-    title: "Shadow",
-    artist: "Sam Tinnesz",
-    youtubeId: "GY7YOffoC_0",
-    description: "Dark and moody with dynamic light effects that really pop on a matrix display.",
-  },
-  {
-    id: 4,
-    title: "Darkside",
-    artist: "Neoni",
-    youtubeId: "2cfsWcecOlU",
-    description: "Modern electronic vibes with intense pixel movement. A crowd favorite.",
-  },
-];
-
-// Live show footage - actual performances
-const liveVideos = [
-  {
-    id: 1,
-    title: "2024 Christmas Show - Full Loop",
-    description: "The complete show loop from our 2024 season. Features synchronized FM audio.",
-    youtubeId: null, // Placeholder - add your live video IDs
-    duration: "45:00",
-    category: "Full Show",
-  },
-  {
-    id: 2,
-    title: "Halloween 2024 Highlights",
-    description: "Best moments from our spooky season display. Neighbors still recovering.",
-    youtubeId: null,
-    duration: "12:00",
-    category: "Highlights",
-  },
-  {
-    id: 3,
-    title: "Opening Night 2024",
-    description: "First night reactions and the full light-up moment. Pure magic.",
-    youtubeId: null,
-    duration: "8:00",
-    category: "Special Event",
-  },
-];
-
-// Behind the scenes / tutorials
-const behindScenesVideos = [
-  {
-    id: 1,
-    title: "Display Setup Timelapse",
-    description: "Two weeks of work compressed into a few minutes. The back pain was real.",
-    youtubeId: null,
-    duration: "5:00",
-    category: "Timelapse",
-  },
-  {
-    id: 2,
-    title: "xLights Sequencing Basics",
-    description: "How I approach sequencing a new song from start to finish.",
-    youtubeId: null,
-    duration: "15:00",
-    category: "Tutorial",
-  },
-  {
-    id: 3,
-    title: "Prop Building Workshop",
-    description: "Building custom props on a budget. Spoiler: zip ties are your friend.",
-    youtubeId: null,
-    duration: "20:00",
-    category: "Workshop",
-  },
-];
+// YouTube playlist IDs
+const playlists = {
+  mockups: 'PLNrebbWMDXn3a7I8I-I7fOKodoo8zdlaE',
+  live2025: 'PLNrebbWMDXn0o1Bipyk5pbxTbG0gYxyqF',
+  live2024: 'PLNrebbWMDXn25mqAx7N1M4XUun46lTaXy',
+};
 
 const stats = [
   { label: "Pixels", value: "15,000+" },
@@ -128,7 +47,7 @@ export default function TheShowPage() {
 
         {/* Section 1: xLights Mockups */}
         <section className="mb-20">
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <span className="text-3xl">💻</span>
             <div>
               <h2 className="text-2xl font-bold">xLights Mockups</h2>
@@ -136,31 +55,29 @@ export default function TheShowPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {mockupVideos.map((video) => (
-              <div
-                key={video.id}
-                className="bg-surface rounded-xl overflow-hidden border border-border"
+          <div className="bg-surface rounded-xl overflow-hidden border border-border">
+            <div className="aspect-video">
+              <iframe
+                src={`https://www.youtube.com/embed/videoseries?list=${playlists.mockups}`}
+                title="xLights Mockups Playlist"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            </div>
+            <div className="p-4 flex justify-between items-center">
+              <p className="text-foreground/60 text-sm">
+                Browse all sequence previews in this playlist
+              </p>
+              <a
+                href={`https://www.youtube.com/playlist?list=${playlists.mockups}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent hover:text-accent-secondary text-sm font-medium transition-colors"
               >
-                {/* YouTube Embed */}
-                <div className="aspect-video">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${video.youtubeId}`}
-                    title={video.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="w-full h-full"
-                  />
-                </div>
-                <div className="p-4">
-                  <span className="text-xs text-accent font-medium">{video.artist}</span>
-                  <h3 className="font-semibold mt-1">{video.title}</h3>
-                  <p className="text-sm text-foreground/50 mt-2">
-                    {video.description}
-                  </p>
-                </div>
-              </div>
-            ))}
+                View on YouTube →
+              </a>
+            </div>
           </div>
 
           <div className="mt-6 text-center">
@@ -168,14 +85,14 @@ export default function TheShowPage() {
               href="/sequences"
               className="inline-flex items-center gap-2 text-accent hover:text-accent-secondary transition-colors"
             >
-              View all sequences →
+              View all sequences for purchase →
             </a>
           </div>
         </section>
 
         {/* Section 2: Live Show Footage */}
         <section className="mb-20">
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <span className="text-3xl">🏠</span>
             <div>
               <h2 className="text-2xl font-bold">Live Show Footage</h2>
@@ -183,59 +100,66 @@ export default function TheShowPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {liveVideos.map((video) => (
-              <div
-                key={video.id}
-                className="bg-surface rounded-xl overflow-hidden border border-border card-hover group"
-              >
-                {/* Video placeholder or embed */}
-                <div className="aspect-video bg-gradient-to-br from-accent/10 to-accent-secondary/10 relative">
-                  {video.youtubeId ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${video.youtubeId}`}
-                      title={video.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full"
-                    />
-                  ) : (
-                    <>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                          <span className="text-5xl block mb-2">🎬</span>
-                          <p className="text-foreground/40 text-sm">Coming soon</p>
-                        </div>
-                      </div>
-                      <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
-                        {video.duration}
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div className="p-4">
-                  <span className="text-xs text-accent font-medium">{video.category}</span>
-                  <h3 className="font-semibold mt-1 group-hover:text-accent transition-colors">
-                    {video.title}
-                  </h3>
-                  <p className="text-sm text-foreground/50 mt-2">
-                    {video.description}
-                  </p>
-                </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* 2025 Season */}
+            <div className="bg-surface rounded-xl overflow-hidden border border-border">
+              <div className="p-4 border-b border-border">
+                <h3 className="font-semibold text-lg">2025 Season</h3>
+                <p className="text-foreground/50 text-sm">Latest shows and updates</p>
               </div>
-            ))}
-          </div>
+              <div className="aspect-video">
+                <iframe
+                  src={`https://www.youtube.com/embed/videoseries?list=${playlists.live2025}`}
+                  title="Live Shows 2025 Playlist"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              </div>
+              <div className="p-4">
+                <a
+                  href={`https://www.youtube.com/playlist?list=${playlists.live2025}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:text-accent-secondary text-sm font-medium transition-colors"
+                >
+                  View full playlist →
+                </a>
+              </div>
+            </div>
 
-          <div className="mt-8 p-6 bg-surface-light rounded-xl border border-border text-center">
-            <p className="text-foreground/60">
-              📹 More live footage coming as we capture the 2024-2025 season!
-            </p>
+            {/* 2024 Season */}
+            <div className="bg-surface rounded-xl overflow-hidden border border-border">
+              <div className="p-4 border-b border-border">
+                <h3 className="font-semibold text-lg">2024 Season</h3>
+                <p className="text-foreground/50 text-sm">Last year&apos;s highlights</p>
+              </div>
+              <div className="aspect-video">
+                <iframe
+                  src={`https://www.youtube.com/embed/videoseries?list=${playlists.live2024}`}
+                  title="Live Shows 2024 Playlist"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              </div>
+              <div className="p-4">
+                <a
+                  href={`https://www.youtube.com/playlist?list=${playlists.live2024}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:text-accent-secondary text-sm font-medium transition-colors"
+                >
+                  View full playlist →
+                </a>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* Section 3: Behind the Scenes */}
         <section className="mb-20">
-          <div className="flex items-center gap-3 mb-8">
+          <div className="flex items-center gap-3 mb-6">
             <span className="text-3xl">🎥</span>
             <div>
               <h2 className="text-2xl font-bold">Behind the Scenes</h2>
@@ -243,55 +167,18 @@ export default function TheShowPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {behindScenesVideos.map((video) => (
-              <div
-                key={video.id}
-                className="bg-surface rounded-xl overflow-hidden border border-border card-hover group"
-              >
-                {/* Video placeholder or embed */}
-                <div className="aspect-video bg-gradient-to-br from-accent/10 to-accent-secondary/10 relative">
-                  {video.youtubeId ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${video.youtubeId}`}
-                      title={video.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full"
-                    />
-                  ) : (
-                    <>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                          <span className="text-5xl block mb-2">🔧</span>
-                          <p className="text-foreground/40 text-sm">Coming soon</p>
-                        </div>
-                      </div>
-                      <div className="absolute bottom-2 right-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
-                        {video.duration}
-                      </div>
-                    </>
-                  )}
-                </div>
-                <div className="p-4">
-                  <span className="text-xs text-accent font-medium">{video.category}</span>
-                  <h3 className="font-semibold mt-1 group-hover:text-accent transition-colors">
-                    {video.title}
-                  </h3>
-                  <p className="text-sm text-foreground/50 mt-2">
-                    {video.description}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 text-center">
+          <div className="bg-surface rounded-xl p-8 border border-border text-center">
+            <span className="text-6xl block mb-4">🔧</span>
+            <h3 className="text-xl font-semibold mb-2">Coming Soon</h3>
+            <p className="text-foreground/60 max-w-md mx-auto">
+              Behind-the-scenes content, setup tutorials, and how-to guides are in the works.
+              Subscribe to get notified when they drop.
+            </p>
             <a
               href="/behind-the-scenes"
-              className="inline-flex items-center gap-2 text-accent hover:text-accent-secondary transition-colors"
+              className="inline-flex items-center gap-2 mt-6 text-accent hover:text-accent-secondary transition-colors"
             >
-              More behind the scenes content →
+              Learn more about what&apos;s coming →
             </a>
           </div>
         </section>
