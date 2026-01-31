@@ -1,7 +1,8 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { sequences, getSequenceBySlug, getRelatedSequences, getAllSlugs } from '@/data/sequences';
+import { sequences, getSequenceBySlug, getRelatedSequences, getAllSlugs, getThumbnailUrl } from '@/data/sequences';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -53,13 +54,25 @@ export default async function SequencePage({ params }: PageProps) {
         <div className="grid lg:grid-cols-2 gap-12 mb-16">
           {/* Left: Album Art / Thumbnail */}
           <div className="space-y-4">
-            <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden flex items-center justify-center">
-              <div className="text-center p-8">
-                <span className="text-9xl block mb-4">
-                  {sequence.category === 'Halloween' ? '🎃' : '🎄'}
-                </span>
-                <p className="text-foreground/40 text-sm">Album artwork coming soon</p>
-              </div>
+            <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden relative">
+              {sequence.youtubeId ? (
+                <Image
+                  src={getThumbnailUrl(sequence.youtubeId) || ''}
+                  alt={`${sequence.title} - ${sequence.artist}`}
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-accent/10 to-surface">
+                  <div className="text-center p-8">
+                    <span className="text-9xl block mb-4">
+                      {sequence.category === 'Halloween' ? '🎃' : '🎄'}
+                    </span>
+                    <p className="text-foreground/40 text-sm">Video preview coming soon</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Tags */}
@@ -253,10 +266,22 @@ export default async function SequencePage({ params }: PageProps) {
                   href={`/sequences/${related.slug}`}
                   className="group"
                 >
-                  <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden flex items-center justify-center mb-3 group-hover:border-accent/50 transition-colors">
-                    <span className="text-6xl">
-                      {related.category === 'Halloween' ? '🎃' : '🎄'}
-                    </span>
+                  <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden mb-3 group-hover:border-accent/50 transition-colors relative">
+                    {related.youtubeId ? (
+                      <Image
+                        src={getThumbnailUrl(related.youtubeId) || ''}
+                        alt={`${related.title} - ${related.artist}`}
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform"
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-accent/10 to-surface">
+                        <span className="text-6xl">
+                          {related.category === 'Halloween' ? '🎃' : '🎄'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <h3 className="font-medium group-hover:text-accent transition-colors line-clamp-2">
                     {related.title} - {related.artist}

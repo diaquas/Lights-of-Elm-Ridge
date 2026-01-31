@@ -21,6 +21,12 @@ export interface Sequence {
   releaseDate: string;
 }
 
+// Get YouTube thumbnail URL from video ID
+export function getThumbnailUrl(youtubeId: string | null): string | null {
+  if (!youtubeId) return null;
+  return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
+}
+
 export const sequences: Sequence[] = [
   {
     id: 1,
