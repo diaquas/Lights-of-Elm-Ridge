@@ -131,13 +131,13 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
     id: 4,
     slug: "darkside",
     title: "Darkside",
-    artist: "Alan Walker",
+    artist: "Neoni",
     price: 5,
     category: "Halloween",
     duration: "3:31",
     difficulty: "Intermediate",
     description: "EDM meets the darkness. Heavy bass drops and atmospheric builds create an immersive Halloween experience.",
-    longDescription: `Alan Walker's signature EDM style meets Halloween in this bass-heavy sequence that'll have your neighbors feeling the beat.
+    longDescription: `Neoni's dark, cinematic style meets Halloween in this bass-heavy sequence that'll have your neighbors feeling the beat.
 
 "Darkside" is all about atmosphere and build-up, and this sequence capitalizes on that perfectly. The verses are dark and moody, the pre-chorus builds tension, and the drops... well, the drops hit different when your entire house is pulsing with light.
 
@@ -145,10 +145,10 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
 - Bass-reactive effects that pulse with the music
 - Dramatic builds leading to explosive drops
 - Dark color palette with strategic bright accents
-- Matrix displays Walker-inspired visual effects
-- Perfect for the EDM fans in your neighborhood
+- Matrix displays cinematic visual effects
+- Perfect for fans of dark, powerful music
 
-This sequence proves that Halloween isn't just for rock and orchestral music. EDM has a place on your display, and Darkside is the perfect introduction.`,
+This sequence proves that Halloween isn't just for rock and orchestral music. Cinematic dark pop has a place on your display, and Darkside is the perfect introduction.`,
     tags: ["Halloween", "EDM", "Electronic", "Atmospheric", "Bass"],
     propCount: 35,
     hasMatrix: true,
