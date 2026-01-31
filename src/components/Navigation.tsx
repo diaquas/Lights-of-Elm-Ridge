@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
@@ -22,9 +23,15 @@ export default function Navigation() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
-            <span className="text-2xl">✨</span>
-            <span className="font-bold text-lg gradient-text">
-              Light of Elm Ridge
+            <Image
+              src="/logo.jpg"
+              alt="Lights of Elm Ridge"
+              width={48}
+              height={48}
+              className="rounded-lg"
+            />
+            <span className="font-bold text-lg gradient-text hidden sm:inline">
+              Lights of Elm Ridge
             </span>
           </Link>
 
