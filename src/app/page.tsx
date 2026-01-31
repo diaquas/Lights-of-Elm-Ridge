@@ -207,7 +207,7 @@ export default function Home() {
                 className="bg-surface-light rounded-xl overflow-hidden card-hover border border-border block group"
               >
                 {/* Thumbnail placeholder */}
-                <div className="aspect-video bg-gradient-to-br from-accent/20 to-accent-warm/20 flex items-center justify-center relative">
+                <div className="aspect-video bg-gradient-to-br from-accent/10 to-surface-light flex items-center justify-center relative">
                   <span className="text-6xl">{sequence.category === 'Halloween' ? '🎃' : '🎄'}</span>
                   <div className="absolute top-3 left-3">
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-black/50 text-white backdrop-blur">

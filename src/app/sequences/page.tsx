@@ -21,40 +21,11 @@ const sequences = [
     propCount: 35,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/the-dead-dance-lady-gaga.1404/",
+    youtubeId: "eyXwPMxZ7-E",
     models: ["Matrix (70x100)", "Singing Pumpkin", "Mini Fireworks", "Showstopper Spinners", "Spiders", "Bats", "Tombstones"],
   },
   {
     id: 2,
-    title: "Mary Did You Know",
-    artist: "Pentatonix",
-    price: 9,
-    category: "Christmas",
-    duration: "4:12",
-    difficulty: "Intermediate",
-    description: "A crowd favorite with crescendos that'll give you chills. The a cappella harmonies translate beautifully to pixels. This one hits different at 2am when you're testing alone in your driveway.",
-    tags: ["Christmas", "A Cappella", "Emotional", "Classic"],
-    propCount: 35,
-    hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/mary-did-you-know-pentatonix.1324/",
-    models: ["Matrix (70x100)", "Pixel Forest", "Arches", "House Outlines", "Floods"],
-  },
-  {
-    id: 3,
-    title: "This Is Halloween",
-    artist: "Danny Elfman",
-    price: 5,
-    category: "Halloween",
-    duration: "3:18",
-    difficulty: "Beginner",
-    description: "The Nightmare Before Christmas classic that started it all. Perfect for Halloween newbies or anyone who believes in the Pumpkin King. Lock, Shock, and Barrel approved.",
-    tags: ["Halloween", "Classic", "Disney", "Beginner Friendly"],
-    propCount: 30,
-    hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/this-is-halloween.1175/",
-    models: ["Matrix", "Singing Pumpkin", "Mini Pumpkins", "Pixel Poles", "Tombstones", "Spiders"],
-  },
-  {
-    id: 4,
     title: "Shadow",
     artist: "Livingston",
     price: 5,
@@ -66,10 +37,75 @@ const sequences = [
     propCount: 35,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/shadow-livingston.1242/",
+    youtubeId: "GY7YOffoC_0",
     models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Fuzion Spinner", "Pixel Forest", "Arches"],
   },
   {
+    id: 3,
+    title: "Abracadabra",
+    artist: "Steve Miller Band",
+    price: 5,
+    category: "Halloween",
+    duration: "3:45",
+    difficulty: "Intermediate",
+    description: "Classic rock meets Halloween magic. This 80s hit brings the perfect blend of spooky vibes and nostalgic fun to your display.",
+    tags: ["Halloween", "Classic Rock", "80s", "Magic"],
+    propCount: 35,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/authors/diaquas.8537/",
+    youtubeId: "U_h451HtYt4",
+    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Spiders", "Bats"],
+  },
+  {
+    id: 4,
+    title: "Darkside",
+    artist: "Alan Walker",
+    price: 5,
+    category: "Halloween",
+    duration: "3:31",
+    difficulty: "Intermediate",
+    description: "EDM meets the darkness. Heavy bass drops and atmospheric builds create an immersive Halloween experience that'll have your neighbors feeling the beat.",
+    tags: ["Halloween", "EDM", "Electronic", "Atmospheric"],
+    propCount: 35,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/authors/diaquas.8537/",
+    youtubeId: "2cfsWcecOlU",
+    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Pixel Forest"],
+  },
+  {
     id: 5,
+    title: "Mary Did You Know",
+    artist: "Pentatonix",
+    price: 9,
+    category: "Christmas",
+    duration: "4:12",
+    difficulty: "Intermediate",
+    description: "A crowd favorite with crescendos that'll give you chills. The a cappella harmonies translate beautifully to pixels. This one hits different at 2am when you're testing alone in your driveway.",
+    tags: ["Christmas", "A Cappella", "Emotional", "Classic"],
+    propCount: 35,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/mary-did-you-know-pentatonix.1324/",
+    youtubeId: null,
+    models: ["Matrix (70x100)", "Pixel Forest", "Arches", "House Outlines", "Floods"],
+  },
+  {
+    id: 6,
+    title: "This Is Halloween",
+    artist: "Danny Elfman",
+    price: 5,
+    category: "Halloween",
+    duration: "3:18",
+    difficulty: "Beginner",
+    description: "The Nightmare Before Christmas classic that started it all. Perfect for Halloween newbies or anyone who believes in the Pumpkin King. Lock, Shock, and Barrel approved.",
+    tags: ["Halloween", "Classic", "Disney", "Beginner Friendly"],
+    propCount: 30,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/this-is-halloween.1175/",
+    youtubeId: null,
+    models: ["Matrix", "Singing Pumpkin", "Mini Pumpkins", "Pixel Poles", "Tombstones", "Spiders"],
+  },
+  {
+    id: 7,
     title: "Carousel",
     artist: "Melanie Martinez",
     price: 5,
@@ -81,6 +117,7 @@ const sequences = [
     propCount: 32,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/carousel-melanie-martinez.1185/",
+    youtubeId: null,
     models: ["Matrix", "Mini Fireworks", "Showstopper Spinners", "Pixel Poles", "Spiders", "Bats"],
   },
 ];
@@ -173,30 +210,29 @@ export default function SequencesPage() {
         {/* Sequence Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sequences.map((sequence) => (
-            <a
+            <div
               key={sequence.id}
-              href={sequence.xlightsSeqUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-surface rounded-xl overflow-hidden border border-border card-hover group block"
+              className="bg-surface rounded-xl overflow-hidden border border-border card-hover group"
             >
-              {/* Video Preview Placeholder */}
-              <div className="aspect-video bg-gradient-to-br from-accent/20 to-accent-warm/20 relative overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-6xl">
-                    {sequence.category === 'Halloween' ? '🎃' : '🎄'}
-                  </span>
-                </div>
-                {/* Play button overlay */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
-                    <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
+              {/* Video Preview */}
+              <div className="aspect-video relative overflow-hidden bg-surface-light">
+                {sequence.youtubeId ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${sequence.youtubeId}`}
+                    title={`${sequence.title} - ${sequence.artist}`}
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-accent/10 to-surface-light">
+                    <span className="text-6xl">
+                      {sequence.category === 'Halloween' ? '🎃' : '🎄'}
+                    </span>
                   </div>
-                </div>
+                )}
                 {/* Price badge */}
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-3 right-3 z-10">
                   <span className={`px-3 py-1 rounded-full text-sm font-bold ${
                     sequence.price === 0
                       ? 'bg-green-500 text-white'
@@ -206,7 +242,7 @@ export default function SequencesPage() {
                   </span>
                 </div>
                 {/* Category badge */}
-                <div className="absolute top-3 left-3">
+                <div className="absolute top-3 left-3 z-10">
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-black/50 text-white backdrop-blur">
                     {sequence.category}
                   </span>
@@ -254,13 +290,16 @@ export default function SequencesPage() {
                 </div>
 
                 {/* CTA */}
-                <div className="flex gap-2">
-                  <span className="flex-1 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium text-center">
-                    View on xlightsseq.com →
-                  </span>
-                </div>
+                <a
+                  href={sequence.xlightsSeqUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium text-center"
+                >
+                  View on xlightsseq.com →
+                </a>
               </div>
-            </a>
+            </div>
           ))}
         </div>
 
@@ -343,7 +382,7 @@ export default function SequencesPage() {
         </div>
 
         {/* Custom Services CTA */}
-        <div className="mt-12 text-center bg-gradient-to-r from-accent/10 via-accent-warm/10 to-accent/10 rounded-xl p-8 border border-border">
+        <div className="mt-12 text-center bg-gradient-to-r from-accent/10 via-surface to-accent/10 rounded-xl p-8 border border-border">
           <h2 className="text-2xl font-bold mb-3">
             Need Something Custom?
           </h2>
