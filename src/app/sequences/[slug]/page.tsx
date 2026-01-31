@@ -55,9 +55,9 @@ export default async function SequencePage({ params }: PageProps) {
           {/* Left: Album Art / Thumbnail */}
           <div className="space-y-4">
             <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden relative">
-              {sequence.youtubeId ? (
+              {sequence.artworkUrl || sequence.youtubeId ? (
                 <Image
-                  src={getThumbnailUrl(sequence.youtubeId) || ''}
+                  src={sequence.artworkUrl || getThumbnailUrl(sequence.youtubeId) || ''}
                   alt={`${sequence.title} - ${sequence.artist}`}
                   fill
                   className="object-cover"
@@ -267,9 +267,9 @@ export default async function SequencePage({ params }: PageProps) {
                   className="group"
                 >
                   <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden mb-3 group-hover:border-accent/50 transition-colors relative">
-                    {related.youtubeId ? (
+                    {related.artworkUrl || related.youtubeId ? (
                       <Image
-                        src={getThumbnailUrl(related.youtubeId) || ''}
+                        src={related.artworkUrl || getThumbnailUrl(related.youtubeId) || ''}
                         alt={`${related.title} - ${related.artist}`}
                         fill
                         className="object-cover group-hover:scale-105 transition-transform"

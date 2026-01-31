@@ -14,6 +14,7 @@ export interface Sequence {
   hasMatrix: boolean;
   xlightsSeqUrl: string;
   youtubeId: string | null;
+  artworkUrl: string | null;
   models: string[];
   xlightsVersion: string;
   audioSource: string;
@@ -55,6 +56,7 @@ This is one of our most requested sequences for Halloween 2025. The combination 
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/the-dead-dance-lady-gaga.1404/",
     youtubeId: "eyXwPMxZ7-E",
+    artworkUrl: null,
     models: ["Matrix (70x100)", "Singing Pumpkin", "Mini Fireworks", "Showstopper Spinners", "Spiders", "Bats", "Tombstones", "Pixel Forest", "Arches"],
     xlightsVersion: "2024.20+",
     audioSource: "iTunes, Amazon Music, Spotify (download required)",
@@ -88,6 +90,7 @@ This sequence works beautifully as a "breather" in your show loop, giving viewer
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/shadow-livingston.1242/",
     youtubeId: "GY7YOffoC_0",
+    artworkUrl: null,
     models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Fuzion Spinner", "Pixel Forest", "Arches"],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
@@ -121,6 +124,7 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/authors/diaquas.8537/",
     youtubeId: "U_h451HtYt4",
+    artworkUrl: null,
     models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Spiders", "Bats"],
     xlightsVersion: "2024.20+",
     audioSource: "iTunes, Amazon Music, Spotify (download required)",
@@ -154,6 +158,7 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/authors/diaquas.8537/",
     youtubeId: "2cfsWcecOlU",
+    artworkUrl: null,
     models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Pixel Forest"],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
@@ -187,6 +192,7 @@ This one hits different at 2am when you're testing alone in your driveway. Don't
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/mary-did-you-know-pentatonix.1324/",
     youtubeId: null,
+    artworkUrl: "https://i1.sndcdn.com/artworks-000141128986-60zb2e-t500x500.jpg",
     models: ["Matrix (70x100)", "Pixel Forest", "Arches", "House Outlines", "Floods", "Mega Tree"],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
@@ -220,6 +226,7 @@ This is a great sequence for newer displayers or anyone building up their Hallow
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/this-is-halloween.1175/",
     youtubeId: null,
+    artworkUrl: null,
     models: ["Matrix", "Singing Pumpkin", "Mini Pumpkins", "Pixel Poles", "Tombstones", "Spiders"],
     xlightsVersion: "2024.10+",
     audioSource: "iTunes, Amazon Music (Nightmare Before Christmas Soundtrack)",
@@ -253,6 +260,7 @@ The creepy-cute aesthetic is having a moment, and this sequence delivers. Fans o
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/carousel-melanie-martinez.1185/",
     youtubeId: null,
+    artworkUrl: null,
     models: ["Matrix", "Mini Fireworks", "Showstopper Spinners", "Pixel Poles", "Spiders", "Bats"],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (Cry Baby album)",
