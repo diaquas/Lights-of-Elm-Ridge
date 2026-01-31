@@ -2,12 +2,11 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'The Show | Light of Elm Ridge',
-  description: 'Watch real footage from our RGB pixel light show. See xLights mockups, live performances, and behind the scenes content.',
+  description: 'Watch real footage from our RGB pixel light show. Live performances from our actual display.',
 };
 
 // YouTube playlist IDs
 const playlists = {
-  mockups: 'PLNrebbWMDXn3a7I8I-I7fOKodoo8zdlaE',
   live2025: 'PLNrebbWMDXn0o1Bipyk5pbxTbG0gYxyqF',
   live2024: 'PLNrebbWMDXn25mqAx7N1M4XUun46lTaXy',
 };
@@ -29,7 +28,7 @@ export default function TheShowPage() {
             <span className="gradient-text">The Show</span>
           </h1>
           <p className="text-xl text-foreground/60 max-w-2xl mx-auto">
-            From xLights mockups to live performances — watch the pixels come alive.
+            Real performances from our actual display — pixels on props, not just screens.
           </p>
         </div>
 
@@ -45,58 +44,13 @@ export default function TheShowPage() {
           ))}
         </div>
 
-        {/* Section 1: xLights Mockups */}
-        <section className="mb-20">
-          <div className="flex items-center gap-3 mb-6">
-            <span className="text-3xl">💻</span>
-            <div>
-              <h2 className="text-2xl font-bold">xLights Mockups</h2>
-              <p className="text-foreground/60">Sequence previews rendered in xLights — see what you&apos;re buying before you buy</p>
-            </div>
-          </div>
-
-          <div className="bg-surface rounded-xl overflow-hidden border border-border">
-            <div className="aspect-video">
-              <iframe
-                src={`https://www.youtube.com/embed/videoseries?list=${playlists.mockups}`}
-                title="xLights Mockups Playlist"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="w-full h-full"
-              />
-            </div>
-            <div className="p-4 flex justify-between items-center">
-              <p className="text-foreground/60 text-sm">
-                Browse all sequence previews in this playlist
-              </p>
-              <a
-                href={`https://www.youtube.com/playlist?list=${playlists.mockups}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:text-accent-secondary text-sm font-medium transition-colors"
-              >
-                View on YouTube →
-              </a>
-            </div>
-          </div>
-
-          <div className="mt-6 text-center">
-            <a
-              href="/sequences"
-              className="inline-flex items-center gap-2 text-accent hover:text-accent-secondary transition-colors"
-            >
-              View all sequences for purchase →
-            </a>
-          </div>
-        </section>
-
-        {/* Section 2: Live Show Footage */}
+        {/* Live Show Footage */}
         <section className="mb-20">
           <div className="flex items-center gap-3 mb-6">
             <span className="text-3xl">🏠</span>
             <div>
               <h2 className="text-2xl font-bold">Live Show Footage</h2>
-              <p className="text-foreground/60">Real performances from our actual display — pixels on props, not just screens</p>
+              <p className="text-foreground/60">Watch our display in action — real shows, real pixels, real neighbors wondering what&apos;s going on</p>
             </div>
           </div>
 
@@ -157,7 +111,7 @@ export default function TheShowPage() {
           </div>
         </section>
 
-        {/* Section 3: Behind the Scenes */}
+        {/* Behind the Scenes */}
         <section className="mb-20">
           <div className="flex items-center gap-3 mb-6">
             <span className="text-3xl">🎥</span>
@@ -188,7 +142,7 @@ export default function TheShowPage() {
           <div className="text-5xl mb-4">📺</div>
           <h2 className="text-2xl font-bold mb-3">Don&apos;t Miss a Show</h2>
           <p className="text-foreground/60 mb-6 max-w-xl mx-auto">
-            Subscribe to our YouTube channel for new mockups, live show footage,
+            Subscribe to our YouTube channel for new live show footage
             and behind-the-scenes content as we build and grow the display.
           </p>
           <a

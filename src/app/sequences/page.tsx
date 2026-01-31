@@ -43,7 +43,7 @@ const sequences = [
   {
     id: 3,
     title: "Abracadabra",
-    artist: "Steve Miller Band",
+    artist: "Lady Gaga",
     price: 5,
     category: "Halloween",
     duration: "3:45",
