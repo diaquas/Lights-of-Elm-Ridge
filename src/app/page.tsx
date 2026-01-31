@@ -1,30 +1,33 @@
 import Link from 'next/link';
 
-// Placeholder data for featured sequences
+// Featured sequences from the catalog
 const featuredSequences = [
   {
     id: 1,
-    title: "Carol of the Bells",
-    artist: "Trans-Siberian Orchestra",
-    price: "Free",
-    isFree: true,
-    thumbnail: "/placeholder-sequence.jpg",
+    title: "The Dead Dance",
+    artist: "Lady Gaga",
+    price: "$9",
+    isFree: false,
+    category: "Halloween",
+    url: "https://xlightsseq.com/sequences/the-dead-dance-lady-gaga.1404/",
   },
   {
     id: 2,
-    title: "Wizards in Winter",
-    artist: "Trans-Siberian Orchestra",
-    price: "$35",
+    title: "Mary Did You Know",
+    artist: "Pentatonix",
+    price: "$9",
     isFree: false,
-    thumbnail: "/placeholder-sequence.jpg",
+    category: "Christmas",
+    url: "https://xlightsseq.com/sequences/mary-did-you-know-pentatonix.1324/",
   },
   {
     id: 3,
-    title: "Thunder",
-    artist: "Imagine Dragons",
-    price: "$29",
+    title: "This Is Halloween",
+    artist: "Danny Elfman",
+    price: "$5",
     isFree: false,
-    thumbnail: "/placeholder-sequence.jpg",
+    category: "Halloween",
+    url: "https://xlightsseq.com/sequences/this-is-halloween.1175/",
   },
 ];
 
@@ -196,15 +199,26 @@ export default function Home() {
 
           <div className="grid md:grid-cols-3 gap-6">
             {featuredSequences.map((sequence) => (
-              <div key={sequence.id} className="bg-surface-light rounded-xl overflow-hidden card-hover border border-border">
+              <a
+                key={sequence.id}
+                href={sequence.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-surface-light rounded-xl overflow-hidden card-hover border border-border block group"
+              >
                 {/* Thumbnail placeholder */}
-                <div className="aspect-video bg-gradient-to-br from-accent/20 to-accent-secondary/20 flex items-center justify-center">
-                  <span className="text-6xl">🎄</span>
+                <div className="aspect-video bg-gradient-to-br from-accent/20 to-accent-warm/20 flex items-center justify-center relative">
+                  <span className="text-6xl">{sequence.category === 'Halloween' ? '🎃' : '🎄'}</span>
+                  <div className="absolute top-3 left-3">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-black/50 text-white backdrop-blur">
+                      {sequence.category}
+                    </span>
+                  </div>
                 </div>
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h3 className="font-bold text-lg">{sequence.title}</h3>
+                      <h3 className="font-bold text-lg group-hover:text-accent transition-colors">{sequence.title}</h3>
                       <p className="text-foreground/60 text-sm">{sequence.artist}</p>
                     </div>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -215,11 +229,11 @@ export default function Home() {
                       {sequence.price}
                     </span>
                   </div>
-                  <button className="w-full mt-4 py-2 bg-surface hover:bg-border rounded-lg transition-colors text-sm font-medium">
-                    Preview Sequence
-                  </button>
+                  <span className="block w-full mt-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium text-center">
+                    View Sequence →
+                  </span>
                 </div>
-              </div>
+              </a>
             ))}
           </div>
 
@@ -245,18 +259,18 @@ export default function Home() {
             <span className="gradient-text"> Coolest on the Block?</span>
           </h2>
           <p className="text-xl text-foreground/60 mb-8">
-            Grab a free sequence and see what all the fuss is about.
-            No credit card, no catch, no &quot;but wait there&apos;s more.&quot;
+            Browse the collection and find your next showstopper.
+            Sequences start at just $5—less than your coffee habit.
           </p>
           <Link
-            href="/sequences?filter=free"
+            href="/sequences"
             className="inline-flex items-center gap-2 px-8 py-4 bg-accent hover:bg-accent/80 text-white font-semibold rounded-xl transition-all glow-purple hover:scale-105"
           >
-            <span>Get Free Sequences</span>
+            <span>Browse All Sequences</span>
             <span className="text-xl">→</span>
           </Link>
           <p className="mt-4 text-foreground/40 text-sm">
-            Seriously, they&apos;re actually free. We&apos;re not that kind of website.
+            Free sequences coming soon. For now, every purchase supports more creations.
           </p>
         </div>
       </section>

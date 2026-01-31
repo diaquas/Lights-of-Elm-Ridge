@@ -2,93 +2,90 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'xLights Sequences | Light of Elm Ridge',
-  description: 'Browse and download professional xLights sequences. Free and premium options available for Christmas, Halloween, and year-round shows.',
+  title: 'xLights Sequences | Lights of Elm Ridge',
+  description: 'Browse and download professional xLights sequences. Halloween and Christmas sequences with video previews. Built for pixel displays.',
 };
 
-// Placeholder sequence data - will be replaced with CMS/database
+// Real sequence data from Lights of Elm Ridge
 const sequences = [
   {
     id: 1,
-    title: "Carol of the Bells",
-    artist: "Trans-Siberian Orchestra",
-    price: 0,
-    category: "Christmas",
-    duration: "3:24",
+    title: "The Dead Dance",
+    artist: "Lady Gaga",
+    price: 9,
+    category: "Halloween",
+    duration: "3:45",
     difficulty: "Intermediate",
-    description: "A classic TSO banger that'll have your neighbors questioning their life choices.",
-    tags: ["Christmas", "Rock", "High Energy"],
-    propCount: 24,
-    hasMovingHeads: false,
+    description: "Fresh from the new season of Wednesday on Netflix. This sequence inter-splices the official music video with that infamous dance scene. Your display will be serving serious Addams Family energy.",
+    tags: ["Halloween", "Pop", "Netflix", "Wednesday"],
+    propCount: 35,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/the-dead-dance-lady-gaga.1404/",
+    models: ["Matrix (70x100)", "Singing Pumpkin", "Mini Fireworks", "Showstopper Spinners", "Spiders", "Bats", "Tombstones"],
   },
   {
     id: 2,
-    title: "Wizards in Winter",
-    artist: "Trans-Siberian Orchestra",
-    price: 35,
+    title: "Mary Did You Know",
+    artist: "Pentatonix",
+    price: 9,
     category: "Christmas",
-    duration: "3:08",
-    difficulty: "Advanced",
-    description: "Complex effects that showcase what your pixels can really do. Controllers may need therapy after.",
-    tags: ["Christmas", "Rock", "High Energy", "Complex"],
-    propCount: 32,
-    hasMovingHeads: true,
+    duration: "4:12",
+    difficulty: "Intermediate",
+    description: "A crowd favorite with crescendos that'll give you chills. The a cappella harmonies translate beautifully to pixels. This one hits different at 2am when you're testing alone in your driveway.",
+    tags: ["Christmas", "A Cappella", "Emotional", "Classic"],
+    propCount: 35,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/mary-did-you-know-pentatonix.1324/",
+    models: ["Matrix (70x100)", "Pixel Forest", "Arches", "House Outlines", "Floods"],
   },
   {
     id: 3,
-    title: "Thunder",
-    artist: "Imagine Dragons",
-    price: 29,
-    category: "Year Round",
-    duration: "3:07",
+    title: "This Is Halloween",
+    artist: "Danny Elfman",
+    price: 5,
+    category: "Halloween",
+    duration: "3:18",
     difficulty: "Beginner",
-    description: "Perfect for newbies who want something impressive without losing their sanity.",
-    tags: ["Pop", "Rock", "Beginner Friendly"],
-    propCount: 18,
-    hasMovingHeads: false,
+    description: "The Nightmare Before Christmas classic that started it all. Perfect for Halloween newbies or anyone who believes in the Pumpkin King. Lock, Shock, and Barrel approved.",
+    tags: ["Halloween", "Classic", "Disney", "Beginner Friendly"],
+    propCount: 30,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/this-is-halloween.1175/",
+    models: ["Matrix", "Singing Pumpkin", "Mini Pumpkins", "Pixel Poles", "Tombstones", "Spiders"],
   },
   {
     id: 4,
-    title: "Monster Mash",
-    artist: "Bobby Pickett",
-    price: 0,
+    title: "Shadow",
+    artist: "Livingston",
+    price: 5,
     category: "Halloween",
-    duration: "3:12",
-    difficulty: "Beginner",
-    description: "It's a graveyard smash! Free because everyone deserves a spooky good time.",
-    tags: ["Halloween", "Classic", "Fun"],
-    propCount: 16,
-    hasMovingHeads: false,
+    duration: "3:32",
+    difficulty: "Intermediate",
+    description: "Vibrant colors and dynamic patterns bring the emotional journey of this song to life. A moody, atmospheric sequence that proves Halloween doesn't always have to be jump scares and monster mashes.",
+    tags: ["Halloween", "Indie", "Atmospheric", "Moody"],
+    propCount: 35,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/shadow-livingston.1242/",
+    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Fuzion Spinner", "Pixel Forest", "Arches"],
   },
   {
     id: 5,
-    title: "All I Want for Christmas Is You",
-    artist: "Mariah Carey",
-    price: 39,
-    category: "Christmas",
-    duration: "4:01",
-    difficulty: "Intermediate",
-    description: "The whistle tones? Yeah, we sequenced those. Your neighbors will either love you or hate you.",
-    tags: ["Christmas", "Pop", "Classic"],
-    propCount: 28,
-    hasMovingHeads: false,
-  },
-  {
-    id: 6,
-    title: "Thriller",
-    artist: "Michael Jackson",
-    price: 45,
+    title: "Carousel",
+    artist: "Melanie Martinez",
+    price: 5,
     category: "Halloween",
-    duration: "5:57",
-    difficulty: "Advanced",
-    description: "Nearly 6 minutes of pure Halloween chaos. The werewolf howl effects are *chef's kiss*.",
-    tags: ["Halloween", "Pop", "Classic", "Long"],
-    propCount: 35,
-    hasMovingHeads: true,
+    duration: "3:15",
+    difficulty: "Intermediate",
+    description: "Subtle circus and carnival vibes throughout. You might recognize this from American Horror Story: Freak Show promos. Creepy-cute aesthetic that Melanie fans will absolutely lose it over.",
+    tags: ["Halloween", "Indie Pop", "Creepy Cute", "AHS"],
+    propCount: 32,
+    hasMatrix: true,
+    xlightsSeqUrl: "https://xlightsseq.com/sequences/carousel-melanie-martinez.1185/",
+    models: ["Matrix", "Mini Fireworks", "Showstopper Spinners", "Pixel Poles", "Spiders", "Bats"],
   },
 ];
 
-const categories = ["All", "Christmas", "Halloween", "Year Round"];
+const categories = ["All", "Christmas", "Halloween"];
 const difficulties = ["All", "Beginner", "Intermediate", "Advanced"];
 
 export default function SequencesPage() {
@@ -104,17 +101,26 @@ export default function SequencesPage() {
             <span className="gradient-text">xLights Sequences</span>
           </h1>
           <p className="text-xl text-foreground/60 max-w-2xl mx-auto mb-6">
-            Professionally sequenced, obsessively tested, and ready to make your display shine.
-            Some are free because we&apos;re nice like that.
+            Professionally sequenced, obsessively tested, and ready to make your display the talk of the neighborhood.
           </p>
           <div className="flex justify-center gap-6 text-sm">
-            <span className="px-4 py-2 bg-green-500/20 text-green-400 rounded-full">
-              {freeCount} Free Sequences
-            </span>
+            {freeCount > 0 && (
+              <span className="px-4 py-2 bg-green-500/20 text-green-400 rounded-full">
+                {freeCount} Free Sequences
+              </span>
+            )}
             <span className="px-4 py-2 bg-accent/20 text-accent rounded-full">
               {premiumCount} Premium Sequences
             </span>
           </div>
+        </div>
+
+        {/* Currently Available Notice */}
+        <div className="bg-surface-light rounded-xl p-4 mb-8 border border-border text-center">
+          <p className="text-foreground/70">
+            <span className="text-accent font-semibold">Currently available on xlightsseq.com</span> — Own store coming soon!
+            Click any sequence to view/purchase on the marketplace.
+          </p>
         </div>
 
         {/* Filters */}
@@ -167,24 +173,27 @@ export default function SequencesPage() {
         {/* Sequence Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sequences.map((sequence) => (
-            <div
+            <a
               key={sequence.id}
-              className="bg-surface rounded-xl overflow-hidden border border-border card-hover group"
+              href={sequence.xlightsSeqUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-surface rounded-xl overflow-hidden border border-border card-hover group block"
             >
               {/* Video Preview Placeholder */}
-              <div className="aspect-video bg-gradient-to-br from-accent/20 to-accent-secondary/20 relative overflow-hidden">
+              <div className="aspect-video bg-gradient-to-br from-accent/20 to-accent-warm/20 relative overflow-hidden">
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="text-6xl">
-                    {sequence.category === 'Halloween' ? '🎃' : sequence.category === 'Christmas' ? '🎄' : '🎵'}
+                    {sequence.category === 'Halloween' ? '🎃' : '🎄'}
                   </span>
                 </div>
                 {/* Play button overlay */}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <button className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center hover:bg-white/30 transition-colors">
+                  <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
                     <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M8 5v14l11-7z" />
                     </svg>
-                  </button>
+                  </div>
                 </div>
                 {/* Price badge */}
                 <div className="absolute top-3 right-3">
@@ -194,6 +203,12 @@ export default function SequencesPage() {
                       : 'bg-accent text-white'
                   }`}>
                     {sequence.price === 0 ? 'FREE' : `$${sequence.price}`}
+                  </span>
+                </div>
+                {/* Category badge */}
+                <div className="absolute top-3 left-3">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-black/50 text-white backdrop-blur">
+                    {sequence.category}
                   </span>
                 </div>
               </div>
@@ -220,11 +235,11 @@ export default function SequencesPage() {
                     {sequence.difficulty}
                   </span>
                   <span className="px-2 py-1 bg-surface-light rounded text-xs text-foreground/60">
-                    {sequence.propCount} props
+                    {sequence.propCount}+ props
                   </span>
-                  {sequence.hasMovingHeads && (
+                  {sequence.hasMatrix && (
                     <span className="px-2 py-1 bg-accent/20 rounded text-xs text-accent">
-                      Moving Heads
+                      Matrix
                     </span>
                   )}
                 </div>
@@ -238,34 +253,60 @@ export default function SequencesPage() {
                   ))}
                 </div>
 
-                {/* Actions */}
+                {/* CTA */}
                 <div className="flex gap-2">
-                  <button className="flex-1 py-2 bg-surface-light hover:bg-border rounded-lg transition-colors text-sm font-medium">
-                    Preview
-                  </button>
-                  <button className={`flex-1 py-2 rounded-lg transition-colors text-sm font-medium ${
-                    sequence.price === 0
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-accent hover:bg-accent/80 text-white'
-                  }`}>
-                    {sequence.price === 0 ? 'Download Free' : 'Add to Cart'}
-                  </button>
+                  <span className="flex-1 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium text-center">
+                    View on xlightsseq.com →
+                  </span>
                 </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
 
-        {/* Empty state message */}
+        {/* More Coming Soon */}
         <div className="text-center py-16 text-foreground/50">
-          <p className="text-lg mb-2">More sequences coming soon!</p>
+          <p className="text-lg mb-2">More sequences in the works!</p>
           <p className="text-sm">
-            We&apos;re sequencing as fast as our caffeinated fingers allow.
+            Currently focusing on Halloween 2026. Christmas sequences coming this fall.
           </p>
         </div>
 
-        {/* Info Section */}
-        <div className="mt-16 bg-surface rounded-xl p-8 border border-border">
+        {/* Props/Models Info */}
+        <div className="mt-8 bg-surface rounded-xl p-8 border border-border">
+          <h2 className="text-2xl font-bold mb-6">What&apos;s Included in Each Sequence</h2>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div>
+              <h3 className="font-semibold mb-3 text-accent">Standard Props</h3>
+              <ul className="text-sm text-foreground/60 space-y-1">
+                <li>• Matrix (70x100 pixels)</li>
+                <li>• Pixel Forest</li>
+                <li>• 8 Arches</li>
+                <li>• House Outlines</li>
+                <li>• 8 Floods</li>
+                <li>• 5 Pixel Poles</li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-3 text-accent">Halloween Props</h3>
+              <ul className="text-sm text-foreground/60 space-y-1">
+                <li>• Singing Pumpkin</li>
+                <li>• 8 Mini Pumpkins</li>
+                <li>• 6 Spiders</li>
+                <li>• 5 Bats</li>
+                <li>• 4 Tombstones</li>
+                <li>• Showstopper & Fuzion Spinners</li>
+                <li>• Mini Fireworks & Full Fireworks</li>
+              </ul>
+            </div>
+          </div>
+          <p className="mt-6 text-sm text-foreground/50 italic">
+            Don&apos;t have all these props? No worries. Effects map reasonably well to similar setups—you might just need to do some light remapping.
+          </p>
+        </div>
+
+        {/* What You Get Section */}
+        <div className="mt-8 bg-surface rounded-xl p-8 border border-border">
           <h2 className="text-2xl font-bold mb-6">What You&apos;re Getting</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <div>
@@ -279,7 +320,7 @@ export default function SequencesPage() {
               <div className="text-3xl mb-3">🎬</div>
               <h3 className="font-semibold mb-2">Video Previews</h3>
               <p className="text-sm text-foreground/60">
-                Every sequence has a mockup video so you know exactly what you&apos;re getting before you commit.
+                Every sequence has a mockup video so you know exactly what you&apos;re getting.
               </p>
             </div>
             <div>
@@ -295,14 +336,14 @@ export default function SequencesPage() {
             <h3 className="font-semibold mb-3">A Note on Audio</h3>
             <p className="text-sm text-foreground/60">
               Sequences don&apos;t include music files (licensing is a whole thing). You&apos;ll need to grab
-              your own audio from iTunes, Amazon, or your favorite music store. We&apos;ll always tell you
-              exactly which version we sequenced to.
+              your own audio from iTunes, Amazon, or your favorite music store. We always specify
+              which version was used for timing.
             </p>
           </div>
         </div>
 
         {/* Custom Services CTA */}
-        <div className="mt-12 text-center bg-gradient-to-r from-accent/10 via-accent-secondary/10 to-accent-pink/10 rounded-xl p-8 border border-border">
+        <div className="mt-12 text-center bg-gradient-to-r from-accent/10 via-accent-warm/10 to-accent/10 rounded-xl p-8 border border-border">
           <h2 className="text-2xl font-bold mb-3">
             Need Something Custom?
           </h2>
