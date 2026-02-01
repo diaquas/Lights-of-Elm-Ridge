@@ -15,6 +15,7 @@ export interface Sequence {
   xlightsSeqUrl: string;
   youtubeId: string | null;
   artworkUrl: string | null;
+  thumbnailUrl?: string; // Custom thumbnail image URL (takes priority over YouTube thumbnail)
   models: string[];
   xlightsVersion: string;
   audioSource: string;
@@ -260,6 +261,7 @@ The creepy-cute aesthetic is having a moment, and this sequence delivers. Fans o
     duration: "3:22",
     difficulty: "Intermediate",
     description: "The haunting cover from The Umbrella Academy that turned a pop classic into something beautifully eerie.",
+    thumbnailUrl: "https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31",
     longDescription: `Hidden Citizens took Tiffany's 80s pop hit and transformed it into something hauntingly beautiful. If you watched The Umbrella Academy, you know exactly why this song gives you chills.
 
 This sequence captures that apocalyptic dance party energy—the calm before the storm, the beauty in the ending. It's melancholy and powerful in equal measure.

@@ -41,6 +41,7 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2026,
     youtubeId: null,
+    imageUrl: "https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31",
     sequenceSlug: "i-think-were-alone-now",
     dominantColors: ["#3498db", "#ecf0f1", "#9b59b6"],
   },

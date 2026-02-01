@@ -13,22 +13,36 @@ interface SequenceTabsProps {
 }
 
 function SequenceCard({ sequence }: { sequence: Sequence }) {
+  // Priority: thumbnailUrl > YouTube thumbnail > Coming Soon
+  const thumbnailUrl = sequence.thumbnailUrl
+    || (sequence.youtubeId ? `https://img.youtube.com/vi/${sequence.youtubeId}/maxresdefault.jpg` : null);
+
   return (
     <Link
       href={`/sequences/${sequence.slug}`}
       className="bg-surface rounded-xl overflow-hidden border border-border card-hover group block"
     >
-      {/* Video Preview */}
+      {/* Thumbnail Preview */}
       <div className="aspect-video relative overflow-hidden bg-surface-light">
         {sequence.youtubeId ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${sequence.youtubeId}`}
-            title={`${sequence.title} - ${sequence.artist}`}
-            className="absolute inset-0 w-full h-full pointer-events-none"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          />
+          // Has video - show thumbnail with play overlay
+          <>
+            <img
+              src={thumbnailUrl!}
+              alt={`${sequence.title} - ${sequence.artist}`}
+              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 text-black ml-1" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            </div>
+          </>
         ) : (
-          <ComingSoon category={sequence.category} />
+          // No video - show Coming Soon with optional thumbnail background
+          <ComingSoon category={sequence.category} backgroundImage={sequence.thumbnailUrl} />
         )}
         {/* Price badge */}
         <div className="absolute top-3 right-3 z-10">
