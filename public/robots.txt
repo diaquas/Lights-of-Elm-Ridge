@@ -1,0 +1,8 @@
+# Lights of Elm Ridge - robots.txt
+# https://lightsofelmridge.com
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://lightsofelmridge.com/sitemap.xml
