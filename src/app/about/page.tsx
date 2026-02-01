@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -90,33 +91,50 @@ export default function AboutPage() {
         <section className="mb-16">
           <div className="bg-surface rounded-xl p-8 border border-border">
             <h2 className="text-2xl font-bold mb-6">The Origin Story</h2>
-            <div className="space-y-4 text-foreground/70 leading-relaxed">
-              <p>
-                Hi, I&apos;m Joe Hannon—the person behind Lights of Elm Ridge.
-              </p>
-              <p>
-                When I was a kid, our next door neighbor (I say &quot;next door,&quot; but really our
-                driveways were 300 yards apart with thick woods between) had one of the biggest
-                light displays in the area. We saw it almost every night, and I could always catch
-                the glow through the trees when the leaves fell.
-              </p>
-              <p>
-                I wouldn&apos;t say I was obsessed—but I was definitely enamored and intrigued.
-                Thinking about how to wire all of that up and get it to actually work was
-                genuinely exciting. My brother and I would draw her house on a school-sized
-                chalkboard in our playroom. Those were the days of old school blow molds,
-                C9 AC lights, and everything else that existed in outdoor lighting before
-                pixels and controllers and the internet took over the hobby. She was a true pioneer.
-              </p>
-              <p>
-                I suppose I kept those memories stored away for 30 years. But for some unknown
-                reason, a part of me who saw those lights in the &apos;80s and &apos;90s wanted to give
-                it a go—but in the modern world. It&apos;s equal parts self-satisfaction (proving
-                I could actually do it) and watching the next generation adore the glow and
-                allure of the dancing lights. It brought me so much joy in my youth; I figured
-                it was time to pay it forward.
-              </p>
+
+            {/* Photo and intro */}
+            <div className="flex flex-col md:flex-row gap-8 mb-6">
+              <div className="md:w-1/3 flex-shrink-0">
+                <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border">
+                  <Image
+                    src="/CMP-HF-1.jpg"
+                    alt="The Hannon Family"
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
+                </div>
+                <p className="text-center text-foreground/50 text-sm mt-2">The Hannon Family</p>
+              </div>
+              <div className="md:w-2/3 space-y-4 text-foreground/70 leading-relaxed">
+                <p>
+                  Hi, I&apos;m Joe Hannon—the person behind Lights of Elm Ridge.
+                </p>
+                <p>
+                  When I was a kid, our next door neighbor (I say &quot;next door,&quot; but really our
+                  driveways were 300 yards apart with thick woods between) had one of the biggest
+                  light displays in the area. We saw it almost every night, and I could always catch
+                  the glow through the trees when the leaves fell.
+                </p>
+                <p>
+                  I wouldn&apos;t say I was obsessed—but I was definitely enamored and intrigued.
+                  Thinking about how to wire all of that up and get it to actually work was
+                  genuinely exciting. My brother and I would draw her house on a school-sized
+                  chalkboard in our playroom. Those were the days of old school blow molds,
+                  C9 AC lights, and everything else that existed in outdoor lighting before
+                  pixels and controllers and the internet took over the hobby. She was a true pioneer.
+                </p>
+                <p>
+                  I suppose I kept those memories stored away for 30 years. But for some unknown
+                  reason, a part of me who saw those lights in the &apos;80s and &apos;90s wanted to give
+                  it a go—but in the modern world. It&apos;s equal parts self-satisfaction (proving
+                  I could actually do it) and watching the next generation adore the glow and
+                  allure of the dancing lights. It brought me so much joy in my youth; I figured
+                  it was time to pay it forward.
+                </p>
+              </div>
             </div>
+
             <div className="mt-8 p-4 bg-surface-light rounded-lg border border-border">
               <p className="text-foreground/50 text-sm italic">
                 &quot;I just wanted to put up some lights. Now I have spreadsheets for my spreadsheets
