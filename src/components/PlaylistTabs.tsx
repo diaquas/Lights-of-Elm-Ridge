@@ -146,7 +146,7 @@ export default function PlaylistTabs({ halloweenSongs, christmasSongs, newFor202
         <div className="inline-flex bg-surface rounded-xl border border-border p-1">
           <button
             onClick={() => { setActiveTab('halloween'); setShowAllNew(false); }}
-            className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-all ${
+            className={`px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial sm:min-w-[280px] ${
               activeTab === 'halloween'
                 ? 'bg-orange-500/20 text-orange-400 font-semibold'
                 : 'text-foreground/60 hover:text-foreground hover:bg-surface-light'
@@ -162,7 +162,7 @@ export default function PlaylistTabs({ halloweenSongs, christmasSongs, newFor202
           </button>
           <button
             onClick={() => { setActiveTab('christmas'); setShowAllNew(false); }}
-            className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-all ${
+            className={`px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial sm:min-w-[280px] ${
               activeTab === 'christmas'
                 ? 'bg-green-500/20 text-green-400 font-semibold'
                 : 'text-foreground/60 hover:text-foreground hover:bg-surface-light'
