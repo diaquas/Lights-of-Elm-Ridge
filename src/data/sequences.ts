@@ -21,6 +21,7 @@ export interface Sequence {
   fileFormats: string[];
   releaseDate: string;
   yearAdded: number; // Year the sequence was added to the show
+  dominantColors: string[]; // 2-3 hex colors representing the sequence's color palette
 }
 
 // Get YouTube thumbnail URL from video ID
@@ -67,6 +68,7 @@ This is one of our most requested sequences for Halloween 2025. The combination 
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2025-01",
     yearAdded: 2025,
+    dominantColors: ["#1a1a2e", "#9b59b6", "#e74c3c"], // Dark purple/red Wednesday vibes
   },
   {
     id: 2,
@@ -102,6 +104,7 @@ This sequence works beautifully as a "breather" in your show loop, giving viewer
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-09",
     yearAdded: 2025,
+    dominantColors: ["#2c3e50", "#8e44ad", "#3498db"], // Moody blues and purples
   },
   {
     id: 3,
@@ -137,6 +140,7 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2025-01",
     yearAdded: 2025,
+    dominantColors: ["#9b59b6", "#f1c40f", "#e74c3c"], // Magic purple, gold sparkle, red
   },
   {
     id: 4,
@@ -172,6 +176,7 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-10",
     yearAdded: 2025,
+    dominantColors: ["#1a1a2e", "#e74c3c", "#9b59b6"],
   },
   {
     id: 5,
@@ -207,6 +212,7 @@ This is a great sequence for newer displayers or anyone building up their Hallow
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-08",
     yearAdded: 2022,
+    dominantColors: ["#f39c12", "#9b59b6", "#2ecc71"],
   },
   {
     id: 6,
@@ -242,6 +248,7 @@ The creepy-cute aesthetic is having a moment, and this sequence delivers. Fans o
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-09",
     yearAdded: 2025,
+    dominantColors: ["#e74c3c", "#f1c40f", "#9b59b6"],
   },
   {
     id: 7,
@@ -277,6 +284,7 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2026-01",
     yearAdded: 2026,
+    dominantColors: ["#3498db", "#ecf0f1", "#9b59b6"],
   },
   {
     id: 8,
@@ -312,6 +320,7 @@ This one's on the house. Every display needs a song that makes the kids dance.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-09",
     yearAdded: 2023,
+    dominantColors: ["#f39c12", "#ecf0f1", "#9b59b6"],
   },
   {
     id: 9,
@@ -347,6 +356,7 @@ When the drop hits, your whole display explodes. Your neighbors will feel it.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-10",
     yearAdded: 2023,
+    dominantColors: ["#9b59b6", "#8e44ad", "#e74c3c"],
   },
   {
     id: 10,
@@ -382,6 +392,7 @@ This sequence leans into the sci-fi/horror crossover energy with effects that fe
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-10",
     yearAdded: 2023,
+    dominantColors: ["#2ecc71", "#9b59b6", "#3498db"],
   },
   {
     id: 11,
@@ -417,6 +428,7 @@ Yo ho ho, your display's about to get nautical.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2026-01",
     yearAdded: 2026,
+    dominantColors: ["#2c3e50", "#3498db", "#f39c12"],
   },
   {
     id: 12,
@@ -452,6 +464,7 @@ This is a flagship sequence. The length means it's best for dedicated viewing ti
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-10",
     yearAdded: 2023,
+    dominantColors: ["#e74c3c", "#1a1a2e", "#f39c12"],
   },
   {
     id: 13,
@@ -487,6 +500,7 @@ If there's something strange in your neighborhood, this sequence is who you call
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-10",
     yearAdded: 2023,
+    dominantColors: ["#2ecc71", "#ecf0f1", "#e74c3c"],
   },
   {
     id: 14,
@@ -522,6 +536,7 @@ Perfect as a show opener or closer. Set the mood before the music really kicks i
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2022-10",
     yearAdded: 2022,
+    dominantColors: ["#9b59b6", "#2c3e50", "#2ecc71"],
   },
   {
     id: 15,
@@ -557,6 +572,7 @@ Pair this with our Dead Dance sequence for the ultimate Wednesday tribute.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-10",
     yearAdded: 2024,
+    dominantColors: ["#1a1a2e", "#e74c3c", "#ecf0f1"],
   },
   {
     id: 16,
@@ -592,6 +608,7 @@ This sequence is why you bought all those pixels.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2026-01",
     yearAdded: 2026,
+    dominantColors: ["#2c3e50", "#3498db", "#f1c40f"],
   },
   {
     id: 17,
@@ -627,6 +644,7 @@ The Upside Down never looked so good.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-10",
     yearAdded: 2024,
+    dominantColors: ["#e74c3c", "#3498db", "#9b59b6"],
   },
   {
     id: 18,
@@ -662,6 +680,7 @@ Your display becomes the trailer for the greatest Halloween movie never made.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-10",
     yearAdded: 2024,
+    dominantColors: ["#e74c3c", "#f39c12", "#2c3e50"],
   },
   {
     id: 19,
@@ -697,6 +716,7 @@ Unlimited potential for your display.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-10",
     yearAdded: 2024,
+    dominantColors: ["#2ecc71", "#1a1a2e", "#9b59b6"],
   },
   {
     id: 20,
@@ -732,6 +752,7 @@ When demon hunters drop a banger, you sequence it.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2025-01",
     yearAdded: 2025,
+    dominantColors: ["#e74c3c", "#9b59b6", "#f1c40f"],
   },
 
   // =====================
@@ -771,6 +792,7 @@ This one hits different at 2am when you're testing alone in your driveway. Don't
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-11",
     yearAdded: 2024,
+    dominantColors: ["#3498db", "#ecf0f1", "#f1c40f"],
   },
   {
     id: 22,
@@ -806,6 +828,7 @@ Short, sweet, and absolutely devastating to eardrums everywhere.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2022-11",
     yearAdded: 2022,
+    dominantColors: ["#e74c3c", "#3498db", "#f1c40f"],
   },
   {
     id: 23,
@@ -841,6 +864,7 @@ The parents might be tired of this song, but their kids aren't. And honestly? Th
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-11",
     yearAdded: 2023,
+    dominantColors: ["#3498db", "#ecf0f1", "#9b59b6"],
   },
   {
     id: 24,
@@ -876,6 +900,7 @@ This sequence separates the casual displayers from the serious ones. Your contro
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-11",
     yearAdded: 2023,
+    dominantColors: ["#e74c3c", "#2ecc71", "#f1c40f"],
   },
   {
     id: 25,
@@ -911,6 +936,7 @@ Sometimes you need a break from the orchestral intensity. This is that break.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-11",
     yearAdded: 2024,
+    dominantColors: ["#e74c3c", "#f39c12", "#f1c40f"],
   },
   {
     id: 26,
@@ -946,6 +972,7 @@ Not every Christmas song needs to be jolly. Sometimes the lights need to feel so
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-11",
     yearAdded: 2024,
+    dominantColors: ["#3498db", "#f1c40f", "#ecf0f1"],
   },
   {
     id: 27,
@@ -981,6 +1008,7 @@ Two legends, one song, one incredible sequence.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-11",
     yearAdded: 2024,
+    dominantColors: ["#e74c3c", "#2ecc71", "#ecf0f1"],
   },
   {
     id: 28,
@@ -1016,6 +1044,7 @@ Your display basically becomes a giant candy cane. The kids will love it.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2025-01",
     yearAdded: 2025,
+    dominantColors: ["#e74c3c", "#ecf0f1", "#f1c40f"],
   },
   {
     id: 29,
@@ -1051,6 +1080,7 @@ Hallelujah! Holy sh*t! Where's the Tylenol?`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-11",
     yearAdded: 2023,
+    dominantColors: ["#e74c3c", "#2ecc71", "#f1c40f"],
   },
   {
     id: 30,
@@ -1086,6 +1116,7 @@ If you can handle Wizards in Winter, you can handle this. Maybe.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-11",
     yearAdded: 2023,
+    dominantColors: ["#e74c3c", "#2ecc71", "#3498db"],
   },
   {
     id: 31,
@@ -1121,6 +1152,7 @@ This one makes people feel things. Fair warning.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-11",
     yearAdded: 2024,
+    dominantColors: ["#ecf0f1", "#3498db", "#9b59b6"],
   },
   {
     id: 32,
@@ -1156,6 +1188,7 @@ This is required listening for any Christmas display. And now it's required view
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2022-11",
     yearAdded: 2022,
+    dominantColors: ["#e74c3c", "#f1c40f", "#2ecc71"],
   },
   {
     id: 33,
@@ -1191,6 +1224,7 @@ Sometimes the best Christmas songs are the ones you didn't know you needed.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-11",
     yearAdded: 2024,
+    dominantColors: ["#f39c12", "#e74c3c", "#2ecc71"],
   },
   {
     id: 34,
@@ -1226,6 +1260,7 @@ Your heart will grow three sizes. Your display will grow even more.`,
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-11",
     yearAdded: 2023,
+    dominantColors: ["#2ecc71", "#e74c3c", "#ecf0f1"],
   },
   {
     id: 35,
@@ -1261,6 +1296,7 @@ Even Scrooge (or in this case, Ryan Reynolds) can be redeemed. So can your displ
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-11",
     yearAdded: 2023,
+    dominantColors: ["#f1c40f", "#e74c3c", "#ecf0f1"],
   },
 ];
 

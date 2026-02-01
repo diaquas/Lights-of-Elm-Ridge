@@ -12,6 +12,8 @@ export interface Song {
   youtubeId?: string | null;
   vendorUrl?: string | null; // Link to vendor's page for purchased sequences
   imageUrl?: string | null; // Album art or sequence thumbnail
+  dominantColors?: string[]; // Color palette for the sequence
+  sequenceSlug?: string; // Slug to link to sequence detail page (for originals)
 }
 
 export const songlist: Song[] = [
@@ -27,6 +29,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2025,
     youtubeId: "U_h451HtYt4",
+    sequenceSlug: "abracadabra",
+    dominantColors: ["#9b59b6", "#f1c40f", "#e74c3c"],
   },
   {
     id: 2,
@@ -37,6 +41,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2026,
     youtubeId: null,
+    sequenceSlug: "i-think-were-alone-now",
+    dominantColors: ["#3498db", "#ecf0f1", "#9b59b6"],
   },
   {
     id: 3,
@@ -59,6 +65,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "spooky-scary-skeletons",
+    dominantColors: ["#f39c12", "#ecf0f1", "#9b59b6"],
   },
   {
     id: 5,
@@ -69,6 +77,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "purple-people-eater",
+    dominantColors: ["#9b59b6", "#8e44ad", "#e74c3c"],
   },
   {
     id: 6,
@@ -79,6 +89,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "et",
+    dominantColors: ["#2ecc71", "#9b59b6", "#3498db"],
   },
   {
     id: 7,
@@ -89,6 +101,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2022,
     youtubeId: "i5t1SF07ePQ",
+    sequenceSlug: "this-is-halloween",
+    dominantColors: ["#f39c12", "#9b59b6", "#2ecc71"],
   },
   {
     id: 8,
@@ -99,6 +113,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2026,
     youtubeId: null,
+    sequenceSlug: "wellerman-sea-shanty",
+    dominantColors: ["#2c3e50", "#3498db", "#f39c12"],
   },
   {
     id: 9,
@@ -120,6 +136,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "thriller-remix",
+    dominantColors: ["#e74c3c", "#1a1a2e", "#f39c12"],
   },
   {
     id: 11,
@@ -140,6 +158,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2022,
     youtubeId: null,
+    sequenceSlug: "haunted-mansion-intro",
+    dominantColors: ["#9b59b6", "#2c3e50", "#2ecc71"],
   },
   {
     id: 13,
@@ -160,6 +180,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2026,
     youtubeId: null,
+    sequenceSlug: "in-the-air-tonight",
+    dominantColors: ["#2c3e50", "#3498db", "#f1c40f"],
   },
   {
     id: 15,
@@ -180,6 +202,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2024,
     youtubeId: null,
+    sequenceSlug: "save-tonight",
+    dominantColors: ["#e74c3c", "#f39c12", "#2c3e50"],
   },
   {
     id: 17,
@@ -190,6 +214,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2025,
     youtubeId: null,
+    sequenceSlug: "carousel",
+    dominantColors: ["#e74c3c", "#f1c40f", "#9b59b6"],
   },
   {
     id: 18,
@@ -200,6 +226,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2025,
     youtubeId: "eyXwPMxZ7-E",
+    sequenceSlug: "the-dead-dance",
+    dominantColors: ["#1a1a2e", "#9b59b6", "#e74c3c"],
   },
   {
     id: 19,
@@ -222,6 +250,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2025,
     youtubeId: "GY7YOffoC_0",
+    sequenceSlug: "shadow",
+    dominantColors: ["#2c3e50", "#8e44ad", "#3498db"],
   },
   {
     id: 21,
@@ -244,6 +274,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2024,
     youtubeId: null,
+    sequenceSlug: "defying-gravity",
+    dominantColors: ["#2ecc71", "#1a1a2e", "#9b59b6"],
   },
   {
     id: 23,
@@ -277,6 +309,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2025,
     youtubeId: "2cfsWcecOlU",
+    sequenceSlug: "darkside",
+    dominantColors: ["#1a1a2e", "#e74c3c", "#9b59b6"],
   },
   {
     id: 26,
@@ -299,6 +333,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2025,
     youtubeId: null,
+    sequenceSlug: "your-idol",
+    dominantColors: ["#e74c3c", "#9b59b6", "#f1c40f"],
   },
   {
     id: 28,
@@ -384,6 +420,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2022,
     youtubeId: null,
+    sequenceSlug: "thx-intro",
+    dominantColors: ["#e74c3c", "#3498db", "#f1c40f"],
   },
   {
     id: 35,
@@ -394,6 +432,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "let-it-go",
+    dominantColors: ["#3498db", "#ecf0f1", "#9b59b6"],
   },
   {
     id: 36,
@@ -404,6 +444,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "wizards-in-winter",
+    dominantColors: ["#e74c3c", "#2ecc71", "#f1c40f"],
   },
   {
     id: 37,
@@ -414,6 +456,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2024,
     youtubeId: "p0L4XfkCTdg",
+    sequenceSlug: "mary-did-you-know",
+    dominantColors: ["#3498db", "#ecf0f1", "#f1c40f"],
   },
   {
     id: 38,
@@ -424,6 +468,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2024,
     youtubeId: null,
+    sequenceSlug: "cozy-little-christmas",
+    dominantColors: ["#e74c3c", "#f39c12", "#f1c40f"],
   },
   {
     id: 39,
@@ -434,6 +480,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2024,
     youtubeId: null,
+    sequenceSlug: "christmas-lights",
+    dominantColors: ["#3498db", "#f1c40f", "#ecf0f1"],
   },
   {
     id: 40,
@@ -455,6 +503,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2024,
     youtubeId: null,
+    sequenceSlug: "merry-christmas",
+    dominantColors: ["#e74c3c", "#2ecc71", "#ecf0f1"],
   },
   {
     id: 42,
@@ -507,6 +557,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2025,
     youtubeId: null,
+    sequenceSlug: "candy-cane-lane",
+    dominantColors: ["#e74c3c", "#ecf0f1", "#f1c40f"],
   },
   {
     id: 47,
@@ -561,6 +613,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "christmas-vacation",
+    dominantColors: ["#e74c3c", "#2ecc71", "#f1c40f"],
   },
   {
     id: 52,
@@ -571,6 +625,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "mad-russians-christmas",
+    dominantColors: ["#e74c3c", "#2ecc71", "#3498db"],
   },
   {
     id: 53,
@@ -581,6 +637,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2024,
     youtubeId: null,
+    sequenceSlug: "snowman",
+    dominantColors: ["#ecf0f1", "#3498db", "#9b59b6"],
   },
   {
     id: 54,
@@ -621,6 +679,8 @@ export const songlist: Song[] = [
     isOriginal: true,
     yearAdded: 2023,
     youtubeId: null,
+    sequenceSlug: "do-a-little-good",
+    dominantColors: ["#f1c40f", "#e74c3c", "#ecf0f1"],
   },
   {
     id: 58,

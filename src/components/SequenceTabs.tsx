@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import ComingSoon from './ComingSoon';
+import ColorChips from './ColorChips';
 import type { Sequence } from '@/data/sequences';
 
 interface SequenceTabsProps {
@@ -44,15 +45,18 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
       {/* Content */}
       <div className="p-5">
         <div className="mb-2">
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-lg group-hover:text-accent transition-colors">
-              {sequence.title}
-            </h3>
-            {sequence.yearAdded === 2026 && (
-              <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs font-semibold">
-                NEW
-              </span>
-            )}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-lg group-hover:text-accent transition-colors">
+                {sequence.title}
+              </h3>
+              {sequence.yearAdded === 2026 && (
+                <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs font-semibold">
+                  NEW
+                </span>
+              )}
+            </div>
+            <ColorChips colors={sequence.dominantColors} />
           </div>
           <p className="text-foreground/60 text-sm">{sequence.artist}</p>
         </div>
@@ -87,11 +91,16 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
 
 export default function SequenceTabs({ halloweenSequences, christmasSequences, newFor2026 }: SequenceTabsProps) {
   const [activeTab, setActiveTab] = useState<'halloween' | 'christmas'>('halloween');
+  const [showAllNew, setShowAllNew] = useState(false);
 
   const halloweenNew = newFor2026.filter(s => s.category === 'Halloween');
   const christmasNew = newFor2026.filter(s => s.category === 'Christmas');
   const currentNew = activeTab === 'halloween' ? halloweenNew : christmasNew;
   const currentSequences = activeTab === 'halloween' ? halloweenSequences : christmasSequences;
+
+  // Show first 3, or all if expanded
+  const visibleNew = showAllNew ? currentNew : currentNew.slice(0, 3);
+  const hasMoreNew = currentNew.length > 3;
 
   return (
     <>
@@ -99,7 +108,7 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
       <div className="flex justify-center mb-8">
         <div className="inline-flex bg-surface rounded-xl border border-border p-1">
           <button
-            onClick={() => setActiveTab('halloween')}
+            onClick={() => { setActiveTab('halloween'); setShowAllNew(false); }}
             className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-all ${
               activeTab === 'halloween'
                 ? 'bg-orange-500/20 text-orange-400 font-semibold'
@@ -115,7 +124,7 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             )}
           </button>
           <button
-            onClick={() => setActiveTab('christmas')}
+            onClick={() => { setActiveTab('christmas'); setShowAllNew(false); }}
             className={`px-6 py-3 rounded-lg flex items-center gap-2 transition-all ${
               activeTab === 'christmas'
                 ? 'bg-green-500/20 text-green-400 font-semibold'
@@ -148,10 +157,36 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {currentNew.map((sequence) => (
+            {visibleNew.map((sequence) => (
               <SequenceCard key={sequence.id} sequence={sequence} />
             ))}
           </div>
+
+          {/* Show More/Less Button */}
+          {hasMoreNew && (
+            <div className="mt-6 text-center">
+              <button
+                onClick={() => setShowAllNew(!showAllNew)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-surface hover:bg-surface-light border border-border rounded-xl text-foreground/70 hover:text-foreground transition-colors"
+              >
+                {showAllNew ? (
+                  <>
+                    Show Less
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    </svg>
+                  </>
+                ) : (
+                  <>
+                    Show {currentNew.length - 3} More
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </section>
       )}
 
