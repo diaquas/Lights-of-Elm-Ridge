@@ -489,7 +489,7 @@ This is a flagship sequence. The length means it's best for dedicated viewing ti
     duration: "3:48",
     difficulty: "Intermediate",
     description: "The 2016 Ghostbusters theme brings modern energy to a classic concept. Who you gonna call?",
-    thumbnailUrl: "https://i.ytimg.com/vi/2AQ44nPrRTM/sddefault.jpg",
+    thumbnailUrl: "/gbmain.png",
     longDescription: `Fall Out Boy and Missy Elliott teamed up for the 2016 Ghostbusters reboot, and the result is a high-energy banger that's perfect for Halloween displays.
 
 This sequence captures that ghost-hunting energy with proton pack-inspired effects and plenty of green slime vibes. It's got the punch of modern pop-rock with callbacks to the original theme.
