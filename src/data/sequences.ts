@@ -45,6 +45,7 @@ export const sequences: Sequence[] = [
     duration: "3:45",
     difficulty: "Intermediate",
     description: "Fresh from the new season of Wednesday on Netflix. This sequence inter-splices the official music video with that infamous dance scene.",
+    thumbnailUrl: "https://dnm.nflximg.net/api/v6/BvVbc2Wxr2w6QuoANoSpJKEIWjQ/AAAAQb1nIHsPT0lHqj8fy8LB3N7DSFxlwx1l0RMqTPfXxaYldolxKAiU6BhNFkp-timlr6cZlHIU30ZileeOTu9k_f4AGPAFcTcdSRqVv49ZEpqu9qVa4BVoHv8lSArgujqBqr67DE9L8XQXm1oZja1NnDuKL7A.jpg?r=74a",
     longDescription: `Fresh from the new season of Wednesday on Netflix, this sequence brings that iconic dance scene to your display.
 
 The sequence inter-splices the official music video with that infamous dance scene, creating a dynamic visual experience that your neighbors won't forget. Your display will be serving serious Addams Family energy all season long.
@@ -81,6 +82,7 @@ This is one of our most requested sequences for Halloween 2025. The combination 
     duration: "3:32",
     difficulty: "Intermediate",
     description: "Vibrant colors and dynamic patterns bring the emotional journey of this song to life. A moody, atmospheric sequence.",
+    thumbnailUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSJf4DHmpIEBej2eVCg7LPtvdqr783dTriHnQ&s",
     longDescription: `A moody, atmospheric sequence that proves Halloween doesn't always have to be jump scares and monster mashes.
 
 Livingston's "Shadow" is an emotional journey, and this sequence captures every beat. Vibrant colors shift and flow with the music, creating an immersive experience that draws viewers in rather than startling them.
@@ -117,7 +119,7 @@ This sequence works beautifully as a "breather" in your show loop, giving viewer
     duration: "3:45",
     difficulty: "Intermediate",
     description: "Lady Gaga's latest Halloween anthem brought to life in pixels. Magic, mystery, and a whole lot of sparkle.",
-    thumbnailUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSJf4DHmpIEBej2eVCg7LPtvdqr783dTriHnQ&s",
+    thumbnailUrl: "https://static0.srcdn.com/wordpress/wp-content/uploads/2025/02/lady-gaga-dressed-in-white-in-the-abracadabra-mv.jpg?w=1600&h=1200&fit=crop",
     longDescription: `Lady Gaga's "Abracadabra" is pure Halloween magic, and this sequence delivers all the sparkle and mystery you'd expect.
 
 This isn't the Steve Miller Band classic—this is Gaga doing what Gaga does best: taking a concept and running with it. The sequence leans into the theatrical nature of the song with dramatic lighting changes, magical sparkle effects, and plenty of surprises.
@@ -154,6 +156,7 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
     duration: "3:31",
     difficulty: "Intermediate",
     description: "EDM meets the darkness. Heavy bass drops and atmospheric builds create an immersive Halloween experience.",
+    thumbnailUrl: "https://i.ytimg.com/vi/EiOB_sSSXQs/maxresdefault.jpg",
     longDescription: `Neoni's dark, cinematic style meets Halloween in this bass-heavy sequence that'll have your neighbors feeling the beat.
 
 "Darkside" is all about atmosphere and build-up, and this sequence capitalizes on that perfectly. The verses are dark and moody, the pre-chorus builds tension, and the drops... well, the drops hit different when your entire house is pulsing with light.
@@ -190,6 +193,7 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     duration: "3:18",
     difficulty: "Beginner",
     description: "The Nightmare Before Christmas classic that started it all. Perfect for Halloween newbies or anyone who believes in the Pumpkin King.",
+    thumbnailUrl: "https://pixelperfectsequences.com/cdn/shop/products/ThisIsHalloween_1200x1200.jpg?v=1624218681",
     longDescription: `The OG. The classic. The song that every Halloween display needs in their rotation.
 
 Danny Elfman's "This Is Halloween" from The Nightmare Before Christmas is practically required listening for any Halloween light show. This sequence embraces the chaotic, carnival-like energy of the song with effects that match each character's verse.
@@ -226,6 +230,7 @@ This is a great sequence for newer displayers or anyone building up their Hallow
     duration: "3:15",
     difficulty: "Intermediate",
     description: "Subtle circus and carnival vibes throughout. You might recognize this from American Horror Story: Freak Show promos.",
+    thumbnailUrl: "https://slm-assets.secondlife.com/assets/12324316/lightbox/Carousel_Melanie.jpg?1441888310",
     longDescription: `Melanie Martinez's "Carousel" is the perfect blend of creepy and cute—exactly the vibe that made it iconic in American Horror Story: Freak Show promos.
 
 This sequence leans into the carnival/circus aesthetic with rotating effects, calliope-inspired patterns, and that unsettling sense that something isn't quite right. It's Halloween without being overtly scary.
@@ -262,7 +267,7 @@ The creepy-cute aesthetic is having a moment, and this sequence delivers. Fans o
     duration: "3:22",
     difficulty: "Intermediate",
     description: "The haunting cover from The Umbrella Academy that turned a pop classic into something beautifully eerie.",
-    thumbnailUrl: "https://i.ytimg.com/vi/EiOB_sSSXQs/maxresdefault.jpg",
+    thumbnailUrl: "https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31",
     longDescription: `Hidden Citizens took Tiffany's 80s pop hit and transformed it into something hauntingly beautiful. If you watched The Umbrella Academy, you know exactly why this song gives you chills.
 
 This sequence captures that apocalyptic dance party energy—the calm before the storm, the beauty in the ending. It's melancholy and powerful in equal measure.
@@ -299,6 +304,7 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     duration: "2:24",
     difficulty: "Beginner",
     description: "The internet's favorite Halloween meme song. Perfect for family-friendly displays that still want to get spooky.",
+    thumbnailUrl: "https://static.wikia.nocookie.net/h__/images/b/bc/Spookyscaryskeletons.jpg/revision/latest?cb=20240805032419&path-prefix=halloween",
     longDescription: `You know this song. Your kids know this song. The internet definitely knows this song. "Spooky Scary Skeletons" became a Halloween meme legend, and now it can be part of your display.
 
 This sequence is pure fun—bouncy, energetic, and perfect for the younger crowd. It's spooky without being scary, making it ideal for early evening shows when families are out trick-or-treating.
@@ -335,6 +341,7 @@ This one's on the house. Every display needs a song that makes the kids dance.`,
     duration: "3:08",
     difficulty: "Intermediate",
     description: "The dubstep remix that makes the classic Halloween tune drop harder than ever. Purple everything.",
+    thumbnailUrl: "https://i.ytimg.com/vi/AKkKeNtYMTo/sddefault.jpg",
     longDescription: `The Pegboard Nerds took a novelty song from 1958 and turned it into a bass-dropping monster. This remix slaps, and this sequence makes sure your display slaps right along with it.
 
 Heavy on the purple (obviously), this sequence pulses with the electronic beats while paying homage to the silly source material. It's the perfect blend of nostalgic and modern.
@@ -371,6 +378,7 @@ When the drop hits, your whole display explodes. Your neighbors will feel it.`,
     duration: "3:52",
     difficulty: "Intermediate",
     description: "Alien vibes and otherworldly effects. This pop hit translates perfectly to a Halloween display with its extraterrestrial energy.",
+    thumbnailUrl: "https://i.ytimg.com/vi/18oYGsmUprM/sddefault.jpg",
     longDescription: `Katy Perry's "E.T." is already halfway to being a Halloween song—all those alien references and otherworldly imagery? Perfect for October.
 
 This sequence leans into the sci-fi/horror crossover energy with effects that feel like a close encounter of the sparkly kind. Greens, purples, and cosmic patterns dominate.
@@ -407,7 +415,7 @@ This sequence leans into the sci-fi/horror crossover energy with effects that fe
     duration: "2:48",
     difficulty: "Intermediate",
     description: "The viral sea shanty gets an epic orchestral treatment. Pirates, whales, and dramatic lighting await.",
-    thumbnailUrl: "https://i.ytimg.com/vi/NKhixoPbUwA/hq720.jpg",
+    thumbnailUrl: "https://i.ytimg.com/vi/NKhixoPbUwA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDF32E9WMrYYgrYjUuSluHu19dc-Q",
     longDescription: `2WEI's epic orchestral version of the Wellerman sea shanty takes that viral TikTok moment and cranks it up to eleven. This sequence brings pirate energy to your Halloween display.
 
 Sea shanties and Halloween might seem like an odd pairing, but trust us—the dark, dramatic energy of this version fits right in with ghost ships and cursed sailors.
@@ -444,6 +452,7 @@ Yo ho ho, your display's about to get nautical.`,
     duration: "5:58",
     difficulty: "Advanced",
     description: "The king of Halloween songs gets the remix treatment. Six minutes of iconic zombie energy.",
+    thumbnailUrl: "https://i.ytimg.com/vi/KbmJIq6tGmQ/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDrNHy4BRo1NlIrcZPOldzDujxVvg",
     longDescription: `You literally cannot have a Halloween display without Thriller. It's the law. (Okay, it's not the law, but it should be.)
 
 This remix version keeps all the iconic elements—Vincent Price's monologue, the zombie groove, the werewolf howl—while adding modern production that makes it feel fresh. The sequence runs nearly six minutes, giving you plenty of time to show off every prop.
@@ -480,6 +489,7 @@ This is a flagship sequence. The length means it's best for dedicated viewing ti
     duration: "3:48",
     difficulty: "Intermediate",
     description: "The 2016 Ghostbusters theme brings modern energy to a classic concept. Who you gonna call?",
+    thumbnailUrl: "https://i.ytimg.com/vi/2AQ44nPrRTM/sddefault.jpg",
     longDescription: `Fall Out Boy and Missy Elliott teamed up for the 2016 Ghostbusters reboot, and the result is a high-energy banger that's perfect for Halloween displays.
 
 This sequence captures that ghost-hunting energy with proton pack-inspired effects and plenty of green slime vibes. It's got the punch of modern pop-rock with callbacks to the original theme.
@@ -516,6 +526,7 @@ If there's something strange in your neighborhood, this sequence is who you call
     duration: "2:15",
     difficulty: "Beginner",
     description: "Welcome, foolish mortals. The iconic Disney ride intro brings theme park magic to your driveway.",
+    thumbnailUrl: "https://i.ytimg.com/vi/L2QLjmJsGhQ/maxresdefault.jpg",
     longDescription: `"Welcome, foolish mortals, to the Haunted Mansion..."
 
 If you've ever been to Disneyland or Disney World, those words send chills down your spine. This sequence recreates the magic of that stretching room intro, complete with lightning effects and ghostly ambiance.
@@ -552,6 +563,7 @@ Perfect as a show opener or closer. Set the mood before the music really kicks i
     duration: "3:45",
     difficulty: "Intermediate",
     description: "The cello version from Wednesday's viral dance scene. Dark, dramatic, and absolutely iconic.",
+    thumbnailUrl: "https://i.ytimg.com/vi/S523q5PCX6Q/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBG9h6qX4pB479TMYFT1_X2mXDjpg",
     longDescription: `When Wednesday Addams picked up that cello and started playing "Paint It Black," the internet lost its collective mind. This sequence captures that exact energy.
 
 The arrangement is dark and dramatic, all strings and intensity. The sequence matches that energy with deep reds, blacks, and sudden bursts of color that feel like Wednesday herself sequenced it.
