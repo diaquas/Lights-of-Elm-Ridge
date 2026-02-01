@@ -304,7 +304,7 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     duration: "2:24",
     difficulty: "Beginner",
     description: "The internet's favorite Halloween meme song. Perfect for family-friendly displays that still want to get spooky.",
-    thumbnailUrl: "https://static.wikia.nocookie.net/h__/images/b/bc/Spookyscaryskeletons.jpg/revision/latest?cb=20240805032419&path-prefix=halloween",
+    thumbnailUrl: "https://i.ytimg.com/vi/K2rwxs1gH9w/maxresdefault.jpg",
     longDescription: `You know this song. Your kids know this song. The internet definitely knows this song. "Spooky Scary Skeletons" became a Halloween meme legend, and now it can be part of your display.
 
 This sequence is pure fun—bouncy, energetic, and perfect for the younger crowd. It's spooky without being scary, making it ideal for early evening shows when families are out trick-or-treating.
@@ -322,7 +322,7 @@ This one's on the house. Every display needs a song that makes the kids dance.`,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/spooky-scary-skeletons-remix.1212/",
     youtubeId: null,
-    artworkUrl: "https://avatars.mds.yandex.net/get-vthumb/2418645/8777c0398702be5b39a06d5246995f76/564x318_1",
+    artworkUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqELkejJk_IZXrCQ3ImC2rcg_eqHp2iTQ9ow&s",
     models: ["Matrix", "Singing Pumpkin", "Mini Pumpkins", "Pixel Poles", "Tombstones"],
     xlightsVersion: "2024.10+",
     audioSource: "iTunes, Amazon Music",
