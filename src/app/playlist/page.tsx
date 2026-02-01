@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { songlist, getSongsByCategory, getStats, getNewSongs } from '@/data/songlist';
+import PlaylistTabs from '@/components/PlaylistTabs';
 import BackToTop from '@/components/BackToTop';
 
 export const metadata: Metadata = {
@@ -8,11 +9,13 @@ export const metadata: Metadata = {
   description: 'Complete song list for the Lights of Elm Ridge display. 62 songs across Halloween and Christmas with proper vendor attribution.',
 };
 
+// Organize songs by category
+const halloweenSongs = getSongsByCategory("Halloween");
+const christmasSongs = getSongsByCategory("Christmas");
+const newFor2026 = getNewSongs(2026);
+
 export default function PlaylistPage() {
-  const halloweenSongs = getSongsByCategory("Halloween");
-  const christmasSongs = getSongsByCategory("Christmas");
   const stats = getStats();
-  const newFor2026 = getNewSongs(2026);
 
   return (
     <div className="min-h-screen py-12 px-4">
@@ -47,170 +50,12 @@ export default function PlaylistPage() {
           </div>
         </div>
 
-        {/* New for 2026 Section */}
-        {newFor2026.length > 0 && (
-          <section className="mb-12">
-            <div className="flex items-center gap-3 mb-6">
-              <h2 className="text-2xl font-bold">New for 2026</h2>
-              <span className="px-3 py-1 bg-accent/20 text-accent rounded-full text-sm font-medium">
-                {newFor2026.length} songs
-              </span>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {newFor2026.map((song) => (
-                <div
-                  key={song.id}
-                  className="bg-surface rounded-xl p-4 border border-accent/30 hover:border-accent/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="font-semibold">{song.title}</h3>
-                      <p className="text-foreground/60 text-sm">{song.artist}</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      song.category === 'Halloween'
-                        ? 'bg-orange-500/20 text-orange-400'
-                        : 'bg-green-500/20 text-green-400'
-                    }`}>
-                      {song.category === 'Halloween' ? '🎃' : '🎄'}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-xs text-foreground/50">
-                    {song.isOriginal ? (
-                      <span className="text-accent">Original sequence</span>
-                    ) : (
-                      <span>Sequence by {song.vendor}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Quick Jump */}
-        <div className="flex gap-4 mb-8">
-          <a
-            href="#halloween"
-            className="px-6 py-3 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-xl font-medium transition-colors"
-          >
-            🎃 Halloween ({stats.halloweenCount})
-          </a>
-          <a
-            href="#christmas"
-            className="px-6 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-400 rounded-xl font-medium transition-colors"
-          >
-            🎄 Christmas ({stats.christmasCount})
-          </a>
-        </div>
-
-        {/* Halloween Section */}
-        <section id="halloween" className="mb-16 scroll-mt-24">
-          <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-2xl font-bold">🎃 Halloween</h2>
-            <span className="text-foreground/50 text-sm">
-              {halloweenSongs.filter(s => s.isOriginal).length} original / {halloweenSongs.length} total
-            </span>
-          </div>
-
-          <div className="bg-surface rounded-xl border border-border overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-surface-light">
-                  <th className="text-left p-4 font-semibold">Song</th>
-                  <th className="text-left p-4 font-semibold hidden md:table-cell">Artist</th>
-                  <th className="text-left p-4 font-semibold hidden sm:table-cell">Sequenced By</th>
-                  <th className="text-center p-4 font-semibold">Year</th>
-                </tr>
-              </thead>
-              <tbody>
-                {halloweenSongs.map((song, index) => (
-                  <tr
-                    key={song.id}
-                    className={`border-b border-border/50 hover:bg-surface-light transition-colors ${
-                      index % 2 === 0 ? '' : 'bg-surface-light/30'
-                    }`}
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{song.title}</span>
-                        {song.yearAdded === 2026 && (
-                          <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs font-medium">
-                            NEW
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-foreground/60 text-sm md:hidden">{song.artist}</p>
-                    </td>
-                    <td className="p-4 text-foreground/70 hidden md:table-cell">{song.artist}</td>
-                    <td className="p-4 hidden sm:table-cell">
-                      {song.isOriginal ? (
-                        <span className="text-accent font-medium">Lights of Elm Ridge</span>
-                      ) : (
-                        <span className="text-foreground/60">{song.vendor}</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center text-foreground/60">{song.yearAdded}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {/* Christmas Section */}
-        <section id="christmas" className="mb-16 scroll-mt-24">
-          <div className="flex items-center gap-3 mb-6">
-            <h2 className="text-2xl font-bold">🎄 Christmas</h2>
-            <span className="text-foreground/50 text-sm">
-              {christmasSongs.filter(s => s.isOriginal).length} original / {christmasSongs.length} total
-            </span>
-          </div>
-
-          <div className="bg-surface rounded-xl border border-border overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-surface-light">
-                  <th className="text-left p-4 font-semibold">Song</th>
-                  <th className="text-left p-4 font-semibold hidden md:table-cell">Artist</th>
-                  <th className="text-left p-4 font-semibold hidden sm:table-cell">Sequenced By</th>
-                  <th className="text-center p-4 font-semibold">Year</th>
-                </tr>
-              </thead>
-              <tbody>
-                {christmasSongs.map((song, index) => (
-                  <tr
-                    key={song.id}
-                    className={`border-b border-border/50 hover:bg-surface-light transition-colors ${
-                      index % 2 === 0 ? '' : 'bg-surface-light/30'
-                    }`}
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{song.title}</span>
-                        {song.yearAdded === 2026 && (
-                          <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs font-medium">
-                            NEW
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-foreground/60 text-sm md:hidden">{song.artist}</p>
-                    </td>
-                    <td className="p-4 text-foreground/70 hidden md:table-cell">{song.artist}</td>
-                    <td className="p-4 hidden sm:table-cell">
-                      {song.isOriginal ? (
-                        <span className="text-accent font-medium">Lights of Elm Ridge</span>
-                      ) : (
-                        <span className="text-foreground/60">{song.vendor}</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center text-foreground/60">{song.yearAdded}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        {/* Tabbed Playlist */}
+        <PlaylistTabs
+          halloweenSongs={halloweenSongs}
+          christmasSongs={christmasSongs}
+          newFor2026={newFor2026}
+        />
 
         {/* Vendor Credits */}
         <section className="mb-16">
