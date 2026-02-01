@@ -507,7 +507,7 @@ If there's something strange in your neighborhood, this sequence is who you call
     hasMatrix: true,
     xlightsSeqUrl: "",
     youtubeId: null,
-    artworkUrl: "https://static.wikia.nocookie.net/falloutboy/images/6/67/Ghostbusters.png/revision/latest?cb=20160715160234",
+    artworkUrl: "/gbdet.png",
     models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Pixel Forest"],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (Ghostbusters 2016 Soundtrack)",
