@@ -407,6 +407,7 @@ This sequence leans into the sci-fi/horror crossover energy with effects that fe
     duration: "2:48",
     difficulty: "Intermediate",
     description: "The viral sea shanty gets an epic orchestral treatment. Pirates, whales, and dramatic lighting await.",
+    thumbnailUrl: "https://i.ytimg.com/vi/NKhixoPbUwA/hq720.jpg",
     longDescription: `2WEI's epic orchestral version of the Wellerman sea shanty takes that viral TikTok moment and cranks it up to eleven. This sequence brings pirate energy to your Halloween display.
 
 Sea shanties and Halloween might seem like an odd pairing, but trust us—the dark, dramatic energy of this version fits right in with ghost ships and cursed sailors.
@@ -587,6 +588,7 @@ Pair this with our Dead Dance sequence for the ultimate Wednesday tribute.`,
     duration: "5:34",
     difficulty: "Advanced",
     description: "The drum fill that changed everything. This sequence builds tension for five minutes, then absolutely explodes.",
+    thumbnailUrl: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjSf3UrSAQfwnaylGcVjyRvdMXp5-qn72SG0GHTvv6kOUzIOhPAastqwB_FaoQlXZLuu_kRc1rfg2yhVF2msc20MaSYqs14Wvc9ibY4tT2e8_AYtZeKvfBVUPhX0ZbDz7lt9rsQ2WynFAM/s633/phil+collins+in+the+air+tonight+deer+main.jpg",
     longDescription: `You know the drum fill. Everyone knows the drum fill. "In the Air Tonight" is five minutes of tension building to one of the most iconic moments in music history.
 
 This sequence is all about the build. The verses are moody and atmospheric, the tension ratchets up through the bridge, and then... THAT drum fill. When it hits, every single pixel in your display goes absolutely nuclear.
