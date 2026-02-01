@@ -2,40 +2,45 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'About | Light of Elm Ridge',
-  description: 'Meet the person behind the pixels. Learn about our journey, services, and why we do what we do.',
+  title: 'About',
+  description: 'Meet Joe Hannon, the person behind Lights of Elm Ridge. Learn about the journey from childhood memories to 35,000+ pixels.',
 };
 
 const timeline = [
   {
-    year: "2019",
-    title: "The Beginning",
-    description: "Started with a single string of LEDs and a dream. Also a lot of YouTube tutorials.",
-  },
-  {
-    year: "2020",
-    title: "First Real Display",
-    description: "Upgraded to pixels. Neighbors started asking questions. Some were even positive.",
+    year: "2014-2020",
+    title: "The Typical Suburban Years",
+    description: "Mini lights and LED C9s wherever they'd fit—nothing out of the ordinary, but the dream was quietly building.",
   },
   {
     year: "2021",
-    title: "Going Big",
-    description: "Hit 5,000 pixels. Learned what 'power injection' means the hard way.",
+    title: "The New Canvas",
+    description: "Moved into our new house—with a front yard large enough to handle as many lights as I want to throw at it.",
   },
   {
     year: "2022",
-    title: "The Expansion",
-    description: "Added mega tree, arches, and moving heads. Electricity bill entered the chat.",
+    title: "The Spark",
+    description: "One mega-tree with 1,200 pixels. The moment that first pixel responded to my computer, it was over—I was hooked.",
   },
   {
     year: "2023",
-    title: "Community Recognition",
-    description: "Featured in local news. Started getting requests to share sequences.",
+    title: "Growing Pains",
+    description: "Added yard props, a singing pumpkin, AC controller for the roof, and an FM transmitter (87.9 FM!). Four whole songs programmed.",
   },
   {
     year: "2024",
-    title: "Light of Elm Ridge",
-    description: "Launched this site to share what we've learned. You're here now!",
+    title: "Full Production",
+    description: "Spinners, roofline pixels, window frames, arches—the works. Doubled the mega-tree to 3,000 pixels. Discovered HinksPix Pro and ethernet receivers.",
+  },
+  {
+    year: "2025",
+    title: "The Big Leap",
+    description: "Pixel poles, high-density spinner, fireworks, two pixel forests, and a 7,000-pixel matrix. A dozen receivers and thousands of feet of cord.",
+  },
+  {
+    year: "2026",
+    title: "What's Next",
+    description: "Already planned—upgrading to a P5 panel matrix and taking full advantage of the 260-foot wide front yard. Mockup coming soon.",
   },
 ];
 
@@ -73,39 +78,49 @@ export default function AboutPage() {
         {/* Header */}
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="gradient-text">About Light of Elm Ridge</span>
+            <span className="gradient-text">About Lights of Elm Ridge</span>
           </h1>
           <p className="text-xl text-foreground/60">
-            Just a regular person with an irregular obsession with blinking lights.
+            What started as childhood wonder has turned into a full-blown obsession<br className="hidden md:inline" />
+            that my family tolerates with varying degrees of enthusiasm.
           </p>
         </div>
 
         {/* Story Section */}
         <section className="mb-16">
           <div className="bg-surface rounded-xl p-8 border border-border">
-            <h2 className="text-2xl font-bold mb-6">The Short Version</h2>
+            <h2 className="text-2xl font-bold mb-6">The Origin Story</h2>
             <div className="space-y-4 text-foreground/70 leading-relaxed">
               <p>
-                Hi! I&apos;m the person behind Light of Elm Ridge. What started as
-                &quot;I bet I could do that&quot; after watching a neighbor&apos;s light show has turned
-                into a full-blown obsession that my family tolerates with varying degrees of enthusiasm.
+                Hi, I&apos;m Joe Hannon—the person behind Lights of Elm Ridge.
               </p>
               <p>
-                I&apos;ve made every mistake in the book—fried controllers, tripped breakers on
-                opening night, spent way too much money on things I didn&apos;t need, and not enough
-                on things I did. Through it all, I&apos;ve learned a ton, and now I want to help
-                others skip some of those painful (and expensive) lessons.
+                When I was a kid, our next door neighbor (I say &quot;next door,&quot; but really our
+                driveways were 300 yards apart with thick woods between) had one of the biggest
+                light displays in the area. We saw it almost every night, and I could always catch
+                the glow through the trees when the leaves fell.
               </p>
               <p>
-                This site exists because the light show community helped me when I was starting out,
-                and I want to pay that forward. Whether you&apos;re grabbing a free sequence, buying
-                something to support the work, or just here to watch videos—welcome!
+                I wouldn&apos;t say I was obsessed—but I was definitely enamored and intrigued.
+                Thinking about how to wire all of that up and get it to actually work was
+                genuinely exciting. My brother and I would draw her house on a school-sized
+                chalkboard in our playroom. Those were the days of old school blow molds,
+                C9 AC lights, and everything else that existed in outdoor lighting before
+                pixels and controllers and the internet took over the hobby. She was a true pioneer.
+              </p>
+              <p>
+                I suppose I kept those memories stored away for 30 years. But for some unknown
+                reason, a part of me who saw those lights in the &apos;80s and &apos;90s wanted to give
+                it a go—but in the modern world. It&apos;s equal parts self-satisfaction (proving
+                I could actually do it) and watching the next generation adore the glow and
+                allure of the dancing lights. It brought me so much joy in my youth; I figured
+                it was time to pay it forward.
               </p>
             </div>
             <div className="mt-8 p-4 bg-surface-light rounded-lg border border-border">
               <p className="text-foreground/50 text-sm italic">
                 &quot;I just wanted to put up some lights. Now I have spreadsheets for my spreadsheets
-                and strong opinions about pixel spacing.&quot; — Me, probably
+                and strong opinions about pixel spacing.&quot;
               </p>
             </div>
           </div>
@@ -261,6 +276,17 @@ export default function AboutPage() {
                 </svg>
                 YouTube
               </a>
+              <a
+                href="https://www.instagram.com/lights_of_elm_ridge"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-surface hover:bg-surface-light border border-border text-foreground font-semibold rounded-xl transition-colors"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+                Instagram
+              </a>
             </div>
           </div>
         </section>
@@ -286,8 +312,8 @@ export default function AboutPage() {
             <div className="bg-surface rounded-xl p-6 border border-border">
               <h3 className="font-semibold text-accent">What software/hardware do you use?</h3>
               <p className="text-foreground/60 mt-2 text-sm">
-                xLights for sequencing, Falcon controllers for pixel pushing, and a whole lot
-                of spreadsheets for planning. Details in the Behind the Scenes content!
+                xLights for sequencing, HinksPix controllers and Falcon receivers for pixel pushing,
+                and a whole lot of spreadsheets for planning. Details in the Behind the Scenes content!
               </p>
             </div>
           </div>

@@ -69,6 +69,16 @@ export default function Footer() {
               </li>
               <li>
                 <a
+                  href="https://www.instagram.com/lights_of_elm_ridge"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground/60 hover:text-accent transition-colors"
+                >
+                  Instagram
+                </a>
+              </li>
+              <li>
+                <a
                   href="mailto:hello@lightsofelmridge.com"
                   className="text-foreground/60 hover:text-accent transition-colors"
                 >
