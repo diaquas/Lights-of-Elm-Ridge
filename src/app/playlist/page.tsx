@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { songlist, getSongsByCategory, getStats, getNewSongs } from '@/data/songlist';
+import BackToTop from '@/components/BackToTop';
 
 export const metadata: Metadata = {
   title: 'Full Playlist',
@@ -269,6 +270,9 @@ export default function PlaylistPage() {
           </Link>
         </div>
       </div>
+
+      {/* Back to Top Button */}
+      <BackToTop />
     </div>
   );
 }
