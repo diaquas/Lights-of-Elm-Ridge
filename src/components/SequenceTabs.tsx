@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import SequenceCardOverlay from './SequenceCardOverlay';
 import ColorChips from './ColorChips';
@@ -11,6 +11,9 @@ interface SequenceTabsProps {
   christmasSequences: Sequence[];
   newFor2026: Sequence[];
 }
+
+type DifficultyFilter = 'all' | 'Beginner' | 'Intermediate' | 'Advanced';
+type PriceFilter = 'all' | 'free' | 'paid';
 
 function SequenceCard({ sequence }: { sequence: Sequence }) {
   // Priority: thumbnailUrl > YouTube thumbnail
@@ -89,11 +92,53 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
 export default function SequenceTabs({ halloweenSequences, christmasSequences, newFor2026 }: SequenceTabsProps) {
   const [activeTab, setActiveTab] = useState<'halloween' | 'christmas'>('halloween');
   const [showAllNew, setShowAllNew] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   const halloweenNew = newFor2026.filter(s => s.category === 'Halloween');
   const christmasNew = newFor2026.filter(s => s.category === 'Christmas');
   const currentNew = activeTab === 'halloween' ? halloweenNew : christmasNew;
-  const currentSequences = activeTab === 'halloween' ? halloweenSequences : christmasSequences;
+  const baseSequences = activeTab === 'halloween' ? halloweenSequences : christmasSequences;
+
+  // Filter sequences based on search and filters
+  const currentSequences = useMemo(() => {
+    let filtered = baseSequences;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(s =>
+        s.title.toLowerCase().includes(query) ||
+        s.artist.toLowerCase().includes(query) ||
+        s.description.toLowerCase().includes(query) ||
+        s.tags.some(tag => tag.toLowerCase().includes(query))
+      );
+    }
+
+    // Difficulty filter
+    if (difficultyFilter !== 'all') {
+      filtered = filtered.filter(s => s.difficulty === difficultyFilter);
+    }
+
+    // Price filter
+    if (priceFilter === 'free') {
+      filtered = filtered.filter(s => s.price === 0);
+    } else if (priceFilter === 'paid') {
+      filtered = filtered.filter(s => s.price > 0);
+    }
+
+    return filtered;
+  }, [baseSequences, searchQuery, difficultyFilter, priceFilter]);
+
+  const hasActiveFilters = searchQuery.trim() || difficultyFilter !== 'all' || priceFilter !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setDifficultyFilter('all');
+    setPriceFilter('all');
+  };
 
   // Show first 3, or all if expanded
   const visibleNew = showAllNew ? currentNew : currentNew.slice(0, 3);
@@ -137,6 +182,100 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             )}
           </button>
         </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="mb-8 space-y-4">
+        {/* Search Bar */}
+        <div className="relative max-w-md mx-auto">
+          <input
+            type="text"
+            placeholder="Search sequences by title, artist, or tags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-4 py-3 pl-12 bg-surface border border-border rounded-xl text-foreground placeholder-foreground/40 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent"
+          />
+          <svg
+            className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-foreground/40"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground/40 hover:text-foreground"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Filter Toggle Button */}
+        <div className="flex justify-center">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-foreground/60 hover:text-foreground transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
+            {hasActiveFilters && (
+              <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs">
+                Active
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Filter Options */}
+        {showFilters && (
+          <div className="flex flex-wrap justify-center gap-4 p-4 bg-surface rounded-xl border border-border">
+            {/* Difficulty Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-foreground/60">Difficulty:</label>
+              <select
+                value={difficultyFilter}
+                onChange={(e) => setDifficultyFilter(e.target.value as DifficultyFilter)}
+                className="px-3 py-1.5 bg-surface-light border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+              >
+                <option value="all">All</option>
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+              </select>
+            </div>
+
+            {/* Price Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-foreground/60">Price:</label>
+              <select
+                value={priceFilter}
+                onChange={(e) => setPriceFilter(e.target.value as PriceFilter)}
+                className="px-3 py-1.5 bg-surface-light border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+              >
+                <option value="all">All</option>
+                <option value="free">Free</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+
+            {/* Clear Filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearFilters}
+                className="px-3 py-1.5 text-sm text-accent hover:text-accent/80 transition-colors"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* New for 2026 Section (filtered by active tab) */}
@@ -196,9 +335,11 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
               {activeTab === 'halloween' ? 'Halloween' : 'Christmas'} Sequences
             </h2>
             <p className="text-foreground/60">
-              {activeTab === 'halloween'
-                ? 'Spooky, fun, and everything in between'
-                : 'Holiday magic for your display'
+              {hasActiveFilters
+                ? `Showing ${currentSequences.length} of ${baseSequences.length} sequences`
+                : activeTab === 'halloween'
+                  ? 'Spooky, fun, and everything in between'
+                  : 'Holiday magic for your display'
               }
             </p>
           </div>
@@ -209,6 +350,20 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             {currentSequences.map((sequence) => (
               <SequenceCard key={sequence.id} sequence={sequence} />
             ))}
+          </div>
+        ) : hasActiveFilters ? (
+          <div className="bg-surface rounded-xl p-8 border border-border text-center">
+            <span className="text-6xl block mb-4">🔍</span>
+            <h3 className="text-xl font-semibold mb-2">No Sequences Found</h3>
+            <p className="text-foreground/60 max-w-md mx-auto mb-4">
+              No sequences match your current filters. Try adjusting your search or filters.
+            </p>
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors"
+            >
+              Clear Filters
+            </button>
           </div>
         ) : (
           <div className="bg-surface rounded-xl p-8 border border-border text-center">
