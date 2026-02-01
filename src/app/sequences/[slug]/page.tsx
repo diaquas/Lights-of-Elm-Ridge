@@ -74,7 +74,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: 'Sequence Not Found' };
   }
 
-  const imageUrl = sequence.artworkUrl || (sequence.youtubeId ? getThumbnailUrl(sequence.youtubeId) : null) || '/logo.jpg';
+  const imageUrl: string = sequence.artworkUrl || (sequence.youtubeId ? getThumbnailUrl(sequence.youtubeId) : '/logo.jpg') || '/logo.jpg';
 
   return {
     title: `${sequence.title} - ${sequence.artist} | Light of Elm Ridge`,
