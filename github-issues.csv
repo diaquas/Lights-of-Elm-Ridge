@@ -1,0 +1,232 @@
+title,body,labels
+"Image Optimization & Lazy Loading","The project uses `unoptimized: true` in next.config.ts, disabling Next.js image optimization. Images in `/public` are large (1.4MB gbdet.png, 891KB family.jpg).
+
+**Tasks:**
+- Convert images to WebP/AVIF for 30-40% size reduction
+- Create responsive image variants (mobile, tablet, desktop)
+- Add blur placeholder effects
+- Migrate SequenceCardOverlay to Next.js Image component
+- Set explicit width/height on all Images to prevent CLS","high-priority,performance,ux"
+"Mobile Navigation & Tab Overflow","Tab buttons in `/sequences` have fixed `min-w-[280px]` which causes overflow on mobile screens <375px.
+
+**Tasks:**
+- Make tab buttons responsive with flex-wrap
+- Test on screens 320px-390px wide
+- Add horizontal scroll or stacked layout for mobile","high-priority,ux,mobile"
+"Accessibility (a11y) Improvements","Several critical a11y gaps need addressing.
+
+**Tasks:**
+- Add alt attributes to all images
+- Add aria-labels to share buttons
+- Add visible focus states to all interactive elements
+- Add skip navigation link
+- Add proper ARIA attributes to tabs
+- Add labels to newsletter form inputs
+- Ensure color contrast meets WCAG AA","high-priority,accessibility"
+"Call-to-Action Clarity","Browse Sequences appears 5+ times on homepage creating decision paralysis.
+
+**Tasks:**
+- Reduce CTA repetition to 1-2 per page
+- Create visual hierarchy for CTAs
+- Make xlightsseq.com notice more prominent
+- Add warning when Buy Now redirects externally","high-priority,ux,conversion"
+"Dynamic Sitemap Generation","No sitemap.xml exists for search engine indexing.
+
+**Tasks:**
+- Create src/app/sitemap.ts
+- Include all sequence pages
+- Create public/robots.txt
+- Submit to Google Search Console","high-priority,seo,technical"
+"Structured Data (JSON-LD)","Missing structured data for search engines.
+
+**Tasks:**
+- Add Organization schema in root layout
+- Add Product schema for sequence detail pages
+- Add BreadcrumbList schema
+- Add AggregateOffer schema on sequences page","high-priority,seo"
+"Security Headers","No security headers configured for Cloudflare Pages.
+
+**Tasks:**
+- Create public/_headers file with X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, Content-Security-Policy","high-priority,security"
+"Newsletter Integration","Newsletter form only stores to localStorage - data is lost on browser clear.
+
+**Tasks:**
+- Integrate with Mailchimp/ConvertKit
+- Add proper error handling
+- Implement double opt-in flow
+- Add unsubscribe management","high-priority,feature"
+"Environment Configuration","Hardcoded URLs and no environment variable setup.
+
+**Tasks:**
+- Create .env.example
+- Move hardcoded URLs to env vars
+- Document Cloudflare Pages setup","high-priority,technical"
+"Search & Advanced Filtering","No search functionality exists.
+
+**Tasks:**
+- Implement search box in navbar
+- Add faceted filters: difficulty, duration, price range, props
+- Add props compatibility feature","high-priority,feature,ux"
+"Customer Testimonials & Social Proof","No customer testimonials or social proof on the site.
+
+**Tasks:**
+- Add testimonials section on homepage
+- Create customer showcase gallery
+- Add review/rating system
+- Display download counts","high-priority,content,conversion"
+"Fix Missing Sequence URLs","Several sequences have missing xlightsSeqUrl values blocking purchases.
+
+Affected: IDs 7, 9, 12, 15, 16, 18, 19, 20, 25, 27, 29, 30, 32, 33, 34, 35
+
+**Tasks:**
+- Audit all sequences for missing URLs
+- Add fallback buttons or complete data
+- Add missing youtubeId where applicable","high-priority,bug,data"
+"Product Bundles & Package Deals","No bundle offerings to increase average order value.
+
+**Tasks:**
+- Create Complete Halloween Show bundle
+- Create Kids Friendly Bundle
+- Create Beginner Starter Pack
+- Implement 15-20% bundle discount","high-priority,feature,revenue"
+"Loading States & Skeleton Screens","No loading feedback for users.
+
+**Tasks:**
+- Add skeleton screens for sequence cards
+- Add loading indicator for YouTube embeds
+- Add fade-in effect for lazy-loaded images","medium-priority,ux"
+"Share Button Functionality","Share buttons on sequence detail page are non-functional.
+
+**Tasks:**
+- Implement working Facebook/Twitter share
+- Add copy link with feedback
+- Add Open Graph meta tags","medium-priority,feature"
+"Error Handling Improvements","Error states are too generic.
+
+**Tasks:**
+- Improve error.tsx with recovery info
+- Add YouTube embed error handling
+- Add search box to 404 page","medium-priority,ux"
+"Open Graph & Twitter Cards","Sequence pages need better social metadata.
+
+**Tasks:**
+- Add og:image from artworkUrl
+- Add og:type product
+- Add og:price, og:priceCurrency
+- Add Twitter Card type product
+- Add canonical URLs","medium-priority,seo"
+"TypeScript Type Safety","Type safety improvements needed.
+
+**Tasks:**
+- Add strict null checks for optional fields
+- Create discriminated unions for category
+- Create constants file for string literals
+- Add type validation at module load","medium-priority,technical"
+"Testing Framework Setup","No tests exist in the codebase.
+
+**Tasks:**
+- Install Vitest and testing-library/react
+- Create data transformation tests
+- Create component tests
+- Target 60%+ coverage","medium-priority,technical,testing"
+"Lighthouse CI Pipeline","No automated performance monitoring.
+
+**Tasks:**
+- Set up Lighthouse CI
+- Set thresholds: Performance 90+, Accessibility 95+
+- Track metrics over time","medium-priority,technical,performance"
+"HTTP Caching Headers","No caching configured for static assets.
+
+**Tasks:**
+- Add cache headers for immutable assets
+- Add cache headers for HTML pages
+- Enable compression in Cloudflare","medium-priority,performance"
+"FAQ Page","No dedicated FAQ page for common questions.
+
+**Tasks:**
+- Create comprehensive FAQ
+- Cover licensing, compatibility, refunds
+- Link from navbar and sequences page","medium-priority,content"
+"Sequence Comparison Tool","No way to compare sequences side-by-side.
+
+**Tasks:**
+- Allow comparing 2-3 sequences
+- Show price, duration, difficulty, props, video","medium-priority,feature"
+"Display Specifications Page","No detailed hardware/setup information.
+
+**Tasks:**
+- Create About the Display page
+- Add hardware specs, xLights version, controllers
+- Consider compatibility checker","medium-priority,content"
+"Blog/Tutorial Content Hub","No blog or tutorial content for SEO.
+
+**Tasks:**
+- Create blog section
+- Write Choosing Your First Sequence
+- Write How to Remap Sequences
+- Write xLights Setup for Beginners","medium-priority,content,seo"
+"Customer Reviews & Ratings","No review/rating capability.
+
+**Tasks:**
+- Add 5-star rating system
+- Show average rating on listings
+- Collect reviews post-purchase","medium-priority,feature"
+"Micro-interactions & Polish","Missing subtle animations and feedback.
+
+**Tasks:**
+- Add fade-in for lazy images
+- Button press feedback
+- Hover animations for links
+- Scroll indicator fade out","low-priority,ux"
+"Footer Optimization","Footer could be more useful.
+
+**Tasks:**
+- Add newsletter signup in footer
+- Add warning for external links
+- Consider adding quick stats","low-priority,ux"
+"Typography Refinements","Typography inconsistencies.
+
+**Tasks:**
+- Standardize heading sizes
+- Increase body line-height
+- Standardize padding/margin","low-priority,ux"
+"Component Documentation","No component documentation.
+
+**Tasks:**
+- Add JSDoc comments
+- Consider Storybook
+- Document design system","low-priority,technical"
+"ESLint Accessibility Plugin","No a11y linting.
+
+**Tasks:**
+- Install eslint-plugin-jsx-a11y
+- Enable ARIA validation
+- Fix Navigation labels","low-priority,technical,accessibility"
+"Git Hooks Setup","No pre-commit validation.
+
+**Tasks:**
+- Setup Husky
+- Add ESLint/Prettier check
+- Add TypeScript checking","low-priority,technical"
+"Gift Card System","No gift card functionality.
+
+**Tasks:**
+- Create $25/$50/$100 gift cards
+- Implement redemption flow","low-priority,feature"
+"Referral Program","No referral system.
+
+**Tasks:**
+- Refer a friend program
+- Credit for both parties","low-priority,feature"
+"Behind-the-Scenes Content","Promised content not complete.
+
+**Tasks:**
+- Complete xLights Masterclass
+- Add Hardware Deep Dives
+- Add Build Logs","low-priority,content"
+"Social Media Integration","Limited social integration.
+
+**Tasks:**
+- Add sharing buttons on sequences
+- Instagram shoppable posts
+- YouTube Shorts for clips","low-priority,feature"
