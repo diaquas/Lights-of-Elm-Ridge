@@ -304,7 +304,7 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     duration: "2:24",
     difficulty: "Beginner",
     description: "The internet's favorite Halloween meme song. Perfect for family-friendly displays that still want to get spooky.",
-    thumbnailUrl: "https://i.ytimg.com/vi/K2rwxs1gH9w/maxresdefault.jpg",
+    thumbnailUrl: "/spookymain.png",
     longDescription: `You know this song. Your kids know this song. The internet definitely knows this song. "Spooky Scary Skeletons" became a Halloween meme legend, and now it can be part of your display.
 
 This sequence is pure fun—bouncy, energetic, and perfect for the younger crowd. It's spooky without being scary, making it ideal for early evening shows when families are out trick-or-treating.
