@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { sequences } from '@/data/sequences';
 
 // Get featured sequences from the main catalog
@@ -9,9 +10,20 @@ export default function Home() {
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        {/* Animated background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-accent/20 via-background to-accent-secondary/20 animate-pulse" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-accent/10 via-transparent to-transparent" />
+        {/* Background image - xLights layout */}
+        <div className="absolute inset-0">
+          <Image
+            src="/layout.jpg"
+            alt="xLights display layout"
+            fill
+            className="object-cover object-center"
+            priority
+            unoptimized
+          />
+        </div>
+        {/* Gradient overlays for text readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/40" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-transparent to-transparent" />
 
         {/* Content */}
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
