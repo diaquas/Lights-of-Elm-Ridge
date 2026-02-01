@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import NewsletterForm from '@/components/NewsletterForm';
 
 export const metadata: Metadata = {
   title: 'Behind the Scenes | Light of Elm Ridge',
@@ -209,19 +210,7 @@ export default function BehindTheScenesPage() {
             Be the first to know when new tutorials drop. No spam, just lights.
             We promise to only email you when it&apos;s actually worth your time.
           </p>
-          <form className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-            <input
-              type="email"
-              placeholder="your@email.com"
-              className="flex-1 px-4 py-3 bg-surface border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-accent"
-            />
-            <button
-              type="submit"
-              className="px-6 py-3 bg-accent hover:bg-accent/80 text-white font-semibold rounded-xl transition-colors"
-            >
-              Notify Me
-            </button>
-          </form>
+          <NewsletterForm />
           <p className="mt-4 text-foreground/40 text-xs">
             We respect your inbox. Unsubscribe anytime.
           </p>

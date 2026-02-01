@@ -66,18 +66,29 @@ export default function PlaylistPage() {
           </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
-              { name: "Visionary Sequences", count: songlist.filter(s => s.vendor === "Visionary Sequences").length },
-              { name: "Easy Xlights Sequences", count: songlist.filter(s => s.vendor === "Easy Xlights Sequences").length },
-              { name: "Pixel Pro Displays", count: songlist.filter(s => s.vendor === "Pixel Pro Displays").length },
-              { name: "Pixel Sequence Pros", count: songlist.filter(s => s.vendor === "Pixel Sequence Pros").length },
-              { name: "Showstopper Sequences", count: songlist.filter(s => s.vendor === "Showstopper Sequences").length },
-              { name: "Xtreme Sequences", count: songlist.filter(s => s.vendor === "Xtreme Sequences").length },
-              { name: "Paul Irwin", count: songlist.filter(s => s.vendor === "Paul Irwin").length },
+              { name: "Visionary Sequences", url: "https://visionarylightshows.com/", count: songlist.filter(s => s.vendor === "Visionary Sequences").length },
+              { name: "Easy Xlights Sequences", url: "https://www.easyxlightssequences.com/", count: songlist.filter(s => s.vendor === "Easy Xlights Sequences").length },
+              { name: "Pixel Pro Displays", url: "https://pixelprodisplays.com/", count: songlist.filter(s => s.vendor === "Pixel Pro Displays").length },
+              { name: "Pixel Sequence Pros", url: "https://www.pixelsequencepros.com/", count: songlist.filter(s => s.vendor === "Pixel Sequence Pros").length },
+              { name: "Showstopper Sequences", url: "https://www.showstoppersequences.com/", count: songlist.filter(s => s.vendor === "Showstopper Sequences").length },
+              { name: "Xtreme Sequences", url: "https://xtremesequences.com/", count: songlist.filter(s => s.vendor === "Xtreme Sequences").length },
+              { name: "Paul Irwin", url: "https://xlightsseq.com/creators/paul-irwin.74/", count: songlist.filter(s => s.vendor === "Paul Irwin").length },
             ].filter(v => v.count > 0).map((vendor) => (
-              <div key={vendor.name} className="bg-surface rounded-xl p-4 border border-border">
-                <div className="font-medium">{vendor.name}</div>
+              <a
+                key={vendor.name}
+                href={vendor.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="bg-surface rounded-xl p-4 border border-border hover:border-accent/50 hover:bg-surface-light transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="font-medium group-hover:text-accent transition-colors">{vendor.name}</div>
+                  <svg className="w-4 h-4 text-foreground/40 group-hover:text-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </div>
                 <div className="text-foreground/60 text-sm">{vendor.count} sequence{vendor.count > 1 ? 's' : ''}</div>
-              </div>
+              </a>
             ))}
           </div>
         </section>
