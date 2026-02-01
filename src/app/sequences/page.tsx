@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { sequences } from '@/data/sequences';
+import { sequences, getNewSequences } from '@/data/sequences';
 
 export const metadata: Metadata = {
   title: 'xLights Sequences | Lights of Elm Ridge',
@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 // Organize sequences by category
 const halloweenSequences = sequences.filter(s => s.category === 'Halloween');
 const christmasSequences = sequences.filter(s => s.category === 'Christmas');
+const newFor2026 = getNewSequences(2026);
 
 function SequenceCard({ sequence }: { sequence: typeof sequences[0] }) {
   return (
@@ -48,9 +49,16 @@ function SequenceCard({ sequence }: { sequence: typeof sequences[0] }) {
       {/* Content */}
       <div className="p-5">
         <div className="mb-2">
-          <h3 className="font-bold text-lg group-hover:text-accent transition-colors">
-            {sequence.title}
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-lg group-hover:text-accent transition-colors">
+              {sequence.title}
+            </h3>
+            {sequence.yearAdded === 2026 && (
+              <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs font-semibold">
+                NEW
+              </span>
+            )}
+          </div>
           <p className="text-foreground/60 text-sm">{sequence.artist}</p>
         </div>
 
@@ -128,6 +136,28 @@ export default function SequencesPage() {
             Click any sequence to view details and purchase.
           </p>
         </div>
+
+        {/* New for 2026 Section */}
+        {newFor2026.length > 0 && (
+          <section className="mb-16">
+            <div className="flex items-center gap-4 mb-8">
+              <span className="text-4xl">✨</span>
+              <div>
+                <h2 className="text-3xl font-bold">New for 2026</h2>
+                <p className="text-foreground/60">Fresh sequences added this season</p>
+              </div>
+              <span className="ml-auto px-4 py-2 bg-accent/20 text-accent rounded-full text-sm font-medium">
+                {newFor2026.length} new
+              </span>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {newFor2026.map((sequence) => (
+                <SequenceCard key={sequence.id} sequence={sequence} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Halloween Section */}
         <section id="halloween" className="mb-20 scroll-mt-24">
