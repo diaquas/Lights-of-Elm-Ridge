@@ -97,7 +97,7 @@ export default function AboutPage() {
               <div className="md:w-1/3 flex-shrink-0">
                 <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-border">
                   <Image
-                    src="/CMP-HF-1.jpg"
+                    src="/family.jpg"
                     alt="The Hannon Family"
                     fill
                     className="object-cover"
@@ -137,8 +137,8 @@ export default function AboutPage() {
 
             <div className="mt-8 p-4 bg-surface-light rounded-lg border border-border">
               <p className="text-foreground/50 text-sm italic">
-                &quot;I just wanted to put up some lights. Now I have spreadsheets for my spreadsheets
-                and strong opinions about pixel spacing.&quot;
+                &quot;I just wanted to put up some lights. Now I have a budget, spreadsheets, and
+                a full project management tool to keep me on track all year long.&quot;
               </p>
             </div>
           </div>
