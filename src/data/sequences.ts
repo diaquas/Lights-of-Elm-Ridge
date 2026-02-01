@@ -20,6 +20,7 @@ export interface Sequence {
   audioSource: string;
   fileFormats: string[];
   releaseDate: string;
+  yearAdded: number; // Year the sequence was added to the show
 }
 
 // Get YouTube thumbnail URL from video ID
@@ -62,6 +63,7 @@ This is one of our most requested sequences for Halloween 2025. The combination 
     audioSource: "iTunes, Amazon Music, Spotify (download required)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2025-01",
+    yearAdded: 2025,
   },
   {
     id: 2,
@@ -96,6 +98,7 @@ This sequence works beautifully as a "breather" in your show loop, giving viewer
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-09",
+    yearAdded: 2025,
   },
   {
     id: 3,
@@ -130,6 +133,7 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
     audioSource: "iTunes, Amazon Music, Spotify (download required)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2025-01",
+    yearAdded: 2025,
   },
   {
     id: 4,
@@ -164,6 +168,7 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-10",
+    yearAdded: 2025,
   },
   {
     id: 5,
@@ -198,6 +203,7 @@ This one hits different at 2am when you're testing alone in your driveway. Don't
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-11",
+    yearAdded: 2024,
   },
   {
     id: 6,
@@ -232,6 +238,7 @@ This is a great sequence for newer displayers or anyone building up their Hallow
     audioSource: "iTunes, Amazon Music (Nightmare Before Christmas Soundtrack)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-08",
+    yearAdded: 2022,
   },
   {
     id: 7,
@@ -266,8 +273,24 @@ The creepy-cute aesthetic is having a moment, and this sequence delivers. Fans o
     audioSource: "iTunes, Amazon Music (Cry Baby album)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2024-09",
+    yearAdded: 2025,
   },
 ];
+
+// Helper to check if sequence is new (current year)
+export function isNewSequence(sequence: Sequence, currentYear: number = 2026): boolean {
+  return sequence.yearAdded === currentYear;
+}
+
+// Get sequences by year
+export function getSequencesByYear(year: number): Sequence[] {
+  return sequences.filter(s => s.yearAdded === year);
+}
+
+// Get new sequences for current year
+export function getNewSequences(currentYear: number = 2026): Sequence[] {
+  return sequences.filter(s => s.yearAdded === currentYear);
+}
 
 export function getSequenceBySlug(slug: string): Sequence | undefined {
   return sequences.find(s => s.slug === slug);
