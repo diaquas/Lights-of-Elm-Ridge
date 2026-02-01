@@ -75,11 +75,6 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
           <span className="px-2 py-1 bg-surface-light rounded text-xs text-foreground/60">
             {sequence.difficulty}
           </span>
-          {sequence.hasMatrix && (
-            <span className="px-2 py-1 bg-accent/20 rounded text-xs text-accent">
-              Matrix
-            </span>
-          )}
         </div>
 
         {/* CTA */}
