@@ -1,8 +1,62 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import Script from 'next/script';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { sequences, getSequenceBySlug, getRelatedSequences, getAllSlugs, getThumbnailUrl } from '@/data/sequences';
+
+function generateProductSchema(sequence: NonNullable<ReturnType<typeof getSequenceBySlug>>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": `${sequence.title} - ${sequence.artist} xLights Sequence`,
+    "description": sequence.description,
+    "image": sequence.artworkUrl || (sequence.youtubeId ? getThumbnailUrl(sequence.youtubeId) : "https://lightsofelmridge.com/logo.jpg"),
+    "brand": {
+      "@type": "Brand",
+      "name": "Lights of Elm Ridge"
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": `https://lightsofelmridge.com/sequences/${sequence.slug}`,
+      "priceCurrency": "USD",
+      "price": sequence.price,
+      "availability": "https://schema.org/InStock",
+      "seller": {
+        "@type": "Organization",
+        "name": "Lights of Elm Ridge"
+      }
+    },
+    "category": `${sequence.category} xLights Sequence`
+  };
+}
+
+function generateBreadcrumbSchema(sequence: NonNullable<ReturnType<typeof getSequenceBySlug>>) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "name": "Home",
+        "item": "https://lightsofelmridge.com"
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "name": "Sequences",
+        "item": "https://lightsofelmridge.com/sequences"
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "name": `${sequence.title} - ${sequence.artist}`,
+        "item": `https://lightsofelmridge.com/sequences/${sequence.slug}`
+      }
+    ]
+  };
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -35,9 +89,20 @@ export default async function SequencePage({ params }: PageProps) {
   }
 
   const relatedSequences = getRelatedSequences(slug, 4);
+  const productSchema = generateProductSchema(sequence);
+  const breadcrumbSchema = generateBreadcrumbSchema(sequence);
 
   return (
-    <div className="min-h-screen py-12 px-4">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <div className="min-h-screen py-12 px-4">
       <div className="max-w-7xl mx-auto">
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm">
@@ -172,21 +237,30 @@ export default async function SequencePage({ params }: PageProps) {
 
             {/* Share */}
             <div className="mt-6 pt-6 border-t border-border">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4" role="group" aria-label="Share options">
                 <span className="text-sm text-foreground/60">Share:</span>
                 <div className="flex gap-3">
-                  <button className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors" title="Share on Facebook">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <button
+                    className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+                    aria-label="Share on Facebook"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                     </svg>
                   </button>
-                  <button className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors" title="Share on X">
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <button
+                    className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+                    aria-label="Share on X (Twitter)"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
                     </svg>
                   </button>
-                  <button className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors" title="Copy link">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <button
+                    className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+                    aria-label="Copy link to clipboard"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                   </button>
@@ -333,5 +407,6 @@ export default async function SequencePage({ params }: PageProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }

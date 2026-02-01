@@ -48,6 +48,26 @@ export const metadata: Metadata = {
   },
 };
 
+// Organization structured data for SEO
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Lights of Elm Ridge",
+  "url": "https://lightsofelmridge.com",
+  "logo": "https://lightsofelmridge.com/logo.jpg",
+  "description": "Professional xLights sequences for Halloween and Christmas displays.",
+  "sameAs": [
+    "https://www.youtube.com/@LightsofElmRidge"
+  ],
+  "offers": {
+    "@type": "AggregateOffer",
+    "priceCurrency": "USD",
+    "lowPrice": "0",
+    "highPrice": "25",
+    "offerCount": "35"
+  }
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -55,9 +75,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+      </head>
       <body className="antialiased min-h-screen flex flex-col">
         <Navigation />
-        <main className="flex-1 pt-16">
+        <main id="main-content" className="flex-1 pt-16">
           {children}
         </main>
         <Footer />
