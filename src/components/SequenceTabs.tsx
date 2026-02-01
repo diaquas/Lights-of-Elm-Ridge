@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import ComingSoon from './ComingSoon';
+import SequenceCardOverlay from './SequenceCardOverlay';
 import ColorChips from './ColorChips';
 import type { Sequence } from '@/data/sequences';
 
@@ -13,37 +13,25 @@ interface SequenceTabsProps {
 }
 
 function SequenceCard({ sequence }: { sequence: Sequence }) {
-  // Priority: thumbnailUrl > YouTube thumbnail > Coming Soon
+  // Priority: thumbnailUrl > YouTube thumbnail
   const thumbnailUrl = sequence.thumbnailUrl
-    || (sequence.youtubeId ? `https://img.youtube.com/vi/${sequence.youtubeId}/maxresdefault.jpg` : null);
+    || (sequence.youtubeId ? `https://img.youtube.com/vi/${sequence.youtubeId}/maxresdefault.jpg` : undefined);
+
+  const hasVideo = !!sequence.youtubeId;
 
   return (
     <Link
       href={`/sequences/${sequence.slug}`}
       className="bg-surface rounded-xl overflow-hidden border border-border card-hover group block"
     >
-      {/* Thumbnail Preview */}
+      {/* Thumbnail with Overlay */}
       <div className="aspect-video relative overflow-hidden bg-surface-light">
-        {sequence.youtubeId ? (
-          // Has video - show thumbnail with play overlay
-          <>
-            <img
-              src={thumbnailUrl!}
-              alt={`${sequence.title} - ${sequence.artist}`}
-              className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-              <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 text-black ml-1" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </div>
-            </div>
-          </>
-        ) : (
-          // No video - show Coming Soon with optional thumbnail background
-          <ComingSoon category={sequence.category} backgroundImage={sequence.thumbnailUrl} />
-        )}
+        <SequenceCardOverlay
+          category={sequence.category}
+          backgroundImage={thumbnailUrl}
+          yearAdded={sequence.yearAdded}
+          hasVideo={hasVideo}
+        />
         {/* Price badge */}
         <div className="absolute top-3 right-3 z-10">
           <span className={`px-3 py-1 rounded-full text-sm font-bold ${

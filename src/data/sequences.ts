@@ -117,6 +117,7 @@ This sequence works beautifully as a "breather" in your show loop, giving viewer
     duration: "3:45",
     difficulty: "Intermediate",
     description: "Lady Gaga's latest Halloween anthem brought to life in pixels. Magic, mystery, and a whole lot of sparkle.",
+    thumbnailUrl: "https://static0.srcdn.com/wordpress/wp-content/uploads/2025/02/lady-gaga-dressed-in-white-in-the-abracadabra-mv.jpg?w=1600&h=1200&fit=crop",
     longDescription: `Lady Gaga's "Abracadabra" is pure Halloween magic, and this sequence delivers all the sparkle and mystery you'd expect.
 
 This isn't the Steve Miller Band classic—this is Gaga doing what Gaga does best: taking a concept and running with it. The sequence leans into the theatrical nature of the song with dramatic lighting changes, magical sparkle effects, and plenty of surprises.
