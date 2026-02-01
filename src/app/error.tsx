@@ -24,9 +24,19 @@ export default function Error({
           <span className="gradient-text">Something Went Wrong</span>
         </h1>
 
-        <p className="text-foreground/60 mb-8">
+        <p className="text-foreground/60 mb-6">
           The lights flickered and something broke. Don&apos;t worry, it&apos;s probably just a loose connection.
         </p>
+
+        {/* Recovery suggestions */}
+        <div className="bg-surface rounded-xl p-4 mb-8 border border-border text-left">
+          <p className="text-sm text-foreground/70 mb-2 font-medium">What you can try:</p>
+          <ul className="text-sm text-foreground/60 space-y-1">
+            <li>• Click &quot;Try Again&quot; to reload the page</li>
+            <li>• Clear your browser cache and refresh</li>
+            <li>• If the problem persists, try again later</li>
+          </ul>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button

@@ -11,9 +11,19 @@ export default function NotFound() {
           <span className="gradient-text">Page Not Found</span>
         </h1>
 
-        <p className="text-foreground/60 mb-8">
+        <p className="text-foreground/60 mb-6">
           Looks like this page vanished into the night. Maybe it&apos;s hiding with the other Halloween decorations?
         </p>
+
+        {/* Helpful suggestions */}
+        <div className="bg-surface rounded-xl p-4 mb-8 border border-border text-left">
+          <p className="text-sm text-foreground/70 mb-2 font-medium">Try one of these:</p>
+          <ul className="text-sm text-foreground/60 space-y-1">
+            <li>• Check the URL for typos</li>
+            <li>• Use the search on the <Link href="/sequences" className="text-accent hover:underline">sequences page</Link></li>
+            <li>• Browse our <Link href="/sequences" className="text-accent hover:underline">full sequence catalog</Link></li>
+          </ul>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Link

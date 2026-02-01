@@ -74,9 +74,34 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: 'Sequence Not Found' };
   }
 
+  const imageUrl = sequence.artworkUrl || (sequence.youtubeId ? getThumbnailUrl(sequence.youtubeId) : '/logo.jpg');
+
   return {
     title: `${sequence.title} - ${sequence.artist} | Light of Elm Ridge`,
     description: sequence.description,
+    openGraph: {
+      title: `${sequence.title} - ${sequence.artist} xLights Sequence`,
+      description: sequence.description,
+      type: 'website',
+      url: `https://lightsofelmridge.com/sequences/${sequence.slug}`,
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${sequence.title} by ${sequence.artist}`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${sequence.title} - ${sequence.artist}`,
+      description: sequence.description,
+      images: [imageUrl],
+    },
+    alternates: {
+      canonical: `https://lightsofelmridge.com/sequences/${sequence.slug}`,
+    },
   };
 }
 
@@ -226,13 +251,19 @@ export default async function SequencePage({ params }: PageProps) {
                 href={sequence.xlightsSeqUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
+                className="flex items-center justify-center gap-2 w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
               >
                 {sequence.price === 0 ? 'Download Free' : `Buy Now - $${sequence.price}`}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
               </a>
-              <p className="text-center text-foreground/40 text-xs">
-                Opens xlightsseq.com in a new tab
-              </p>
+              <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Secure checkout on xlightsseq.com</span>
+              </div>
             </div>
 
             {/* Share */}

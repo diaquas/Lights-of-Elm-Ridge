@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 interface SequenceCardOverlayProps {
   category: 'Halloween' | 'Christmas';
   backgroundImage?: string;
@@ -18,10 +20,14 @@ export default function SequenceCardOverlay({
     <div className="absolute inset-0 overflow-hidden">
       {/* Background image layer */}
       {backgroundImage && (
-        <img
+        <Image
           src={backgroundImage}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover"
+          loading="lazy"
+          unoptimized
         />
       )}
 

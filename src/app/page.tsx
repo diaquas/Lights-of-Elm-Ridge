@@ -234,27 +234,44 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Newsletter / Info Section */}
       <section className="py-24 px-4">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
-            Ready to Make Your House the
-            <span className="gradient-text"> Coolest on the Block?</span>
+            Ready to Light Up
+            <span className="gradient-text"> Your Display?</span>
           </h2>
-          <p className="text-xl text-foreground/60 mb-8">
-            Browse the collection and find your next showstopper.
-            Sequences start at just $5—less than your coffee habit.
+          <p className="text-xl text-foreground/60 mb-6">
+            All sequences are available through our partner xlightsseq.com.
+            Prices start at just $5—less than your coffee habit.
           </p>
-          <Link
-            href="/sequences"
-            className="inline-flex items-center gap-2 px-8 py-4 bg-accent hover:bg-accent/80 text-white font-semibold rounded-xl transition-all glow-purple hover:scale-105"
-          >
-            <span>Browse All Sequences</span>
-            <span className="text-xl">→</span>
-          </Link>
-          <p className="mt-4 text-foreground/40 text-sm">
-            Free sequences coming soon. For now, every purchase supports more creations.
-          </p>
+
+          {/* External site notice */}
+          <div className="inline-flex items-center gap-3 px-6 py-4 bg-surface rounded-xl border border-border mb-8">
+            <svg className="w-5 h-5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-foreground/70 text-sm text-left">
+              <span className="font-semibold text-foreground">Purchases handled securely by xlightsseq.com</span>
+              <br />
+              You&apos;ll be redirected to complete your order on their platform.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/sequences"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-accent hover:bg-accent/80 text-white font-semibold rounded-xl transition-all hover:scale-105"
+            >
+              View All Sequences
+            </Link>
+            <Link
+              href="/about"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-surface-light hover:bg-surface border border-border text-foreground font-semibold rounded-xl transition-all hover:scale-105"
+            >
+              Learn About Us
+            </Link>
+          </div>
         </div>
       </section>
     </div>
