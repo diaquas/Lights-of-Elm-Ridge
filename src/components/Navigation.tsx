@@ -10,6 +10,7 @@ const navLinks = [
   { href: '/sequences', label: 'Sequences' },
   { href: '/playlist', label: 'Playlist' },
   { href: '/the-show', label: 'The Show' },
+  { href: '/display', label: 'The Display' },
   { href: '/behind-the-scenes', label: 'Behind the Scenes' },
   { href: '/about', label: 'About' },
 ];
