@@ -230,7 +230,7 @@ This is a great sequence for newer displayers or anyone building up their Hallow
     duration: "3:15",
     difficulty: "Intermediate",
     description: "Subtle circus and carnival vibes throughout. You might recognize this from American Horror Story: Freak Show promos.",
-    thumbnailUrl: "https://slm-assets.secondlife.com/assets/12324316/lightbox/Carousel_Melanie.jpg?1441888310",
+    thumbnailUrl: "/carouselmain.png",
     longDescription: `Melanie Martinez's "Carousel" is the perfect blend of creepy and cute—exactly the vibe that made it iconic in American Horror Story: Freak Show promos.
 
 This sequence leans into the carnival/circus aesthetic with rotating effects, calliope-inspired patterns, and that unsettling sense that something isn't quite right. It's Halloween without being overtly scary.
@@ -415,7 +415,7 @@ This sequence leans into the sci-fi/horror crossover energy with effects that fe
     duration: "2:48",
     difficulty: "Intermediate",
     description: "The viral sea shanty gets an epic orchestral treatment. Pirates, whales, and dramatic lighting await.",
-    thumbnailUrl: "https://i.ytimg.com/vi/NKhixoPbUwA/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDF32E9WMrYYgrYjUuSluHu19dc-Q",
+    thumbnailUrl: "/wellermanmain.png",
     longDescription: `2WEI's epic orchestral version of the Wellerman sea shanty takes that viral TikTok moment and cranks it up to eleven. This sequence brings pirate energy to your Halloween display.
 
 Sea shanties and Halloween might seem like an odd pairing, but trust us—the dark, dramatic energy of this version fits right in with ghost ships and cursed sailors.
