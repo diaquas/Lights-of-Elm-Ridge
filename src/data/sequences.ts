@@ -13,7 +13,8 @@ export interface Sequence {
   propCount: number;
   hasMatrix: boolean;
   xlightsSeqUrl?: string; // Legacy: xlightsseq.com URL (optional if using direct download)
-  googleDriveUrl?: string; // Direct download from Google Drive
+  googleDriveUrl?: string; // Direct download from Google Drive (fallback)
+  r2Url?: string; // Cloudflare R2 direct download URL (preferred)
   amazonMusicUrl?: string; // Direct link to purchase audio on Amazon
   youtubeId: string | null;
   artworkUrl: string | null;
@@ -423,8 +424,7 @@ This one's on the house. Every display needs a song that makes the kids dance.`,
     tags: ["Halloween", "Meme", "Family Friendly", "Classic", "FREE"],
     propCount: 25,
     hasMatrix: true,
-    googleDriveUrl:
-      "https://drive.google.com/file/d/1LvUoQT7HDBYrQJGciP23qCYZbpDgALFn/view?usp=drive_link",
+    r2Url: "https://downloads.lightsofelmridge.com/Free/Spooky%20Dub.zip",
     amazonMusicUrl:
       "https://amazon.com/music/player/albums/B00H7VJQJG?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_mX5DGaE3azrDSiluuEPxTpnYY&trackAsin=B00H7VJRSQ",
     youtubeId: null,

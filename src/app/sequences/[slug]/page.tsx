@@ -260,7 +260,7 @@ export default async function SequencePage({ params }: PageProps) {
               {/* Important Notice */}
               <div className="bg-surface-light rounded-xl p-4 mb-6 border border-border">
                 <p className="text-sm text-foreground/70">
-                  {sequence.googleDriveUrl ? (
+                  {sequence.r2Url || sequence.googleDriveUrl ? (
                     <>
                       <span className="font-semibold text-accent">
                         Direct download available
@@ -349,15 +349,14 @@ export default async function SequencePage({ params }: PageProps) {
 
               {/* Download/Buy Button */}
               <div className="space-y-3">
-                {sequence.googleDriveUrl ? (
+                {sequence.r2Url || sequence.googleDriveUrl ? (
                   <>
                     <a
                       href={
+                        sequence.r2Url ||
                         getGoogleDriveDownloadUrl(sequence.googleDriveUrl) ||
                         "#"
                       }
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
                     >
                       <svg
