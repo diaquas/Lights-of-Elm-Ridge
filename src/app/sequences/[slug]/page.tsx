@@ -9,6 +9,7 @@ import {
   getRelatedSequences,
   getAllSlugs,
   getThumbnailUrl,
+  getGoogleDriveDownloadUrl,
 } from "@/data/sequences";
 import { getMockupVideoId } from "@/data/youtube-loader";
 
@@ -351,9 +352,10 @@ export default async function SequencePage({ params }: PageProps) {
                 {sequence.googleDriveUrl ? (
                   <>
                     <a
-                      href={sequence.googleDriveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={
+                        getGoogleDriveDownloadUrl(sequence.googleDriveUrl) ||
+                        "#"
+                      }
                       className="flex items-center justify-center gap-2 w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
                     >
                       <svg

@@ -33,6 +33,32 @@ export function getThumbnailUrl(youtubeId: string | null): string | null {
   return `https://img.youtube.com/vi/${youtubeId}/maxresdefault.jpg`;
 }
 
+// Convert Google Drive sharing URL to direct download URL
+// Input: https://drive.google.com/file/d/{FILE_ID}/view?usp=drive_link
+// Output: https://drive.google.com/uc?export=download&id={FILE_ID}
+export function getGoogleDriveDownloadUrl(
+  shareUrl: string | undefined,
+): string | null {
+  if (!shareUrl) return null;
+
+  // Extract file ID from various Google Drive URL formats
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/, // /file/d/{id}/view
+    /id=([a-zA-Z0-9_-]+)/, // ?id={id} or &id={id}
+    /\/d\/([a-zA-Z0-9_-]+)/, // /d/{id}/
+  ];
+
+  for (const pattern of patterns) {
+    const match = shareUrl.match(pattern);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+    }
+  }
+
+  // If no pattern matched, return the original URL
+  return shareUrl;
+}
+
 export const sequences: Sequence[] = [
   // =====================
   // HALLOWEEN SEQUENCES
