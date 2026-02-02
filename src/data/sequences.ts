@@ -191,6 +191,9 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
     tags: ["Halloween", "Pop", "Magic", "Theatrical", "2025"],
     propCount: 35,
     hasMatrix: true,
+    r2Url: "https://downloads.lightsofelmridge.com/Paid/Abracadabra.zip",
+    amazonMusicUrl:
+      "https://amazon.com/music/player/albums/B0DV46W1XS?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_dYHSOZZjvaDEJthYxlugDdlXf&trackAsin=B0DV461JD6",
     xlightsSeqUrl:
       "https://xlightsseq.com/sequences/abracadabra-lady-gaga.1233/",
     youtubeId: null, // Cleared - was live show video, waiting for mockup
