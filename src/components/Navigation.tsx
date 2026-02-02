@@ -1,18 +1,19 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
 
 const navLinks = [
-  { href: '/', label: 'Home' },
-  { href: '/sequences', label: 'Sequences' },
-  { href: '/playlist', label: 'Playlist' },
-  { href: '/the-show', label: 'The Show' },
-  { href: '/display', label: 'The Display' },
-  { href: '/gear', label: 'Gear' },
-  { href: '/about', label: 'About' },
+  { href: "/", label: "Home" },
+  { href: "/sequences", label: "Sequences" },
+  { href: "/playlist", label: "Playlist" },
+  { href: "/the-show", label: "The Show" },
+  { href: "/display", label: "The Display" },
+  { href: "/gear", label: "Gear" },
+  { href: "/faq", label: "FAQ" },
+  { href: "/about", label: "About" },
 ];
 
 export default function Navigation() {
@@ -28,94 +29,101 @@ export default function Navigation() {
       >
         Skip to main content
       </a>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border" aria-label="Main navigation">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <Image
-              src="/logo.jpg"
-              alt="Lights of Elm Ridge"
-              width={48}
-              height={48}
-              className="rounded-lg"
-            />
-            <span className="font-bold text-lg gradient-text hidden sm:inline">
-              Lights of Elm Ridge
-            </span>
-          </Link>
+      <nav
+        className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border"
+        aria-label="Main navigation"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <Link href="/" className="flex items-center gap-2 group">
+              <Image
+                src="/logo.jpg"
+                alt="Lights of Elm Ridge"
+                width={48}
+                height={48}
+                className="rounded-lg"
+              />
+              <span className="font-bold text-lg gradient-text hidden sm:inline">
+                Lights of Elm Ridge
+              </span>
+            </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  pathname === link.href
-                    ? 'bg-accent/20 text-accent'
-                    : 'text-foreground/70 hover:text-foreground hover:bg-surface-light'
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center gap-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    pathname === link.href
+                      ? "bg-accent/20 text-accent"
+                      : "text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
 
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
-            aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileMenuOpen}
-            aria-controls="mobile-menu"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-lg hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu"
             >
-              {mobileMenuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
-        </div>
-
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div id="mobile-menu" className="md:hidden py-4 border-t border-border" role="menu">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
-                  pathname === link.href
-                    ? 'bg-accent/20 text-accent'
-                    : 'text-foreground/70 hover:text-foreground hover:bg-surface-light'
-                }`}
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                {link.label}
-              </Link>
-            ))}
+                {mobileMenuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
+              </svg>
+            </button>
           </div>
-        )}
-      </div>
-    </nav>
+
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <div
+              id="mobile-menu"
+              className="md:hidden py-4 border-t border-border"
+              role="menu"
+            >
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                    pathname === link.href
+                      ? "bg-accent/20 text-accent"
+                      : "text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </nav>
     </>
   );
 }

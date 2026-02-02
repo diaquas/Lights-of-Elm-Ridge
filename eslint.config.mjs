@@ -1,16 +1,12 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
-import jsxA11y from "eslint-plugin-jsx-a11y";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Accessibility rules
+  // Additional accessibility rules (jsx-a11y plugin is already included in next/core-web-vitals)
   {
-    plugins: {
-      "jsx-a11y": jsxA11y,
-    },
     rules: {
       // Enforce alt text for images
       "jsx-a11y/alt-text": "error",
