@@ -4,14 +4,15 @@ This document outlines all external services and infrastructure used by the proj
 
 ## Overview
 
-| Service          | Purpose         | Cost         | Dashboard                                                    |
-| ---------------- | --------------- | ------------ | ------------------------------------------------------------ |
-| Cloudflare Pages | Hosting         | Free         | [dash.cloudflare.com](https://dash.cloudflare.com)           |
-| Cloudflare R2    | File Storage    | ~$0/mo       | [dash.cloudflare.com](https://dash.cloudflare.com)           |
-| Supabase         | Auth & Database | Free tier    | [supabase.com/dashboard](https://supabase.com/dashboard)     |
-| YouTube Data API | Video sync      | Free         | [console.cloud.google.com](https://console.cloud.google.com) |
-| Stripe           | Payments        | 2.9% + $0.30 | [dashboard.stripe.com](https://dashboard.stripe.com)         |
-| GitHub           | Source code     | Free         | [github.com](https://github.com)                             |
+| Service          | Purpose             | Cost         | Dashboard                                                    |
+| ---------------- | ------------------- | ------------ | ------------------------------------------------------------ |
+| Cloudflare Pages | Hosting             | Free         | [dash.cloudflare.com](https://dash.cloudflare.com)           |
+| Cloudflare R2    | File Storage        | ~$0/mo       | [dash.cloudflare.com](https://dash.cloudflare.com)           |
+| Supabase         | Auth & Database     | Free tier    | [supabase.com/dashboard](https://supabase.com/dashboard)     |
+| Resend           | Transactional Email | Free tier    | [resend.com](https://resend.com)                             |
+| YouTube Data API | Video sync          | Free         | [console.cloud.google.com](https://console.cloud.google.com) |
+| Stripe           | Payments            | 2.9% + $0.30 | [dashboard.stripe.com](https://dashboard.stripe.com)         |
+| GitHub           | Source code         | Free         | [github.com](https://github.com)                             |
 
 ---
 
@@ -83,6 +84,29 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
 ```
 
 **Dashboard:** [supabase.com/dashboard](https://supabase.com/dashboard/project/bzmpcgsloptensafzfle)
+
+---
+
+## Resend (Transactional Email)
+
+**Purpose:** Send branded emails from lightsofelmridge.com (signup confirmations, password resets, purchase receipts)
+
+**Setup:**
+
+- Domain: `lightsofelmridge.com` (verified via DNS)
+- Sender: `noreply@lightsofelmridge.com`
+- Connected to Supabase via SMTP
+
+**SMTP Settings (configured in Supabase):**
+
+- Host: `smtp.resend.com`
+- Port: `465`
+- User: `resend`
+- Password: (API key from Resend dashboard)
+
+**Free Tier:** 3,000 emails/month, 100 emails/day
+
+**Dashboard:** [resend.com](https://resend.com)
 
 ---
 
@@ -186,6 +210,7 @@ Set these in GitHub → Settings → Secrets → Actions:
 | Cloudflare Pages | Unlimited                  | -             | $0            |
 | Cloudflare R2    | 10GB storage, 10M requests | ~1GB          | $0            |
 | Supabase         | 50k MAU, 500MB DB          | Minimal       | $0            |
+| Resend           | 3,000 emails/mo            | Minimal       | $0            |
 | YouTube API      | 10,000 units/day           | ~100/day      | $0            |
 | Stripe           | No monthly fee             | Not active    | $0 + fees     |
 | **Total**        |                            |               | **~$0/month** |
@@ -194,6 +219,5 @@ Set these in GitHub → Settings → Secrets → Actions:
 
 ## Future Services (Potential)
 
-- **SendGrid/Resend** - Transactional emails (purchase confirmations)
 - **Cloudflare Workers** - Signed URL generation for paid downloads
 - **Analytics** - Google Analytics or Plausible
