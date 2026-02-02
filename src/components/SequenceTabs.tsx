@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import SequenceCardOverlay from './SequenceCardOverlay';
-import ColorChips from './ColorChips';
-import type { Sequence } from '@/data/sequences';
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import SequenceCardOverlay from "./SequenceCardOverlay";
+import ColorChips from "./ColorChips";
+import type { Sequence } from "@/data/sequences";
 
 interface SequenceTabsProps {
   halloweenSequences: Sequence[];
@@ -12,20 +12,23 @@ interface SequenceTabsProps {
   newFor2026: Sequence[];
 }
 
-type DifficultyFilter = 'all' | 'Beginner' | 'Intermediate' | 'Advanced';
-type PriceFilter = 'all' | 'free' | 'paid';
+type DifficultyFilter = "all" | "Beginner" | "Intermediate" | "Advanced";
+type PriceFilter = "all" | "free" | "paid";
 
 function SequenceCard({ sequence }: { sequence: Sequence }) {
   // Priority: thumbnailUrl > YouTube thumbnail
-  const thumbnailUrl = sequence.thumbnailUrl
-    || (sequence.youtubeId ? `https://img.youtube.com/vi/${sequence.youtubeId}/maxresdefault.jpg` : undefined);
+  const thumbnailUrl =
+    sequence.thumbnailUrl ||
+    (sequence.youtubeId
+      ? `https://img.youtube.com/vi/${sequence.youtubeId}/maxresdefault.jpg`
+      : undefined);
 
   const hasVideo = !!sequence.youtubeId;
 
   return (
     <Link
       href={`/sequences/${sequence.slug}`}
-      className="bg-surface rounded-xl overflow-hidden border border-border card-hover group block"
+      className="bg-surface rounded-xl overflow-hidden border border-border card-hover group block h-full flex flex-col"
     >
       {/* Thumbnail with Overlay */}
       <div className="aspect-video relative overflow-hidden bg-surface-light">
@@ -37,18 +40,20 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
         />
         {/* Price badge */}
         <div className="absolute top-3 right-3 z-10">
-          <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-            sequence.price === 0
-              ? 'bg-green-500 text-white'
-              : 'bg-accent text-white'
-          }`}>
-            {sequence.price === 0 ? 'FREE' : `$${sequence.price}`}
+          <span
+            className={`px-3 py-1 rounded-full text-sm font-bold ${
+              sequence.price === 0
+                ? "bg-green-500 text-white"
+                : "bg-accent text-white"
+            }`}
+          >
+            {sequence.price === 0 ? "FREE" : `$${sequence.price}`}
           </span>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-5">
+      <div className="p-5 flex flex-col flex-grow">
         <div className="mb-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -80,8 +85,8 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
           </span>
         </div>
 
-        {/* CTA */}
-        <span className="block w-full py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium text-center">
+        {/* CTA - pushed to bottom */}
+        <span className="block w-full py-2 bg-accent hover:bg-accent/80 text-white rounded-lg transition-colors text-sm font-medium text-center mt-auto">
           View Details →
         </span>
       </div>
@@ -89,18 +94,26 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
   );
 }
 
-export default function SequenceTabs({ halloweenSequences, christmasSequences, newFor2026 }: SequenceTabsProps) {
-  const [activeTab, setActiveTab] = useState<'halloween' | 'christmas'>('halloween');
+export default function SequenceTabs({
+  halloweenSequences,
+  christmasSequences,
+  newFor2026,
+}: SequenceTabsProps) {
+  const [activeTab, setActiveTab] = useState<"halloween" | "christmas">(
+    "halloween",
+  );
   const [showAllNew, setShowAllNew] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>('all');
-  const [priceFilter, setPriceFilter] = useState<PriceFilter>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [difficultyFilter, setDifficultyFilter] =
+    useState<DifficultyFilter>("all");
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
   const [showFilters, setShowFilters] = useState(false);
 
-  const halloweenNew = newFor2026.filter(s => s.category === 'Halloween');
-  const christmasNew = newFor2026.filter(s => s.category === 'Christmas');
-  const currentNew = activeTab === 'halloween' ? halloweenNew : christmasNew;
-  const baseSequences = activeTab === 'halloween' ? halloweenSequences : christmasSequences;
+  const halloweenNew = newFor2026.filter((s) => s.category === "Halloween");
+  const christmasNew = newFor2026.filter((s) => s.category === "Christmas");
+  const currentNew = activeTab === "halloween" ? halloweenNew : christmasNew;
+  const baseSequences =
+    activeTab === "halloween" ? halloweenSequences : christmasSequences;
 
   // Filter sequences based on search and filters
   const currentSequences = useMemo(() => {
@@ -109,35 +122,37 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(s =>
-        s.title.toLowerCase().includes(query) ||
-        s.artist.toLowerCase().includes(query) ||
-        s.description.toLowerCase().includes(query) ||
-        s.tags.some(tag => tag.toLowerCase().includes(query))
+      filtered = filtered.filter(
+        (s) =>
+          s.title.toLowerCase().includes(query) ||
+          s.artist.toLowerCase().includes(query) ||
+          s.description.toLowerCase().includes(query) ||
+          s.tags.some((tag) => tag.toLowerCase().includes(query)),
       );
     }
 
     // Difficulty filter
-    if (difficultyFilter !== 'all') {
-      filtered = filtered.filter(s => s.difficulty === difficultyFilter);
+    if (difficultyFilter !== "all") {
+      filtered = filtered.filter((s) => s.difficulty === difficultyFilter);
     }
 
     // Price filter
-    if (priceFilter === 'free') {
-      filtered = filtered.filter(s => s.price === 0);
-    } else if (priceFilter === 'paid') {
-      filtered = filtered.filter(s => s.price > 0);
+    if (priceFilter === "free") {
+      filtered = filtered.filter((s) => s.price === 0);
+    } else if (priceFilter === "paid") {
+      filtered = filtered.filter((s) => s.price > 0);
     }
 
     return filtered;
   }, [baseSequences, searchQuery, difficultyFilter, priceFilter]);
 
-  const hasActiveFilters = searchQuery.trim() || difficultyFilter !== 'all' || priceFilter !== 'all';
+  const hasActiveFilters =
+    searchQuery.trim() || difficultyFilter !== "all" || priceFilter !== "all";
 
   const clearFilters = () => {
-    setSearchQuery('');
-    setDifficultyFilter('all');
-    setPriceFilter('all');
+    setSearchQuery("");
+    setDifficultyFilter("all");
+    setPriceFilter("all");
   };
 
   // Show first 3, or all if expanded
@@ -150,11 +165,14 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
       <div className="flex justify-center mb-8">
         <div className="inline-flex bg-surface rounded-xl border border-border p-1">
           <button
-            onClick={() => { setActiveTab('halloween'); setShowAllNew(false); }}
+            onClick={() => {
+              setActiveTab("halloween");
+              setShowAllNew(false);
+            }}
             className={`px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial sm:min-w-[280px] ${
-              activeTab === 'halloween'
-                ? 'bg-orange-500/20 text-orange-400 font-semibold'
-                : 'text-foreground/60 hover:text-foreground hover:bg-surface-light'
+              activeTab === "halloween"
+                ? "bg-orange-500/20 text-orange-400 font-semibold"
+                : "text-foreground/60 hover:text-foreground hover:bg-surface-light"
             }`}
           >
             <span className="text-2xl">🎃</span>
@@ -166,11 +184,14 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             )}
           </button>
           <button
-            onClick={() => { setActiveTab('christmas'); setShowAllNew(false); }}
+            onClick={() => {
+              setActiveTab("christmas");
+              setShowAllNew(false);
+            }}
             className={`px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial sm:min-w-[280px] ${
-              activeTab === 'christmas'
-                ? 'bg-green-500/20 text-green-400 font-semibold'
-                : 'text-foreground/60 hover:text-foreground hover:bg-surface-light'
+              activeTab === "christmas"
+                ? "bg-green-500/20 text-green-400 font-semibold"
+                : "text-foreground/60 hover:text-foreground hover:bg-surface-light"
             }`}
           >
             <span className="text-2xl">🎄</span>
@@ -201,15 +222,30 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => setSearchQuery("")}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-foreground/40 hover:text-foreground"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           )}
@@ -221,10 +257,20 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             onClick={() => setShowFilters(!showFilters)}
             className="flex items-center gap-2 px-4 py-2 text-sm text-foreground/60 hover:text-foreground transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+              />
             </svg>
-            {showFilters ? 'Hide Filters' : 'Show Filters'}
+            {showFilters ? "Hide Filters" : "Show Filters"}
             {hasActiveFilters && (
               <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs">
                 Active
@@ -241,7 +287,9 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
               <label className="text-sm text-foreground/60">Difficulty:</label>
               <select
                 value={difficultyFilter}
-                onChange={(e) => setDifficultyFilter(e.target.value as DifficultyFilter)}
+                onChange={(e) =>
+                  setDifficultyFilter(e.target.value as DifficultyFilter)
+                }
                 className="px-3 py-1.5 bg-surface-light border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
               >
                 <option value="all">All</option>
@@ -285,7 +333,9 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             <span className="text-4xl">✨</span>
             <div>
               <h2 className="text-3xl font-bold">New for 2026</h2>
-              <p className="text-foreground/60">Fresh {activeTab} sequences added this season</p>
+              <p className="text-foreground/60">
+                Fresh {activeTab} sequences added this season
+              </p>
             </div>
             <span className="ml-auto px-4 py-2 bg-accent/20 text-accent rounded-full text-sm font-medium">
               {currentNew.length} new
@@ -308,15 +358,35 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
                 {showAllNew ? (
                   <>
                     Show Less
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 15l7-7 7 7"
+                      />
                     </svg>
                   </>
                 ) : (
                   <>
                     Show {currentNew.length - 3} More
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
                     </svg>
                   </>
                 )}
@@ -329,18 +399,19 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
       {/* Main Sequences Grid */}
       <section className="mb-20">
         <div className="flex items-center gap-4 mb-8">
-          <span className="text-4xl">{activeTab === 'halloween' ? '🎃' : '🎄'}</span>
+          <span className="text-4xl">
+            {activeTab === "halloween" ? "🎃" : "🎄"}
+          </span>
           <div>
             <h2 className="text-3xl font-bold">
-              {activeTab === 'halloween' ? 'Halloween' : 'Christmas'} Sequences
+              {activeTab === "halloween" ? "Halloween" : "Christmas"} Sequences
             </h2>
             <p className="text-foreground/60">
               {hasActiveFilters
                 ? `Showing ${currentSequences.length} of ${baseSequences.length} sequences`
-                : activeTab === 'halloween'
-                  ? 'Spooky, fun, and everything in between'
-                  : 'Holiday magic for your display'
-              }
+                : activeTab === "halloween"
+                  ? "Spooky, fun, and everything in between"
+                  : "Holiday magic for your display"}
             </p>
           </div>
         </div>
@@ -356,7 +427,8 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             <span className="text-6xl block mb-4">🔍</span>
             <h3 className="text-xl font-semibold mb-2">No Sequences Found</h3>
             <p className="text-foreground/60 max-w-md mx-auto mb-4">
-              No sequences match your current filters. Try adjusting your search or filters.
+              No sequences match your current filters. Try adjusting your search
+              or filters.
             </p>
             <button
               onClick={clearFilters}
@@ -370,8 +442,8 @@ export default function SequenceTabs({ halloweenSequences, christmasSequences, n
             <span className="text-6xl block mb-4">🎅</span>
             <h3 className="text-xl font-semibold mb-2">Coming This Fall</h3>
             <p className="text-foreground/60 max-w-md mx-auto">
-              Christmas sequences are in production and will be available before the season starts.
-              Check back soon!
+              Christmas sequences are in production and will be available before
+              the season starts. Check back soon!
             </p>
           </div>
         )}
