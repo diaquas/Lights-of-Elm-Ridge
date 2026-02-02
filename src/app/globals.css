@@ -24,7 +24,8 @@
   --color-surface-light: var(--surface-light);
   --color-surface-hover: var(--surface-hover);
   --color-border: var(--border);
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
 
@@ -32,11 +33,58 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  line-height: 1.6;
+}
+
+/* Typography Scale */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+}
+h2 {
+  font-size: clamp(1.5rem, 4vw, 2.5rem);
+}
+h3 {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+}
+h4 {
+  font-size: clamp(1.125rem, 2vw, 1.25rem);
+}
+
+/* Improved paragraph spacing */
+p {
+  line-height: 1.7;
+  margin-bottom: 1em;
+}
+
+p:last-child {
+  margin-bottom: 0;
+}
+
+/* Better text rendering */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Gradient text utility */
 .gradient-text {
-  background: linear-gradient(135deg, var(--accent-primary), #ff6b6b, var(--accent-secondary));
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary),
+    #ff6b6b,
+    var(--accent-secondary)
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -44,15 +92,21 @@ body {
 
 /* Glow effects */
 .glow-purple {
-  box-shadow: 0 0 20px rgba(220, 38, 38, 0.4), 0 0 40px rgba(220, 38, 38, 0.2);
+  box-shadow:
+    0 0 20px rgba(220, 38, 38, 0.4),
+    0 0 40px rgba(220, 38, 38, 0.2);
 }
 
 .glow-cyan {
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4), 0 0 40px rgba(239, 68, 68, 0.2);
+  box-shadow:
+    0 0 20px rgba(239, 68, 68, 0.4),
+    0 0 40px rgba(239, 68, 68, 0.2);
 }
 
 .glow-text {
-  text-shadow: 0 0 10px rgba(220, 38, 38, 0.6), 0 0 20px rgba(220, 38, 38, 0.3);
+  text-shadow:
+    0 0 10px rgba(220, 38, 38, 0.6),
+    0 0 20px rgba(220, 38, 38, 0.3);
 }
 
 /* Card hover effect */
@@ -62,7 +116,9 @@ body {
 
 .card-hover:hover {
   transform: translateY(-4px);
-  box-shadow: 0 0 30px rgba(100, 100, 100, 0.2), 0 0 60px rgba(80, 80, 80, 0.1);
+  box-shadow:
+    0 0 30px rgba(100, 100, 100, 0.2),
+    0 0 60px rgba(80, 80, 80, 0.1);
   background-color: var(--surface-hover);
 }
 
@@ -74,19 +130,30 @@ body {
 }
 
 .gradient-border::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: -2px;
   border-radius: 14px;
-  background: linear-gradient(135deg, var(--accent-primary), #666666, var(--accent-secondary), var(--accent-primary));
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary),
+    #666666,
+    var(--accent-secondary),
+    var(--accent-primary)
+  );
   background-size: 300% 300%;
   animation: gradient-shift 8s ease infinite;
   z-index: -1;
 }
 
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 /* Smooth scrolling */
@@ -112,7 +179,9 @@ html {
 
 /* Button press effect */
 .btn-press {
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease;
 }
 
 .btn-press:active {
@@ -126,7 +195,7 @@ html {
 }
 
 .link-underline::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -2px;
   left: 0;
