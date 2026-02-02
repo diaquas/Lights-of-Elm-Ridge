@@ -13,7 +13,7 @@ const displaySpecs = {
   universes: '190',
   controllers: '3',
   xlightsVersion: '2024.20+',
-  showComputer: 'FPP',
+  showComputer: 'xSchedule',
   fmTransmitter: '87.9 FM',
 };
 
@@ -265,11 +265,11 @@ export default function DisplayPage() {
               <ul className="space-y-3 text-foreground/70">
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Falcon Player (FPP)</strong> - Running on dedicated hardware</span>
+                  <span><strong>xSchedule</strong> - xLights native scheduler and player</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Scheduled Playlists</strong> - Automated show times</span>
+                  <span><strong>Remote Falcon</strong> - Viewers can request songs from their phone</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
