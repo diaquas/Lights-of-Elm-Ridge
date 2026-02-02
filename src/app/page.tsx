@@ -1,9 +1,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { sequences } from '@/data/sequences';
+import { sequences, getThumbnailUrl } from '@/data/sequences';
 
 // Get featured sequences from the main catalog
 const featuredSequences = sequences.slice(0, 3);
+
+// Helper to get best available image for a sequence
+function getSequenceImage(sequence: typeof sequences[0]): string {
+  return sequence.artworkUrl || getThumbnailUrl(sequence.youtubeId) || '/logo.jpg';
+}
 
 export default function Home() {
   return (
@@ -189,9 +194,16 @@ export default function Home() {
                 href={`/sequences/${sequence.slug}`}
                 className="bg-surface-light rounded-xl overflow-hidden card-hover border border-border block group"
               >
-                {/* Thumbnail placeholder */}
-                <div className="aspect-video bg-gradient-to-br from-accent/10 to-surface-light flex items-center justify-center relative">
-                  <span className="text-6xl">{sequence.category === 'Halloween' ? '🎃' : '🎄'}</span>
+                {/* Thumbnail */}
+                <div className="aspect-video relative overflow-hidden">
+                  <Image
+                    src={getSequenceImage(sequence)}
+                    alt={`${sequence.title} by ${sequence.artist}`}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                    unoptimized
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                   <div className="absolute top-3 left-3">
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-black/50 text-white backdrop-blur">
                       {sequence.category}

@@ -309,6 +309,7 @@ export const songlist: Song[] = [
     yearAdded: 2025,
     youtubeId: null,
     vendorUrl: "https://xlightsseq.com/sequences/hocus-pocus-i-put-a-spell-on-you.1237/",
+    imageUrl: "https://i1.sndcdn.com/artworks-000132741370-6p7k3s-t500x500.jpg",
   },
   {
     id: 24,
@@ -394,6 +395,7 @@ export const songlist: Song[] = [
     yearAdded: 2026,
     youtubeId: null,
     vendorUrl: "https://visionarylightshows.com/products/free-halloween-horror-lights-2024",
+    imageUrl: "https://storage.buzzsprout.com/variants/pm7osszppie3mtk2pjl9kmrq0x4q/60854458c4d1acdf4e1c2f79c4137142d85d78e379bdafbd69bd34c85f5819ad.jpg",
   },
   {
     id: 31,
