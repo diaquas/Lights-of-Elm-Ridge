@@ -5,6 +5,7 @@ import Link from "next/link";
 import SequenceCardOverlay from "./SequenceCardOverlay";
 import ColorChips from "./ColorChips";
 import type { Sequence } from "@/data/sequences";
+import { getMockupVideoId } from "@/data/youtube-loader";
 
 interface SequenceTabsProps {
   halloweenSequences: Sequence[];
@@ -16,14 +17,18 @@ type DifficultyFilter = "all" | "Beginner" | "Intermediate" | "Advanced";
 type PriceFilter = "all" | "free" | "paid";
 
 function SequenceCard({ sequence }: { sequence: Sequence }) {
-  // Priority: thumbnailUrl > YouTube thumbnail
+  // Check for mockup video from YouTube playlist (dynamic) or sequence data (static)
+  const mockupVideoId = getMockupVideoId(sequence.slug);
+  const hasVideo = !!mockupVideoId || !!sequence.youtubeId;
+
+  // Priority for thumbnail: custom > mockup from YouTube > hardcoded youtubeId
   const thumbnailUrl =
     sequence.thumbnailUrl ||
-    (sequence.youtubeId
-      ? `https://img.youtube.com/vi/${sequence.youtubeId}/maxresdefault.jpg`
-      : undefined);
-
-  const hasVideo = !!sequence.youtubeId;
+    (mockupVideoId
+      ? `https://img.youtube.com/vi/${mockupVideoId}/maxresdefault.jpg`
+      : sequence.youtubeId
+        ? `https://img.youtube.com/vi/${sequence.youtubeId}/maxresdefault.jpg`
+        : undefined);
 
   return (
     <Link
