@@ -32,6 +32,7 @@ export default function CartPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             ...(session?.access_token && {
               Authorization: `Bearer ${session.access_token}`,
             }),
