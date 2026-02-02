@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,13 @@ export default function LoginPage() {
     setMessage(null);
 
     try {
-      if (isLogin) {
+      if (isForgotPassword) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        });
+        if (error) throw error;
+        setMessage("Check your email for a password reset link!");
+      } else if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -77,12 +84,18 @@ export default function LoginPage() {
             </span>
           </Link>
           <h1 className="text-3xl font-bold mb-2">
-            {isLogin ? "Welcome back" : "Create an account"}
+            {isForgotPassword
+              ? "Reset your password"
+              : isLogin
+                ? "Welcome back"
+                : "Create an account"}
           </h1>
           <p className="text-foreground/60">
-            {isLogin
-              ? "Sign in to access your purchased sequences"
-              : "Sign up to purchase and download sequences"}
+            {isForgotPassword
+              ? "Enter your email and we'll send you a reset link"
+              : isLogin
+                ? "Sign in to access your purchased sequences"
+                : "Sign up to purchase and download sequences"}
           </p>
         </div>
 
@@ -107,24 +120,39 @@ export default function LoginPage() {
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-foreground"
-                placeholder="••••••••"
-              />
-            </div>
+            {!isForgotPassword && (
+              <div>
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full px-4 py-3 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent text-foreground"
+                  placeholder="••••••••"
+                />
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsForgotPassword(true);
+                      setError(null);
+                      setMessage(null);
+                    }}
+                    className="mt-2 text-sm text-accent hover:text-accent-secondary"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
+            )}
 
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
@@ -166,6 +194,8 @@ export default function LoginPage() {
                   </svg>
                   Processing...
                 </span>
+              ) : isForgotPassword ? (
+                "Send Reset Link"
               ) : isLogin ? (
                 "Sign In"
               ) : (
@@ -176,21 +206,36 @@ export default function LoginPage() {
 
           {/* Toggle */}
           <div className="mt-6 text-center text-sm">
-            <span className="text-foreground/60">
-              {isLogin
-                ? "Don't have an account? "
-                : "Already have an account? "}
-            </span>
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError(null);
-                setMessage(null);
-              }}
-              className="text-accent hover:text-accent-secondary font-medium"
-            >
-              {isLogin ? "Sign up" : "Sign in"}
-            </button>
+            {isForgotPassword ? (
+              <button
+                onClick={() => {
+                  setIsForgotPassword(false);
+                  setError(null);
+                  setMessage(null);
+                }}
+                className="text-accent hover:text-accent-secondary font-medium"
+              >
+                Back to sign in
+              </button>
+            ) : (
+              <>
+                <span className="text-foreground/60">
+                  {isLogin
+                    ? "Don't have an account? "
+                    : "Already have an account? "}
+                </span>
+                <button
+                  onClick={() => {
+                    setIsLogin(!isLogin);
+                    setError(null);
+                    setMessage(null);
+                  }}
+                  className="text-accent hover:text-accent-secondary font-medium"
+                >
+                  {isLogin ? "Sign up" : "Sign in"}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
