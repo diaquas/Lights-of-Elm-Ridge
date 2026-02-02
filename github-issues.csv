@@ -230,3 +230,156 @@ Affected: IDs 7, 9, 12, 15, 16, 18, 19, 20, 25, 27, 29, 30, 32, 33, 34, 35
 - Add sharing buttons on sequences
 - Instagram shoppable posts
 - YouTube Shorts for clips","low-priority,feature"
+"[Feature] Shopping List Wizard","**Description**
+Build an interactive shopping list builder that helps users create custom shopping lists based on their experience level, budget, and display goals.
+
+**User Flow**
+1. User takes a quick survey (experience level, budget range, display size goals, location)
+2. System recommends specific products with quantities
+3. User can customize/adjust recommendations
+4. Export shopping list (printable, shareable link)
+
+**Key Features**
+- Beginner/Intermediate/Advanced packages
+- Budget calculator with running total
+- Prop suggestions based on yard size
+- Quantity estimator based on display goals
+- Vendor comparison for same products
+- Seasonal recommendations (Halloween vs Christmas starter kits)
+
+**Technical Considerations**
+- Could use local storage to save progress
+- Consider affiliate links for revenue
+- Mobile-friendly interface essential","enhancement,feature,v2.0"
+"[UI] Gear Page - Product card hierarchy","**Current State**
+Product cards treat all information (name, qty, vendor, pixels, note) with equal visual weight.
+
+**Proposed Changes**
+- Make product name larger/bolder (text-lg)
+- Move quantity badge next to title for prominence
+- Add pixel count in accent color with mono font
+- Reduce note text size (text-xs) as tertiary info
+
+**Priority:** High | **Effort:** Medium
+**Files:** src/app/gear/page.tsx","enhancement,ux,v1.1"
+"[UI] Gear Page - Reposition vendor quick links","**Current State**
+Vendor quick links section floats between header and product categories.
+
+**Options**
+1. Move to sidebar (desktop) / collapsible section (mobile)
+2. Move to page footer
+3. Make collapsible below stats bar
+
+**Priority:** Medium | **Effort:** Low
+**Files:** src/app/gear/page.tsx","enhancement,ux,v1.1"
+"[UI] Homepage - Responsive section spacing","**Current State**
+Sections use fixed py-24 spacing which can feel excessive on mobile.
+
+**Proposed Changes**
+Change from py-24 to py-16 md:py-24 throughout homepage.
+
+**Priority:** Medium | **Effort:** Low
+**Files:** src/app/page.tsx","enhancement,ux,v1.1"
+"[UI] Playlist - Mobile tab responsiveness","**Current State**
+Tabs have min-w-[280px] which can overflow on small screens.
+
+**Proposed Changes**
+- Use px-2 sm:px-4 md:px-6 for responsive padding
+- Show abbreviated text on mobile (emoji + count)
+- Consider stacking tabs vertically on xs screens
+
+**Priority:** Medium | **Effort:** Medium
+**Files:** src/components/PlaylistTabs.tsx","enhancement,ux,mobile,v1.1"
+"[UI] Playlist - Song card structure","**Current State**
+On small screens, card elements feel disconnected.
+
+**Proposed Changes**
+- Add subtle divider between title and vendor sections
+- Move color chips to right side of title row
+- Improve spacing rhythm
+
+**Priority:** Medium | **Effort:** Medium
+**Files:** src/components/PlaylistTabs.tsx","enhancement,ux,v1.1"
+"[UI] Sequences - Better filter feedback","**Current State**
+Filter toggle doesn't indicate when filters are active.
+
+**Proposed Changes**
+- Show Clear Active Filters button when filters applied
+- Add visual indicator showing active filter count
+- Better color distinction for active state
+
+**Priority:** Medium | **Effort:** Low
+**Files:** src/components/SequenceTabs.tsx","enhancement,ux,v1.1"
+"[UI] Sequences - Props/models info section styling","**Current State**
+Two-column grid with bullet lists lacks visual interest.
+
+**Proposed Changes**
+- Add subtle card/container styling
+- Include small icons next to section headers
+- Match visual style of other page sections
+
+**Priority:** Medium | **Effort:** Low
+**Files:** src/app/sequences/page.tsx","enhancement,ux,v1.1"
+"[UI] Display Page - Stats grid hierarchy","**Current State**
+All 6 stat cards have equal visual weight.
+
+**Proposed Changes**
+- Make Total Pixels card larger (col-span-2)
+- Add accent border to primary stats
+- Vary font sizes based on importance
+
+**Priority:** Medium | **Effort:** Low
+**Files:** src/app/display/page.tsx","enhancement,ux,v1.1"
+"[UI] Display Page - Mobile props table","**Current State**
+Props table hides description on mobile, losing context.
+
+**Proposed Changes**
+- Convert to card layout on mobile
+- Each card shows: name, pixel count, description
+- Keep table for desktop
+
+**Priority:** Medium | **Effort:** Medium
+**Files:** src/app/display/page.tsx","enhancement,ux,mobile,v1.1"
+"[UI] Display Page - Spinner card consistency","**Current State**
+Total spinner card has different gradient, breaking consistency.
+
+**Proposed Changes**
+- Make all spinner cards uniform style
+- Total card spans full width instead
+
+**Priority:** Low | **Effort:** Low
+**Files:** src/app/display/page.tsx","enhancement,ux,v1.2"
+"[UI] Global - Responsive spacing audit","**Current State**
+Sections use fixed spacing that may feel excessive on mobile.
+
+**Proposed Changes**
+- Audit all section margins/padding
+- Apply responsive pattern: mb-8 md:mb-12
+- Test on various screen sizes
+
+**Priority:** Medium | **Effort:** Low
+**Files:** Multiple pages","enhancement,ux,v1.1"
+"[UI] Global - Standardize card patterns","**Current State**
+Multiple card patterns with slight inconsistencies.
+
+**Proposed Changes**
+- Create shared base card styles
+- Standardize: border-radius, padding, hover states
+- Document card variants
+
+**Priority:** Low | **Effort:** Medium
+**Files:** Multiple components","enhancement,ux,v1.2"
+"[Feature] Gear Page - Prop image comparison","**Description**
+Add visual comparison showing xLights model renders alongside real product photos.
+
+**Requirements**
+- Export individual prop images from xLights
+- Pair with vendor product photos
+- Side-by-side or overlay comparison
+
+**Technical Approach**
+- Store prop images in /public/props/
+- Add xlightsImage field to product data
+- Create comparison card component
+
+**Blocked by:** Need xLights model exports","enhancement,feature,v2.0"

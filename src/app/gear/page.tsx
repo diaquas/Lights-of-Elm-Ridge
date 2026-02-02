@@ -292,19 +292,21 @@ export default function GearPage() {
 
         {/* Product Categories */}
         {gearCategories.map((category) => (
-          <section key={category.name} className="mb-12">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">{category.icon}</span>
-              <div>
-                <h2 className="text-2xl font-bold">{category.name}</h2>
-                <p className="text-foreground/60 text-sm">{category.description}</p>
+          <section key={category.name} className="mb-8 md:mb-12">
+            <div className="bg-surface/50 border border-border rounded-2xl p-4 md:p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-3xl">{category.icon}</span>
+                <div>
+                  <h2 className="text-xl md:text-2xl font-bold">{category.name}</h2>
+                  <p className="text-foreground/60 text-sm">{category.description}</p>
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {category.products.map((product) => (
-                <ProductCard key={product.name} product={product} />
-              ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {category.products.map((product) => (
+                  <ProductCard key={product.name} product={product} />
+                ))}
+              </div>
             </div>
           </section>
         ))}
