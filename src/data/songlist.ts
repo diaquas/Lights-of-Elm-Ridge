@@ -133,7 +133,7 @@ export const songlist: Song[] = [
     yearAdded: 2025,
     youtubeId: null,
     vendorUrl: "https://xlightsseq.com/sequences/monster-mash.271/",
-    imageUrl: "https://i.ytimg.com/vi/AKcz2k3GQEU/maxresdefault.jpg",
+    imageUrl: "https://i.ytimg.com/vi/12Sg9efb0hc/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLCpGCGpL3FTvD-ZUk7Pn-_LrrW08g",
   },
   {
     id: 10,
