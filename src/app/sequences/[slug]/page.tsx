@@ -221,9 +221,6 @@ export default async function SequencePage({ params }: PageProps) {
             <div>
               {/* Header */}
               <div className="mb-6">
-                <p className="text-accent text-sm font-medium mb-2">
-                  Light of Elm Ridge
-                </p>
                 <h1 className="text-3xl md:text-4xl font-bold mb-2">
                   {sequence.title} - {sequence.artist}
                 </h1>
