@@ -221,3 +221,20 @@ Set these in GitHub → Settings → Secrets → Actions:
 
 - **Cloudflare Workers** - Signed URL generation for paid downloads
 - **Analytics** - Google Analytics or Plausible
+
+---
+
+## Backlog
+
+### Email Templates
+
+- [ ] Design branded email template (logo, colors, footer)
+- [ ] Update Supabase email templates (confirmation, password reset)
+- [ ] Create purchase receipt email template (for Stripe integration)
+
+### E-commerce
+
+- [ ] Shopping cart functionality
+- [ ] Stripe Checkout integration
+- [ ] Purchase history in user account
+- [ ] Signed URLs for paid downloads
