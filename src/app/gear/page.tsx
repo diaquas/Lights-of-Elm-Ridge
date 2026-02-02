@@ -74,7 +74,7 @@ const gearCategories: Category[] = [
       { name: 'GE Rosa Tombstones', vendor: 'gilbertEng', note: '485 pixels - animated tombstones', url: 'https://gilbertengineeringusa.com/products/impression-ge-rosa-tomb', qty: 4, pixels: 485 },
       { name: 'Mini Tombstones', vendor: 'efl', note: 'RIP tombstones', url: 'https://efl-designs.com/product/tombstone-rip/', qty: 6 },
       { name: 'Mini Pumpkins', vendor: 'holidayCoro', note: 'Jack-o-lantern faces', url: 'https://www.holidaycoro.com', qty: 8 },
-      { name: 'Singing Pumpkin', vendor: 'gilbertEng', note: 'Animated face prop', url: 'https://gilbertengineeringusa.com', qty: 1 },
+      { name: 'Singing Pumpkin', vendor: 'holidayCoro', note: 'Animated face prop', url: 'https://www.holidaycoro.com/RGB-Singing-Pumpkin-Face-p/17rgb.htm', qty: 1 },
     ],
   },
   {

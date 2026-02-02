@@ -5,9 +5,9 @@ import { sequences, getThumbnailUrl } from '@/data/sequences';
 // Get featured sequences from the main catalog
 const featuredSequences = sequences.slice(0, 3);
 
-// Helper to get best available image for a sequence
+// Helper to get best available image for a sequence (prefer wider thumbnailUrl for cards)
 function getSequenceImage(sequence: typeof sequences[0]): string {
-  return sequence.artworkUrl || getThumbnailUrl(sequence.youtubeId) || '/logo.jpg';
+  return sequence.thumbnailUrl || getThumbnailUrl(sequence.youtubeId) || sequence.artworkUrl || '/logo.jpg';
 }
 
 export default function Home() {

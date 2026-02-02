@@ -21,10 +21,12 @@ function SongCard({ song }: { song: Song }) {
   const isExternal = !song.isOriginal && song.vendorUrl;
   const hasLink = (song.isOriginal && song.sequenceSlug) || song.vendorUrl;
 
-  // Get thumbnail: YouTube, imageUrl, or Coming Soon
-  const thumbnailUrl = song.youtubeId
-    ? `https://img.youtube.com/vi/${song.youtubeId}/mqdefault.jpg`
-    : song.imageUrl || null;
+  // Get thumbnail: prefer imageUrl, fallback to YouTube, or Coming Soon
+  const thumbnailUrl = song.imageUrl
+    ? song.imageUrl
+    : song.youtubeId
+      ? `https://img.youtube.com/vi/${song.youtubeId}/mqdefault.jpg`
+      : null;
 
   // Fallback colors based on category
   const defaultColors = song.category === 'Halloween'
