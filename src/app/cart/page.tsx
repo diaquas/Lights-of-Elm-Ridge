@@ -21,10 +21,23 @@ export default function CartPage() {
         throw new Error("Failed to initialize authentication");
       }
 
-      // Get the current session for auth header
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // Validate the session by checking with Supabase
+      // getUser() validates the token server-side, unlike getSession()
+      let accessToken: string | null = null;
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+        if (user && !error) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          accessToken = session?.access_token || null;
+        }
+      } catch {
+        // Session invalid, continue as anonymous
+      }
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-checkout-session`,
@@ -33,8 +46,8 @@ export default function CartPage() {
           headers: {
             "Content-Type": "application/json",
             apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            ...(session?.access_token && {
-              Authorization: `Bearer ${session.access_token}`,
+            ...(accessToken && {
+              Authorization: `Bearer ${accessToken}`,
             }),
           },
           body: JSON.stringify({
