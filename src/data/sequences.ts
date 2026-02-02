@@ -44,8 +44,10 @@ export const sequences: Sequence[] = [
     category: "Halloween",
     duration: "3:45",
     difficulty: "Intermediate",
-    description: "Fresh from the new season of Wednesday on Netflix. This sequence inter-splices the official music video with that infamous dance scene.",
-    thumbnailUrl: "https://dnm.nflximg.net/api/v6/BvVbc2Wxr2w6QuoANoSpJKEIWjQ/AAAAQb1nIHsPT0lHqj8fy8LB3N7DSFxlwx1l0RMqTPfXxaYldolxKAiU6BhNFkp-timlr6cZlHIU30ZileeOTu9k_f4AGPAFcTcdSRqVv49ZEpqu9qVa4BVoHv8lSArgujqBqr67DE9L8XQXm1oZja1NnDuKL7A.jpg?r=74a",
+    description:
+      "Fresh from the new season of Wednesday on Netflix. This sequence inter-splices the official music video with that infamous dance scene.",
+    thumbnailUrl:
+      "https://dnm.nflximg.net/api/v6/BvVbc2Wxr2w6QuoANoSpJKEIWjQ/AAAAQb1nIHsPT0lHqj8fy8LB3N7DSFxlwx1l0RMqTPfXxaYldolxKAiU6BhNFkp-timlr6cZlHIU30ZileeOTu9k_f4AGPAFcTcdSRqVv49ZEpqu9qVa4BVoHv8lSArgujqBqr67DE9L8XQXm1oZja1NnDuKL7A.jpg?r=74a",
     longDescription: `Fresh from the new season of Wednesday on Netflix, this sequence brings that iconic dance scene to your display.
 
 The sequence inter-splices the official music video with that infamous dance scene, creating a dynamic visual experience that your neighbors won't forget. Your display will be serving serious Addams Family energy all season long.
@@ -61,10 +63,21 @@ This is one of our most requested sequences for Halloween 2025. The combination 
     tags: ["Halloween", "Pop", "Netflix", "Wednesday", "2025"],
     propCount: 35,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/the-dead-dance-lady-gaga.1404/",
-    youtubeId: "eyXwPMxZ7-E",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/the-dead-dance-lady-gaga.1404/",
+    youtubeId: null, // Cleared - was live show video, waiting for mockup
     artworkUrl: "https://f4.bcbits.com/img/a2725628149_16.jpg",
-    models: ["Matrix (70x100)", "Singing Pumpkin", "Mini Fireworks", "Showstopper Spinners", "Spiders", "Bats", "Tombstones", "Pixel Forest", "Arches"],
+    models: [
+      "Matrix (70x100)",
+      "Singing Pumpkin",
+      "Mini Fireworks",
+      "Showstopper Spinners",
+      "Spiders",
+      "Bats",
+      "Tombstones",
+      "Pixel Forest",
+      "Arches",
+    ],
     xlightsVersion: "2024.20+",
     audioSource: "iTunes, Amazon Music, Spotify (download required)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -81,8 +94,10 @@ This is one of our most requested sequences for Halloween 2025. The combination 
     category: "Halloween",
     duration: "3:32",
     difficulty: "Intermediate",
-    description: "Vibrant colors and dynamic patterns bring the emotional journey of this song to life. A moody, atmospheric sequence.",
-    thumbnailUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSJf4DHmpIEBej2eVCg7LPtvdqr783dTriHnQ&s",
+    description:
+      "Vibrant colors and dynamic patterns bring the emotional journey of this song to life. A moody, atmospheric sequence.",
+    thumbnailUrl:
+      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSJf4DHmpIEBej2eVCg7LPtvdqr783dTriHnQ&s",
     longDescription: `A moody, atmospheric sequence that proves Halloween doesn't always have to be jump scares and monster mashes.
 
 Livingston's "Shadow" is an emotional journey, and this sequence captures every beat. Vibrant colors shift and flow with the music, creating an immersive experience that draws viewers in rather than startling them.
@@ -99,9 +114,18 @@ This sequence works beautifully as a "breather" in your show loop, giving viewer
     propCount: 35,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/shadow-livingston.1242/",
-    youtubeId: "GY7YOffoC_0",
-    artworkUrl: "https://i.scdn.co/image/ab67616d0000b2738ee96fdeb846e7d1b041a35f",
-    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Fuzion Spinner", "Pixel Forest", "Arches"],
+    youtubeId: null, // Cleared - was live show video, waiting for mockup
+    artworkUrl:
+      "https://i.scdn.co/image/ab67616d0000b2738ee96fdeb846e7d1b041a35f",
+    models: [
+      "Matrix (70x100)",
+      "Singing Pumpkin",
+      "Fireworks",
+      "Showstopper Spinners",
+      "Fuzion Spinner",
+      "Pixel Forest",
+      "Arches",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -118,8 +142,10 @@ This sequence works beautifully as a "breather" in your show loop, giving viewer
     category: "Halloween",
     duration: "3:45",
     difficulty: "Intermediate",
-    description: "Lady Gaga's latest Halloween anthem brought to life in pixels. Magic, mystery, and a whole lot of sparkle.",
-    thumbnailUrl: "https://static0.srcdn.com/wordpress/wp-content/uploads/2025/02/lady-gaga-dressed-in-white-in-the-abracadabra-mv.jpg?w=1600&h=1200&fit=crop",
+    description:
+      "Lady Gaga's latest Halloween anthem brought to life in pixels. Magic, mystery, and a whole lot of sparkle.",
+    thumbnailUrl:
+      "https://static0.srcdn.com/wordpress/wp-content/uploads/2025/02/lady-gaga-dressed-in-white-in-the-abracadabra-mv.jpg?w=1600&h=1200&fit=crop",
     longDescription: `Lady Gaga's "Abracadabra" is pure Halloween magic, and this sequence delivers all the sparkle and mystery you'd expect.
 
 This isn't the Steve Miller Band classic—this is Gaga doing what Gaga does best: taking a concept and running with it. The sequence leans into the theatrical nature of the song with dramatic lighting changes, magical sparkle effects, and plenty of surprises.
@@ -135,10 +161,19 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
     tags: ["Halloween", "Pop", "Magic", "Theatrical", "2025"],
     propCount: 35,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/abracadabra-lady-gaga.1233/",
-    youtubeId: "U_h451HtYt4",
-    artworkUrl: "https://borderlinemusic.com/cdn/shop/files/ABRACADABRAcopy_grande.jpg?v=1749866043",
-    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Spiders", "Bats"],
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/abracadabra-lady-gaga.1233/",
+    youtubeId: null, // Cleared - was live show video, waiting for mockup
+    artworkUrl:
+      "https://borderlinemusic.com/cdn/shop/files/ABRACADABRAcopy_grande.jpg?v=1749866043",
+    models: [
+      "Matrix (70x100)",
+      "Singing Pumpkin",
+      "Fireworks",
+      "Showstopper Spinners",
+      "Spiders",
+      "Bats",
+    ],
     xlightsVersion: "2024.20+",
     audioSource: "iTunes, Amazon Music, Spotify (download required)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -155,7 +190,8 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
     category: "Halloween",
     duration: "3:31",
     difficulty: "Intermediate",
-    description: "EDM meets the darkness. Heavy bass drops and atmospheric builds create an immersive Halloween experience.",
+    description:
+      "EDM meets the darkness. Heavy bass drops and atmospheric builds create an immersive Halloween experience.",
     thumbnailUrl: "https://i.ytimg.com/vi/EiOB_sSSXQs/maxresdefault.jpg",
     longDescription: `Neoni's dark, cinematic style meets Halloween in this bass-heavy sequence that'll have your neighbors feeling the beat.
 
@@ -173,9 +209,16 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     propCount: 35,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/darkside-by-neoni.1338/",
-    youtubeId: "2cfsWcecOlU",
-    artworkUrl: "https://i1.sndcdn.com/artworks-0mT77eZFtmNZcS4e-F6Ds8Q-t500x500.jpg",
-    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Pixel Forest"],
+    youtubeId: null, // Cleared - was live show video, waiting for mockup
+    artworkUrl:
+      "https://i1.sndcdn.com/artworks-0mT77eZFtmNZcS4e-F6Ds8Q-t500x500.jpg",
+    models: [
+      "Matrix (70x100)",
+      "Singing Pumpkin",
+      "Fireworks",
+      "Showstopper Spinners",
+      "Pixel Forest",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -192,8 +235,10 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     category: "Halloween",
     duration: "3:18",
     difficulty: "Beginner",
-    description: "The Nightmare Before Christmas classic that started it all. Perfect for Halloween newbies or anyone who believes in the Pumpkin King.",
-    thumbnailUrl: "https://pixelperfectsequences.com/cdn/shop/products/ThisIsHalloween_1200x1200.jpg?v=1624218681",
+    description:
+      "The Nightmare Before Christmas classic that started it all. Perfect for Halloween newbies or anyone who believes in the Pumpkin King.",
+    thumbnailUrl:
+      "https://pixelperfectsequences.com/cdn/shop/products/ThisIsHalloween_1200x1200.jpg?v=1624218681",
     longDescription: `The OG. The classic. The song that every Halloween display needs in their rotation.
 
 Danny Elfman's "This Is Halloween" from The Nightmare Before Christmas is practically required listening for any Halloween light show. This sequence embraces the chaotic, carnival-like energy of the song with effects that match each character's verse.
@@ -211,8 +256,16 @@ This is a great sequence for newer displayers or anyone building up their Hallow
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/this-is-halloween.1175/",
     youtubeId: "i5t1SF07ePQ",
-    artworkUrl: "https://i.scdn.co/image/ab67616d0000b2737073748b25a091da2589a6df",
-    models: ["Matrix", "Singing Pumpkin", "Mini Pumpkins", "Pixel Poles", "Tombstones", "Spiders"],
+    artworkUrl:
+      "https://i.scdn.co/image/ab67616d0000b2737073748b25a091da2589a6df",
+    models: [
+      "Matrix",
+      "Singing Pumpkin",
+      "Mini Pumpkins",
+      "Pixel Poles",
+      "Tombstones",
+      "Spiders",
+    ],
     xlightsVersion: "2024.10+",
     audioSource: "iTunes, Amazon Music (Nightmare Before Christmas Soundtrack)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -229,7 +282,8 @@ This is a great sequence for newer displayers or anyone building up their Hallow
     category: "Halloween",
     duration: "3:15",
     difficulty: "Intermediate",
-    description: "Subtle circus and carnival vibes throughout. You might recognize this from American Horror Story: Freak Show promos.",
+    description:
+      "Subtle circus and carnival vibes throughout. You might recognize this from American Horror Story: Freak Show promos.",
     thumbnailUrl: "/carouselmain.png",
     longDescription: `Melanie Martinez's "Carousel" is the perfect blend of creepy and cute—exactly the vibe that made it iconic in American Horror Story: Freak Show promos.
 
@@ -246,10 +300,19 @@ The creepy-cute aesthetic is having a moment, and this sequence delivers. Fans o
     tags: ["Halloween", "Indie Pop", "Creepy Cute", "AHS", "Carnival"],
     propCount: 32,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/carousel-melanie-martinez.1185/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/carousel-melanie-martinez.1185/",
     youtubeId: null,
-    artworkUrl: "https://pics.filmaffinity.com/melanie_martinez_carousel-257475453-large.jpg",
-    models: ["Matrix", "Mini Fireworks", "Showstopper Spinners", "Pixel Poles", "Spiders", "Bats"],
+    artworkUrl:
+      "https://pics.filmaffinity.com/melanie_martinez_carousel-257475453-large.jpg",
+    models: [
+      "Matrix",
+      "Mini Fireworks",
+      "Showstopper Spinners",
+      "Pixel Poles",
+      "Spiders",
+      "Bats",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (Cry Baby album)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -266,8 +329,10 @@ The creepy-cute aesthetic is having a moment, and this sequence delivers. Fans o
     category: "Halloween",
     duration: "3:22",
     difficulty: "Intermediate",
-    description: "The haunting cover from The Umbrella Academy that turned a pop classic into something beautifully eerie.",
-    thumbnailUrl: "https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31",
+    description:
+      "The haunting cover from The Umbrella Academy that turned a pop classic into something beautifully eerie.",
+    thumbnailUrl:
+      "https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31",
     longDescription: `Hidden Citizens took Tiffany's 80s pop hit and transformed it into something hauntingly beautiful. If you watched The Umbrella Academy, you know exactly why this song gives you chills.
 
 This sequence captures that apocalyptic dance party energy—the calm before the storm, the beauty in the ending. It's melancholy and powerful in equal measure.
@@ -285,8 +350,16 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     hasMatrix: true,
     xlightsSeqUrl: "",
     youtubeId: null,
-    artworkUrl: "https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31",
-    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Pixel Forest", "Arches", "Floods"],
+    artworkUrl:
+      "https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31",
+    models: [
+      "Matrix (70x100)",
+      "Singing Pumpkin",
+      "Fireworks",
+      "Pixel Forest",
+      "Arches",
+      "Floods",
+    ],
     xlightsVersion: "2024.20+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -303,7 +376,8 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     category: "Halloween",
     duration: "2:24",
     difficulty: "Beginner",
-    description: "The internet's favorite Halloween meme song. Perfect for family-friendly displays that still want to get spooky.",
+    description:
+      "The internet's favorite Halloween meme song. Perfect for family-friendly displays that still want to get spooky.",
     thumbnailUrl: "/spookymain.png",
     longDescription: `You know this song. Your kids know this song. The internet definitely knows this song. "Spooky Scary Skeletons" became a Halloween meme legend, and now it can be part of your display.
 
@@ -320,10 +394,18 @@ This one's on the house. Every display needs a song that makes the kids dance.`,
     tags: ["Halloween", "Meme", "Family Friendly", "Classic", "FREE"],
     propCount: 25,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/spooky-scary-skeletons-remix.1212/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/spooky-scary-skeletons-remix.1212/",
     youtubeId: null,
-    artworkUrl: "https://i.scdn.co/image/ab67616d0000b273d9eba2e53b04616ae637ab38",
-    models: ["Matrix", "Singing Pumpkin", "Mini Pumpkins", "Pixel Poles", "Tombstones"],
+    artworkUrl:
+      "https://i.scdn.co/image/ab67616d0000b273d9eba2e53b04616ae637ab38",
+    models: [
+      "Matrix",
+      "Singing Pumpkin",
+      "Mini Pumpkins",
+      "Pixel Poles",
+      "Tombstones",
+    ],
     xlightsVersion: "2024.10+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -340,7 +422,8 @@ This one's on the house. Every display needs a song that makes the kids dance.`,
     category: "Halloween",
     duration: "3:08",
     difficulty: "Intermediate",
-    description: "The dubstep remix that makes the classic Halloween tune drop harder than ever. Purple everything.",
+    description:
+      "The dubstep remix that makes the classic Halloween tune drop harder than ever. Purple everything.",
     thumbnailUrl: "https://i.ytimg.com/vi/AKkKeNtYMTo/sddefault.jpg",
     longDescription: `The Pegboard Nerds took a novelty song from 1958 and turned it into a bass-dropping monster. This remix slaps, and this sequence makes sure your display slaps right along with it.
 
@@ -359,8 +442,15 @@ When the drop hits, your whole display explodes. Your neighbors will feel it.`,
     hasMatrix: true,
     xlightsSeqUrl: "",
     youtubeId: null,
-    artworkUrl: "https://i1.sndcdn.com/artworks-000377765997-jmtgu9-t500x500.jpg",
-    models: ["Matrix (70x100)", "Fireworks", "Showstopper Spinners", "Pixel Forest", "Arches"],
+    artworkUrl:
+      "https://i1.sndcdn.com/artworks-000377765997-jmtgu9-t500x500.jpg",
+    models: [
+      "Matrix (70x100)",
+      "Fireworks",
+      "Showstopper Spinners",
+      "Pixel Forest",
+      "Arches",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music, Spotify",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -377,7 +467,8 @@ When the drop hits, your whole display explodes. Your neighbors will feel it.`,
     category: "Halloween",
     duration: "3:52",
     difficulty: "Intermediate",
-    description: "Alien vibes and otherworldly effects. This pop hit translates perfectly to a Halloween display with its extraterrestrial energy.",
+    description:
+      "Alien vibes and otherworldly effects. This pop hit translates perfectly to a Halloween display with its extraterrestrial energy.",
     thumbnailUrl: "https://i.ytimg.com/vi/18oYGsmUprM/sddefault.jpg",
     longDescription: `Katy Perry's "E.T." is already halfway to being a Halloween song—all those alien references and otherworldly imagery? Perfect for October.
 
@@ -396,8 +487,15 @@ This sequence leans into the sci-fi/horror crossover energy with effects that fe
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/e-t-katy-perry.1180/",
     youtubeId: null,
-    artworkUrl: "https://upload.wikimedia.org/wikipedia/en/9/91/Katy_Perry_ET_cover.png",
-    models: ["Matrix (70x100)", "Fireworks", "Showstopper Spinners", "Pixel Forest", "Floods"],
+    artworkUrl:
+      "https://upload.wikimedia.org/wikipedia/en/9/91/Katy_Perry_ET_cover.png",
+    models: [
+      "Matrix (70x100)",
+      "Fireworks",
+      "Showstopper Spinners",
+      "Pixel Forest",
+      "Floods",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -414,7 +512,8 @@ This sequence leans into the sci-fi/horror crossover energy with effects that fe
     category: "Halloween",
     duration: "2:48",
     difficulty: "Intermediate",
-    description: "The viral sea shanty gets an epic orchestral treatment. Pirates, whales, and dramatic lighting await.",
+    description:
+      "The viral sea shanty gets an epic orchestral treatment. Pirates, whales, and dramatic lighting await.",
     thumbnailUrl: "/wellermanmain.png",
     longDescription: `2WEI's epic orchestral version of the Wellerman sea shanty takes that viral TikTok moment and cranks it up to eleven. This sequence brings pirate energy to your Halloween display.
 
@@ -434,7 +533,14 @@ Yo ho ho, your display's about to get nautical.`,
     xlightsSeqUrl: "",
     youtubeId: null,
     artworkUrl: "https://i1.sndcdn.com/artworks-OUW3z6LmK0TB-0-t500x500.jpg",
-    models: ["Matrix (70x100)", "Fireworks", "Showstopper Spinners", "Pixel Forest", "Arches", "Floods"],
+    models: [
+      "Matrix (70x100)",
+      "Fireworks",
+      "Showstopper Spinners",
+      "Pixel Forest",
+      "Arches",
+      "Floods",
+    ],
     xlightsVersion: "2024.20+",
     audioSource: "iTunes, Amazon Music, Spotify",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -451,8 +557,10 @@ Yo ho ho, your display's about to get nautical.`,
     category: "Halloween",
     duration: "5:58",
     difficulty: "Advanced",
-    description: "The king of Halloween songs gets the remix treatment. Six minutes of iconic zombie energy.",
-    thumbnailUrl: "https://i.ytimg.com/vi/KbmJIq6tGmQ/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDrNHy4BRo1NlIrcZPOldzDujxVvg",
+    description:
+      "The king of Halloween songs gets the remix treatment. Six minutes of iconic zombie energy.",
+    thumbnailUrl:
+      "https://i.ytimg.com/vi/KbmJIq6tGmQ/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLDrNHy4BRo1NlIrcZPOldzDujxVvg",
     longDescription: `You literally cannot have a Halloween display without Thriller. It's the law. (Okay, it's not the law, but it should be.)
 
 This remix version keeps all the iconic elements—Vincent Price's monologue, the zombie groove, the werewolf howl—while adding modern production that makes it feel fresh. The sequence runs nearly six minutes, giving you plenty of time to show off every prop.
@@ -470,7 +578,8 @@ This is a flagship sequence. The length means it's best for dedicated viewing ti
     hasMatrix: true,
     xlightsSeqUrl: "",
     youtubeId: null,
-    artworkUrl: "https://i1.sndcdn.com/artworks-QVRXQthzu6HSkmam-3z0RCw-t500x500.jpg",
+    artworkUrl:
+      "https://i1.sndcdn.com/artworks-QVRXQthzu6HSkmam-3z0RCw-t500x500.jpg",
     models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "All Props"],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (various remix versions available)",
@@ -488,7 +597,8 @@ This is a flagship sequence. The length means it's best for dedicated viewing ti
     category: "Halloween",
     duration: "3:48",
     difficulty: "Intermediate",
-    description: "The 2016 Ghostbusters theme brings modern energy to a classic concept. Who you gonna call?",
+    description:
+      "The 2016 Ghostbusters theme brings modern energy to a classic concept. Who you gonna call?",
     thumbnailUrl: "/gbmain.png",
     longDescription: `Fall Out Boy and Missy Elliott teamed up for the 2016 Ghostbusters reboot, and the result is a high-energy banger that's perfect for Halloween displays.
 
@@ -508,7 +618,13 @@ If there's something strange in your neighborhood, this sequence is who you call
     xlightsSeqUrl: "",
     youtubeId: null,
     artworkUrl: "/gbdet.png",
-    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Showstopper Spinners", "Pixel Forest"],
+    models: [
+      "Matrix (70x100)",
+      "Singing Pumpkin",
+      "Fireworks",
+      "Showstopper Spinners",
+      "Pixel Forest",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (Ghostbusters 2016 Soundtrack)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -525,7 +641,8 @@ If there's something strange in your neighborhood, this sequence is who you call
     category: "Halloween",
     duration: "2:15",
     difficulty: "Beginner",
-    description: "Welcome, foolish mortals. The iconic Disney ride intro brings theme park magic to your driveway.",
+    description:
+      "Welcome, foolish mortals. The iconic Disney ride intro brings theme park magic to your driveway.",
     thumbnailUrl: "https://i.ytimg.com/vi/L2QLjmJsGhQ/maxresdefault.jpg",
     longDescription: `"Welcome, foolish mortals, to the Haunted Mansion..."
 
@@ -542,9 +659,11 @@ Perfect as a show opener or closer. Set the mood before the music really kicks i
     tags: ["Halloween", "Disney", "Theme Park", "Classic", "FREE"],
     propCount: 25,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/haunted-mansion-intro-grim-grinning-ghosts.1181/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/haunted-mansion-intro-grim-grinning-ghosts.1181/",
     youtubeId: null,
-    artworkUrl: "https://i.scdn.co/image/ab67616d0000b273c80b30f3dc50347124492fc3",
+    artworkUrl:
+      "https://i.scdn.co/image/ab67616d0000b273c80b30f3dc50347124492fc3",
     models: ["Matrix", "Floods", "Pixel Forest", "Arches", "House Outlines"],
     xlightsVersion: "2024.10+",
     audioSource: "YouTube (search 'Haunted Mansion Ride Audio')",
@@ -562,8 +681,10 @@ Perfect as a show opener or closer. Set the mood before the music really kicks i
     category: "Halloween",
     duration: "3:45",
     difficulty: "Intermediate",
-    description: "The cello version from Wednesday's viral dance scene. Dark, dramatic, and absolutely iconic.",
-    thumbnailUrl: "https://i.ytimg.com/vi/S523q5PCX6Q/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBG9h6qX4pB479TMYFT1_X2mXDjpg",
+    description:
+      "The cello version from Wednesday's viral dance scene. Dark, dramatic, and absolutely iconic.",
+    thumbnailUrl:
+      "https://i.ytimg.com/vi/S523q5PCX6Q/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLBG9h6qX4pB479TMYFT1_X2mXDjpg",
     longDescription: `When Wednesday Addams picked up that cello and started playing "Paint It Black," the internet lost its collective mind. This sequence captures that exact energy.
 
 The arrangement is dark and dramatic, all strings and intensity. The sequence matches that energy with deep reds, blacks, and sudden bursts of color that feel like Wednesday herself sequenced it.
@@ -581,8 +702,15 @@ Pair this with our Dead Dance sequence for the ultimate Wednesday tribute.`,
     hasMatrix: true,
     xlightsSeqUrl: "",
     youtubeId: null,
-    artworkUrl: "https://i.scdn.co/image/ab67616d0000b273f4c83f635f660ccaf6d06de6",
-    models: ["Matrix (70x100)", "Singing Pumpkin", "Fireworks", "Pixel Forest", "Floods"],
+    artworkUrl:
+      "https://i.scdn.co/image/ab67616d0000b273f4c83f635f660ccaf6d06de6",
+    models: [
+      "Matrix (70x100)",
+      "Singing Pumpkin",
+      "Fireworks",
+      "Pixel Forest",
+      "Floods",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (Wednesday Soundtrack)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -599,8 +727,10 @@ Pair this with our Dead Dance sequence for the ultimate Wednesday tribute.`,
     category: "Halloween",
     duration: "5:34",
     difficulty: "Advanced",
-    description: "The drum fill that changed everything. This sequence builds tension for five minutes, then absolutely explodes.",
-    thumbnailUrl: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjSf3UrSAQfwnaylGcVjyRvdMXp5-qn72SG0GHTvv6kOUzIOhPAastqwB_FaoQlXZLuu_kRc1rfg2yhVF2msc20MaSYqs14Wvc9ibY4tT2e8_AYtZeKvfBVUPhX0ZbDz7lt9rsQ2WynFAM/s633/phil+collins+in+the+air+tonight+deer+main.jpg",
+    description:
+      "The drum fill that changed everything. This sequence builds tension for five minutes, then absolutely explodes.",
+    thumbnailUrl:
+      "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjSf3UrSAQfwnaylGcVjyRvdMXp5-qn72SG0GHTvv6kOUzIOhPAastqwB_FaoQlXZLuu_kRc1rfg2yhVF2msc20MaSYqs14Wvc9ibY4tT2e8_AYtZeKvfBVUPhX0ZbDz7lt9rsQ2WynFAM/s633/phil+collins+in+the+air+tonight+deer+main.jpg",
     longDescription: `You know the drum fill. Everyone knows the drum fill. "In the Air Tonight" is five minutes of tension building to one of the most iconic moments in music history.
 
 This sequence is all about the build. The verses are moody and atmospheric, the tension ratchets up through the bridge, and then... THAT drum fill. When it hits, every single pixel in your display goes absolutely nuclear.
@@ -618,7 +748,8 @@ This sequence is why you bought all those pixels.`,
     hasMatrix: true,
     xlightsSeqUrl: "",
     youtubeId: null,
-    artworkUrl: "https://upload.wikimedia.org/wikipedia/en/4/4f/In_the_Air_Tonight_by_Phil_Collins_handwriting_font.png",
+    artworkUrl:
+      "https://upload.wikimedia.org/wikipedia/en/4/4f/In_the_Air_Tonight_by_Phil_Collins_handwriting_font.png",
     models: ["Matrix (70x100)", "All Props", "Every Single Pixel"],
     xlightsVersion: "2024.20+",
     audioSource: "iTunes, Amazon Music",
@@ -636,8 +767,10 @@ This sequence is why you bought all those pixels.`,
     category: "Halloween",
     duration: "3:42",
     difficulty: "Intermediate",
-    description: "The Stranger Things Season 4 version that brought Journey back to the charts. Synth-heavy and nostalgic.",
-    thumbnailUrl: "https://api.floodmagazine.com/wp-content/uploads/2022/07/Stranger-Things-Poster.jpeg",
+    description:
+      "The Stranger Things Season 4 version that brought Journey back to the charts. Synth-heavy and nostalgic.",
+    thumbnailUrl:
+      "https://api.floodmagazine.com/wp-content/uploads/2022/07/Stranger-Things-Poster.jpeg",
     longDescription: `When Stranger Things Season 4 dropped this synth-heavy remix of Journey's "Separate Ways," it immediately became a Halloween staple. The 80s nostalgia combined with that Upside Down energy? Chef's kiss.
 
 This sequence captures the retro-horror aesthetic of Stranger Things with neon colors, synth-wave patterns, and effects that feel like they're straight out of Hawkins, Indiana.
@@ -653,10 +786,18 @@ The Upside Down never looked so good.`,
     tags: ["Halloween", "80s", "Stranger Things", "Synth", "Nostalgic"],
     propCount: 35,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/separate-ways-stranger-things-version-journey.1161/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/separate-ways-stranger-things-version-journey.1161/",
     youtubeId: null,
-    artworkUrl: "https://i0.wp.com/vividsequences.com/wp-content/uploads/2022/07/Separate-Ways.jpg?fit=500%2C500&ssl=1",
-    models: ["Matrix (70x100)", "Fireworks", "Pixel Forest", "Arches", "Floods"],
+    artworkUrl:
+      "https://i0.wp.com/vividsequences.com/wp-content/uploads/2022/07/Separate-Ways.jpg?fit=500%2C500&ssl=1",
+    models: [
+      "Matrix (70x100)",
+      "Fireworks",
+      "Pixel Forest",
+      "Arches",
+      "Floods",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (Stranger Things Season 4 Soundtrack)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -673,7 +814,8 @@ The Upside Down never looked so good.`,
     category: "Halloween",
     duration: "3:28",
     difficulty: "Intermediate",
-    description: "An epic cinematic cover that transforms a 90s acoustic hit into something powerful and haunting.",
+    description:
+      "An epic cinematic cover that transforms a 90s acoustic hit into something powerful and haunting.",
     thumbnailUrl: "https://i.ytimg.com/vi/SorxwQnuvDc/sddefault.jpg",
     longDescription: `Zayde Wolfe specializes in turning songs into epic trailer music, and "Save Tonight" is one of their best transformations. The original Eagle-Eye Cherry acoustic vibe is replaced with thundering drums and cinematic strings.
 
@@ -692,8 +834,14 @@ Your display becomes the trailer for the greatest Halloween movie never made.`,
     hasMatrix: true,
     xlightsSeqUrl: "",
     youtubeId: null,
-    artworkUrl: "https://i1.sndcdn.com/artworks-000134977235-lqgyeu-t500x500.jpg",
-    models: ["Matrix (70x100)", "Fireworks", "Showstopper Spinners", "All Props"],
+    artworkUrl:
+      "https://i1.sndcdn.com/artworks-000134977235-lqgyeu-t500x500.jpg",
+    models: [
+      "Matrix (70x100)",
+      "Fireworks",
+      "Showstopper Spinners",
+      "All Props",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music, Spotify",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -710,7 +858,8 @@ Your display becomes the trailer for the greatest Halloween movie never made.`,
     category: "Halloween",
     duration: "5:23",
     difficulty: "Advanced",
-    description: "The showstopper from Wicked. Green-skinned witch energy with Broadway power.",
+    description:
+      "The showstopper from Wicked. Green-skinned witch energy with Broadway power.",
     thumbnailUrl: "https://i.ytimg.com/vi/5znZFJWSZ7o/maxresdefault.jpg",
     longDescription: `With the Wicked movie finally here, "Defying Gravity" is having its biggest moment yet. This sequence brings all that Broadway power to your display with effects worthy of the Emerald City.
 
@@ -727,9 +876,11 @@ Unlimited potential for your display.`,
     tags: ["Halloween", "Broadway", "Wicked", "Theatrical", "Epic"],
     propCount: 35,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/defying-gravity-wicked.1207/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/defying-gravity-wicked.1207/",
     youtubeId: null,
-    artworkUrl: "https://magicallightshows.com/cdn/shop/files/Wicked.jpg?v=1759190196",
+    artworkUrl:
+      "https://magicallightshows.com/cdn/shop/files/Wicked.jpg?v=1759190196",
     models: ["Matrix (70x100)", "All Props"],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (Wicked Soundtrack - Original or Movie)",
@@ -747,8 +898,10 @@ Unlimited potential for your display.`,
     category: "Halloween",
     duration: "3:15",
     difficulty: "Intermediate",
-    description: "K-pop meets Halloween horror. This viral hit brings demon-hunting energy to your display.",
-    thumbnailUrl: "https://preview.redd.it/your-idol-is-it-supposed-to-be-like-gwi-ma-singing-v0-wevb0kmkj9hf1.jpg?width=686&format=pjpg&auto=webp&s=86260edbc10644912a08c2cdceb59e65ca59cbfe",
+    description:
+      "K-pop meets Halloween horror. This viral hit brings demon-hunting energy to your display.",
+    thumbnailUrl:
+      "https://preview.redd.it/your-idol-is-it-supposed-to-be-like-gwi-ma-singing-v0-wevb0kmkj9hf1.jpg?width=686&format=pjpg&auto=webp&s=86260edbc10644912a08c2cdceb59e65ca59cbfe",
     longDescription: `Kpop Demon Hunters created something special with "Your Idol"—a track that blends K-pop production with Halloween horror themes. The result is infectious, danceable, and perfectly spooky.
 
 This sequence captures that dual energy with effects that are as polished as a K-pop music video but as creepy as a horror movie. It's the best of both worlds.
@@ -764,10 +917,17 @@ When demon hunters drop a banger, you sequence it.`,
     tags: ["Halloween", "K-pop", "Horror", "Dance", "Viral"],
     propCount: 35,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/kpop-demon-hunters-your-idol.1333/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/kpop-demon-hunters-your-idol.1333/",
     youtubeId: null,
-    artworkUrl: "https://i.scdn.co/image/ab67616d00001e0266529b9bd72768d5c683623f",
-    models: ["Matrix (70x100)", "Fireworks", "Showstopper Spinners", "Pixel Forest"],
+    artworkUrl:
+      "https://i.scdn.co/image/ab67616d00001e0266529b9bd72768d5c683623f",
+    models: [
+      "Matrix (70x100)",
+      "Fireworks",
+      "Showstopper Spinners",
+      "Pixel Forest",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music, Spotify",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -788,7 +948,8 @@ When demon hunters drop a banger, you sequence it.`,
     category: "Christmas",
     duration: "4:12",
     difficulty: "Intermediate",
-    description: "A crowd favorite with crescendos that'll give you chills. The a cappella harmonies translate beautifully to pixels.",
+    description:
+      "A crowd favorite with crescendos that'll give you chills. The a cappella harmonies translate beautifully to pixels.",
     longDescription: `Pentatonix's iconic a cappella arrangement of "Mary Did You Know" is one of the most requested Christmas sequences, and for good reason.
 
 This song builds. It starts quiet and reverent, then layer by layer, voice by voice, it grows into something truly powerful. This sequence follows that journey, starting with subtle, elegant lighting and building to a full-display crescendo that will give you chills.
@@ -804,10 +965,19 @@ This one hits different at 2am when you're testing alone in your driveway. Don't
     tags: ["Christmas", "A Cappella", "Emotional", "Classic", "Powerful"],
     propCount: 35,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/mary-did-you-know-pentatonix.1324/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/mary-did-you-know-pentatonix.1324/",
     youtubeId: "p0L4XfkCTdg",
-    artworkUrl: "https://i1.sndcdn.com/artworks-000141128986-60zb2e-t500x500.jpg",
-    models: ["Matrix (70x100)", "Pixel Forest", "Arches", "House Outlines", "Floods", "Mega Tree"],
+    artworkUrl:
+      "https://i1.sndcdn.com/artworks-000141128986-60zb2e-t500x500.jpg",
+    models: [
+      "Matrix (70x100)",
+      "Pixel Forest",
+      "Arches",
+      "House Outlines",
+      "Floods",
+      "Mega Tree",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -824,7 +994,8 @@ This one hits different at 2am when you're testing alone in your driveway. Don't
     category: "Christmas",
     duration: "0:30",
     difficulty: "Beginner",
-    description: "The audience is now deaf. That iconic sound system test, now in pixels.",
+    description:
+      "The audience is now deaf. That iconic sound system test, now in pixels.",
     longDescription: `BWAAAAAAAAAAAAAAHHHHHHHHH.
 
 You know the sound. That crescendo that's been blowing out home theater speakers since the 80s. This short sequence is the perfect show opener—a way to tell your neighbors "the show is about to start, and your subwoofer should be scared."
@@ -860,7 +1031,8 @@ Short, sweet, and absolutely devastating to eardrums everywhere.`,
     category: "Christmas",
     duration: "3:44",
     difficulty: "Intermediate",
-    description: "The cold never bothered your display anyway. Frozen's anthem in full icy glory.",
+    description:
+      "The cold never bothered your display anyway. Frozen's anthem in full icy glory.",
     longDescription: `Let it go, let it go... and every parent in the audience simultaneously groans while their kids lose their minds with joy.
 
 Love it or hate it, "Let It Go" is iconic, and this sequence does it justice. Icy blues, crystalline whites, and effects that feel like Elsa herself is building an ice palace in your front yard.
@@ -879,7 +1051,13 @@ The parents might be tired of this song, but their kids aren't. And honestly? Th
     xlightsSeqUrl: "https://xlightsseq.com/sequences/let-it-go-frozen.1310/",
     youtubeId: null,
     artworkUrl: null,
-    models: ["Matrix (70x100)", "Pixel Forest", "Arches", "Floods", "Mega Tree"],
+    models: [
+      "Matrix (70x100)",
+      "Pixel Forest",
+      "Arches",
+      "Floods",
+      "Mega Tree",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music (Frozen Soundtrack)",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -896,7 +1074,8 @@ The parents might be tired of this song, but their kids aren't. And honestly? Th
     category: "Christmas",
     duration: "3:24",
     difficulty: "Advanced",
-    description: "The song that launched a thousand Christmas light displays. Pure orchestral chaos in the best way.",
+    description:
+      "The song that launched a thousand Christmas light displays. Pure orchestral chaos in the best way.",
     longDescription: `This is THE song. The one that started the synchronized Christmas lights movement. If you've ever seen a viral Christmas light video, there's a good chance this was the soundtrack.
 
 Trans-Siberian Orchestra's "Wizards in Winter" is pure controlled chaos—a battle between electric guitars and classical instruments, and this sequence captures every note of that battle.
@@ -932,7 +1111,8 @@ This sequence separates the casual displayers from the serious ones. Your contro
     category: "Christmas",
     duration: "3:26",
     difficulty: "Intermediate",
-    description: "Modern Christmas pop perfection. Warm, fuzzy, and absolutely adorable.",
+    description:
+      "Modern Christmas pop perfection. Warm, fuzzy, and absolutely adorable.",
     longDescription: `Katy Perry's "Cozy Little Christmas" is the audio equivalent of hot cocoa and fuzzy socks. It's warm, it's sweet, and it's the perfect palate cleanser between more intense sequences.
 
 This sequence captures that cozy energy with warm colors, gentle transitions, and effects that feel like a hug from your favorite holiday sweater.
@@ -968,7 +1148,8 @@ Sometimes you need a break from the orchestral intensity. This is that break.`,
     category: "Christmas",
     duration: "4:32",
     difficulty: "Intermediate",
-    description: "A melancholy Christmas anthem that's somehow both sad and beautiful. Peak Coldplay.",
+    description:
+      "A melancholy Christmas anthem that's somehow both sad and beautiful. Peak Coldplay.",
     longDescription: `Coldplay wrote a Christmas song about heartbreak, and somehow it became one of the most beautiful holiday songs of the modern era. "Christmas Lights" is bittersweet perfection.
 
 This sequence captures that emotional complexity with effects that shift between hope and melancholy, joy and reflection. It's not your typical "happy Christmas" sequence, and that's exactly what makes it special.
@@ -984,10 +1165,17 @@ Not every Christmas song needs to be jolly. Sometimes the lights need to feel so
     tags: ["Christmas", "Alternative", "Emotional", "Modern", "Melancholy"],
     propCount: 35,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/christmas-lights-coldplay.1314/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/christmas-lights-coldplay.1314/",
     youtubeId: null,
     artworkUrl: null,
-    models: ["Matrix (70x100)", "Pixel Forest", "Arches", "House Outlines", "Floods"],
+    models: [
+      "Matrix (70x100)",
+      "Pixel Forest",
+      "Arches",
+      "House Outlines",
+      "Floods",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -1004,7 +1192,8 @@ Not every Christmas song needs to be jolly. Sometimes the lights need to feel so
     category: "Christmas",
     duration: "3:28",
     difficulty: "Intermediate",
-    description: "When two legends team up for Christmas, you sequence it. Modern classic energy.",
+    description:
+      "When two legends team up for Christmas, you sequence it. Modern classic energy.",
     longDescription: `Elton John and Ed Sheeran teaming up for a Christmas song was always going to be special. "Merry Christmas" is the result—a feel-good holiday anthem that's already becoming a modern classic.
 
 This sequence captures the joy and energy of the collaboration with effects that feel like the musical equivalent of two friends having the best time ever.
@@ -1023,7 +1212,13 @@ Two legends, one song, one incredible sequence.`,
     xlightsSeqUrl: "",
     youtubeId: null,
     artworkUrl: null,
-    models: ["Matrix (70x100)", "Pixel Forest", "Arches", "House Outlines", "Mega Tree"],
+    models: [
+      "Matrix (70x100)",
+      "Pixel Forest",
+      "Arches",
+      "House Outlines",
+      "Mega Tree",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -1040,7 +1235,8 @@ Two legends, one song, one incredible sequence.`,
     category: "Christmas",
     duration: "3:18",
     difficulty: "Intermediate",
-    description: "Sia's Christmas album gem. Sweet, playful, and absolutely joyful.",
+    description:
+      "Sia's Christmas album gem. Sweet, playful, and absolutely joyful.",
     longDescription: `Sia's "Candy Cane Lane" is pure sugar—sweet, fun, and impossibly catchy. It's the kind of song that makes you want to skip down the street throwing candy at strangers.
 
 This sequence matches that energy with candy-colored effects, playful patterns, and a general vibe of unbridled holiday joy. Red and white dominate (obviously), but there's plenty of festive color throughout.
@@ -1056,7 +1252,8 @@ Your display basically becomes a giant candy cane. The kids will love it.`,
     tags: ["Christmas", "Pop", "Playful", "Sweet", "Fun"],
     propCount: 32,
     hasMatrix: true,
-    xlightsSeqUrl: "https://xlightsseq.com/sequences/candy-cane-lane-by-sia.1482/",
+    xlightsSeqUrl:
+      "https://xlightsseq.com/sequences/candy-cane-lane-by-sia.1482/",
     youtubeId: null,
     artworkUrl: null,
     models: ["Matrix", "Pixel Forest", "Arches", "Pixel Poles", "Mega Tree"],
@@ -1076,7 +1273,8 @@ Your display basically becomes a giant candy cane. The kids will love it.`,
     category: "Christmas",
     duration: "3:05",
     difficulty: "Intermediate",
-    description: "The theme from National Lampoon's Christmas Vacation. Griswold family approved.",
+    description:
+      "The theme from National Lampoon's Christmas Vacation. Griswold family approved.",
     longDescription: `If you've got a display that rivals Clark Griswold's, you NEED this sequence. Mavis Staples' theme from National Lampoon's Christmas Vacation is pure holiday energy.
 
 This sequence channels the spirit of the Griswold family—over the top, slightly chaotic, and absolutely committed to the Christmas spirit. Your neighbors will either love it or be the Margo and Todd of your street.
@@ -1112,7 +1310,8 @@ Hallelujah! Holy sh*t! Where's the Tylenol?`,
     category: "Christmas",
     duration: "4:42",
     difficulty: "Advanced",
-    description: "TSO meets Tchaikovsky. The Nutcracker Suite gets the rock treatment.",
+    description:
+      "TSO meets Tchaikovsky. The Nutcracker Suite gets the rock treatment.",
     longDescription: `Trans-Siberian Orchestra took Tchaikovsky's Nutcracker Suite and ran it through their signature wall of sound. The result is "A Mad Russian's Christmas"—classical music on steroids.
 
 This sequence is a workout. Four and a half minutes of intense effect changes, dynamic builds, and moments that will push your entire display to its limits. It's classical, it's rock, it's chaos, and it's glorious.
@@ -1148,7 +1347,8 @@ If you can handle Wizards in Winter, you can handle this. Maybe.`,
     category: "Christmas",
     duration: "3:04",
     difficulty: "Intermediate",
-    description: "A tender, emotional Christmas song about never wanting the season to end. Tissues recommended.",
+    description:
+      "A tender, emotional Christmas song about never wanting the season to end. Tissues recommended.",
     longDescription: `Sia's "Snowman" is a love letter to Christmas itself—a plea to never let the magic end. It's tender, emotional, and absolutely beautiful.
 
 This sequence captures that emotional depth with soft whites, gentle blues, and effects that feel like watching snowfall on a quiet night. It's not flashy, but it's deeply moving.
@@ -1184,7 +1384,8 @@ This one makes people feel things. Fair warning.`,
     category: "Christmas",
     duration: "3:28",
     difficulty: "Advanced",
-    description: "The one that started it all for TSO. Carol of the Bells meets rock and roll.",
+    description:
+      "The one that started it all for TSO. Carol of the Bells meets rock and roll.",
     longDescription: `Before Wizards in Winter, there was "Christmas Eve/Sarajevo 12/24." This is the song that put Trans-Siberian Orchestra on the map—Carol of the Bells transformed into something epic.
 
 This sequence honors both the classical source material and TSO's rock interpretation. It builds, it crashes, it gives you chills even when it's 30 degrees outside.
@@ -1220,7 +1421,8 @@ This is required listening for any Christmas display. And now it's required view
     category: "Christmas",
     duration: "3:22",
     difficulty: "Intermediate",
-    description: "The song from Spirited (but Christmastime is here). Heartfelt and underrated.",
+    description:
+      "The song from Spirited (but Christmastime is here). Heartfelt and underrated.",
     longDescription: `From the Apple TV+ musical "Spirited" comes this gem—a song about not knowing what Christmas is, but knowing that it feels like... this. It's heartfelt, sincere, and criminally underrated.
 
 This sequence captures that journey of discovery with effects that start uncertain and grow into full Christmas joy. It's the kind of sequence that sneaks up on you emotionally.
@@ -1256,7 +1458,8 @@ Sometimes the best Christmas songs are the ones you didn't know you needed.`,
     category: "Christmas",
     duration: "3:15",
     difficulty: "Intermediate",
-    description: "The classic Grinch anthem with a modern twist. Violin virtuosity meets pop vocals.",
+    description:
+      "The classic Grinch anthem with a modern twist. Violin virtuosity meets pop vocals.",
     longDescription: `Lindsey Stirling's violin and Sabrina Carpenter's vocals combine to create a version of "Mr. Grinch" that's both respectful of the original and thoroughly modern. It's playful, it's fun, and it's got serious style.
 
 This sequence captures that energy with effects that match the playful villainy of the Grinch himself. Lots of green (obviously), but also plenty of Christmas cheer fighting against it.
@@ -1275,7 +1478,13 @@ Your heart will grow three sizes. Your display will grow even more.`,
     xlightsSeqUrl: "",
     youtubeId: null,
     artworkUrl: null,
-    models: ["Matrix (70x100)", "Pixel Forest", "Arches", "House Outlines", "Mega Tree"],
+    models: [
+      "Matrix (70x100)",
+      "Pixel Forest",
+      "Arches",
+      "House Outlines",
+      "Mega Tree",
+    ],
     xlightsVersion: "2024.15+",
     audioSource: "iTunes, Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
@@ -1292,7 +1501,8 @@ Your heart will grow three sizes. Your display will grow even more.`,
     category: "Christmas",
     duration: "3:38",
     difficulty: "Intermediate",
-    description: "The showstopper from Spirited. Two comedy legends singing about redemption.",
+    description:
+      "The showstopper from Spirited. Two comedy legends singing about redemption.",
     longDescription: `When Ryan Reynolds and Will Ferrell team up for a Christmas movie musical, you pay attention. "Do a Little Good" from Spirited is the kind of uplifting anthem that makes you want to be a better person.
 
 This sequence captures that redemptive energy with effects that build from cynicism to hope, from darkness to light. It's surprisingly emotional for a song sung by two comedy legends.
@@ -1322,37 +1532,43 @@ Even Scrooge (or in this case, Ryan Reynolds) can be redeemed. So can your displ
 ];
 
 // Helper to check if sequence is new (current year)
-export function isNewSequence(sequence: Sequence, currentYear: number = 2026): boolean {
+export function isNewSequence(
+  sequence: Sequence,
+  currentYear: number = 2026,
+): boolean {
   return sequence.yearAdded === currentYear;
 }
 
 // Get sequences by year
 export function getSequencesByYear(year: number): Sequence[] {
-  return sequences.filter(s => s.yearAdded === year);
+  return sequences.filter((s) => s.yearAdded === year);
 }
 
 // Get new sequences for current year
 export function getNewSequences(currentYear: number = 2026): Sequence[] {
-  return sequences.filter(s => s.yearAdded === currentYear);
+  return sequences.filter((s) => s.yearAdded === currentYear);
 }
 
 export function getSequenceBySlug(slug: string): Sequence | undefined {
-  return sequences.find(s => s.slug === slug);
+  return sequences.find((s) => s.slug === slug);
 }
 
-export function getRelatedSequences(currentSlug: string, limit: number = 3): Sequence[] {
+export function getRelatedSequences(
+  currentSlug: string,
+  limit: number = 3,
+): Sequence[] {
   const current = getSequenceBySlug(currentSlug);
   if (!current) return sequences.slice(0, limit);
 
   // Get sequences in the same category, excluding current
   const related = sequences
-    .filter(s => s.slug !== currentSlug && s.category === current.category)
+    .filter((s) => s.slug !== currentSlug && s.category === current.category)
     .slice(0, limit);
 
   // If not enough in same category, fill with others
   if (related.length < limit) {
     const others = sequences
-      .filter(s => s.slug !== currentSlug && s.category !== current.category)
+      .filter((s) => s.slug !== currentSlug && s.category !== current.category)
       .slice(0, limit - related.length);
     return [...related, ...others];
   }
@@ -1361,5 +1577,5 @@ export function getRelatedSequences(currentSlug: string, limit: number = 3): Seq
 }
 
 export function getAllSlugs(): string[] {
-  return sequences.map(s => s.slug);
+  return sequences.map((s) => s.slug);
 }
