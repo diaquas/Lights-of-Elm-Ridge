@@ -10,7 +10,9 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "prepare": "husky"
+    "prepare": "husky",
+    "fetch-youtube": "npx tsx scripts/fetch-youtube.ts",
+    "prebuild:youtube": "npm run fetch-youtube || echo 'YouTube fetch skipped (no API key)'"
   },
   "dependencies": {
     "next": "16.1.6",

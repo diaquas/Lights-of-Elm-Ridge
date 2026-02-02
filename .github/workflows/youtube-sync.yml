@@ -1,0 +1,75 @@
+name: Sync YouTube Videos
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+
+  # Scheduled: runs daily at 6 AM UTC
+  schedule:
+    - cron: '0 6 * * *'
+
+  # Also run on push to main if youtube config changes
+  push:
+    branches: [main]
+    paths:
+      - 'src/data/youtube-config.ts'
+      - 'scripts/fetch-youtube.ts'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Only run if we have the API key
+    if: ${{ vars.YOUTUBE_API_KEY != '' || secrets.YOUTUBE_API_KEY != '' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch YouTube videos
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: npm run fetch-youtube
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --quiet src/data/youtube-videos.json || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add src/data/youtube-videos.json
+          git commit -m "Update YouTube video data
+
+          Auto-synced from YouTube playlists.
+
+          https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git push
+
+      - name: Summary
+        run: |
+          echo "## YouTube Sync Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.git-check.outputs.changed }}" == "true" ]; then
+            echo "✅ Video data updated and committed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Video Counts" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          node -e "const d = require('./src/data/youtube-videos.json'); console.log('Mockups:', d.mockups?.length || 0); console.log('Live 2024:', d.live2024?.length || 0); console.log('Live 2025:', d.live2025?.length || 0);">> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
