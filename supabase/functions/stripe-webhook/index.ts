@@ -39,10 +39,14 @@ serve(async (req) => {
     // Get the raw body
     const body = await req.text();
 
-    // Verify the webhook signature
+    // Verify the webhook signature (use async version for Deno)
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        webhookSecret,
+      );
     } catch (err) {
       console.error("Webhook signature verification failed:", err.message);
       return new Response(JSON.stringify({ error: "Invalid signature" }), {
