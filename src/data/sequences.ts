@@ -12,7 +12,9 @@ export interface Sequence {
   tags: string[];
   propCount: number;
   hasMatrix: boolean;
-  xlightsSeqUrl: string;
+  xlightsSeqUrl?: string; // Legacy: xlightsseq.com URL (optional if using direct download)
+  googleDriveUrl?: string; // Direct download from Google Drive
+  amazonMusicUrl?: string; // Direct link to purchase audio on Amazon
   youtubeId: string | null;
   artworkUrl: string | null;
   thumbnailUrl?: string; // Custom thumbnail image URL (takes priority over YouTube thumbnail)
@@ -371,7 +373,7 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     id: 8,
     slug: "spooky-scary-skeletons",
     title: "Spooky Scary Skeletons",
-    artist: "Disney",
+    artist: "Andrew Gold",
     price: 0,
     category: "Halloween",
     duration: "2:24",
@@ -394,8 +396,10 @@ This one's on the house. Every display needs a song that makes the kids dance.`,
     tags: ["Halloween", "Meme", "Family Friendly", "Classic", "FREE"],
     propCount: 25,
     hasMatrix: true,
-    xlightsSeqUrl:
-      "https://xlightsseq.com/sequences/spooky-scary-skeletons-remix.1212/",
+    googleDriveUrl:
+      "https://drive.google.com/file/d/1LvUoQT7HDBYrQJGciP23qCYZbpDgALFn/view?usp=drive_link",
+    amazonMusicUrl:
+      "https://amazon.com/music/player/albums/B00H7VJQJG?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_mX5DGaE3azrDSiluuEPxTpnYY&trackAsin=B00H7VJRSQ",
     youtubeId: null,
     artworkUrl:
       "https://i.scdn.co/image/ab67616d0000b273d9eba2e53b04616ae637ab38",
@@ -407,7 +411,7 @@ This one's on the house. Every display needs a song that makes the kids dance.`,
       "Tombstones",
     ],
     xlightsVersion: "2024.10+",
-    audioSource: "iTunes, Amazon Music",
+    audioSource: "Amazon Music",
     fileFormats: ["xLights (.xsq)", "FSEQ"],
     releaseDate: "2023-09",
     yearAdded: 2023,
