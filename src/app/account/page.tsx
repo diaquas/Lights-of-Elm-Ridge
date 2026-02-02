@@ -13,6 +13,11 @@ export default function AccountPage() {
   const supabase = createClient();
 
   useEffect(() => {
+    if (!supabase) {
+      router.push("/login");
+      return;
+    }
+
     const getUser = async () => {
       const {
         data: { user },
@@ -28,9 +33,10 @@ export default function AccountPage() {
     };
 
     getUser();
-  }, [router, supabase.auth]);
+  }, [router, supabase]);
 
   const handleSignOut = async () => {
+    if (!supabase) return;
     await supabase.auth.signOut();
     router.push("/");
     router.refresh();

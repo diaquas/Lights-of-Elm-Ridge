@@ -9,6 +9,11 @@ export default function AuthCallbackPage() {
   const supabase = createClient();
 
   useEffect(() => {
+    if (!supabase) {
+      router.push("/login?error=auth_not_configured");
+      return;
+    }
+
     const handleCallback = async () => {
       const { error } = await supabase.auth.exchangeCodeForSession(
         window.location.href,
@@ -24,7 +29,7 @@ export default function AuthCallbackPage() {
     };
 
     handleCallback();
-  }, [router, supabase.auth]);
+  }, [router, supabase]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
