@@ -35,7 +35,7 @@ export default function LoginPage() {
         router.push("/account");
         router.refresh();
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -43,6 +43,20 @@ export default function LoginPage() {
           },
         });
         if (error) throw error;
+
+        // Check if user already exists (identities will be empty)
+        if (
+          data.user &&
+          data.user.identities &&
+          data.user.identities.length === 0
+        ) {
+          setError(
+            "An account with this email already exists. Try signing in instead.",
+          );
+          setIsLogin(true);
+          return;
+        }
+
         setMessage("Check your email for a confirmation link!");
       }
     } catch (err) {
