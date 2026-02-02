@@ -11,7 +11,7 @@ const navLinks = [
   { href: '/playlist', label: 'Playlist' },
   { href: '/the-show', label: 'The Show' },
   { href: '/display', label: 'The Display' },
-  { href: '/behind-the-scenes', label: 'Behind the Scenes' },
+  { href: '/gear', label: 'Gear' },
   { href: '/about', label: 'About' },
 ];
 

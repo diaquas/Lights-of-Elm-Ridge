@@ -488,3 +488,32 @@ No review/rating capability.
 13. FAQ page
 14. Reviews & ratings
 15. Loading states
+
+---
+
+## FUTURE FEATURES
+
+### Shopping List Wizard
+**Labels:** `future`, `feature`, `ux`
+
+Interactive tool to help users build custom shopping lists based on their experience level, budget, and display goals.
+
+**Core Features:**
+- [ ] Quick survey: experience level (beginner/intermediate/advanced)
+- [ ] Budget input with price range filtering
+- [ ] Location selection for vendor availability
+- [ ] Display size/type selection (small yard, medium, large, mega)
+- [ ] Holiday focus (Halloween, Christmas, year-round)
+
+**Output:**
+- [ ] Personalized product list with quantities
+- [ ] Estimated total cost
+- [ ] Direct links to recommended vendors
+- [ ] "Starter pack" vs "complete display" options
+- [ ] PDF export for shopping reference
+
+**Technical Considerations:**
+- [ ] Store preferences in localStorage
+- [ ] Product database with pricing tiers
+- [ ] Vendor availability by region
+- [ ] Bundle suggestions for cost savings
