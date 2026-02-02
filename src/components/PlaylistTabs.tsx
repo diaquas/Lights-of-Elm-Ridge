@@ -5,11 +5,19 @@ import Link from 'next/link';
 import ColorChips from './ColorChips';
 import ComingSoon from './ComingSoon';
 import type { Song } from '@/data/songlist';
+import { sequences } from '@/data/sequences';
 
 interface PlaylistTabsProps {
   halloweenSongs: Song[];
   christmasSongs: Song[];
   newFor2026: Song[];
+}
+
+// Helper to get the wide thumbnail from sequences data
+function getWideThumbnail(sequenceSlug: string | undefined): string | null {
+  if (!sequenceSlug) return null;
+  const sequence = sequences.find(s => s.slug === sequenceSlug);
+  return sequence?.thumbnailUrl || null;
 }
 
 function SongCard({ song }: { song: Song }) {
@@ -21,12 +29,11 @@ function SongCard({ song }: { song: Song }) {
   const isExternal = !song.isOriginal && song.vendorUrl;
   const hasLink = (song.isOriginal && song.sequenceSlug) || song.vendorUrl;
 
-  // Get thumbnail: prefer imageUrl, fallback to YouTube, or Coming Soon
-  const thumbnailUrl = song.imageUrl
-    ? song.imageUrl
-    : song.youtubeId
-      ? `https://img.youtube.com/vi/${song.youtubeId}/mqdefault.jpg`
-      : null;
+  // Get thumbnail: prefer wide thumbnailUrl from sequences, then imageUrl, then YouTube
+  const wideThumbnail = getWideThumbnail(song.sequenceSlug);
+  const thumbnailUrl = wideThumbnail
+    || song.imageUrl
+    || (song.youtubeId ? `https://img.youtube.com/vi/${song.youtubeId}/mqdefault.jpg` : null);
 
   // Fallback colors based on category
   const defaultColors = song.category === 'Halloween'
