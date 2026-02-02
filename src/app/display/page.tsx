@@ -324,18 +324,18 @@ export default function DisplayPage() {
                 </a>
               </div>
               <div>
-                <h3 className="font-bold text-lg mb-3">Falcon Player</h3>
+                <h3 className="font-bold text-lg mb-3">xSchedule</h3>
                 <p className="text-foreground/70 text-sm mb-2">
-                  FPP plays FSEQ files and manages show schedules.
-                  Remote control via web interface.
+                  Part of xLights, xSchedule plays FSEQ files and manages show schedules.
+                  Handles playlists, scheduling, and Remote Falcon integration.
                 </p>
                 <a
-                  href="https://falconchristmas.com"
+                  href="https://xlights.org"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-accent text-sm hover:underline inline-flex items-center gap-1"
                 >
-                  falconchristmas.com
+                  xlights.org
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                   </svg>
