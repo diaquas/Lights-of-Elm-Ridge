@@ -5,6 +5,8 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useCart } from "@/contexts/CartContext";
+import CartDropdown from "@/components/CartDropdown";
 import type { User } from "@supabase/supabase-js";
 
 const navLinks = [
@@ -25,6 +27,7 @@ export default function Navigation() {
   const [user, setUser] = useState<User | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const supabase = createClient();
+  const { itemCount } = useCart();
 
   useEffect(() => {
     if (!supabase) return;
@@ -96,6 +99,9 @@ export default function Navigation() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Cart Dropdown */}
+              <CartDropdown />
 
               {/* Auth Button */}
               {user ? (
@@ -224,6 +230,39 @@ export default function Navigation() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Mobile Cart */}
+              <Link
+                href="/cart"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                  pathname === "/cart"
+                    ? "bg-accent/20 text-accent"
+                    : "text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                    />
+                  </svg>
+                  Cart
+                </span>
+                {itemCount > 0 && (
+                  <span className="bg-accent text-white text-xs font-bold rounded-full px-2 py-0.5">
+                    {itemCount}
+                  </span>
+                )}
+              </Link>
 
               {/* Mobile Auth */}
               <div className="mt-4 pt-4 border-t border-border">

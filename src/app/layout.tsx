@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://lightsofelmridge.com"),
@@ -9,8 +10,19 @@ export const metadata: Metadata = {
     default: "Lights of Elm Ridge | xLights Sequences & Light Show Magic",
     template: "%s | Lights of Elm Ridge",
   },
-  description: "Professional xLights sequences for Halloween and Christmas displays. Real show footage, behind-the-scenes content, and custom sequencing services.",
-  keywords: ["xLights", "RGB sequences", "Christmas lights", "light show", "pixel sequences", "Halloween lights", "xLights sequences", "pixel display", "holiday lights"],
+  description:
+    "Professional xLights sequences for Halloween and Christmas displays. Real show footage, behind-the-scenes content, and custom sequencing services.",
+  keywords: [
+    "xLights",
+    "RGB sequences",
+    "Christmas lights",
+    "light show",
+    "pixel sequences",
+    "Halloween lights",
+    "xLights sequences",
+    "pixel display",
+    "holiday lights",
+  ],
   authors: [{ name: "Lights of Elm Ridge" }],
   creator: "Lights of Elm Ridge",
   icons: {
@@ -23,7 +35,8 @@ export const metadata: Metadata = {
     locale: "en_US",
     siteName: "Lights of Elm Ridge",
     title: "Lights of Elm Ridge | xLights Sequences & Light Show Magic",
-    description: "Professional xLights sequences for Halloween and Christmas displays. Real show footage, behind-the-scenes content, and custom sequencing services.",
+    description:
+      "Professional xLights sequences for Halloween and Christmas displays. Real show footage, behind-the-scenes content, and custom sequencing services.",
     images: [
       {
         url: "/logo.jpg",
@@ -36,7 +49,8 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary",
     title: "Lights of Elm Ridge | xLights Sequences",
-    description: "Professional xLights sequences for Halloween and Christmas displays.",
+    description:
+      "Professional xLights sequences for Halloween and Christmas displays.",
     images: ["/logo.jpg"],
   },
   robots: {
@@ -52,20 +66,19 @@ export const metadata: Metadata = {
 const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "name": "Lights of Elm Ridge",
-  "url": "https://lightsofelmridge.com",
-  "logo": "https://lightsofelmridge.com/logo.jpg",
-  "description": "Professional xLights sequences for Halloween and Christmas displays.",
-  "sameAs": [
-    "https://www.youtube.com/@LightsofElmRidge"
-  ],
-  "offers": {
+  name: "Lights of Elm Ridge",
+  url: "https://lightsofelmridge.com",
+  logo: "https://lightsofelmridge.com/logo.jpg",
+  description:
+    "Professional xLights sequences for Halloween and Christmas displays.",
+  sameAs: ["https://www.youtube.com/@LightsofElmRidge"],
+  offers: {
     "@type": "AggregateOffer",
-    "priceCurrency": "USD",
-    "lowPrice": "0",
-    "highPrice": "25",
-    "offerCount": "35"
-  }
+    priceCurrency: "USD",
+    lowPrice: "0",
+    highPrice: "25",
+    offerCount: "35",
+  },
 };
 
 export default function RootLayout({
@@ -78,15 +91,19 @@ export default function RootLayout({
       <head>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationSchema),
+          }}
         />
       </head>
       <body className="antialiased min-h-screen flex flex-col">
-        <Navigation />
-        <main id="main-content" className="flex-1 pt-16">
-          {children}
-        </main>
-        <Footer />
+        <Providers>
+          <Navigation />
+          <main id="main-content" className="flex-1 pt-16">
+            {children}
+          </main>
+          <Footer />
+        </Providers>
       </body>
     </html>
   );

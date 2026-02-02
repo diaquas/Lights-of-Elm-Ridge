@@ -1,10 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
-import Script from "next/script";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
-  sequences,
   getSequenceBySlug,
   getRelatedSequences,
   getAllSlugs,
@@ -12,6 +10,7 @@ import {
   getGoogleDriveDownloadUrl,
 } from "@/data/sequences";
 import { getMockupVideoId } from "@/data/youtube-loader";
+import AddToCartButton from "@/components/AddToCartButton";
 
 function generateProductSchema(
   sequence: NonNullable<ReturnType<typeof getSequenceBySlug>>,
@@ -347,38 +346,16 @@ export default async function SequencePage({ params }: PageProps) {
               {/* Download/Buy Button */}
               <div className="space-y-3">
                 {sequence.r2Url || sequence.googleDriveUrl ? (
-                  <>
-                    <a
-                      href={
-                        sequence.r2Url ||
-                        getGoogleDriveDownloadUrl(sequence.googleDriveUrl) ||
-                        "#"
-                      }
-                      className="flex items-center justify-center gap-2 w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                        />
-                      </svg>
-                      Download Sequence{" "}
-                      {sequence.price === 0 ? "(Free)" : `- $${sequence.price}`}
-                    </a>
-                    {sequence.amazonMusicUrl && (
+                  sequence.price === 0 ? (
+                    // Free download
+                    <>
                       <a
-                        href={sequence.amazonMusicUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-3 bg-surface hover:bg-surface-light text-foreground text-center font-medium rounded-xl transition-all border border-border"
+                        href={
+                          sequence.r2Url ||
+                          getGoogleDriveDownloadUrl(sequence.googleDriveUrl) ||
+                          "#"
+                        }
+                        className="flex items-center justify-center gap-2 w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
                       >
                         <svg
                           className="w-5 h-5"
@@ -391,12 +368,52 @@ export default async function SequencePage({ params }: PageProps) {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
                           />
                         </svg>
-                        Purchase Audio on Amazon
+                        Download Free Sequence
+                      </a>
+                      {sequence.amazonMusicUrl && (
+                        <a
+                          href={sequence.amazonMusicUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 w-full py-3 bg-surface hover:bg-surface-light text-foreground text-center font-medium rounded-xl transition-all border border-border"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                            />
+                          </svg>
+                          Purchase Audio on Amazon
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                        </a>
+                      )}
+                      <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs">
                         <svg
-                          className="w-3 h-3"
+                          className="w-4 h-4"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -406,29 +423,90 @@ export default async function SequencePage({ params }: PageProps) {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                      </a>
-                    )}
-                    <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span>Audio file not included — purchase separately</span>
-                    </div>
-                  </>
+                        <span>
+                          Audio file not included — purchase separately
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    // Paid sequence - Add to Cart
+                    <>
+                      <AddToCartButton
+                        sequence={{
+                          id: sequence.id,
+                          slug: sequence.slug,
+                          title: sequence.title,
+                          artist: sequence.artist,
+                          price: sequence.price,
+                          category: sequence.category,
+                          thumbnailUrl:
+                            sequence.thumbnailUrl ||
+                            sequence.artworkUrl ||
+                            getThumbnailUrl(sequence.youtubeId),
+                        }}
+                      />
+                      {sequence.amazonMusicUrl && (
+                        <a
+                          href={sequence.amazonMusicUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 w-full py-3 bg-surface hover:bg-surface-light text-foreground text-center font-medium rounded-xl transition-all border border-border"
+                        >
+                          <svg
+                            className="w-5 h-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                            />
+                          </svg>
+                          Purchase Audio on Amazon
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                            />
+                          </svg>
+                        </a>
+                      )}
+                      <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs">
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span>
+                          Audio file not included — purchase separately
+                        </span>
+                      </div>
+                    </>
+                  )
                 ) : sequence.xlightsSeqUrl ? (
                   <>
                     <a
