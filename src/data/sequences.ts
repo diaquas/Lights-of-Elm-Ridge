@@ -35,7 +35,8 @@ export function getThumbnailUrl(youtubeId: string | null): string | null {
 
 // Convert Google Drive sharing URL to direct download URL
 // Input: https://drive.google.com/file/d/{FILE_ID}/view?usp=drive_link
-// Output: https://drive.google.com/uc?export=download&id={FILE_ID}
+// Output: https://drive.google.com/uc?export=download&confirm=t&id={FILE_ID}
+// The confirm=t parameter auto-confirms the virus scan warning for large files
 export function getGoogleDriveDownloadUrl(
   shareUrl: string | undefined,
 ): string | null {
@@ -51,7 +52,7 @@ export function getGoogleDriveDownloadUrl(
   for (const pattern of patterns) {
     const match = shareUrl.match(pattern);
     if (match && match[1]) {
-      return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+      return `https://drive.google.com/uc?export=download&confirm=t&id=${match[1]}`;
     }
   }
 
