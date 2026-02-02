@@ -198,7 +198,7 @@ Perfect for fans of dramatic, theatrical sequences. This one's a showstopper.`,
       "https://xlightsseq.com/sequences/abracadabra-lady-gaga.1233/",
     youtubeId: null, // Cleared - was live show video, waiting for mockup
     artworkUrl:
-      "https://borderlinemusic.com/cdn/shop/files/ABRACADABRAcopy_grande.jpg?v=1749866043",
+      "https://dm3v96wjcnps9.cloudfront.net/icpn/00602475886266/00602475886266-cover-zoom.jpg",
     models: [
       "Matrix (70x100)",
       "Singing Pumpkin",

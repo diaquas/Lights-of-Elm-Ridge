@@ -1,11 +1,73 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/contexts/CartContext";
+import { createClient } from "@/lib/supabase/client";
 
 export default function CartPage() {
   const { items, removeItem, clearCart, total, itemCount } = useCart();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleCheckout = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      if (!supabase) {
+        throw new Error("Failed to initialize authentication");
+      }
+
+      // Get the current session for auth header
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/create-checkout-session`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(session?.access_token && {
+              Authorization: `Bearer ${session.access_token}`,
+            }),
+          },
+          body: JSON.stringify({
+            items: items.map((item) => ({
+              id: item.id,
+              slug: item.slug,
+              title: item.title,
+              artist: item.artist,
+              price: item.price,
+              category: item.category,
+            })),
+            successUrl: `${window.location.origin}/checkout/success`,
+            cancelUrl: `${window.location.origin}/cart`,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create checkout session");
+      }
+
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      console.error("Checkout error:", err);
+      setError(err instanceof Error ? err.message : "Checkout failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (itemCount === 0) {
     return (
@@ -129,15 +191,63 @@ export default function CartPage() {
                 </div>
               </div>
 
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+                  {error}
+                </div>
+              )}
+
               <button
-                disabled
-                className="w-full py-3 bg-accent/50 text-white font-semibold rounded-xl cursor-not-allowed"
+                onClick={handleCheckout}
+                disabled={isLoading}
+                className="w-full py-3 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white font-semibold rounded-xl transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Checkout Coming Soon
+                {isLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-5 w-5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                    Proceed to Checkout
+                  </>
+                )}
               </button>
 
               <p className="text-xs text-foreground/50 text-center mt-3">
-                Secure checkout with Stripe (coming soon)
+                Secure checkout powered by Stripe
               </p>
 
               <div className="mt-6 pt-6 border-t border-border">

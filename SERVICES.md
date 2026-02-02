@@ -135,23 +135,50 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
 
 ---
 
-## Stripe (Payments) - Coming Soon
+## Stripe (Payments)
 
 **Purpose:** Process payments for sequence purchases
 
-**Features Planned:**
+**Setup Steps:**
 
-- [ ] Stripe Checkout for purchases
-- [ ] Webhooks to record purchases in Supabase
-- [ ] Automatic tax calculation (Stripe Tax)
+1. Create Stripe account at [stripe.com](https://stripe.com)
+2. Get API keys from Dashboard → Developers → API keys
+3. Create products in Stripe Dashboard (optional - we create them dynamically)
+4. Set up webhook endpoint for order fulfillment
 
-**Environment Variables (future):**
+**Architecture:**
+
+Since this is a static Next.js site, we use Supabase Edge Functions to handle Stripe:
 
 ```
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+User clicks Checkout → Edge Function creates Stripe Session → Redirect to Stripe
+                                                                      ↓
+User completes payment → Stripe Webhook → Edge Function → Save to Supabase DB
+```
+
+**Edge Functions:**
+
+| Function                  | Purpose                            |
+| ------------------------- | ---------------------------------- |
+| `create-checkout-session` | Creates Stripe Checkout session    |
+| `stripe-webhook`          | Handles payment completion webhook |
+
+**Environment Variables:**
+
+In Supabase Dashboard → Edge Functions → Secrets:
+
+```
 STRIPE_SECRET_KEY=sk_live_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```
+
+In your `.env.local` and Cloudflare Pages:
+
+```
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+```
+
+**Webhook URL:** `https://bzmpcgsloptensafzfle.supabase.co/functions/v1/stripe-webhook`
 
 **Dashboard:** [dashboard.stripe.com](https://dashboard.stripe.com)
 
@@ -234,7 +261,33 @@ Set these in GitHub → Settings → Secrets → Actions:
 
 ### E-commerce
 
-- [ ] Shopping cart functionality
-- [ ] Stripe Checkout integration
+- [x] Shopping cart functionality (Phase 2 - Complete)
+- [ ] Stripe Checkout integration (Phase 3 - In Progress)
 - [ ] Purchase history in user account
 - [ ] Signed URLs for paid downloads
+
+### Database Schema (Supabase)
+
+```sql
+-- purchases table
+create table purchases (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id),
+  stripe_session_id text unique,
+  stripe_payment_intent text,
+  sequence_ids integer[] not null,
+  amount_total integer not null, -- cents
+  currency text default 'usd',
+  status text default 'pending', -- pending, completed, failed
+  created_at timestamp with time zone default now(),
+  completed_at timestamp with time zone
+);
+
+-- Enable RLS
+alter table purchases enable row level security;
+
+-- Users can only see their own purchases
+create policy "Users can view own purchases"
+  on purchases for select
+  using (auth.uid() = user_id);
+```
