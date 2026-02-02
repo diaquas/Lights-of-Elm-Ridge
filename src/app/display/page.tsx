@@ -3,31 +3,66 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 export const metadata: Metadata = {
-  title: 'About the Display',
-  description: 'Technical specifications and hardware details for the Lights of Elm Ridge display. Learn about our pixel count, controllers, xLights setup, and more.',
+  title: 'About the Display | Lights of Elm Ridge',
+  description: 'Technical specifications and hardware details for the Lights of Elm Ridge display. 35,000+ pixels, HinksPix PRO V3 controller, custom spinners, and more.',
 };
 
-// Display specifications
+// Display specifications from xLights export
 const displaySpecs = {
-  totalPixels: '15,000+',
-  controllers: 'Falcon F48',
-  xlightsVersion: '2024.x',
-  showComputer: 'Raspberry Pi 4',
-  powerSupply: '350A @ 5V',
+  totalPixels: '35,000+',
+  universes: '190',
+  controllers: '3',
+  xlightsVersion: '2024.20+',
+  showComputer: 'FPP',
   fmTransmitter: '87.9 FM',
 };
 
+// Props list from Export Models.xlsx - actual pixel counts
 const propsList = [
-  { name: 'Mega Tree', pixels: '2,500', description: '16 strings of 156 pixels each, 12ft tall' },
-  { name: 'Matrix', pixels: '2,048', description: '32x64 P10 panel display for videos and effects' },
-  { name: 'Arches', pixels: '1,200', description: '8 arches with 150 pixels each' },
-  { name: 'Mini Trees', pixels: '1,600', description: '8 spiral trees, 200 pixels each' },
-  { name: 'Roof Line', pixels: '1,500', description: 'C9 style pixels outlining the roofline' },
-  { name: 'Window Frames', pixels: '800', description: 'Pixel outlines on 4 front windows' },
-  { name: 'Candy Canes', pixels: '600', description: '12 candy canes along the driveway' },
-  { name: 'Snowflakes', pixels: '480', description: '8 large pixel snowflakes' },
-  { name: 'Singing Faces', pixels: '400', description: '2 singing pumpkins / snowmen' },
-  { name: 'Misc Props', pixels: '3,872+', description: 'Stars, wreaths, ground stakes, and more' },
+  { name: 'Matrix', pixels: '7,168', description: '70x102 P10 panel - videos, images, text effects' },
+  { name: 'Spinners (6)', pixels: '5,792', description: 'Fuzion, Rosa Grande, Overlord, 3x Showstopper, Click Click Boom' },
+  { name: 'Fence Panels (7)', pixels: '4,655', description: '665 pixels each - vertical pixel fence sections' },
+  { name: 'Mega Tree', pixels: '3,000', description: '12 strings x 250 pixels - 180° display' },
+  { name: 'Pixel Poles (8)', pixels: '2,400', description: '300 pixels each - driveway and yard poles' },
+  { name: 'GE Rosa Tombstones (4)', pixels: '1,940', description: '485 pixels each - large animated tombstones' },
+  { name: 'House Outline', pixels: '~2,000', description: '26 eave sections + 15 vertical runs' },
+  { name: 'Tombstones (10)', pixels: '1,500', description: '4 large (150px) + 6 small tombstones' },
+  { name: 'Trees - Real (6)', pixels: '1,200', description: 'Wrapped real trees with spiral patterns' },
+  { name: 'Spiders (8)', pixels: '975', description: '100 pixels each + 175 pixel tree topper spider' },
+  { name: 'Arches (8)', pixels: '800', description: '100 pixels each - entrance and yard arches' },
+  { name: 'Spiral Trees (8)', pixels: '800', description: '100 pixels each - GE style spiral trees' },
+  { name: 'Fireworks (2)', pixels: '720', description: '360 pixels each - exploding firework props' },
+  { name: 'Windows (5)', pixels: '600', description: 'Office, Tower, Avery, Ellis, Garage outlines' },
+  { name: 'Tune-To-Matrix (2)', pixels: '640', description: 'FM frequency display signs' },
+  { name: 'Driveway', pixels: '500', description: 'Ground-level driveway outline' },
+  { name: 'Bats (7)', pixels: '350', description: '50 pixels each - flying bat props' },
+  { name: 'Pumpkin Minis (8)', pixels: '264', description: '33 pixels each - small jack-o-lanterns' },
+  { name: 'Singing Pumpkin', pixels: '75', description: 'Animated mouth for lip-sync effects' },
+];
+
+// Controller details from xlights_networks.xml
+const controllers = [
+  {
+    name: 'HinksPix PRO V3',
+    role: 'Main Controller',
+    universes: 171,
+    brightness: '70%',
+    description: 'Powers house, yard props, spinners, fence, and most display elements',
+  },
+  {
+    name: 'HolidayCoro AlphaPix 16',
+    role: 'Mega Tree Controller',
+    universes: 18,
+    brightness: '100%',
+    description: 'Dedicated controller for the 3,000 pixel mega tree',
+  },
+  {
+    name: 'HolidayCoro AlphaPix Flex',
+    role: 'AC Controller',
+    universes: 1,
+    brightness: '100%',
+    description: 'Controls AC flood lights and special effects',
+  },
 ];
 
 export default function DisplayPage() {
@@ -70,20 +105,20 @@ export default function DisplayPage() {
             <div className="text-foreground/60 text-sm">Total Pixels</div>
           </div>
           <div className="bg-surface rounded-xl p-4 border border-border text-center">
-            <div className="text-2xl font-bold text-accent">{displaySpecs.controllers}</div>
-            <div className="text-foreground/60 text-sm">Controller</div>
+            <div className="text-2xl font-bold text-accent">{displaySpecs.universes}</div>
+            <div className="text-foreground/60 text-sm">Universes</div>
           </div>
           <div className="bg-surface rounded-xl p-4 border border-border text-center">
-            <div className="text-2xl font-bold text-green-400">{displaySpecs.xlightsVersion}</div>
-            <div className="text-foreground/60 text-sm">xLights Version</div>
+            <div className="text-2xl font-bold text-green-400">{displaySpecs.controllers}</div>
+            <div className="text-foreground/60 text-sm">Controllers</div>
           </div>
           <div className="bg-surface rounded-xl p-4 border border-border text-center">
-            <div className="text-2xl font-bold text-blue-400">{displaySpecs.showComputer}</div>
+            <div className="text-2xl font-bold text-blue-400">{displaySpecs.xlightsVersion}</div>
+            <div className="text-foreground/60 text-sm">xLights</div>
+          </div>
+          <div className="bg-surface rounded-xl p-4 border border-border text-center">
+            <div className="text-2xl font-bold text-yellow-400">{displaySpecs.showComputer}</div>
             <div className="text-foreground/60 text-sm">Show Player</div>
-          </div>
-          <div className="bg-surface rounded-xl p-4 border border-border text-center">
-            <div className="text-2xl font-bold text-yellow-400">{displaySpecs.powerSupply}</div>
-            <div className="text-foreground/60 text-sm">Power</div>
           </div>
           <div className="bg-surface rounded-xl p-4 border border-border text-center">
             <div className="text-2xl font-bold text-purple-400">{displaySpecs.fmTransmitter}</div>
@@ -91,10 +126,35 @@ export default function DisplayPage() {
           </div>
         </div>
 
+        {/* Controllers Section */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+            <span className="text-3xl">🎛️</span>
+            Controllers
+          </h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            {controllers.map((controller) => (
+              <div key={controller.name} className="bg-surface rounded-xl p-5 border border-border">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-bold text-accent">{controller.name}</h3>
+                  <span className="text-xs bg-accent/20 text-accent px-2 py-1 rounded-full">
+                    {controller.universes} universes
+                  </span>
+                </div>
+                <p className="text-sm text-foreground/60 mb-2">{controller.role}</p>
+                <p className="text-sm text-foreground/70">{controller.description}</p>
+                <div className="mt-3 text-xs text-foreground/50">
+                  Brightness: {controller.brightness}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Props Breakdown */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-            <span className="text-3xl">🎄</span>
+            <span className="text-3xl">🎃</span>
             Props & Pixel Counts
           </h2>
           <div className="bg-surface rounded-xl border border-border overflow-hidden">
@@ -119,6 +179,46 @@ export default function DisplayPage() {
           </div>
         </section>
 
+        {/* Spinner Spotlight */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+            <span className="text-3xl">🌀</span>
+            Spinner Collection
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-surface rounded-xl p-5 border border-border">
+              <h3 className="font-bold mb-2">Overlord</h3>
+              <p className="text-2xl font-mono text-accent mb-2">1,529 px</p>
+              <p className="text-sm text-foreground/60">Massive GE-style spinner with intricate submodels</p>
+            </div>
+            <div className="bg-surface rounded-xl p-5 border border-border">
+              <h3 className="font-bold mb-2">Rosa Grande</h3>
+              <p className="text-2xl font-mono text-accent mb-2">1,392 px</p>
+              <p className="text-sm text-foreground/60">Elegant floral pattern spinner</p>
+            </div>
+            <div className="bg-surface rounded-xl p-5 border border-border">
+              <h3 className="font-bold mb-2">Fuzion</h3>
+              <p className="text-2xl font-mono text-accent mb-2">996 px</p>
+              <p className="text-sm text-foreground/60">Dynamic effects with inner/outer rings</p>
+            </div>
+            <div className="bg-surface rounded-xl p-5 border border-border">
+              <h3 className="font-bold mb-2">Showstopper (x3)</h3>
+              <p className="text-2xl font-mono text-accent mb-2">541 px each</p>
+              <p className="text-sm text-foreground/60">Triple set of matching yard spinners</p>
+            </div>
+            <div className="bg-surface rounded-xl p-5 border border-border">
+              <h3 className="font-bold mb-2">Click Click Boom</h3>
+              <p className="text-2xl font-mono text-accent mb-2">252 px</p>
+              <p className="text-sm text-foreground/60">Compact spinner with explosive effects</p>
+            </div>
+            <div className="bg-gradient-to-br from-accent/20 to-accent-secondary/20 rounded-xl p-5 border border-accent/30">
+              <h3 className="font-bold mb-2">Total Spinners</h3>
+              <p className="text-2xl font-mono gradient-text mb-2">5,792 px</p>
+              <p className="text-sm text-foreground/60">6 spinners across the display</p>
+            </div>
+          </div>
+        </section>
+
         {/* Hardware Details */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
@@ -127,19 +227,19 @@ export default function DisplayPage() {
           </h2>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-surface rounded-xl p-6 border border-border">
-              <h3 className="font-bold text-lg mb-4 text-accent">Controllers</h3>
+              <h3 className="font-bold text-lg mb-4 text-accent">Network</h3>
               <ul className="space-y-3 text-foreground/70">
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Falcon F48</strong> - Main controller handling all pixel outputs</span>
+                  <span><strong>E1.31 Protocol</strong> - Industry standard lighting control</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Differential Receivers</strong> - Extended runs to distant props</span>
+                  <span><strong>190 Universes</strong> - 510 channels each</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Ethernet Network</strong> - E1.31 protocol over Cat6</span>
+                  <span><strong>Smart Receivers</strong> - Differential signal boosting for long runs</span>
                 </li>
               </ul>
             </div>
@@ -148,15 +248,15 @@ export default function DisplayPage() {
               <ul className="space-y-3 text-foreground/70">
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Mean Well LRS-350-5</strong> - Multiple 5V power supplies</span>
+                  <span><strong>5V Power Supplies</strong> - Multiple Mean Well units</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Power Injection</strong> - Every 150 pixels for consistent brightness</span>
+                  <span><strong>Power Injection</strong> - Every 150 pixels for brightness</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Dedicated Circuits</strong> - 4 x 20A circuits for the display</span>
+                  <span><strong>Dedicated Circuits</strong> - Multiple 20A circuits</span>
                 </li>
               </ul>
             </div>
@@ -165,7 +265,7 @@ export default function DisplayPage() {
               <ul className="space-y-3 text-foreground/70">
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>Raspberry Pi 4</strong> - Running Falcon Player (FPP)</span>
+                  <span><strong>Falcon Player (FPP)</strong> - Running on dedicated hardware</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
@@ -186,11 +286,11 @@ export default function DisplayPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>WS2812B Strips</strong> - 60 LEDs/m for matrix and detailed props</span>
+                  <span><strong>WS2812B Strips</strong> - Matrix and detailed props</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-1">✓</span>
-                  <span><strong>IP67 Waterproof</strong> - All outdoor-rated connections</span>
+                  <span><strong>IP67 Waterproof</strong> - All outdoor-rated</span>
                 </li>
               </ul>
             </div>
@@ -209,7 +309,7 @@ export default function DisplayPage() {
                 <h3 className="font-bold text-lg mb-3">xLights</h3>
                 <p className="text-foreground/70 text-sm mb-2">
                   All sequences are created in xLights {displaySpecs.xlightsVersion}.
-                  The layout file is optimized for our specific prop setup.
+                  Full model groups and submodels for detailed effects.
                 </p>
                 <a
                   href="https://xlights.org"
@@ -226,8 +326,8 @@ export default function DisplayPage() {
               <div>
                 <h3 className="font-bold text-lg mb-3">Falcon Player</h3>
                 <p className="text-foreground/70 text-sm mb-2">
-                  FPP runs on our Raspberry Pi, playing FSEQ files and
-                  managing show schedules automatically.
+                  FPP plays FSEQ files and manages show schedules.
+                  Remote control via web interface.
                 </p>
                 <a
                   href="https://falconchristmas.com"
@@ -272,7 +372,7 @@ export default function DisplayPage() {
             <ul className="grid md:grid-cols-2 gap-3 text-foreground/70">
               <li className="flex items-center gap-2">
                 <span className="text-green-500">✓</span>
-                xLights 2023 or newer recommended
+                xLights 2024 or newer recommended
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-green-500">✓</span>
