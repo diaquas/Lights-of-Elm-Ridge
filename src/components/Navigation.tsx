@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -18,7 +20,34 @@ const navLinks = [
 
 export default function Navigation() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const supabase = createClient();
+
+  useEffect(() => {
+    // Get initial user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUserMenuOpen(false);
+    router.push("/");
+    router.refresh();
+  };
 
   return (
     <>
@@ -64,6 +93,78 @@ export default function Navigation() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Auth Button */}
+              {user ? (
+                <div className="relative ml-2">
+                  <button
+                    onClick={() => setUserMenuOpen(!userMenuOpen)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-surface-light transition-all"
+                    aria-expanded={userMenuOpen}
+                    aria-haspopup="true"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
+                    </svg>
+                    <svg
+                      className={`w-4 h-4 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+
+                  {userMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-surface rounded-lg border border-border shadow-lg py-1">
+                      <div className="px-4 py-2 border-b border-border">
+                        <p className="text-xs text-foreground/60">
+                          Signed in as
+                        </p>
+                        <p className="text-sm font-medium truncate">
+                          {user.email}
+                        </p>
+                      </div>
+                      <Link
+                        href="/account"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="block px-4 py-2 text-sm text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                      >
+                        My Account
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="block w-full text-left px-4 py-2 text-sm text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  href="/login"
+                  className="ml-2 px-4 py-2 bg-accent hover:bg-accent/90 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
 
             {/* Mobile menu button */}
@@ -120,6 +221,44 @@ export default function Navigation() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Mobile Auth */}
+              <div className="mt-4 pt-4 border-t border-border">
+                {user ? (
+                  <>
+                    <div className="px-4 py-2 mb-2">
+                      <p className="text-xs text-foreground/60">Signed in as</p>
+                      <p className="text-sm font-medium truncate">
+                        {user.email}
+                      </p>
+                    </div>
+                    <Link
+                      href="/account"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block px-4 py-3 rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                    >
+                      My Account
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleSignOut();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="block w-full text-left px-4 py-3 rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                    >
+                      Sign Out
+                    </button>
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block mx-4 py-3 bg-accent hover:bg-accent/90 text-white text-sm font-medium rounded-lg transition-colors text-center"
+                  >
+                    Sign In
+                  </Link>
+                )}
+              </div>
             </div>
           )}
         </div>
