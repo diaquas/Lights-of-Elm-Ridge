@@ -356,6 +356,8 @@ export default async function SequencePage({ params }: PageProps) {
                         getGoogleDriveDownloadUrl(sequence.googleDriveUrl) ||
                         "#"
                       }
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
                     >
                       <svg
