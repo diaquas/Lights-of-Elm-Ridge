@@ -90,8 +90,8 @@ function SequenceCard({
       <div className="p-3 sm:p-4 md:p-5 flex flex-col flex-grow">
         <div className="mb-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <h3 className="font-bold text-base sm:text-lg group-hover:text-accent transition-colors truncate">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-base sm:text-lg group-hover:text-accent transition-colors">
                 {sequence.title}
               </h3>
               {sequence.yearAdded === 2026 && (
