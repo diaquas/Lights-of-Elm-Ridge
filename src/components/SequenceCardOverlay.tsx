@@ -69,14 +69,14 @@ export default function SequenceCardOverlay({
           <div className="flex items-end justify-between">
             {/* Year badge */}
             <div
-              className={`px-3 py-1.5 rounded-lg backdrop-blur-sm ${
+              className={`px-2.5 py-0.5 rounded-md backdrop-blur-sm flex items-center ${
                 isHalloween
                   ? "bg-orange-500/30 border border-orange-400/40"
                   : "bg-green-500/30 border border-green-400/40"
               }`}
             >
               <span
-                className={`text-xs font-bold tracking-wide ${
+                className={`text-xs font-bold tracking-wide leading-none ${
                   isHalloween ? "text-orange-300" : "text-green-300"
                 }`}
               >
