@@ -817,12 +817,11 @@ html {
   border-radius: var(--seq-radius-pill);
 }
 
-/* Card grid - 4 columns at full width, centered when fewer cards */
+/* Card grid - 4 columns at full width */
 .seq-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 330px));
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
-  justify-content: center;
 }
 
 /* Sequence card */
@@ -1086,12 +1085,15 @@ html {
 }
 
 /* Responsive adjustments */
+@media (max-width: 1200px) {
+  .seq-card-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 1024px) {
   .seq-listing-page {
     --page-gutter: 24px;
-  }
-  .seq-card-grid {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 320px));
   }
 }
 
@@ -1121,7 +1123,7 @@ html {
   }
 
   .seq-card-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 16px;
   }
 
@@ -1132,6 +1134,12 @@ html {
   .seq-cat-tab {
     flex: 1;
     justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .seq-card-grid {
+    grid-template-columns: 1fr;
   }
 }
 
