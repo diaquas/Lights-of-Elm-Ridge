@@ -477,6 +477,8 @@ When the drop hits, your whole display explodes. Your neighbors will feel it.`,
     xlightsSeqUrl: "",
     r2Url:
       "https://downloads.lightsofelmridge.com/Free/Purple%20People%20Eater%20-%20Dub%20Step%20by%20Pegboard%20Nerds.zip",
+    amazonMusicUrl:
+      "https://www.amazon.com/Purple-People-Eater-Pegboard-Nerds/dp/B07FQBHGQB",
     youtubeId: null,
     artworkUrl:
       "https://i1.sndcdn.com/artworks-000377765997-jmtgu9-t500x500.jpg",
