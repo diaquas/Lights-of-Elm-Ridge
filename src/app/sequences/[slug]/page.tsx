@@ -221,9 +221,12 @@ export default async function SequencePage({ params }: PageProps) {
             <div>
               {/* Header */}
               <div className="mb-6">
-                <h1 className="text-3xl md:text-4xl font-bold mb-2">
-                  {sequence.title} - {sequence.artist}
+                <h1 className="text-3xl md:text-4xl font-bold mb-1">
+                  {sequence.title}
                 </h1>
+                <p className="text-xl md:text-2xl text-foreground/60 mb-3">
+                  {sequence.artist}
+                </p>
                 <div className="flex items-center gap-4">
                   <span className="text-3xl font-bold text-accent">
                     {sequence.price === 0 ? "FREE" : `$${sequence.price}`}
