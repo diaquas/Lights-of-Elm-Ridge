@@ -65,7 +65,7 @@ export default function CheckoutSuccessPage() {
 
           <div className="space-y-4">
             <Link
-              href="/library"
+              href="/account"
               className="block w-full py-3 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl transition-colors"
             >
               Download My Sequences
