@@ -263,7 +263,7 @@ export default function Home() {
                   <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-500">
                     {sequence.category}
                   </span>
-                  {sequence.isNew && (
+                  {sequence.yearAdded === 2026 && (
                     <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-green-500/12 text-green-500">
                       New
                     </span>
