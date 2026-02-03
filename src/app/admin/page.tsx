@@ -34,6 +34,11 @@ export default function AdminPage() {
   useEffect(() => {
     async function checkAuth() {
       const supabase = createClient();
+      if (!supabase) {
+        setIsLoading(false);
+        return;
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -53,6 +58,10 @@ export default function AdminPage() {
   async function fetchStats() {
     setStatsLoading(true);
     const supabase = createClient();
+    if (!supabase) {
+      setStatsLoading(false);
+      return;
+    }
 
     try {
       // Fetch all purchases
