@@ -17,7 +17,6 @@ interface TheShowTabsProps {
   videoGroups: VideoGroup[];
   halloweenSongs: Song[];
   christmasSongs: Song[];
-  newFor2026: Song[];
   vendors: { name: string; url: string; count: number }[];
   displayStats: {
     totalPixels: string;
@@ -248,7 +247,6 @@ export default function TheShowTabs({
   videoGroups,
   halloweenSongs,
   christmasSongs,
-  newFor2026,
   vendors,
   displayStats,
   propsList,
@@ -286,10 +284,6 @@ export default function TheShowTabs({
   };
 
   // Playlist data
-  const halloweenNew = newFor2026.filter((s) => s.category === "Halloween");
-  const christmasNew = newFor2026.filter((s) => s.category === "Christmas");
-  const currentNew =
-    playlistCategory === "halloween" ? halloweenNew : christmasNew;
   const currentSongs =
     playlistCategory === "halloween" ? halloweenSongs : christmasSongs;
   const halloweenOriginals = halloweenSongs.filter((s) => s.isOriginal).length;
@@ -438,30 +432,6 @@ export default function TheShowTabs({
             total
           </span>
         </div>
-
-        {/* New for 2026 Section */}
-        {currentNew.length > 0 && (
-          <section>
-            <div className="show-section-header">
-              <div className="show-section-title-group">
-                <span className="show-section-icon">✨</span>
-                <h2 className="show-section-title">New for 2026</h2>
-                <span className="show-section-meta">
-                  {currentNew.length} songs
-                </span>
-              </div>
-              <span className="show-section-count">
-                {currentNew.length} new
-              </span>
-            </div>
-
-            <div className="tracklist">
-              {currentNew.map((song, index) => (
-                <TrackRow key={song.id} song={song} trackNum={index + 1} />
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* Main Category Section */}
         <section>

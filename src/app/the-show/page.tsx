@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import { getAllLiveVideos } from "@/data/youtube-loader";
 import { YOUTUBE_PLAYLISTS } from "@/data/youtube-config";
-import {
-  songlist,
-  getSongsByCategory,
-  getStats,
-  getNewSongs,
-} from "@/data/songlist";
+import { songlist, getSongsByCategory, getStats } from "@/data/songlist";
 import TheShowTabs from "@/components/TheShowTabs";
 import BackToTop from "@/components/BackToTop";
 
@@ -136,7 +131,6 @@ export default function TheShowPage() {
   // Get song data
   const halloweenSongs = getSongsByCategory("Halloween");
   const christmasSongs = getSongsByCategory("Christmas");
-  const newFor2026 = getNewSongs(2026);
   const stats = getStats();
 
   // Get vendor data
@@ -202,7 +196,6 @@ export default function TheShowPage() {
           videoGroups={videoGroups}
           halloweenSongs={halloweenSongs}
           christmasSongs={christmasSongs}
-          newFor2026={newFor2026}
           vendors={vendors}
           displayStats={displayStats}
           propsList={propsList}
