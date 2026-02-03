@@ -289,21 +289,21 @@ export default async function SequencePage({ params }: PageProps) {
               </div>
 
               {/* Quick Stats */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-surface rounded-lg p-3 text-center border border-border">
-                  <div className="text-lg font-bold text-foreground">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
+                <div className="bg-surface rounded-lg p-2 sm:p-3 text-center border border-border">
+                  <div className="text-sm sm:text-base md:text-lg font-bold text-foreground">
                     {sequence.duration}
                   </div>
                   <div className="text-xs text-foreground/50">Duration</div>
                 </div>
-                <div className="bg-surface rounded-lg p-3 text-center border border-border">
-                  <div className="text-lg font-bold text-foreground">
+                <div className="bg-surface rounded-lg p-2 sm:p-3 text-center border border-border">
+                  <div className="text-sm sm:text-base md:text-lg font-bold text-foreground">
                     {sequence.difficulty}
                   </div>
                   <div className="text-xs text-foreground/50">Difficulty</div>
                 </div>
-                <div className="bg-surface rounded-lg p-3 text-center border border-border">
-                  <div className="text-lg font-bold text-foreground">
+                <div className="bg-surface rounded-lg p-2 sm:p-3 text-center border border-border">
+                  <div className="text-sm sm:text-base md:text-lg font-bold text-foreground">
                     {sequence.propCount}+
                   </div>
                   <div className="text-xs text-foreground/50">Props</div>
