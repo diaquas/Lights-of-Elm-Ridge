@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import ColorChips from "./ColorChips";
-import ComingSoon from "./ComingSoon";
+import Image from "next/image";
 import type { Song } from "@/data/songlist";
 import { sequences } from "@/data/sequences";
 
@@ -20,7 +19,54 @@ function getWideThumbnail(sequenceSlug: string | undefined): string | null {
   return sequence?.thumbnailUrl || null;
 }
 
-function SongCard({ song }: { song: Song }) {
+// Chevron icon for internal links
+function ChevronIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+// External link icon for vendor links
+function ExternalLinkIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
+
+// Play icon for thumbnail hover
+function PlayIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="#fff">
+      <path d="M3 1.5L12 7L3 12.5V1.5Z" />
+    </svg>
+  );
+}
+
+function TrackRow({ song, trackNum }: { song: Song; trackNum: number }) {
   // Determine the link destination
   const href =
     song.isOriginal && song.sequenceSlug
@@ -39,120 +85,69 @@ function SongCard({ song }: { song: Song }) {
       ? `https://img.youtube.com/vi/${song.youtubeId}/mqdefault.jpg`
       : null);
 
-  // Fallback colors based on category
-  const defaultColors =
-    song.category === "Halloween"
-      ? ["#f39c12", "#9b59b6", "#e74c3c"]
-      : ["#e74c3c", "#2ecc71", "#f1c40f"];
+  const isNew = song.yearAdded === 2026;
 
-  const CardContent = (
-    <div
-      className={`bg-surface rounded-xl overflow-hidden border border-border transition-all ${hasLink ? "card-hover cursor-pointer" : ""} group`}
-    >
-      {/* Thumbnail */}
-      <div className="aspect-video relative overflow-hidden bg-surface-light">
+  const TrackContent = (
+    <>
+      <span className="track-num">{trackNum}</span>
+      <div className="track-thumb">
         {thumbnailUrl ? (
-          <img
+          <Image
             src={thumbnailUrl}
-            alt={`${song.title} - ${song.artist}`}
-            className="absolute inset-0 w-full h-full object-cover"
+            alt=""
+            width={88}
+            height={88}
+            className="object-cover"
+            loading="lazy"
+            unoptimized
           />
         ) : (
-          <ComingSoon category={song.category} />
+          <div className="w-full h-full bg-gradient-to-br from-[var(--seq-surface-raised)] to-[var(--seq-surface)]" />
         )}
-
-        {/* Badges */}
-        <div className="absolute top-2 left-2 flex gap-2">
-          {song.yearAdded === 2026 && (
-            <span className="px-2 py-1 bg-accent text-white rounded-full text-xs font-bold">
-              NEW
-            </span>
-          )}
-        </div>
-
-        {/* Source badge */}
-        <div className="absolute bottom-2 right-2">
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              song.isOriginal
-                ? "bg-accent/90 text-white"
-                : "bg-surface/90 text-foreground/80"
-            }`}
-          >
-            {song.isOriginal ? "Original" : song.vendor}
-          </span>
+        <div className="track-thumb-play" aria-hidden="true">
+          <PlayIcon />
         </div>
       </div>
-
-      {/* Content */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <div className="flex-1">
-            <h3
-              className={`font-semibold ${hasLink ? "group-hover:text-accent transition-colors" : ""}`}
-            >
-              {song.title}
-            </h3>
-            <p className="text-foreground/60 text-sm">{song.artist}</p>
-          </div>
-          {song.dominantColors && <ColorChips colors={song.dominantColors} />}
-          {!song.dominantColors && <ColorChips colors={defaultColors} />}
-        </div>
-
-        {/* CTA */}
-        {hasLink && (
-          <div className="mt-3 pt-3 border-t border-border/50">
-            <span className="text-sm text-accent flex items-center gap-1">
-              {song.isOriginal ? "View Sequence" : "View on " + song.vendor}
-              {isExternal ? (
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-3 h-3"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              )}
-            </span>
-          </div>
+      <div className="track-info">
+        <span className="track-title">{song.title}</span>
+        <span className="track-artist">{song.artist}</span>
+      </div>
+      <div className="track-badges">
+        {isNew && <span className="track-badge track-badge-new">New</span>}
+        {song.isOriginal ? (
+          <span className="track-badge track-badge-original">Original</span>
+        ) : (
+          <span className="track-badge track-badge-vendor">{song.vendor}</span>
         )}
       </div>
-    </div>
+      <span className="track-action">
+        {isExternal ? <ExternalLinkIcon /> : <ChevronIcon />}
+      </span>
+    </>
   );
 
   if (!hasLink) {
-    return CardContent;
+    return <div className="track">{TrackContent}</div>;
   }
 
   if (isExternal) {
     return (
-      <a href={href} target="_blank" rel="noopener noreferrer">
-        {CardContent}
+      <a
+        href={href}
+        className="track"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {TrackContent}
       </a>
     );
   }
 
-  return <Link href={href}>{CardContent}</Link>;
+  return (
+    <Link href={href} className="track">
+      {TrackContent}
+    </Link>
+  );
 }
 
 export default function PlaylistTabs({
@@ -163,7 +158,6 @@ export default function PlaylistTabs({
   const [activeTab, setActiveTab] = useState<"halloween" | "christmas">(
     "halloween",
   );
-  const [showAllNew, setShowAllNew] = useState(false);
 
   const halloweenNew = newFor2026.filter((s) => s.category === "Halloween");
   const christmasNew = newFor2026.filter((s) => s.category === "Christmas");
@@ -171,146 +165,98 @@ export default function PlaylistTabs({
   const currentSongs =
     activeTab === "halloween" ? halloweenSongs : christmasSongs;
 
-  // Show first 3, or all if expanded
-  const visibleNew = showAllNew ? currentNew : currentNew.slice(0, 3);
-  const hasMoreNew = currentNew.length > 3;
-
   const halloweenOriginals = halloweenSongs.filter((s) => s.isOriginal).length;
   const christmasOriginals = christmasSongs.filter((s) => s.isOriginal).length;
+  const currentOriginals =
+    activeTab === "halloween" ? halloweenOriginals : christmasOriginals;
 
   return (
     <>
-      {/* Tab Navigation */}
-      <div className="flex justify-center mb-8">
-        <div className="inline-flex bg-surface rounded-xl border border-border p-1">
+      {/* Header Bottom: Category tabs + original count */}
+      <div className="playlist-header-bottom seq-anim-in seq-delay-2">
+        {/* Category tabs */}
+        <div className="seq-category-tabs" role="tablist">
           <button
-            onClick={() => {
-              setActiveTab("halloween");
-              setShowAllNew(false);
-            }}
-            className={`px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial sm:min-w-[280px] ${
-              activeTab === "halloween"
-                ? "bg-orange-500/20 text-orange-400 font-semibold"
-                : "text-foreground/60 hover:text-foreground hover:bg-surface-light"
-            }`}
+            className={`seq-cat-tab ${activeTab === "halloween" ? "active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "halloween"}
+            onClick={() => setActiveTab("halloween")}
           >
-            <span className="text-2xl">🎃</span>
-            <span>Halloween ({halloweenSongs.length})</span>
+            <span className="seq-cat-tab-icon">🎃</span>
+            Halloween
+            <span className="seq-cat-tab-count">({halloweenSongs.length})</span>
             {halloweenNew.length > 0 && (
-              <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs">
-                {halloweenNew.length} new
-              </span>
+              <span className="seq-cat-tab-new">{halloweenNew.length} new</span>
             )}
           </button>
           <button
-            onClick={() => {
-              setActiveTab("christmas");
-              setShowAllNew(false);
-            }}
-            className={`px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial sm:min-w-[280px] ${
-              activeTab === "christmas"
-                ? "bg-green-500/20 text-green-400 font-semibold"
-                : "text-foreground/60 hover:text-foreground hover:bg-surface-light"
-            }`}
+            className={`seq-cat-tab ${activeTab === "christmas" ? "active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "christmas"}
+            onClick={() => setActiveTab("christmas")}
           >
-            <span className="text-2xl">🎄</span>
-            <span>Christmas ({christmasSongs.length})</span>
+            <span className="seq-cat-tab-icon">🎄</span>
+            Christmas
+            <span className="seq-cat-tab-count">({christmasSongs.length})</span>
             {christmasNew.length > 0 && (
-              <span className="px-2 py-0.5 bg-accent/20 text-accent rounded-full text-xs">
-                {christmasNew.length} new
-              </span>
+              <span className="seq-cat-tab-new">{christmasNew.length} new</span>
             )}
           </button>
         </div>
+
+        <span className="playlist-original-count">
+          <strong>{currentOriginals}</strong> original / {currentSongs.length}{" "}
+          total in {activeTab === "halloween" ? "Halloween" : "Christmas"}
+        </span>
       </div>
 
-      {/* New for 2026 Section (filtered by active tab) */}
-      {currentNew.length > 0 && (
-        <section className="mb-12">
-          <div className="flex items-center gap-3 mb-6">
-            <span className="text-3xl">✨</span>
-            <h2 className="text-2xl font-bold">New for 2026</h2>
-            <span className="px-3 py-1 bg-accent/20 text-accent rounded-full text-sm font-medium">
-              {currentNew.length} songs
-            </span>
+      {/* Content area */}
+      <main className="playlist-main">
+        {/* New for 2026 Section (filtered by active tab) */}
+        {currentNew.length > 0 && (
+          <section>
+            <div className="playlist-section-header seq-anim-in seq-delay-3">
+              <div className="playlist-section-title-group">
+                <span className="playlist-section-icon">✨</span>
+                <h2 className="playlist-section-title">New for 2026</h2>
+                <span className="playlist-section-meta">
+                  {currentNew.length} songs
+                </span>
+              </div>
+              <span className="seq-section-count">{currentNew.length} new</span>
+            </div>
+
+            <div className="tracklist seq-anim-in seq-delay-3">
+              {currentNew.map((song, index) => (
+                <TrackRow key={song.id} song={song} trackNum={index + 1} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Main Songs Section */}
+        <section>
+          <div className="playlist-section-header seq-anim-in seq-delay-4">
+            <div className="playlist-section-title-group">
+              <span className="playlist-section-icon">
+                {activeTab === "halloween" ? "🎃" : "🎄"}
+              </span>
+              <h2 className="playlist-section-title">
+                {activeTab === "halloween" ? "Halloween" : "Christmas"}
+              </h2>
+              <span className="playlist-section-meta">
+                {currentOriginals} original / {currentSongs.length} total
+              </span>
+            </div>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {visibleNew.map((song) => (
-              <SongCard key={song.id} song={song} />
+
+          <div className="tracklist seq-anim-in seq-delay-4">
+            {currentSongs.map((song, index) => (
+              <TrackRow key={song.id} song={song} trackNum={index + 1} />
             ))}
           </div>
-
-          {/* Show More/Less Button */}
-          {hasMoreNew && (
-            <div className="mt-6 text-center">
-              <button
-                onClick={() => setShowAllNew(!showAllNew)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-surface hover:bg-surface-light border border-border rounded-xl text-foreground/70 hover:text-foreground transition-colors"
-              >
-                {showAllNew ? (
-                  <>
-                    Show Less
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 15l7-7 7 7"
-                      />
-                    </svg>
-                  </>
-                ) : (
-                  <>
-                    Show {currentNew.length - 3} More
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
         </section>
-      )}
-
-      {/* Main Songs Grid */}
-      <section className="mb-16">
-        <div className="flex items-center gap-3 mb-6">
-          <span className="text-3xl">
-            {activeTab === "halloween" ? "🎃" : "🎄"}
-          </span>
-          <h2 className="text-2xl font-bold">
-            {activeTab === "halloween" ? "Halloween" : "Christmas"}
-          </h2>
-          <span className="text-foreground/50 text-sm">
-            {activeTab === "halloween"
-              ? halloweenOriginals
-              : christmasOriginals}{" "}
-            original / {currentSongs.length} total
-          </span>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {currentSongs.map((song) => (
-            <SongCard key={song.id} song={song} />
-          ))}
-        </div>
-      </section>
+      </main>
     </>
   );
 }
