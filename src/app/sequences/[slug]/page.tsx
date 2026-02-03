@@ -686,8 +686,10 @@ export default async function SequencePage({ params }: PageProps) {
           {/* You May Also Like */}
           {relatedSequences.length > 0 && (
             <div className="mb-16">
-              <h2 className="text-2xl font-bold mb-8">You may also like</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+              <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8">
+                You may also like
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
                 {relatedSequences.map((related) => (
                   <Link
                     key={related.id}
@@ -728,7 +730,7 @@ export default async function SequencePage({ params }: PageProps) {
           )}
 
           {/* Trust Badges */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-8 border-t border-border">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 py-6 sm:py-8 border-t border-border">
             <div className="text-center">
               <div className="text-2xl mb-2">🎬</div>
               <h3 className="font-semibold text-sm">Video Previews</h3>

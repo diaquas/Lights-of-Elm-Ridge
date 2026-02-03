@@ -126,12 +126,12 @@ export default function CartPage() {
             {items.map((item) => (
               <div
                 key={item.id}
-                className="bg-surface rounded-xl border border-border p-4 flex gap-4"
+                className="bg-surface rounded-xl border border-border p-3 sm:p-4 flex gap-3 sm:gap-4"
               >
                 {/* Thumbnail */}
                 <Link
                   href={`/sequences/${item.slug}`}
-                  className="shrink-0 w-24 h-24 bg-surface-light rounded-lg overflow-hidden relative"
+                  className="shrink-0 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-surface-light rounded-lg overflow-hidden relative"
                 >
                   {item.thumbnailUrl ? (
                     <Image
@@ -166,10 +166,12 @@ export default function CartPage() {
 
                 {/* Price & Remove */}
                 <div className="flex flex-col items-end justify-between">
-                  <span className="font-bold text-accent">${item.price}</span>
+                  <span className="font-bold text-accent text-sm sm:text-base">
+                    ${item.price}
+                  </span>
                   <button
                     onClick={() => removeItem(item.id)}
-                    className="text-sm text-foreground/60 hover:text-red-400 transition-colors"
+                    className="text-xs sm:text-sm px-2 py-1 text-foreground/60 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                   >
                     Remove
                   </button>
@@ -180,7 +182,7 @@ export default function CartPage() {
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-surface rounded-xl border border-border p-6 sticky top-24">
+            <div className="bg-surface rounded-xl border border-border p-4 sm:p-6 sticky top-20 sm:top-24">
               <h2 className="text-lg font-bold mb-4">Order Summary</h2>
 
               <div className="space-y-3 mb-6">

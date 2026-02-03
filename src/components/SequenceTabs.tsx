@@ -87,11 +87,11 @@ function SequenceCard({
       </div>
 
       {/* Content */}
-      <div className="p-5 flex flex-col flex-grow">
+      <div className="p-3 sm:p-4 md:p-5 flex flex-col flex-grow">
         <div className="mb-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-lg group-hover:text-accent transition-colors">
+            <div className="flex items-center gap-2 min-w-0">
+              <h3 className="font-bold text-base sm:text-lg group-hover:text-accent transition-colors truncate">
                 {sequence.title}
               </h3>
               {sequence.yearAdded === 2026 && (
@@ -226,7 +226,7 @@ export default function SequenceTabs({
               setActiveTab("halloween");
               setShowAllNew(false);
             }}
-            className={`px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial sm:min-w-[280px] ${
+            className={`px-3 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all flex-1 text-sm sm:text-base ${
               activeTab === "halloween"
                 ? "bg-orange-500/20 text-orange-400 font-semibold"
                 : "text-foreground/60 hover:text-foreground hover:bg-surface-light"
@@ -245,7 +245,7 @@ export default function SequenceTabs({
               setActiveTab("christmas");
               setShowAllNew(false);
             }}
-            className={`px-4 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-all flex-1 sm:flex-initial sm:min-w-[280px] ${
+            className={`px-3 sm:px-6 py-3 rounded-lg flex items-center justify-center gap-1.5 sm:gap-2 transition-all flex-1 text-sm sm:text-base ${
               activeTab === "christmas"
                 ? "bg-green-500/20 text-green-400 font-semibold"
                 : "text-foreground/60 hover:text-foreground hover:bg-surface-light"
@@ -265,7 +265,7 @@ export default function SequenceTabs({
       {/* Search and Filters */}
       <div className="mb-8 space-y-4">
         {/* Search Bar */}
-        <div className="relative max-w-md mx-auto">
+        <div className="relative w-full px-4 sm:px-0 sm:max-w-md mx-auto">
           <input
             type="text"
             placeholder="Search sequences by title, artist, or tags..."
@@ -312,7 +312,7 @@ export default function SequenceTabs({
         <div className="flex justify-center">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-foreground/60 hover:text-foreground transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 sm:py-2 min-h-[44px] text-sm text-foreground/60 hover:text-foreground transition-colors"
           >
             <svg
               className="w-4 h-4"
@@ -338,16 +338,18 @@ export default function SequenceTabs({
 
         {/* Filter Options */}
         {showFilters && (
-          <div className="flex flex-wrap justify-center gap-4 p-4 bg-surface rounded-xl border border-border">
+          <div className="flex flex-wrap justify-center gap-2 sm:gap-4 p-3 sm:p-4 mx-4 sm:mx-0 bg-surface rounded-xl border border-border">
             {/* Difficulty Filter */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-foreground/60">Difficulty:</label>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <label className="text-xs sm:text-sm text-foreground/60">
+                Difficulty:
+              </label>
               <select
                 value={difficultyFilter}
                 onChange={(e) =>
                   setDifficultyFilter(e.target.value as DifficultyFilter)
                 }
-                className="px-3 py-1.5 bg-surface-light border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                className="px-2 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 bg-surface-light border border-border rounded-lg text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
               >
                 <option value="all">All</option>
                 <option value="Beginner">Beginner</option>
@@ -357,12 +359,14 @@ export default function SequenceTabs({
             </div>
 
             {/* Price Filter */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-foreground/60">Price:</label>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <label className="text-xs sm:text-sm text-foreground/60">
+                Price:
+              </label>
               <select
                 value={priceFilter}
                 onChange={(e) => setPriceFilter(e.target.value as PriceFilter)}
-                className="px-3 py-1.5 bg-surface-light border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                className="px-2 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 bg-surface-light border border-border rounded-lg text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
               >
                 <option value="all">All</option>
                 <option value="free">Free</option>
@@ -372,14 +376,16 @@ export default function SequenceTabs({
 
             {/* Ownership Filter - only show when logged in */}
             {isLoggedIn && (
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-foreground/60">Ownership:</label>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <label className="text-xs sm:text-sm text-foreground/60">
+                  Ownership:
+                </label>
                 <select
                   value={ownershipFilter}
                   onChange={(e) =>
                     setOwnershipFilter(e.target.value as OwnershipFilter)
                   }
-                  className="px-3 py-1.5 bg-surface-light border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                  className="px-2 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 bg-surface-light border border-border rounded-lg text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
                 >
                   <option value="all">All</option>
                   <option value="owned">Owned</option>
@@ -392,7 +398,7 @@ export default function SequenceTabs({
             {hasActiveFilters && (
               <button
                 onClick={clearFilters}
-                className="px-3 py-1.5 text-sm text-accent hover:text-accent/80 transition-colors"
+                className="px-3 py-2 sm:py-1.5 min-h-[44px] sm:min-h-0 text-xs sm:text-sm text-accent hover:text-accent/80 transition-colors"
               >
                 Clear all
               </button>
@@ -417,7 +423,7 @@ export default function SequenceTabs({
             </span>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {visibleNew.map((sequence) => (
               <SequenceCard
                 key={sequence.id}
@@ -432,7 +438,7 @@ export default function SequenceTabs({
             <div className="mt-6 text-center">
               <button
                 onClick={() => setShowAllNew(!showAllNew)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-surface hover:bg-surface-light border border-border rounded-xl text-foreground/70 hover:text-foreground transition-colors"
+                className="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 min-h-[44px] bg-surface hover:bg-surface-light border border-border rounded-xl text-sm sm:text-base text-foreground/70 hover:text-foreground transition-colors"
               >
                 {showAllNew ? (
                   <>
@@ -496,7 +502,7 @@ export default function SequenceTabs({
         </div>
 
         {currentSequences.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {currentSequences.map((sequence) => (
               <SequenceCard
                 key={sequence.id}

@@ -164,9 +164,9 @@ const faqSections: FAQSection[] = [
 function FAQAccordion({ section }: { section: FAQSection }) {
   return (
     <div className="mb-8">
-      <div className="flex items-center gap-3 mb-4">
-        <span className="text-3xl">{section.icon}</span>
-        <h2 className="text-2xl font-bold">{section.title}</h2>
+      <div className="flex items-center gap-2 sm:gap-3 mb-4">
+        <span className="text-2xl sm:text-3xl">{section.icon}</span>
+        <h2 className="text-xl sm:text-2xl font-bold">{section.title}</h2>
       </div>
 
       <div className="space-y-3">
@@ -175,8 +175,10 @@ function FAQAccordion({ section }: { section: FAQSection }) {
             key={index}
             className="group bg-surface rounded-xl border border-border overflow-hidden"
           >
-            <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-surface-light transition-colors">
-              <span className="font-medium pr-4">{item.question}</span>
+            <summary className="flex items-center justify-between p-3 sm:p-4 min-h-[48px] cursor-pointer hover:bg-surface-light transition-colors">
+              <span className="font-medium pr-4 text-sm sm:text-base">
+                {item.question}
+              </span>
               <svg
                 className="w-5 h-5 text-foreground/50 group-open:rotate-180 transition-transform flex-shrink-0"
                 fill="none"

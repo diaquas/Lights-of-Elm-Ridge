@@ -108,7 +108,7 @@ export default function Navigation() {
                 <div className="relative ml-2">
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-surface-light transition-all"
+                    className="flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-surface-light transition-all"
                     aria-expanded={userMenuOpen}
                     aria-haspopup="true"
                   >
@@ -141,7 +141,7 @@ export default function Navigation() {
                   </button>
 
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-surface rounded-lg border border-border shadow-lg py-1">
+                    <div className="absolute right-0 mt-2 w-48 max-w-[calc(100vw-32px)] bg-surface rounded-lg border border-border shadow-lg py-1">
                       <div className="px-4 py-2 border-b border-border">
                         <p className="text-xs text-foreground/60">
                           Signed in as
@@ -153,13 +153,13 @@ export default function Navigation() {
                       <Link
                         href="/account"
                         onClick={() => setUserMenuOpen(false)}
-                        className="block px-4 py-2 text-sm text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                        className="block px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-surface-light"
                       >
                         My Account
                       </Link>
                       <button
                         onClick={handleSignOut}
-                        className="block w-full text-left px-4 py-2 text-sm text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                        className="block w-full text-left px-4 py-3 text-sm text-foreground/70 hover:text-foreground hover:bg-surface-light"
                       >
                         Sign Out
                       </button>
@@ -179,7 +179,7 @@ export default function Navigation() {
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+              className="md:hidden h-11 w-11 flex items-center justify-center rounded-lg hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-menu"

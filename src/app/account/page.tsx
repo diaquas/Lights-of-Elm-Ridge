@@ -255,12 +255,12 @@ export default function AccountPage() {
               {purchasedSequences.map((seq) => (
                 <div
                   key={seq.id}
-                  className="bg-background rounded-lg border border-border p-4 flex gap-4"
+                  className="bg-background rounded-lg border border-border p-3 sm:p-4 flex gap-3 sm:gap-4"
                 >
                   {/* Thumbnail */}
                   <Link
                     href={`/sequences/${seq.slug}`}
-                    className="shrink-0 w-20 h-20 bg-surface-light rounded-lg overflow-hidden relative"
+                    className="shrink-0 w-16 h-16 sm:w-20 sm:h-20 bg-surface-light rounded-lg overflow-hidden relative"
                   >
                     {seq.thumbnailUrl ? (
                       <Image
@@ -300,7 +300,7 @@ export default function AccountPage() {
                       <button
                         onClick={() => handleDownload(seq.id)}
                         disabled={downloadingId === seq.id}
-                        className="flex items-center gap-2 px-3 py-2 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white text-sm font-semibold rounded-lg transition-colors"
+                        className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-2 min-h-[44px] bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white text-xs sm:text-sm font-semibold rounded-lg transition-colors"
                       >
                         {downloadingId === seq.id ? (
                           <svg

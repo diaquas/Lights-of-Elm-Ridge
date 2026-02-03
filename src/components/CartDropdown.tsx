@@ -30,7 +30,7 @@ export default function CartDropdown() {
       {/* Cart Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`relative p-2 rounded-lg transition-all ${
+        className={`relative p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg transition-all ${
           isOpen
             ? "bg-accent/20 text-accent"
             : "text-foreground/70 hover:text-foreground hover:bg-surface-light"
@@ -61,7 +61,7 @@ export default function CartDropdown() {
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-surface rounded-xl border border-border shadow-lg overflow-hidden z-50">
+        <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-32px)] bg-surface rounded-xl border border-border shadow-lg overflow-hidden z-50">
           {itemCount === 0 ? (
             <div className="p-6 text-center">
               <div className="text-4xl mb-2">🛒</div>
@@ -120,7 +120,7 @@ export default function CartDropdown() {
                       </span>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="text-xs text-foreground/50 hover:text-red-400 transition-colors"
+                        className="text-xs px-1 py-0.5 text-foreground/50 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                       >
                         Remove
                       </button>
