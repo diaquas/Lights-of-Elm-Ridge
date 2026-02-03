@@ -109,9 +109,23 @@ export default function LibraryPage() {
       const supabase = createClient();
       if (!supabase) throw new Error("Not authenticated");
 
+      // Validate the session first (getUser validates server-side)
+      const {
+        data: { user: validUser },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !validUser) {
+        throw new Error("Please sign in again to download");
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Session expired - please sign in again");
+      }
 
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-download-url`,
