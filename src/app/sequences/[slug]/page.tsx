@@ -306,43 +306,6 @@ export default async function SequencePage({ params }: PageProps) {
                 </div>
               </div>
 
-              {/* Audio Source */}
-              <div className="mb-6 p-4 bg-surface rounded-xl border border-border">
-                <div className="text-sm">
-                  <span className="font-semibold text-foreground">
-                    Purchase the audio:
-                  </span>{" "}
-                  {sequence.amazonMusicUrl ? (
-                    <a
-                      href={sequence.amazonMusicUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-accent hover:text-accent-secondary transition-colors"
-                    >
-                      Amazon Music
-                      <svg
-                        className="w-3 h-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
-                    </a>
-                  ) : (
-                    <span className="text-foreground/60">
-                      {sequence.audioSource}
-                    </span>
-                  )}
-                </div>
-              </div>
-
               {/* Download/Buy Button */}
               <div className="space-y-3">
                 {sequence.r2Url || sequence.googleDriveUrl ? (
