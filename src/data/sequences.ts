@@ -524,9 +524,12 @@ This sequence leans into the sci-fi/horror crossover energy with effects that fe
     propCount: 35,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/e-t-katy-perry.1180/",
+    r2Url: "https://downloads.lightsofelmridge.com/Paid/ET.zip",
+    amazonMusicUrl:
+      "https://amazon.com/music/player/albums/B003Y3ZTGA?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_vheHsiiLLucY1Pl1KHSJPAaeh&trackAsin=B003Y3XTCQ",
     youtubeId: null,
     artworkUrl:
-      "https://upload.wikimedia.org/wikipedia/en/9/91/Katy_Perry_ET_cover.png",
+      "https://pixelprodisplays.com/wp-content/uploads/2023/03/artworks-000169037769-5mo3ib-t500x500.jpg",
     models: [
       "Matrix (70x100)",
       "Fireworks",
