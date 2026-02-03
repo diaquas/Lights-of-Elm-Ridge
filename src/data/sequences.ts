@@ -401,6 +401,8 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     dominantColors: ["#3498db", "#ecf0f1", "#9b59b6"],
     r2Url:
       "https://downloads.lightsofelmridge.com/Paid/I%20Think%20We're%20Alone%20Now.zip",
+    amazonMusicUrl:
+      "https://amazon.com/music/player/albums/B01LZZ726R?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_bG87ZeTpGl68w6gHTOIMxrin4&trackAsin=B01LX1NMDQ",
   },
   {
     id: 8,
