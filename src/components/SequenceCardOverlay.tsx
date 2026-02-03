@@ -65,8 +65,8 @@ export default function SequenceCardOverlay({
             )}
           </div>
 
-          {/* Bottom row - Year badge and play button */}
-          <div className="flex items-end justify-between">
+          {/* Bottom row - Year badge */}
+          <div className="flex items-end">
             {/* Year badge */}
             <div
               className={`px-2.5 py-0.5 rounded-md backdrop-blur-sm flex items-center ${
@@ -82,17 +82,6 @@ export default function SequenceCardOverlay({
               >
                 {isNew ? "✨ NEW 2026" : `SINCE ${yearAdded}`}
               </span>
-            </div>
-
-            {/* Play indicator */}
-            <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 group-hover:bg-white/40 transition-colors">
-              <svg
-                className="w-4 h-4 text-white ml-0.5"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M8 5v14l11-7z" />
-              </svg>
             </div>
           </div>
         </div>
