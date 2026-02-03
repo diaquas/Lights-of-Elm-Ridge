@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import type { Metadata } from "next";
 import Link from "next/link";
+import ShoppingListWizard from "@/components/ShoppingListWizard";
 
 // Vendor information with colors for badges
 const vendors = {
@@ -608,22 +608,10 @@ export default function BuildYourShowPage() {
           ))}
         </div>
 
-        {/* Shopping List Teaser - NOW AT TOP */}
-        <div className="build-teaser-banner">
-          <span className="build-teaser-badge">Coming Soon</span>
-          <div className="build-teaser-content">
-            <h2 className="build-teaser-title">🛒 Shopping List Builder</h2>
-            <p className="build-teaser-desc">
-              Interactive tool to create a custom shopping list based on your
-              experience level, budget, and display goals.
-            </p>
-          </div>
-          <div className="build-teaser-chips">
-            <span className="build-teaser-chip">Beginner packages</span>
-            <span className="build-teaser-chip">Budget calculator</span>
-            <span className="build-teaser-chip">Prop suggestions</span>
-          </div>
-        </div>
+        {/* Shopping List Wizard */}
+        <section className="build-wizard-section">
+          <ShoppingListWizard />
+        </section>
 
         {/* Vendor Quick Links */}
         <section className="build-vendors">
