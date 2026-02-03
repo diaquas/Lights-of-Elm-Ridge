@@ -133,13 +133,6 @@ const coreItems: Category[] = [
         qty: "2000+",
         pixels: 2000,
       },
-      {
-        name: "Seed Pixel Mounting Strips",
-        vendor: "boscoyo",
-        note: "Clean mounting solution for seed pixels.",
-        url: "https://boscoyostudio.com/products/the-original-mounting-strips-for-seed-pebble-pixels",
-        qty: "20+",
-      },
     ],
   },
   {
@@ -155,13 +148,6 @@ const coreItems: Category[] = [
         qty: 4,
         pixels: 7168,
         highlight: true,
-      },
-      {
-        name: "PixNode Net",
-        vendor: "holidayCoro",
-        note: "Matrix mounting net for clean installation.",
-        url: "https://www.holidaycoro.com/PixNode-Net-RGB-Pixel-Node-Mount",
-        qty: 2,
       },
     ],
   },
@@ -418,48 +404,6 @@ const infrastructureCategories: Category[] = [
     ],
   },
   {
-    name: "Enclosures & Mounting",
-    icon: "📦",
-    description: "Protect your equipment",
-    products: [
-      {
-        name: "CG-1500 Enclosure",
-        vendor: "holidayCoro",
-        note: "Medium controller box",
-        url: "https://www.holidaycoro.com/product-p/554.htm",
-        qty: 4,
-      },
-      {
-        name: "HC-2500 Enclosure",
-        vendor: "holidayCoro",
-        note: "Large controller box",
-        url: "https://www.holidaycoro.com/HC-2500-Holiday-Lighting-Enclosure-System-p/629.htm",
-        qty: 1,
-      },
-      {
-        name: "Receiver Adapter Plate",
-        vendor: "holidayCoro",
-        note: "Mount in enclosures",
-        url: "https://www.holidaycoro.com/Flex-Expansion-Long-Range-Receivers-to-CG-1500-p/642-kit1.htm",
-        qty: 4,
-      },
-      {
-        name: "Pixel Pipe (Pre-drilled)",
-        vendor: "holidayCoro",
-        note: "Black mounting pipe",
-        url: "https://www.holidaycoro.com/PixelPipe-Pre-Drilled-Pixel-Mounting-Pipe-p/1800.htm",
-        qty: "40ft+",
-      },
-      {
-        name: '3/4" Mounting Rings',
-        vendor: "holidayCoro",
-        note: "Pixel mounting clips",
-        url: "https://www.holidaycoro.com/product-p/655.htm",
-        qty: "200+",
-      },
-    ],
-  },
-  {
     name: "Tools & Supplies",
     icon: "🔧",
     description: "Essential build tools",
@@ -470,13 +414,6 @@ const infrastructureCategories: Category[] = [
         note: "Waterproof connectors",
         url: "https://www.amazon.com/Connectors-Plustool-Self-Solder-Waterproof-Electrical/dp/B0B18NYX2S",
         qty: "200+",
-      },
-      {
-        name: 'Grommet Kit (1/2")',
-        vendor: "amazon",
-        note: "With hand tool",
-        url: "https://www.amazon.com/Grommet-Grommets-Handheld-Manual-Leather/dp/B0D3TCD3W3",
-        qty: 1,
       },
       {
         name: 'EMT Conduit (1/2")',
@@ -492,13 +429,6 @@ const infrastructureCategories: Category[] = [
         url: "https://www.homedepot.com/p/Charlotte-Pipe-3-4-in-x-10-ft-PVC",
         qty: "60ft+",
       },
-      {
-        name: 'Galvanized Flange (2")',
-        vendor: "homeDepot",
-        note: "Pole mounting",
-        url: "https://www.homedepot.com/p/Southland-2-in-Galvanized-Malleable",
-        qty: 8,
-      },
     ],
   },
   {
@@ -507,18 +437,11 @@ const infrastructureCategories: Category[] = [
     description: "Roofline and architectural",
     products: [
       {
-        name: "Eave Sections",
+        name: "Pixel Pipe (Pre-drilled)",
         vendor: "holidayCoro",
-        note: "Roofline outline",
-        url: "https://www.holidaycoro.com",
-        qty: 26,
-      },
-      {
-        name: "Vertical Drops",
-        vendor: "holidayCoro",
-        note: "Window/corner accents",
-        url: "https://www.holidaycoro.com",
-        qty: 15,
+        note: "Black mounting pipe for rooflines",
+        url: "https://www.holidaycoro.com/PixelPipe-Pre-Drilled-Pixel-Mounting-Pipe-p/1800.htm",
+        qty: "40ft+",
       },
       {
         name: "Window Frames",
