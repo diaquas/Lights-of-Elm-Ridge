@@ -65,10 +65,10 @@ export default function CheckoutSuccessPage() {
 
           <div className="space-y-4">
             <Link
-              href="/account"
+              href="/library"
               className="block w-full py-3 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl transition-colors"
             >
-              View My Purchases
+              Download My Sequences
             </Link>
 
             <Link
@@ -112,7 +112,7 @@ export default function CheckoutSuccessPage() {
                     d="M5 13l4 4L19 7"
                   />
                 </svg>
-                <span>Download links are available in your account page</span>
+                <span>Download links are available in your library</span>
               </li>
               <li className="flex items-start gap-2">
                 <svg
