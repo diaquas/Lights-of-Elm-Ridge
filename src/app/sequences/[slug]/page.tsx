@@ -134,9 +134,9 @@ export default async function SequencePage({ params }: PageProps) {
     notFound();
   }
 
-  // Get mockup video from YouTube playlist (preferred) or fall back to sequence.youtubeId
+  // Prefer explicit youtubeId on sequence, fall back to mockup matching
   const mockupVideoId = getMockupVideoId(slug);
-  const videoId = mockupVideoId || sequence.youtubeId;
+  const videoId = sequence.youtubeId || mockupVideoId;
 
   const relatedSequences = getRelatedSequences(slug, 4);
   const productSchema = generateProductSchema(sequence);
@@ -256,30 +256,6 @@ export default async function SequencePage({ params }: PageProps) {
                   )}
                 </div>
               )}
-
-              {/* Important Notice */}
-              <div className="bg-surface-light rounded-xl p-4 mb-6 border border-border">
-                <p className="text-sm text-foreground/70">
-                  {sequence.r2Url || sequence.googleDriveUrl ? (
-                    <>
-                      <span className="font-semibold text-accent">
-                        Direct download available
-                      </span>{" "}
-                      — This sequence contains programming for the props listed
-                      below. Audio file must be purchased separately.
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-semibold text-accent">
-                        Currently available on xlightsseq.com
-                      </span>{" "}
-                      — This sequence contains programming for the props listed
-                      below. Purchase allows sequence data to be used in a
-                      single residential non-commercial display.
-                    </>
-                  )}
-                </p>
-              </div>
 
               {/* Description */}
               <div className="mb-6">
