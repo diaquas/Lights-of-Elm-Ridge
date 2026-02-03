@@ -6,6 +6,7 @@ import SequenceCardOverlay from "./SequenceCardOverlay";
 import ColorChips from "./ColorChips";
 import type { Sequence } from "@/data/sequences";
 import { getMockupVideoId } from "@/data/youtube-loader";
+import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
 
 interface SequenceTabsProps {
   halloweenSequences: Sequence[];
@@ -15,8 +16,15 @@ interface SequenceTabsProps {
 
 type DifficultyFilter = "all" | "Beginner" | "Intermediate" | "Advanced";
 type PriceFilter = "all" | "free" | "paid";
+type OwnershipFilter = "all" | "owned" | "not-owned";
 
-function SequenceCard({ sequence }: { sequence: Sequence }) {
+function SequenceCard({
+  sequence,
+  isPurchased,
+}: {
+  sequence: Sequence;
+  isPurchased: boolean;
+}) {
   // Check for mockup video from YouTube playlist (dynamic) or sequence data (static)
   const mockupVideoId = getMockupVideoId(sequence.slug);
   const hasVideo = !!mockupVideoId || !!sequence.youtubeId;
@@ -55,6 +63,27 @@ function SequenceCard({ sequence }: { sequence: Sequence }) {
             {sequence.price === 0 ? "FREE" : `$${sequence.price}`}
           </span>
         </div>
+        {/* Owned badge */}
+        {isPurchased && (
+          <div className="absolute top-3 left-3 z-10">
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-500 text-white">
+              <svg
+                className="w-3 h-3"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={3}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+              Owned
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -112,7 +141,12 @@ export default function SequenceTabs({
   const [difficultyFilter, setDifficultyFilter] =
     useState<DifficultyFilter>("all");
   const [priceFilter, setPriceFilter] = useState<PriceFilter>("all");
+  const [ownershipFilter, setOwnershipFilter] =
+    useState<OwnershipFilter>("all");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Get purchased sequences for logged-in users
+  const { purchasedIds, isLoggedIn, hasPurchased } = usePurchasedSequences();
 
   const halloweenNew = newFor2026.filter((s) => s.category === "Halloween");
   const christmasNew = newFor2026.filter((s) => s.category === "Christmas");
@@ -148,16 +182,34 @@ export default function SequenceTabs({
       filtered = filtered.filter((s) => s.price > 0);
     }
 
+    // Ownership filter (only applies when logged in)
+    if (ownershipFilter === "owned") {
+      filtered = filtered.filter((s) => purchasedIds.has(s.id));
+    } else if (ownershipFilter === "not-owned") {
+      filtered = filtered.filter((s) => !purchasedIds.has(s.id));
+    }
+
     return filtered;
-  }, [baseSequences, searchQuery, difficultyFilter, priceFilter]);
+  }, [
+    baseSequences,
+    searchQuery,
+    difficultyFilter,
+    priceFilter,
+    ownershipFilter,
+    purchasedIds,
+  ]);
 
   const hasActiveFilters =
-    searchQuery.trim() || difficultyFilter !== "all" || priceFilter !== "all";
+    searchQuery.trim() ||
+    difficultyFilter !== "all" ||
+    priceFilter !== "all" ||
+    ownershipFilter !== "all";
 
   const clearFilters = () => {
     setSearchQuery("");
     setDifficultyFilter("all");
     setPriceFilter("all");
+    setOwnershipFilter("all");
   };
 
   // Show first 3, or all if expanded
@@ -318,6 +370,24 @@ export default function SequenceTabs({
               </select>
             </div>
 
+            {/* Ownership Filter - only show when logged in */}
+            {isLoggedIn && (
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-foreground/60">Ownership:</label>
+                <select
+                  value={ownershipFilter}
+                  onChange={(e) =>
+                    setOwnershipFilter(e.target.value as OwnershipFilter)
+                  }
+                  className="px-3 py-1.5 bg-surface-light border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-accent/50"
+                >
+                  <option value="all">All</option>
+                  <option value="owned">Owned</option>
+                  <option value="not-owned">Not Owned</option>
+                </select>
+              </div>
+            )}
+
             {/* Clear Filters */}
             {hasActiveFilters && (
               <button
@@ -349,7 +419,11 @@ export default function SequenceTabs({
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {visibleNew.map((sequence) => (
-              <SequenceCard key={sequence.id} sequence={sequence} />
+              <SequenceCard
+                key={sequence.id}
+                sequence={sequence}
+                isPurchased={hasPurchased(sequence.id)}
+              />
             ))}
           </div>
 
@@ -424,7 +498,11 @@ export default function SequenceTabs({
         {currentSequences.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {currentSequences.map((sequence) => (
-              <SequenceCard key={sequence.id} sequence={sequence} />
+              <SequenceCard
+                key={sequence.id}
+                sequence={sequence}
+                isPurchased={hasPurchased(sequence.id)}
+              />
             ))}
           </div>
         ) : hasActiveFilters ? (

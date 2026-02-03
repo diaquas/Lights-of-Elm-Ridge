@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 interface SequenceDownloadButtonProps {
   sequenceId: number;
   hasR2Url: boolean;
+  children?: ReactNode; // The Add to Cart / purchase section to show when not purchased
 }
 
 export default function SequenceDownloadButton({
   sequenceId,
   hasR2Url,
+  children,
 }: SequenceDownloadButtonProps) {
   const [hasPurchased, setHasPurchased] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,12 +108,13 @@ export default function SequenceDownloadButton({
     }
   };
 
-  // Don't render anything while loading or if not purchased
+  // While loading, show children (purchase UI) to avoid flash
+  // After loading, if not purchased, show children
   if (isLoading || !hasPurchased) {
-    return null;
+    return <>{children}</>;
   }
 
-  // User has purchased - show download button
+  // User has purchased - show download button instead of purchase UI
   return (
     <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-4">
       <div className="flex items-center gap-3 mb-3">

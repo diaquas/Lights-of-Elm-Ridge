@@ -310,17 +310,11 @@ export default async function SequencePage({ params }: PageProps) {
                 </div>
               </div>
 
-              {/* Download button for purchased sequences */}
-              <SequenceDownloadButton
-                sequenceId={sequence.id}
-                hasR2Url={!!sequence.r2Url}
-              />
-
               {/* Download/Buy Button */}
               <div className="space-y-3">
                 {sequence.r2Url || sequence.googleDriveUrl ? (
                   sequence.price === 0 ? (
-                    // Free download
+                    // Free download - always show
                     <>
                       <a
                         href={
@@ -405,8 +399,11 @@ export default async function SequencePage({ params }: PageProps) {
                       </div>
                     </>
                   ) : (
-                    // Paid sequence - Add to Cart
-                    <>
+                    // Paid sequence - show download if purchased, otherwise Add to Cart
+                    <SequenceDownloadButton
+                      sequenceId={sequence.id}
+                      hasR2Url={!!sequence.r2Url}
+                    >
                       <AddToCartButton
                         sequence={{
                           id: sequence.id,
@@ -426,7 +423,7 @@ export default async function SequencePage({ params }: PageProps) {
                           href={sequence.amazonMusicUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 w-full py-3 bg-surface hover:bg-surface-light text-foreground text-center font-medium rounded-xl transition-all border border-border"
+                          className="flex items-center justify-center gap-2 w-full py-3 bg-surface hover:bg-surface-light text-foreground text-center font-medium rounded-xl transition-all border border-border mt-3"
                         >
                           <svg
                             className="w-5 h-5"
@@ -459,7 +456,7 @@ export default async function SequencePage({ params }: PageProps) {
                           </svg>
                         </a>
                       )}
-                      <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs">
+                      <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs mt-3">
                         <svg
                           className="w-4 h-4"
                           fill="none"
@@ -478,7 +475,7 @@ export default async function SequencePage({ params }: PageProps) {
                           Audio file not included — purchase separately
                         </span>
                       </div>
-                    </>
+                    </SequenceDownloadButton>
                   )
                 ) : sequence.xlightsSeqUrl ? (
                   <>
