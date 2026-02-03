@@ -14,6 +14,7 @@ const corsHeaders = {
 // In production, this could come from a database
 const sequenceDownloads: Record<number, string> = {
   3: "https://downloads.lightsofelmridge.com/Paid/Abracadabra.zip",
+  7: "https://downloads.lightsofelmridge.com/Paid/I%20Think%20We're%20Alone%20Now.zip",
   8: "https://downloads.lightsofelmridge.com/Free/Spooky%20Dub.zip",
   9: "https://downloads.lightsofelmridge.com/Free/Purple%20People%20Eater%20-%20Dub%20Step%20by%20Pegboard%20Nerds.zip",
   10: "https://downloads.lightsofelmridge.com/Paid/ET.zip",

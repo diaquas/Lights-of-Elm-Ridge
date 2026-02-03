@@ -399,6 +399,8 @@ This one hits different. It's the kind of sequence that makes people stop and wa
     releaseDate: "2026-01",
     yearAdded: 2026,
     dominantColors: ["#3498db", "#ecf0f1", "#9b59b6"],
+    r2Url:
+      "https://downloads.lightsofelmridge.com/Paid/I%20Think%20We're%20Alone%20Now.zip",
   },
   {
     id: 8,
