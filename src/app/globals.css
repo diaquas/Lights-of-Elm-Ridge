@@ -1921,11 +1921,12 @@ html {
   color: var(--seq-text-primary);
 }
 
-/* Video grid — 2 columns */
+/* Video grid — 4 columns, compact */
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 280px));
   gap: 16px;
+  justify-content: center;
 }
 
 .video-card {
@@ -1983,8 +1984,8 @@ html {
 }
 
 .video-card-play-icon {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: rgba(239, 68, 68, 0.9);
   display: flex;
@@ -1994,20 +1995,25 @@ html {
 }
 
 .video-card-body {
-  padding: 14px 16px;
+  padding: 10px 12px;
 }
 
 .video-card-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--seq-text-primary);
   line-height: 1.3;
-  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .video-card-artist {
-  font-size: 12.5px;
+  font-size: 11.5px;
   color: var(--seq-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Behind the scenes teaser */
@@ -2577,7 +2583,7 @@ html {
   }
 
   .video-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 
   .season-header {
