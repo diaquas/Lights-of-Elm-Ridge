@@ -152,413 +152,379 @@ export default async function SequencePage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
-      <div className="min-h-screen py-12 px-4">
-        <div className="max-w-7xl mx-auto">
+      <div className="seq-detail-page min-h-screen">
+        <div className="seq-detail-content">
           {/* Breadcrumb */}
-          <nav className="mb-8 text-sm">
-            <ol className="flex items-center gap-2 text-foreground/60">
+          <nav
+            className="max-w-[1100px] mx-auto px-4 md:px-8 pt-5 seq-anim-in seq-delay-1"
+            aria-label="Breadcrumb"
+          >
+            <ol className="flex items-center gap-2 text-[13px] text-[#63636e]">
               <li>
-                <Link href="/" className="hover:text-accent">
+                <Link
+                  href="/"
+                  className="hover:text-[#a1a1aa] transition-colors"
+                >
                   Home
                 </Link>
               </li>
-              <li>/</li>
+              <li className="opacity-35 text-[11px]">/</li>
               <li>
-                <Link href="/sequences" className="hover:text-accent">
+                <Link
+                  href="/sequences"
+                  className="hover:text-[#a1a1aa] transition-colors"
+                >
                   Sequences
                 </Link>
               </li>
-              <li>/</li>
-              <li className="text-foreground">{sequence.title}</li>
+              <li className="opacity-35 text-[11px]">/</li>
+              <li className="text-[#a1a1aa]">{sequence.title}</li>
             </ol>
           </nav>
 
           {/* Main Product Section */}
-          <div className="grid lg:grid-cols-2 gap-12 mb-16">
-            {/* Left: Album Art / Thumbnail */}
-            <div className="space-y-4">
-              <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden relative">
-                {sequence.artworkUrl || sequence.youtubeId ? (
-                  <Image
-                    src={
-                      sequence.artworkUrl ||
-                      getThumbnailUrl(sequence.youtubeId) ||
-                      ""
-                    }
-                    alt={`${sequence.title} - ${sequence.artist}`}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-accent/10 to-surface">
-                    <div className="text-center p-8">
-                      <span className="text-9xl block mb-4">
-                        {sequence.category === "Halloween" ? "🎃" : "🎄"}
-                      </span>
-                      <p className="text-foreground/40 text-sm">
-                        Video preview coming soon
-                      </p>
+          <div className="max-w-[1100px] mx-auto px-4 md:px-8 py-7 pb-20">
+            <div className="grid md:grid-cols-2 gap-8 lg:gap-11 items-start mb-16">
+              {/* ════════════ LEFT COLUMN ════════════ */}
+              <div className="flex flex-col gap-[18px]">
+                {/* Album art with price chip */}
+                <div
+                  className="seq-album-wrap relative rounded-[14px] overflow-hidden aspect-square bg-[#111] border border-[#27272a] cursor-pointer seq-anim-in seq-delay-2"
+                  tabIndex={0}
+                  role="img"
+                  aria-label={`Album artwork for ${sequence.title} by ${sequence.artist}`}
+                >
+                  {sequence.artworkUrl || sequence.youtubeId ? (
+                    <Image
+                      src={
+                        sequence.artworkUrl ||
+                        getThumbnailUrl(sequence.youtubeId) ||
+                        ""
+                      }
+                      alt={`${sequence.title} - ${sequence.artist}`}
+                      fill
+                      className="seq-album-art object-cover"
+                      unoptimized
+                      priority
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-accent/10 to-[#151518]">
+                      <div className="text-center p-8">
+                        <span className="text-9xl block mb-4">
+                          {sequence.category === "Halloween" ? "🎃" : "🎄"}
+                        </span>
+                        <p className="text-[#63636e] text-sm">
+                          Preview coming soon
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2">
-                {sequence.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="px-3 py-1 bg-surface rounded-full text-xs text-foreground/60 border border-border"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: Product Info */}
-            <div>
-              {/* Header */}
-              <div className="mb-6">
-                <h1 className="text-3xl md:text-4xl font-bold mb-1">
-                  {sequence.title}
-                </h1>
-                <p className="text-xl md:text-2xl text-foreground/60 mb-3">
-                  {sequence.artist}
-                </p>
-                <div className="flex items-center gap-4">
-                  <span className="text-3xl font-bold text-accent">
+                  )}
+                  {/* Price chip */}
+                  <span className="seq-price-chip absolute top-4 left-4 z-10 bg-accent text-white font-display font-bold text-[15px] px-4 py-1.5 rounded-full tracking-tight">
                     {sequence.price === 0 ? "FREE" : `$${sequence.price}`}
                   </span>
-                  <span className="px-3 py-1 rounded-full text-sm bg-surface border border-border">
-                    {sequence.category}
-                  </span>
+                </div>
+
+                {/* Song title + artist */}
+                <div className="seq-anim-in seq-delay-3">
+                  <h1 className="font-display text-[32px] md:text-[36px] font-extrabold tracking-tight leading-tight text-[#f4f4f5]">
+                    {sequence.title}
+                  </h1>
+                  <p className="text-[15px] text-[#a1a1aa] mt-1">
+                    {sequence.artist}
+                  </p>
+                </div>
+
+                {/* Tags */}
+                <div
+                  className="flex flex-wrap gap-2 seq-anim-in seq-delay-4"
+                  aria-label="Tags"
+                >
+                  {sequence.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="seq-tag bg-[rgba(255,255,255,0.06)] text-[#c4c4cc] text-[12.5px] font-medium px-3 py-1 rounded-full border border-[rgba(255,255,255,0.08)] cursor-default"
+                    >
+                      {tag}
+                    </span>
+                  ))}
                 </div>
               </div>
 
-              {/* Video Preview - prefers mockup videos from YouTube playlist */}
-              {videoId && (
-                <div className="mb-6">
-                  <div className="aspect-video rounded-xl overflow-hidden border border-border">
-                    <iframe
-                      src={`https://www.youtube.com/embed/${videoId}`}
-                      title={`${sequence.title} - ${sequence.artist} Preview`}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full"
-                    />
-                  </div>
-                  {mockupVideoId && (
-                    <p className="text-xs text-foreground/40 mt-2 text-center">
+              {/* ════════════ RIGHT COLUMN ════════════ */}
+              <div className="flex flex-col gap-[18px]">
+                {/* Video preview */}
+                {videoId && (
+                  <div className="seq-anim-in seq-delay-3">
+                    <div className="seq-video-wrap relative rounded-[14px] overflow-hidden aspect-video bg-black border border-[#27272a]">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${videoId}`}
+                        title={`${sequence.title} - ${sequence.artist} Preview`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="w-full h-full"
+                      />
+                    </div>
+                    <p className="text-center text-[12px] text-[#63636e] mt-1.5">
                       xLights mockup preview
                     </p>
-                  )}
-                </div>
-              )}
+                  </div>
+                )}
 
-              {/* Description */}
-              <div className="mb-6">
-                <p className="text-foreground/70 leading-relaxed">
+                {/* Description */}
+                <p className="text-[14.5px] text-[#a1a1aa] leading-relaxed seq-anim-in seq-delay-4">
                   {sequence.description}
                 </p>
-              </div>
 
-              {/* Quick Stats */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-6">
-                <div className="bg-surface rounded-lg p-2 sm:p-3 text-center border border-border">
-                  <div className="text-sm sm:text-base md:text-lg font-bold text-foreground">
-                    {sequence.duration}
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-2.5 seq-anim-in seq-delay-5">
+                  <div className="seq-stat-card bg-[#151518] border border-[#27272a] rounded-lg p-3.5 text-center">
+                    <div className="font-display text-[17px] font-bold text-[#f4f4f5] tracking-tight">
+                      {sequence.duration}
+                    </div>
+                    <div className="text-[11px] text-[#63636e] mt-1 uppercase tracking-wider font-medium">
+                      Duration
+                    </div>
                   </div>
-                  <div className="text-xs text-foreground/50">Duration</div>
-                </div>
-                <div className="bg-surface rounded-lg p-2 sm:p-3 text-center border border-border">
-                  <div className="text-sm sm:text-base md:text-lg font-bold text-foreground">
-                    {sequence.difficulty}
+                  <div className="seq-stat-card bg-[#151518] border border-[#27272a] rounded-lg p-3.5 text-center">
+                    <div className="font-display text-[17px] font-bold text-[#f4f4f5] tracking-tight">
+                      {sequence.difficulty}
+                    </div>
+                    <div className="text-[11px] text-[#63636e] mt-1 uppercase tracking-wider font-medium">
+                      Difficulty
+                    </div>
                   </div>
-                  <div className="text-xs text-foreground/50">Difficulty</div>
-                </div>
-                <div className="bg-surface rounded-lg p-2 sm:p-3 text-center border border-border">
-                  <div className="text-sm sm:text-base md:text-lg font-bold text-foreground">
-                    {sequence.propCount}+
+                  <div className="seq-stat-card bg-[#151518] border border-[#27272a] rounded-lg p-3.5 text-center">
+                    <div className="font-display text-[17px] font-bold text-[#f4f4f5] tracking-tight">
+                      {sequence.propCount}+
+                    </div>
+                    <div className="text-[11px] text-[#63636e] mt-1 uppercase tracking-wider font-medium">
+                      Props
+                    </div>
                   </div>
-                  <div className="text-xs text-foreground/50">Props</div>
                 </div>
-              </div>
 
-              {/* Download/Buy Button */}
-              <div className="space-y-3">
-                {sequence.r2Url || sequence.googleDriveUrl ? (
-                  sequence.price === 0 ? (
-                    // Free download - always show
-                    <>
-                      <a
-                        href={
-                          sequence.r2Url ||
-                          getGoogleDriveDownloadUrl(sequence.googleDriveUrl) ||
-                          "#"
-                        }
-                        className="flex items-center justify-center gap-2 w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
+                {/* Divider */}
+                <hr className="border-[#27272a] my-0.5 seq-anim-in seq-delay-6" />
+
+                {/* Action buttons */}
+                <div className="flex flex-col gap-2.5 seq-anim-in seq-delay-7">
+                  {sequence.r2Url || sequence.googleDriveUrl ? (
+                    sequence.price === 0 ? (
+                      <>
+                        <a
+                          href={
+                            sequence.r2Url ||
+                            getGoogleDriveDownloadUrl(
+                              sequence.googleDriveUrl,
+                            ) ||
+                            "#"
+                          }
+                          className="seq-btn-primary flex items-center justify-center gap-2 w-full py-3.5 px-5 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-lg text-[14.5px]"
+                        >
+                          <svg
+                            className="w-[17px] h-[17px]"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2.2}
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                            />
+                          </svg>
+                          Download Free Sequence
+                        </a>
+                        {sequence.amazonMusicUrl && (
+                          <a
+                            href={sequence.amazonMusicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="seq-btn-secondary flex items-center justify-center gap-2 w-full py-3.5 px-5 bg-[#151518] hover:bg-[#1c1c20] text-[#f4f4f5] text-center font-semibold rounded-lg text-[14.5px] border border-[#27272a]"
+                          >
+                            <svg
+                              className="w-[15px] h-[15px]"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2.2}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                              />
+                            </svg>
+                            Purchase Audio on Amazon
+                            <svg
+                              className="w-3 h-3 opacity-50"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2.2}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6m0 0v6m0-6L10 14"
+                              />
+                            </svg>
+                          </a>
+                        )}
+                      </>
+                    ) : (
+                      <SequenceDownloadButton
+                        sequenceId={sequence.id}
+                        hasR2Url={!!sequence.r2Url}
                       >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                          />
-                        </svg>
-                        Download Free Sequence
-                      </a>
-                      {sequence.amazonMusicUrl && (
-                        <a
-                          href={sequence.amazonMusicUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 w-full py-3 bg-surface hover:bg-surface-light text-foreground text-center font-medium rounded-xl transition-all border border-border"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
+                        <AddToCartButton
+                          sequence={{
+                            id: sequence.id,
+                            slug: sequence.slug,
+                            title: sequence.title,
+                            artist: sequence.artist,
+                            price: sequence.price,
+                            category: sequence.category,
+                            thumbnailUrl:
+                              sequence.thumbnailUrl ||
+                              sequence.artworkUrl ||
+                              getThumbnailUrl(sequence.youtubeId),
+                          }}
+                          className="seq-btn-primary flex items-center justify-center gap-2 w-full py-3.5 px-5 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-lg text-[14.5px]"
+                        />
+                        {sequence.amazonMusicUrl && (
+                          <a
+                            href={sequence.amazonMusicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="seq-btn-secondary flex items-center justify-center gap-2 w-full py-3.5 px-5 bg-[#151518] hover:bg-[#1c1c20] text-[#f4f4f5] text-center font-semibold rounded-lg text-[14.5px] border border-[#27272a] mt-2.5"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                            />
-                          </svg>
-                          Purchase Audio on Amazon
-                          <svg
-                            className="w-3 h-3"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                            />
-                          </svg>
-                        </a>
-                      )}
-                      <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        <span>
-                          Audio file not included — purchase separately
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    // Paid sequence - show download if purchased, otherwise Add to Cart
-                    <SequenceDownloadButton
-                      sequenceId={sequence.id}
-                      hasR2Url={!!sequence.r2Url}
-                    >
-                      <AddToCartButton
-                        sequence={{
-                          id: sequence.id,
-                          slug: sequence.slug,
-                          title: sequence.title,
-                          artist: sequence.artist,
-                          price: sequence.price,
-                          category: sequence.category,
-                          thumbnailUrl:
-                            sequence.thumbnailUrl ||
-                            sequence.artworkUrl ||
-                            getThumbnailUrl(sequence.youtubeId),
-                        }}
-                      />
-                      {sequence.amazonMusicUrl && (
-                        <a
-                          href={sequence.amazonMusicUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-center gap-2 w-full py-3 bg-surface hover:bg-surface-light text-foreground text-center font-medium rounded-xl transition-all border border-border mt-3"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                            />
-                          </svg>
-                          Purchase Audio on Amazon
-                          <svg
-                            className="w-3 h-3"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                            />
-                          </svg>
-                        </a>
-                      )}
-                      <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs mt-3">
-                        <svg
-                          className="w-4 h-4"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          aria-hidden="true"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        <span>
-                          Audio file not included — purchase separately
-                        </span>
-                      </div>
-                    </SequenceDownloadButton>
-                  )
-                ) : sequence.xlightsSeqUrl ? (
-                  <>
+                            <svg
+                              className="w-[15px] h-[15px]"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2.2}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                              />
+                            </svg>
+                            Purchase Audio on Amazon
+                            <svg
+                              className="w-3 h-3 opacity-50"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={2.2}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6m0 0v6m0-6L10 14"
+                              />
+                            </svg>
+                          </a>
+                        )}
+                      </SequenceDownloadButton>
+                    )
+                  ) : sequence.xlightsSeqUrl ? (
                     <a
                       href={sequence.xlightsSeqUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full py-4 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-xl transition-all text-lg"
+                      className="seq-btn-primary flex items-center justify-center gap-2 w-full py-3.5 px-5 bg-accent hover:bg-accent/90 text-white text-center font-semibold rounded-lg text-[14.5px]"
                     >
+                      <svg
+                        className="w-[17px] h-[17px]"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={2.2}
+                        viewBox="0 0 24 24"
+                      >
+                        <circle cx="9" cy="21" r="1" />
+                        <circle cx="20" cy="21" r="1" />
+                        <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+                      </svg>
                       {sequence.price === 0
                         ? "Download Free"
-                        : `Buy Now - $${sequence.price}`}
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
+                        : `Add to Cart — $${sequence.price}`}
                     </a>
-                    <div className="flex items-center justify-center gap-2 text-foreground/50 text-xs">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span>Secure checkout on xlightsseq.com</span>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2 w-full py-3.5 px-5 bg-[#151518] text-[#63636e] text-center font-semibold rounded-lg text-[14.5px] border border-[#27272a]">
+                      Coming Soon
                     </div>
-                  </>
-                ) : (
-                  <div className="flex items-center justify-center gap-2 w-full py-4 bg-surface text-foreground/50 text-center font-semibold rounded-xl border border-border">
-                    Coming Soon
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
 
-              {/* Share */}
-              <div className="mt-6 pt-6 border-t border-border">
+                {/* Audio disclaimer */}
+                <div className="flex items-center justify-center gap-1.5 text-[#63636e] text-[12px] seq-anim-in seq-delay-8">
+                  <svg
+                    className="w-[13px] h-[13px]"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  Audio file not included — purchase separately
+                </div>
+
+                {/* Share row */}
                 <div
-                  className="flex items-center gap-4"
+                  className="flex items-center gap-2.5 seq-anim-in seq-delay-9"
                   role="group"
                   aria-label="Share options"
                 >
-                  <span className="text-sm text-foreground/60">Share:</span>
-                  <div className="flex gap-3">
-                    <button
-                      className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
-                      aria-label="Share on Facebook"
+                  <span className="text-[13px] text-[#63636e] font-medium">
+                    Share
+                  </span>
+                  <button
+                    className="seq-share-icon w-[34px] h-[34px] rounded-full bg-[#151518] border border-[#27272a] flex items-center justify-center text-[#a1a1aa]"
+                    aria-label="Share on Facebook"
+                  >
+                    <svg
+                      className="w-[15px] h-[15px]"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                      </svg>
-                    </button>
-                    <button
-                      className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
-                      aria-label="Share on X (Twitter)"
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                    </svg>
+                  </button>
+                  <button
+                    className="seq-share-icon w-[34px] h-[34px] rounded-full bg-[#151518] border border-[#27272a] flex items-center justify-center text-[#a1a1aa]"
+                    aria-label="Share on X"
+                  >
+                    <svg
+                      className="w-[13px] h-[13px]"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                      </svg>
-                    </button>
-                    <button
-                      className="p-2 rounded-lg bg-surface hover:bg-surface-light transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
-                      aria-label="Copy link to clipboard"
+                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                    </svg>
+                  </button>
+                  <button
+                    className="seq-share-icon w-[34px] h-[34px] rounded-full bg-[#151518] border border-[#27272a] flex items-center justify-center text-[#a1a1aa]"
+                    aria-label="Copy link"
+                  >
+                    <svg
+                      className="w-[14px] h-[14px]"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
                     >
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                        />
-                      </svg>
-                    </button>
-                  </div>
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
