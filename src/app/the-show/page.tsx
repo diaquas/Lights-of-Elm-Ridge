@@ -170,7 +170,9 @@ export default function TheShowPage() {
         <header className="show-header">
           <div className="show-header-top seq-anim-in seq-delay-1">
             <div className="show-title-group">
-              <h1 className="show-title font-display">The Show</h1>
+              <h1 className="show-title font-display">
+                <span className="accent-text">The</span> Show
+              </h1>
               <p className="show-subtitle">
                 Real performances, full playlist, and the tech behind the
                 pixels.

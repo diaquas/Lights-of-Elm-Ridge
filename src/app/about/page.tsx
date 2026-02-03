@@ -126,7 +126,7 @@ export default function AboutPage() {
         {/* Page Header */}
         <header className="about-header">
           <h1 className="about-title font-display">
-            About <span className="accent-text">Lights of Elm Ridge</span>
+            <span className="accent-text">About</span> Lights of Elm Ridge
           </h1>
           <p className="about-subtitle">
             What started as childhood wonder has turned into a full-blown

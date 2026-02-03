@@ -1691,8 +1691,8 @@ html {
    ═══════════════════════════════════════════════════════════ */
 
 .show-page {
-  --show-max: 1100px;
-  --show-gutter: 32px;
+  --show-max: 1400px;
+  --show-gutter: 40px;
   position: relative;
   overflow-x: hidden;
 }
@@ -1764,6 +1764,10 @@ html {
   letter-spacing: -0.03em;
   line-height: 1.1;
   color: var(--seq-text-primary);
+}
+
+.show-title .accent-text {
+  color: #ef4444;
 }
 
 .show-subtitle {
@@ -3662,32 +3666,34 @@ html {
 }
 
 .about-wrap {
-  max-width: 900px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 32px;
+  padding: 0 40px;
 }
 
 /* Page Header */
 .about-header {
-  text-align: center;
-  padding: 40px 0 32px;
+  padding: 28px 0 32px;
 }
 
 .about-title {
+  font-family: var(--font-display);
   font-size: 32px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.1;
-  color: var(--text-primary);
+  color: var(--seq-text-primary);
+}
+
+.about-title .accent-text {
+  color: #ef4444;
 }
 
 .about-subtitle {
   font-size: 15px;
-  color: var(--text-tertiary);
+  color: var(--seq-text-tertiary);
   margin-top: 8px;
-  max-width: 520px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: 600px;
   line-height: 1.55;
 }
 
