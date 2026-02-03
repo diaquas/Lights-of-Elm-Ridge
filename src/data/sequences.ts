@@ -475,6 +475,8 @@ When the drop hits, your whole display explodes. Your neighbors will feel it.`,
     propCount: 35,
     hasMatrix: true,
     xlightsSeqUrl: "",
+    r2Url:
+      "https://downloads.lightsofelmridge.com/Free/Purple%20People%20Eater.zip",
     youtubeId: null,
     artworkUrl:
       "https://i1.sndcdn.com/artworks-000377765997-jmtgu9-t500x500.jpg",

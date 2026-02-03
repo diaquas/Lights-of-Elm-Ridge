@@ -15,6 +15,7 @@ const corsHeaders = {
 const sequenceDownloads: Record<number, string> = {
   3: "https://downloads.lightsofelmridge.com/Paid/Abracadabra.zip",
   8: "https://downloads.lightsofelmridge.com/Free/Spooky%20Dub.zip",
+  9: "https://downloads.lightsofelmridge.com/Free/Purple%20People%20Eater.zip",
   // Add more sequences as they become available
 };
 
