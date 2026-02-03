@@ -196,8 +196,13 @@ export default function SequenceTabs({
   const halloweenNew = newFor2026.filter((s) => s.category === "Halloween");
   const christmasNew = newFor2026.filter((s) => s.category === "Christmas");
   const currentNew = activeTab === "halloween" ? halloweenNew : christmasNew;
-  const baseSequences =
-    activeTab === "halloween" ? halloweenSequences : christmasSequences;
+
+  // Exclude "New for 2026" sequences from the main grid to avoid duplicates
+  // They're already shown in the dedicated "New for 2026" section
+  const newSequenceIds = new Set(newFor2026.map((s) => s.id));
+  const baseSequences = (
+    activeTab === "halloween" ? halloweenSequences : christmasSequences
+  ).filter((s) => !newSequenceIds.has(s.id));
 
   // Calculate stats
   const freeCount = (
