@@ -11,6 +11,7 @@ import {
 } from "@/data/sequences";
 import { getMockupVideoId } from "@/data/youtube-loader";
 import AddToCartButton from "@/components/AddToCartButton";
+import SequenceDownloadButton from "@/components/SequenceDownloadButton";
 
 function generateProductSchema(
   sequence: NonNullable<ReturnType<typeof getSequenceBySlug>>,
@@ -305,6 +306,12 @@ export default async function SequencePage({ params }: PageProps) {
                   <div className="text-xs text-foreground/50">Props</div>
                 </div>
               </div>
+
+              {/* Download button for purchased sequences */}
+              <SequenceDownloadButton
+                sequenceId={sequence.id}
+                hasR2Url={!!sequence.r2Url}
+              />
 
               {/* Download/Buy Button */}
               <div className="space-y-3">
