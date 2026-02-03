@@ -566,146 +566,98 @@ const gearCategories: Category[] = [
 ];
 
 // Stats for the display
-const displayStats = {
-  totalPixels: "35,000+",
-  totalProps: "80+",
-  spinners: 7,
-  controllers: 3,
-  universes: 190,
-};
+const displayStats = [
+  { num: "35,000+", label: "Total Pixels" },
+  { num: "80+", label: "Props" },
+  { num: "7", label: "Spinners" },
+  { num: "3", label: "Controllers" },
+  { num: "190", label: "Universes" },
+];
 
 function ProductCard({ product }: { product: Product }) {
   const vendor = vendors[product.vendor];
 
   return (
-    <div
-      className={`bg-surface rounded-xl border transition-all duration-200 hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5 ${product.highlight ? "border-accent/30 ring-1 ring-accent/20" : "border-border"}`}
-    >
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-semibold text-foreground">{product.name}</h3>
-          {product.qty && (
-            <span className="px-2 py-0.5 bg-accent/20 text-accent text-xs font-bold rounded-full whitespace-nowrap">
-              x{product.qty}
-            </span>
-          )}
-        </div>
+    <div className={`build-card ${product.highlight ? "highlight" : ""}`}>
+      <div className="build-card-header">
+        <h3 className="build-card-name">{product.name}</h3>
+        {product.qty && <span className="build-card-qty">x{product.qty}</span>}
+      </div>
 
-        <div className="flex flex-wrap gap-2 mb-3">
-          <span
-            className={`px-2 py-0.5 text-xs font-medium rounded-full ${vendor.color}`}
-          >
-            {vendor.name}
-          </span>
-          {product.pixels && (
-            <span className="px-2 py-0.5 bg-foreground/10 text-foreground/70 text-xs rounded-full">
-              {product.pixels} px
-            </span>
-          )}
-        </div>
-
-        {product.note && (
-          <p className="text-sm text-foreground/60 mb-3">{product.note}</p>
-        )}
-
-        {product.url && (
-          <a
-            href={product.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-accent hover:text-accent/80 font-medium"
-          >
-            View Product
-            <svg
-              className="w-3 h-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-              />
-            </svg>
-          </a>
+      <div className="build-card-badges">
+        <span className={`build-card-vendor ${vendor.color}`}>
+          {vendor.name}
+        </span>
+        {product.pixels && (
+          <span className="build-card-pixels">{product.pixels} px</span>
         )}
       </div>
+
+      {product.note && <p className="build-card-note">{product.note}</p>}
+
+      {product.url && (
+        <a
+          href={product.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="build-card-link"
+        >
+          View Product
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+            />
+          </svg>
+        </a>
+      )}
     </div>
   );
 }
 
 export default function BuildYourShowPage() {
   return (
-    <div className="min-h-screen py-12 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="build-page min-h-screen">
+      <div className="build-content">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
-            <span className="gradient-text">Build Your Show</span>
+        <div className="build-header">
+          <h1 className="build-title font-display">
+            <span className="accent-text">Build</span> Your Show
           </h1>
-          <p className="text-xl text-foreground/60 max-w-2xl mx-auto">
+          <p className="build-subtitle">
             Everything powering the Lights of Elm Ridge display. Quantities
             shown are what we actually use.
           </p>
         </div>
 
         {/* Stats Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 mb-8">
-          <div className="bg-surface rounded-xl p-3 sm:p-4 border border-border text-center">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent">
-              {displayStats.totalPixels}
+        <div className="build-stats">
+          {displayStats.map((stat) => (
+            <div key={stat.label} className="build-stat">
+              <span className="build-stat-num">{stat.num}</span>
+              <span className="build-stat-label">{stat.label}</span>
             </div>
-            <div className="text-xs sm:text-sm text-foreground/60">
-              Total Pixels
-            </div>
-          </div>
-          <div className="bg-surface rounded-xl p-3 sm:p-4 border border-border text-center">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent">
-              {displayStats.totalProps}
-            </div>
-            <div className="text-xs sm:text-sm text-foreground/60">Props</div>
-          </div>
-          <div className="bg-surface rounded-xl p-3 sm:p-4 border border-border text-center">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent">
-              {displayStats.spinners}
-            </div>
-            <div className="text-xs sm:text-sm text-foreground/60">
-              Spinners
-            </div>
-          </div>
-          <div className="bg-surface rounded-xl p-3 sm:p-4 border border-border text-center">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent">
-              {displayStats.controllers}
-            </div>
-            <div className="text-xs sm:text-sm text-foreground/60">
-              Controllers
-            </div>
-          </div>
-          <div className="bg-surface rounded-xl p-3 sm:p-4 border border-border text-center col-span-2 sm:col-span-1">
-            <div className="text-xl sm:text-2xl md:text-3xl font-bold text-accent">
-              {displayStats.universes}
-            </div>
-            <div className="text-xs sm:text-sm text-foreground/60">
-              Universes
-            </div>
-          </div>
+          ))}
         </div>
 
         {/* Vendor Quick Links */}
-        <section className="mb-10">
-          <h2 className="text-lg font-bold mb-3 text-foreground/80">
-            Trusted Vendors
-          </h2>
-          <div className="flex flex-wrap gap-2">
+        <section className="build-vendors">
+          <h2 className="build-vendors-title">Trusted Vendors</h2>
+          <div className="build-vendors-list">
             {Object.values(vendors).map((vendor) => (
               <a
                 key={vendor.name}
                 href={vendor.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all hover:scale-105 ${vendor.color} border border-transparent hover:border-current`}
+                className="build-vendor-chip"
               >
                 {vendor.name}
               </a>
@@ -715,21 +667,17 @@ export default function BuildYourShowPage() {
 
         {/* Product Categories */}
         {gearCategories.map((category) => (
-          <section key={category.name} className="mb-8 md:mb-12">
-            <div className="bg-surface/50 border border-border rounded-2xl p-4 md:p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <span className="text-2xl sm:text-3xl">{category.icon}</span>
+          <section key={category.name} className="build-section">
+            <div className="build-section-card">
+              <div className="build-section-header">
+                <span className="build-section-icon">{category.icon}</span>
                 <div>
-                  <h2 className="text-lg sm:text-xl md:text-2xl font-bold">
-                    {category.name}
-                  </h2>
-                  <p className="text-foreground/60 text-xs sm:text-sm">
-                    {category.description}
-                  </p>
+                  <h2 className="build-section-title">{category.name}</h2>
+                  <p className="build-section-desc">{category.description}</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="build-grid">
                 {category.products.map((product) => (
                   <ProductCard key={product.name} product={product} />
                 ))}
@@ -739,69 +687,51 @@ export default function BuildYourShowPage() {
         ))}
 
         {/* Coming Soon - Shopping List Wizard */}
-        <section className="mb-12">
-          <div className="bg-gradient-to-r from-accent/10 via-surface to-accent-secondary/10 rounded-xl p-6 border border-accent/30">
-            <div className="flex items-start gap-4">
-              <span className="text-4xl">🛒</span>
-              <div>
-                <h2 className="text-xl font-bold mb-2">
-                  Shopping List Builder - Coming Soon
-                </h2>
-                <p className="text-foreground/70 mb-3">
-                  We&apos;re building an interactive tool to help you create a
-                  custom shopping list based on your experience level, budget,
-                  and display goals. Answer a few questions and get personalized
-                  product recommendations with quantities.
-                </p>
-                <div className="flex flex-wrap gap-2 text-sm text-foreground/50">
-                  <span className="px-2 py-1 bg-surface rounded">
-                    Beginner packages
-                  </span>
-                  <span className="px-2 py-1 bg-surface rounded">
-                    Budget calculator
-                  </span>
-                  <span className="px-2 py-1 bg-surface rounded">
-                    Prop suggestions
-                  </span>
-                  <span className="px-2 py-1 bg-surface rounded">
-                    Quantity estimator
-                  </span>
-                </div>
+        <div className="build-teaser">
+          <div className="build-teaser-header">
+            <span className="build-teaser-icon">🛒</span>
+            <div>
+              <h2 className="build-teaser-title">
+                Shopping List Builder - Coming Soon
+              </h2>
+              <p className="build-teaser-desc">
+                We&apos;re building an interactive tool to help you create a
+                custom shopping list based on your experience level, budget, and
+                display goals. Answer a few questions and get personalized
+                product recommendations with quantities.
+              </p>
+              <div className="build-teaser-chips">
+                <span className="build-teaser-chip">Beginner packages</span>
+                <span className="build-teaser-chip">Budget calculator</span>
+                <span className="build-teaser-chip">Prop suggestions</span>
+                <span className="build-teaser-chip">Quantity estimator</span>
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
         {/* CTAs */}
-        <section className="text-center">
-          <h2 className="text-2xl font-bold mb-4">
-            Need Help Getting Started?
-          </h2>
-          <p className="text-foreground/60 mb-6 max-w-lg mx-auto">
+        <div className="build-cta">
+          <h2 className="build-cta-title">Need Help Getting Started?</h2>
+          <p className="build-cta-desc">
             Check out our display specs or browse sequences that work with
             various setups.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/the-show"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-accent hover:bg-accent/80 text-white font-semibold rounded-xl transition-colors"
-            >
+          <div className="build-cta-buttons">
+            <Link href="/the-show" className="btn-primary">
               View Our Setup
             </Link>
-            <Link
-              href="/sequences"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-surface hover:bg-surface-light border border-border text-foreground font-semibold rounded-xl transition-colors"
-            >
+            <Link href="/sequences" className="btn-secondary">
               Browse Sequences
             </Link>
           </div>
-        </section>
+        </div>
 
         {/* Back */}
         <div className="mt-12 text-center">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-accent hover:text-accent/80 font-medium"
+            className="inline-flex items-center gap-2 text-[#ef4444] hover:text-[#ef4444]/80 font-medium"
           >
             <svg
               className="w-4 h-4"
