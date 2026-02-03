@@ -527,7 +527,7 @@ This sequence leans into the sci-fi/horror crossover energy with effects that fe
     r2Url: "https://downloads.lightsofelmridge.com/Paid/ET.zip",
     amazonMusicUrl:
       "https://amazon.com/music/player/albums/B003Y3ZTGA?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_vheHsiiLLucY1Pl1KHSJPAaeh&trackAsin=B003Y3XTCQ",
-    youtubeId: null,
+    youtubeId: "kXZtdjYKydU",
     artworkUrl:
       "https://pixelprodisplays.com/wp-content/uploads/2023/03/artworks-000169037769-5mo3ib-t500x500.jpg",
     models: [
