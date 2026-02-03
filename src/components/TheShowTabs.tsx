@@ -94,8 +94,48 @@ function getWideThumbnail(sequenceSlug: string | undefined): string | null {
   return sequence?.thumbnailUrl || null;
 }
 
+// Parse YouTube title to extract song name and artist
+function parseVideoTitle(title: string): { songName: string; artist: string } {
+  // Remove common suffixes like "- xLights", "- Light Show", "- Mockup", etc.
+  const cleaned = title
+    .replace(
+      /\s*[-–—]\s*(xlights|mockup|mock up|preview|demo|test|sequence|light show|lights?|display|2024|2025).*$/i,
+      "",
+    )
+    .replace(/\s*\(xlights.*?\)/gi, "")
+    .replace(/\s*\[xlights.*?\]/gi, "")
+    .replace(/\s*\|.*$/i, "")
+    .trim();
+
+  // Try to extract "Song by Artist" format
+  const byMatch = cleaned.match(/^(.+?)\s+by\s+(.+)$/i);
+  if (byMatch) {
+    return {
+      songName: byMatch[1].trim(),
+      artist: byMatch[2].trim(),
+    };
+  }
+
+  // Try "Song - Artist" format (if there's a dash separator)
+  const dashMatch = cleaned.match(/^(.+?)\s*[-–—]\s*(.+)$/);
+  if (dashMatch) {
+    return {
+      songName: dashMatch[1].trim(),
+      artist: dashMatch[2].trim(),
+    };
+  }
+
+  // Fallback: just use the cleaned title as song name
+  return {
+    songName: cleaned,
+    artist: "",
+  };
+}
+
 // Video Card Component
 function VideoCard({ video }: { video: YouTubeVideo }) {
+  const { songName, artist } = parseVideoTitle(video.title);
+
   return (
     <a
       href={`https://www.youtube.com/watch?v=${video.id}`}
@@ -112,8 +152,8 @@ function VideoCard({ video }: { video: YouTubeVideo }) {
         </div>
       </div>
       <div className="video-card-body">
-        <div className="video-card-title">{video.title}</div>
-        <div className="video-card-artist">{video.description || ""}</div>
+        <div className="video-card-title">{songName}</div>
+        <div className="video-card-artist">{artist}</div>
       </div>
     </a>
   );
