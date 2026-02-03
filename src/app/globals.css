@@ -518,9 +518,9 @@ html {
    SEQUENCE LISTING PAGE STYLES
    ═══════════════════════════════════════════════════════════ */
 
-/* Listing page uses wider max-width */
+/* Listing page uses wider max-width for 4-card layout */
 .seq-listing-page {
-  --page-max: 1280px;
+  --page-max: 1440px;
   --page-gutter: 40px;
   position: relative;
   overflow-x: hidden;
@@ -566,7 +566,7 @@ html {
 
 /* Page header - compressed toolbar layout */
 .seq-page-header {
-  max-width: var(--page-max, 1280px);
+  max-width: var(--page-max, 1440px);
   margin: 0 auto;
   padding: 28px var(--page-gutter, 40px) 0;
   display: flex;
@@ -769,7 +769,7 @@ html {
 
 /* Content sections */
 .seq-content {
-  max-width: var(--page-max, 1280px);
+  max-width: var(--page-max, 1440px);
   margin: 0 auto;
   padding: 0 var(--page-gutter, 40px) 80px;
 }
@@ -817,11 +817,12 @@ html {
   border-radius: var(--seq-radius-pill);
 }
 
-/* Card grid */
+/* Card grid - 4 columns at full width, centered when fewer cards */
 .seq-card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 330px));
   gap: 20px;
+  justify-content: center;
 }
 
 /* Sequence card */
@@ -1090,7 +1091,7 @@ html {
     --page-gutter: 24px;
   }
   .seq-card-grid {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 320px));
   }
 }
 
