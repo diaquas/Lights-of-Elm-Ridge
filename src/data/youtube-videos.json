@@ -1,12 +1,22 @@
 {
-  "lastUpdated": "2026-02-03T03:04:34.505Z",
+  "lastUpdated": "2026-02-03T04:20:04.785Z",
   "mockups": [
+    {
+      "id": "kXZtdjYKydU",
+      "title": "E T  by Katy Perry",
+      "description": "Alien vibes and otherworldly effects. This pop hit translates perfectly to a Halloween display with its extraterrestrial energy.",
+      "thumbnailUrl": "https://i.ytimg.com/vi/kXZtdjYKydU/mqdefault.jpg",
+      "thumbnailUrlHigh": "https://i.ytimg.com/vi/kXZtdjYKydU/maxresdefault.jpg",
+      "publishedAt": "2026-02-03T03:33:29Z",
+      "playlistId": "PLNrebbWMDXn3a7I8I-I7fOKodoo8zdlaE",
+      "playlistType": "mockups"
+    },
     {
       "id": "B_ByXG3d2is",
       "title": "Purple People Eater by Pegboard Nerds",
       "description": "The dubstep remix that makes the classic Halloween tune drop harder than ever. Purple everything.",
       "thumbnailUrl": "https://i.ytimg.com/vi/B_ByXG3d2is/mqdefault.jpg",
-      "thumbnailUrlHigh": "https://i.ytimg.com/vi/B_ByXG3d2is/hqdefault.jpg",
+      "thumbnailUrlHigh": "https://i.ytimg.com/vi/B_ByXG3d2is/maxresdefault.jpg",
       "publishedAt": "2026-02-03T03:02:57Z",
       "playlistId": "PLNrebbWMDXn3a7I8I-I7fOKodoo8zdlaE",
       "playlistType": "mockups"
@@ -38,16 +48,6 @@
       "thumbnailUrl": "https://i.ytimg.com/vi/n7ykR0qF_oY/mqdefault.jpg",
       "thumbnailUrlHigh": "https://i.ytimg.com/vi/n7ykR0qF_oY/maxresdefault.jpg",
       "publishedAt": "2026-02-02T13:44:30Z",
-      "playlistId": "PLNrebbWMDXn3a7I8I-I7fOKodoo8zdlaE",
-      "playlistType": "mockups"
-    },
-    {
-      "id": "p4902dW2k80",
-      "title": "E.T. by Katy Perry (xlights preview)",
-      "description": "Xlights mockup of upcoming Halloween Show featuring Katy Perry's E.T.",
-      "thumbnailUrl": "https://i.ytimg.com/vi/p4902dW2k80/mqdefault.jpg",
-      "thumbnailUrlHigh": "https://i.ytimg.com/vi/p4902dW2k80/maxresdefault.jpg",
-      "publishedAt": "2026-01-31T22:52:43Z",
       "playlistId": "PLNrebbWMDXn3a7I8I-I7fOKodoo8zdlaE",
       "playlistType": "mockups"
     },
@@ -134,21 +134,21 @@
       "playlistType": "live2024"
     },
     {
-      "id": "YGf-HBjfEro",
-      "title": "Over the River",
-      "description": "🌟 Over the River and Through the Lights! 🎶✨\n\nOur holiday show just got a magical twist with @ptxofficial beautiful rendition of Over the River. 🎄💡 Watch as the lights dance in perfect harmony, bringing the warmth of the season to Elm Ridge. ❄️🚗\n\nWhether you’re headed to Grandma’s or just out for a holiday drive, make sure to stop by and experience the festive magic with us! 🎶❤️\n\n#ElmRidgeLights #HolidayHarmony #PentatonixLights #OverTheRiver #WinterMagic #FestiveSeason",
-      "thumbnailUrl": "https://i.ytimg.com/vi/YGf-HBjfEro/mqdefault.jpg",
-      "thumbnailUrlHigh": "https://i.ytimg.com/vi/YGf-HBjfEro/maxresdefault.jpg",
-      "publishedAt": "2026-01-31T22:52:00Z",
-      "playlistId": "PLNrebbWMDXn25mqAx7N1M4XUun46lTaXy",
-      "playlistType": "live2024"
-    },
-    {
       "id": "0TKfve7gnvU",
       "title": "Pixar Old School Intro",
       "description": "🎄✨ The Holiday Magic Has Begun on Elm Ridge! ✨🎅\n\nThe wait is over! Our light show is officially transforming Elm Ridge into a winter wonderland. From twinkling lights to festive tunes, we’re here to spread holiday cheer all season long! ❄️💡\n\nBundle up, bring the family, and let’s make this season merry and bright together. Don’t forget to tag us in your photos and videos—we can’t wait to see your holiday smiles! 🎁🎶\n\n#ElmRidgeLights #HolidayMagic #MerryAndBright #FestiveSeason #WinterWonderland #LightUpTheHolidays",
       "thumbnailUrl": "https://i.ytimg.com/vi/0TKfve7gnvU/mqdefault.jpg",
       "thumbnailUrlHigh": "https://i.ytimg.com/vi/0TKfve7gnvU/maxresdefault.jpg",
+      "publishedAt": "2026-01-31T22:52:00Z",
+      "playlistId": "PLNrebbWMDXn25mqAx7N1M4XUun46lTaXy",
+      "playlistType": "live2024"
+    },
+    {
+      "id": "YGf-HBjfEro",
+      "title": "Over the River",
+      "description": "🌟 Over the River and Through the Lights! 🎶✨\n\nOur holiday show just got a magical twist with @ptxofficial beautiful rendition of Over the River. 🎄💡 Watch as the lights dance in perfect harmony, bringing the warmth of the season to Elm Ridge. ❄️🚗\n\nWhether you’re headed to Grandma’s or just out for a holiday drive, make sure to stop by and experience the festive magic with us! 🎶❤️\n\n#ElmRidgeLights #HolidayHarmony #PentatonixLights #OverTheRiver #WinterMagic #FestiveSeason",
+      "thumbnailUrl": "https://i.ytimg.com/vi/YGf-HBjfEro/mqdefault.jpg",
+      "thumbnailUrlHigh": "https://i.ytimg.com/vi/YGf-HBjfEro/maxresdefault.jpg",
       "publishedAt": "2026-01-31T22:52:00Z",
       "playlistId": "PLNrebbWMDXn25mqAx7N1M4XUun46lTaXy",
       "playlistType": "live2024"
