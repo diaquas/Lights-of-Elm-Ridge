@@ -481,249 +481,258 @@ export default async function SequencePage({ params }: PageProps) {
           </div>
 
           {/* Detailed Info Sections */}
-          <div className="grid md:grid-cols-2 gap-8 mb-16">
-            {/* What's Included */}
-            <div className="bg-surface rounded-xl p-6 border border-border">
-              <h2 className="text-xl font-bold mb-4">What&apos;s Included</h2>
-              <ul className="space-y-2 text-foreground/70">
-                {sequence.fileFormats.map((format) => (
-                  <li key={format} className="flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    {format}
-                  </li>
-                ))}
-                <li className="flex items-center gap-2">
-                  <svg
-                    className="w-5 h-5 text-green-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Lifetime access to download
-                </li>
-                <li className="flex items-center gap-2">
-                  <svg
-                    className="w-5 h-5 text-green-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Compatible with xLights {sequence.xlightsVersion}
-                </li>
-              </ul>
-            </div>
-
-            {/* Props/Models */}
-            <div className="bg-surface rounded-xl p-6 border border-border">
-              <h2 className="text-xl font-bold mb-4">Props & Models</h2>
-              <div className="flex flex-wrap gap-2">
-                {sequence.models.map((model) => (
-                  <span
-                    key={model}
-                    className="px-3 py-1 bg-surface-light rounded-lg text-sm text-foreground/70 border border-border"
-                  >
-                    {model}
-                  </span>
-                ))}
-              </div>
-              {sequence.hasMatrix && (
-                <p className="mt-4 text-sm text-accent">
-                  ✓ Includes Matrix effects
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Full Description */}
-          <div className="bg-surface rounded-xl p-8 border border-border mb-16">
-            <h2 className="text-xl font-bold mb-4">About This Sequence</h2>
-            <div className="prose prose-invert max-w-none">
-              {sequence.longDescription.split("\n\n").map((paragraph, i) => (
-                <p
-                  key={i}
-                  className="text-foreground/70 mb-4 whitespace-pre-line"
-                >
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-          </div>
-
-          {/* You May Also Like */}
-          {relatedSequences.length > 0 && (
-            <div className="mb-16">
-              <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8">
-                You may also like
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
-                {relatedSequences.map((related) => (
-                  <Link
-                    key={related.id}
-                    href={`/sequences/${related.slug}`}
-                    className="group"
-                  >
-                    <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden mb-3 group-hover:border-accent/50 transition-colors relative">
-                      {related.artworkUrl || related.youtubeId ? (
-                        <Image
-                          src={
-                            related.artworkUrl ||
-                            getThumbnailUrl(related.youtubeId) ||
-                            ""
-                          }
-                          alt={`${related.title} - ${related.artist}`}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform"
-                          unoptimized
+          <div className="max-w-[1100px] mx-auto px-4 md:px-8">
+            <div className="grid md:grid-cols-2 gap-8 mb-16">
+              {/* Left Column: What's Included + Props & Models */}
+              <div className="flex flex-col gap-6">
+                {/* What's Included */}
+                <div className="bg-surface rounded-xl p-6 border border-border">
+                  <h2 className="text-xl font-bold mb-4">
+                    What&apos;s Included
+                  </h2>
+                  <ul className="space-y-2 text-foreground/70">
+                    {sequence.fileFormats.map((format) => (
+                      <li key={format} className="flex items-center gap-2">
+                        <svg
+                          className="w-5 h-5 text-green-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                        {format}
+                      </li>
+                    ))}
+                    <li className="flex items-center gap-2">
+                      <svg
+                        className="w-5 h-5 text-green-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
                         />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-accent/10 to-surface">
-                          <span className="text-6xl">
-                            {related.category === "Halloween" ? "🎃" : "🎄"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <h3 className="font-medium group-hover:text-accent transition-colors line-clamp-2">
-                      {related.title} - {related.artist}
-                    </h3>
-                    <p className="text-accent font-semibold">
-                      {related.price === 0 ? "FREE" : `$${related.price}`}
+                      </svg>
+                      Lifetime access to download
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <svg
+                        className="w-5 h-5 text-green-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      Compatible with xLights {sequence.xlightsVersion}
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Props/Models */}
+                <div className="bg-surface rounded-xl p-6 border border-border">
+                  <h2 className="text-xl font-bold mb-4">Props & Models</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {sequence.models.map((model) => (
+                      <span
+                        key={model}
+                        className="px-3 py-1 bg-surface-light rounded-lg text-sm text-foreground/70 border border-border"
+                      >
+                        {model}
+                      </span>
+                    ))}
+                  </div>
+                  {sequence.hasMatrix && (
+                    <p className="mt-4 text-sm text-accent">
+                      ✓ Includes Matrix effects
                     </p>
-                  </Link>
-                ))}
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: About This Sequence */}
+              <div className="bg-surface rounded-xl p-6 border border-border h-fit">
+                <h2 className="text-xl font-bold mb-4">About This Sequence</h2>
+                <div className="prose prose-invert max-w-none">
+                  {sequence.longDescription
+                    .split("\n\n")
+                    .map((paragraph, i) => (
+                      <p
+                        key={i}
+                        className="text-foreground/70 mb-4 whitespace-pre-line"
+                      >
+                        {paragraph}
+                      </p>
+                    ))}
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Trust Badges */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 py-6 sm:py-8 border-t border-border">
-            <div className="text-center">
-              <div className="text-2xl mb-2">🎬</div>
-              <h3 className="font-semibold text-sm">Video Previews</h3>
-              <p className="text-xs text-foreground/50">See before you buy</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl mb-2">⚡</div>
-              <h3 className="font-semibold text-sm">Instant Download</h3>
-              <p className="text-xs text-foreground/50">
-                Get started immediately
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl mb-2">💬</div>
-              <h3 className="font-semibold text-sm">Support</h3>
-              <p className="text-xs text-foreground/50">
-                We&apos;re here to help
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl mb-2">✅</div>
-              <h3 className="font-semibold text-sm">Tested & Ready</h3>
-              <p className="text-xs text-foreground/50">
-                Runs on real displays
-              </p>
-            </div>
-          </div>
+            {/* You May Also Like */}
+            {relatedSequences.length > 0 && (
+              <div className="mb-16">
+                <h2 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8">
+                  You may also like
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
+                  {relatedSequences.map((related) => (
+                    <Link
+                      key={related.id}
+                      href={`/sequences/${related.slug}`}
+                      className="group"
+                    >
+                      <div className="aspect-square bg-surface rounded-xl border border-border overflow-hidden mb-3 group-hover:border-accent/50 transition-colors relative">
+                        {related.artworkUrl || related.youtubeId ? (
+                          <Image
+                            src={
+                              related.artworkUrl ||
+                              getThumbnailUrl(related.youtubeId) ||
+                              ""
+                            }
+                            alt={`${related.title} - ${related.artist}`}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-accent/10 to-surface">
+                            <span className="text-6xl">
+                              {related.category === "Halloween" ? "🎃" : "🎄"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="font-medium group-hover:text-accent transition-colors line-clamp-2">
+                        {related.title} - {related.artist}
+                      </h3>
+                      <p className="text-accent font-semibold">
+                        {related.price === 0 ? "FREE" : `$${related.price}`}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
-          {/* Share Section */}
-          <div className="flex items-center justify-center gap-3 py-6 border-t border-border">
-            <span className="text-[13px] text-foreground/50 font-medium">
-              Share this sequence
-            </span>
-            <div
-              className="flex items-center gap-2"
-              role="group"
-              aria-label="Share options"
-            >
-              <button
-                className="seq-share-icon w-[36px] h-[36px] rounded-full bg-surface border border-border flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface-light transition-colors"
-                aria-label="Share on Facebook"
+            {/* Trust Badges */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 md:gap-6 py-6 sm:py-8 border-t border-border">
+              <div className="text-center">
+                <div className="text-2xl mb-2">🎬</div>
+                <h3 className="font-semibold text-sm">Video Previews</h3>
+                <p className="text-xs text-foreground/50">See before you buy</p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl mb-2">⚡</div>
+                <h3 className="font-semibold text-sm">Instant Download</h3>
+                <p className="text-xs text-foreground/50">
+                  Get started immediately
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl mb-2">💬</div>
+                <h3 className="font-semibold text-sm">Support</h3>
+                <p className="text-xs text-foreground/50">
+                  We&apos;re here to help
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl mb-2">✅</div>
+                <h3 className="font-semibold text-sm">Tested & Ready</h3>
+                <p className="text-xs text-foreground/50">
+                  Runs on real displays
+                </p>
+              </div>
+            </div>
+
+            {/* Share Section */}
+            <div className="flex items-center justify-center gap-3 py-6 border-t border-border">
+              <span className="text-[13px] text-foreground/50 font-medium">
+                Share this sequence
+              </span>
+              <div
+                className="flex items-center gap-2"
+                role="group"
+                aria-label="Share options"
               >
-                <svg
-                  className="w-[15px] h-[15px]"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
+                <button
+                  className="seq-share-icon w-[36px] h-[36px] rounded-full bg-surface border border-border flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface-light transition-colors"
+                  aria-label="Share on Facebook"
                 >
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                </svg>
-              </button>
-              <button
-                className="seq-share-icon w-[36px] h-[36px] rounded-full bg-surface border border-border flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface-light transition-colors"
-                aria-label="Share on X"
-              >
-                <svg
-                  className="w-[13px] h-[13px]"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
+                  <svg
+                    className="w-[15px] h-[15px]"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                  </svg>
+                </button>
+                <button
+                  className="seq-share-icon w-[36px] h-[36px] rounded-full bg-surface border border-border flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface-light transition-colors"
+                  aria-label="Share on X"
                 >
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                </svg>
-              </button>
-              <button
-                className="seq-share-icon w-[36px] h-[36px] rounded-full bg-surface border border-border flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface-light transition-colors"
-                aria-label="Copy link"
+                  <svg
+                    className="w-[13px] h-[13px]"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                </button>
+                <button
+                  className="seq-share-icon w-[36px] h-[36px] rounded-full bg-surface border border-border flex items-center justify-center text-foreground/60 hover:text-foreground hover:bg-surface-light transition-colors"
+                  aria-label="Copy link"
+                >
+                  <svg
+                    className="w-[14px] h-[14px]"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    viewBox="0 0 24 24"
+                  >
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Back to All */}
+            <div className="text-center pt-4 pb-8">
+              <Link
+                href="/sequences"
+                className="inline-flex items-center gap-2 text-accent hover:text-accent-secondary transition-colors"
               >
                 <svg
-                  className="w-[14px] h-[14px]"
+                  className="w-4 h-4"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth={2}
                   viewBox="0 0 24 24"
                 >
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 19l-7-7 7-7"
+                  />
                 </svg>
-              </button>
+                Back to all sequences
+              </Link>
             </div>
-          </div>
-
-          {/* Back to All */}
-          <div className="text-center pt-4 pb-8">
-            <Link
-              href="/sequences"
-              className="inline-flex items-center gap-2 text-accent hover:text-accent-secondary transition-colors"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-              Back to all sequences
-            </Link>
           </div>
         </div>
       </div>
