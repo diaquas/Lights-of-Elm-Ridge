@@ -196,6 +196,57 @@ export default function Home() {
       </section>
 
       {/* ════════════════════════════════════════════════════
+          REVIEWS STRIP — social proof from xlightsseq.com
+          ════════════════════════════════════════════════════ */}
+      <section className="reviews-strip">
+        <div className="reviews-strip-header">
+          <span className="reviews-strip-title">What People Are Saying</span>
+          <a
+            href="https://xlightsseq.com/"
+            className="reviews-strip-source"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            via xlightsseq.com ↗
+          </a>
+        </div>
+        <div className="reviews-strip-grid">
+          <div className="review-card">
+            <div className="review-stars">★★★★★</div>
+            <p className="review-quote">
+              &ldquo;My kiddo&apos;s favorite song so had to find a sequence for
+              it and this one hit just right. Love the classic Skeleton Dance
+              video and good timing of effects with the dub step.&rdquo;
+            </p>
+            <div className="review-meta">
+              <span className="review-user">Anonymous</span>
+              <span className="review-date">Nov 2025</span>
+            </div>
+          </div>
+
+          <div className="review-card">
+            <div className="review-stars">★★★★★</div>
+            <p className="review-quote">
+              &ldquo;Pretty dang good, and easy to apply&rdquo;
+            </p>
+            <div className="review-meta">
+              <span className="review-user">chromewolf7</span>
+              <span className="review-date">Sep 2025</span>
+            </div>
+          </div>
+
+          <div className="review-card">
+            <div className="review-stars">★★★★★</div>
+            <p className="review-quote">&ldquo;Great Job on this.&rdquo;</p>
+            <div className="review-meta">
+              <span className="review-user">joeally06</span>
+              <span className="review-date">Sep 2025</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════════════════════
           STATS BAR — slim credibility strip
           ════════════════════════════════════════════════════ */}
       <div className="stats-bar">

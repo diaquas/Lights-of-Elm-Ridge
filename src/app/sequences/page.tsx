@@ -30,6 +30,72 @@ export default function SequencesPage() {
 
         {/* Bottom sections */}
         <div className="seq-content">
+          {/* Customer Reviews — social proof from xlightsseq.com */}
+          <section className="seq-reviews">
+            <div className="seq-reviews-header">
+              <div className="seq-reviews-header-left">
+                <h2 className="seq-reviews-title">Customer Reviews</h2>
+                <div className="seq-reviews-aggregate">
+                  <span className="seq-reviews-stars">★★★★★</span>
+                  <span className="seq-reviews-count">5.0 from 3 reviews</span>
+                </div>
+              </div>
+              <a
+                href="https://xlightsseq.com/"
+                className="seq-reviews-source"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Reviews from xlightsseq.com ↗
+              </a>
+            </div>
+
+            <div className="seq-reviews-grid">
+              <div className="seq-review">
+                <div className="seq-review-top">
+                  <span className="seq-review-stars">★★★★★</span>
+                  <span className="seq-review-date">Nov 2025</span>
+                </div>
+                <p className="seq-review-quote">
+                  &ldquo;My kiddo&apos;s favorite song so had to find a sequence
+                  for it and this one hit just right. Love the classic Skeleton
+                  Dance video and good timing of effects with the dub step.
+                  Thank you!&rdquo;
+                </p>
+                <div className="seq-review-bottom">
+                  <span className="seq-review-user">Anonymous</span>
+                  <span className="seq-review-seq">Spooky Scary Skeletons</span>
+                </div>
+              </div>
+
+              <div className="seq-review">
+                <div className="seq-review-top">
+                  <span className="seq-review-stars">★★★★★</span>
+                  <span className="seq-review-date">Sep 2025</span>
+                </div>
+                <p className="seq-review-quote">
+                  &ldquo;Pretty dang good, and easy to apply&rdquo;
+                </p>
+                <div className="seq-review-bottom">
+                  <span className="seq-review-user">chromewolf7</span>
+                </div>
+              </div>
+
+              <div className="seq-review">
+                <div className="seq-review-top">
+                  <span className="seq-review-stars">★★★★★</span>
+                  <span className="seq-review-date">Sep 2025</span>
+                </div>
+                <p className="seq-review-quote">
+                  &ldquo;Great Job on this.&rdquo;
+                </p>
+                <div className="seq-review-bottom">
+                  <span className="seq-review-user">joeally06</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* Built For — prop reference strip */}
           <div className="props-strip">
             <div className="props-strip-header">
