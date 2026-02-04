@@ -614,72 +614,8 @@ export const SOURCE_MODELS: SourceModel[] = [
   },
 
   // ── Real Trees ─────────────────────────────────────────
-  {
-    name: "Tree Real 1 - Trunk",
-    type: "Tree",
-    displayAs: "Tree 360",
-    pixelCount: 200,
-    zone: "mid-right",
-    posX: 0.7,
-    posY: 0.5,
-    isGroup: false,
-    submodels: [],
-  },
-  {
-    name: "Tree Real 1 - Fork Left",
-    type: "Tree",
-    displayAs: "Tree 360",
-    pixelCount: 300,
-    zone: "mid-right",
-    posX: 0.68,
-    posY: 0.55,
-    isGroup: false,
-    submodels: [],
-  },
-  {
-    name: "Tree Real 1 - Fork Right",
-    type: "Tree",
-    displayAs: "Tree 360",
-    pixelCount: 200,
-    zone: "mid-right",
-    posX: 0.72,
-    posY: 0.55,
-    isGroup: false,
-    submodels: [],
-  },
-  {
-    name: "Tree Real 2",
-    type: "Tree",
-    displayAs: "Tree 360",
-    pixelCount: 250,
-    zone: "mid-center",
-    posX: 0.5,
-    posY: 0.45,
-    isGroup: false,
-    submodels: [],
-  },
-  {
-    name: "Tree Real 3",
-    type: "Tree",
-    displayAs: "Tree 360",
-    pixelCount: 250,
-    zone: "mid-center",
-    posX: 0.48,
-    posY: 0.45,
-    isGroup: false,
-    submodels: [],
-  },
-  {
-    name: "Tree Real 4",
-    type: "Tree",
-    displayAs: "Tree 360",
-    pixelCount: 250,
-    zone: "mid-center",
-    posX: 0.52,
-    posY: 0.45,
-    isGroup: false,
-    submodels: [],
-  },
+  // Excluded: "Tree Real" models are too broad/vague for matching.
+  // "Trunk", "Tree 1-3" etc. give false positives against any tree model.
 
   // ── Spiral Trees ───────────────────────────────────────
   ...Array.from({ length: 8 }, (_, i) => ({
@@ -970,17 +906,7 @@ export const SOURCE_GROUPS: SourceModel[] = [
     isGroup: true,
     submodels: [],
   },
-  {
-    name: "All - Trees - Real - GRP",
-    type: "Group",
-    displayAs: "Group",
-    pixelCount: 0,
-    zone: "mid-center",
-    posX: 0.5,
-    posY: 0.45,
-    isGroup: true,
-    submodels: [],
-  },
+  // "All - Trees - Real - GRP" excluded (Tree Real models removed)
   {
     name: "All - Pixel Forest - GRP",
     type: "Group",
