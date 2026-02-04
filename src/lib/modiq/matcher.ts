@@ -302,7 +302,10 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
     }
   }
 
-  return Math.min(1.0, overlapScore + substringBonus + keywordBonus + aliasBonus);
+  return Math.min(
+    1.0,
+    overlapScore + substringBonus + keywordBonus + aliasBonus,
+  );
 }
 
 /**
@@ -393,10 +396,26 @@ function scoreSpatial(
 ): number {
   if (source.isGroup || dest.isGroup) return 0.5;
 
-  const srcX = normalizePosition(source.worldPosX, sourceBounds.minX, sourceBounds.maxX);
-  const srcY = normalizePosition(source.worldPosY, sourceBounds.minY, sourceBounds.maxY);
-  const destX = normalizePosition(dest.worldPosX, destBounds.minX, destBounds.maxX);
-  const destY = normalizePosition(dest.worldPosY, destBounds.minY, destBounds.maxY);
+  const srcX = normalizePosition(
+    source.worldPosX,
+    sourceBounds.minX,
+    sourceBounds.maxX,
+  );
+  const srcY = normalizePosition(
+    source.worldPosY,
+    sourceBounds.minY,
+    sourceBounds.maxY,
+  );
+  const destX = normalizePosition(
+    dest.worldPosX,
+    destBounds.minX,
+    destBounds.maxX,
+  );
+  const destY = normalizePosition(
+    dest.worldPosY,
+    destBounds.minY,
+    destBounds.maxY,
+  );
 
   // Euclidean distance in normalized [0,1] space. Max possible = sqrt(2) ≈ 1.414
   const dist = Math.sqrt((srcX - destX) ** 2 + (srcY - destY) ** 2);
@@ -425,7 +444,9 @@ function classifyShape(model: ParsedModel): Shape {
     da === "spinner" ||
     da === "sphere" ||
     da === "wreaths" ||
-    /spinner|wreath|circle|ring|globe|ball|rosa|fuzion|overlord|starburst/i.test(name)
+    /spinner|wreath|circle|ring|globe|ball|rosa|fuzion|overlord|starburst/i.test(
+      name,
+    )
   ) {
     return "circular";
   }
@@ -448,24 +469,20 @@ function classifyShape(model: ParsedModel): Shape {
     da === "arches" ||
     da === "candy cane" ||
     da === "candy canes" ||
-    /eave|vert|horizontal|roofline|outline|driveway|pole|cane|icicle|arch/i.test(name)
+    /eave|vert|horizontal|roofline|outline|driveway|pole|cane|icicle|arch/i.test(
+      name,
+    )
   ) {
     return "linear";
   }
 
   // Triangle / tree shapes
-  if (
-    da.includes("tree") ||
-    /tree|mega.*tree|spiral|firework/i.test(name)
-  ) {
+  if (da.includes("tree") || /tree|mega.*tree|spiral|firework/i.test(name)) {
     return "triangle";
   }
 
   // Point shapes (stars, floods, small props)
-  if (
-    da === "star" ||
-    /star|flood|bulb/i.test(name)
-  ) {
+  if (da === "star" || /star|flood|bulb/i.test(name)) {
     return "point";
   }
 
@@ -635,6 +652,48 @@ function generateReason(mapping: ModelMapping): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Spinner Shared-Source Detection
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Check if two models are both spinners whose submodel names overlap,
+ * indicating they represent the same physical spinner type.
+ *
+ * When true, the source spinner is NOT consumed after matching, allowing
+ * multiple dest spinners (user's layout) to all map to the same source
+ * spinner. The xmap output will map each dest spinner's submodels to the
+ * source spinner's submodels by exact name.
+ */
+function isSpinnerSharedMatch(source: ParsedModel, dest: ParsedModel): boolean {
+  if (source.isGroup || dest.isGroup) return false;
+  if (source.submodels.length === 0 || dest.submodels.length === 0)
+    return false;
+
+  // Both must be spinner-type models
+  const spinnerPattern =
+    /spinner|showstopper|fuzion|rosa.*grande|overlord|click.*click.*boom/i;
+  const isSourceSpinner =
+    source.type === "Spinner" || spinnerPattern.test(source.name);
+  const isDestSpinner =
+    dest.type === "Spinner" || spinnerPattern.test(dest.name);
+
+  if (!isSourceSpinner || !isDestSpinner) return false;
+
+  // Check submodel name overlap using normalized names
+  const srcNames = new Set(source.submodels.map((s) => normalizeName(s.name)));
+  const destNames = new Set(dest.submodels.map((s) => normalizeName(s.name)));
+
+  let matches = 0;
+  for (const name of srcNames) {
+    if (name.length > 0 && destNames.has(name)) matches++;
+  }
+
+  // Require at least 3 matching submodel names (or all if fewer than 3)
+  const threshold = Math.min(3, srcNames.size);
+  return matches >= threshold;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Submodel Matching
 // ═══════════════════════════════════════════════════════════════════
 
@@ -747,9 +806,7 @@ export function matchModels(
   // ── Phase 2: Match Individual Models ───────────────────
   // Dest pool: individual models + any unmatched groups (a group in dest
   // might be the best match for an individual source model)
-  const remainingDest = destModels.filter(
-    (_, i) => !assignedDestIdx.has(i),
-  );
+  const remainingDest = destModels.filter((_, i) => !assignedDestIdx.has(i));
 
   const individualMappings = greedyMatch(
     sourceIndividuals,
@@ -763,9 +820,7 @@ export function matchModels(
 
   // ── Collect unused dest models ─────────────────────────
   const usedDest = new Set(
-    allMappings
-      .filter((m) => m.destModel)
-      .map((m) => m.destModel!.name),
+    allMappings.filter((m) => m.destModel).map((m) => m.destModel!.name),
   );
   const unusedDestModels = destModels.filter((m) => !usedDest.has(m.name));
 
@@ -778,8 +833,7 @@ export function matchModels(
   };
   allMappings.sort((a, b) => {
     // Primary: confidence tier
-    const cDiff =
-      confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
+    const cDiff = confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
     if (cDiff !== 0) return cDiff;
     // Secondary: groups before individuals within same tier
     const aGroup = a.sourceModel.isGroup ? 0 : 1;
@@ -868,8 +922,14 @@ function greedyMatch(
     mapping.reason = generateReason(mapping);
 
     mappings.push(mapping);
-    assignedSrc.add(entry.srcIdx);
     assignedDest.add(entry.destIdx);
+
+    // For spinner models with matching submodels, allow the source to be
+    // reused by other dest spinners — multiple user spinners can all map
+    // to the same source spinner when submodel names match exactly.
+    if (!isSpinnerSharedMatch(sourceModel, destModel)) {
+      assignedSrc.add(entry.srcIdx);
+    }
   }
 
   // Add unmapped source models
