@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import {
   parseRgbEffectsXml,
   getSourceModelsForSequence,
@@ -14,6 +16,9 @@ import {
 } from "@/lib/modiq";
 import type { ParsedLayout, MappingResult, Confidence } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
+import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
+import { useCart } from "@/contexts/CartContext";
+import SequenceSelector from "@/components/SequenceSelector";
 
 type Step = "input" | "processing" | "results";
 
@@ -23,8 +28,16 @@ interface ProcessingStep {
 }
 
 export default function ModIQTool() {
+  // Read URL query param for pre-selection (e.g. /modiq?sequence=abracadabra)
+  const searchParams = useSearchParams();
+  const initialSequence = searchParams.get("sequence") ?? "";
+  const validInitial =
+    initialSequence && sequences.some((s) => s.slug === initialSequence)
+      ? initialSequence
+      : "";
+
   const [step, setStep] = useState<Step>("input");
-  const [selectedSequence, setSelectedSequence] = useState<string>("");
+  const [selectedSequence, setSelectedSequence] = useState(validInitial);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [userLayout, setUserLayout] = useState<ParsedLayout | null>(null);
   const [mappingResult, setMappingResult] = useState<MappingResult | null>(
@@ -37,6 +50,33 @@ export default function ModIQTool() {
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  // ─── Ownership & Cart ─────────────────────────────────
+  const {
+    isLoggedIn,
+    isLoading: purchasesLoading,
+    hasPurchased,
+  } = usePurchasedSequences();
+  const { addItem, isInCart } = useCart();
+
+  // Derive whether the selected sequence is accessible (free or owned)
+  const selectedSeq = sequences.find((s) => s.slug === selectedSequence);
+  const isAccessible = selectedSeq
+    ? selectedSeq.price === 0 || hasPurchased(selectedSeq.id)
+    : false;
+
+  const handleAddToCart = useCallback(() => {
+    if (!selectedSeq || selectedSeq.price === 0) return;
+    addItem({
+      id: selectedSeq.id,
+      slug: selectedSeq.slug,
+      title: selectedSeq.title,
+      artist: selectedSeq.artist,
+      price: selectedSeq.price,
+      category: selectedSeq.category,
+      thumbnailUrl: selectedSeq.thumbnailUrl ?? null,
+    });
+  }, [selectedSeq, addItem]);
 
   // ─── File Upload ────────────────────────────────────────
   const handleFile = useCallback((file: File) => {
@@ -217,112 +257,172 @@ export default function ModIQTool() {
                 Select Your Sequence
               </h2>
             </div>
-            <select
+            <SequenceSelector
+              sequences={sequences}
               value={selectedSequence}
-              onChange={(e) => setSelectedSequence(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-2 focus:ring-accent"
-            >
-              <option value="">Choose a sequence...</option>
-              {sequences.map((seq) => (
-                <option key={seq.slug} value={seq.slug}>
-                  {seq.title} — {seq.artist} ({seq.category})
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedSequence}
+              isLoggedIn={isLoggedIn}
+              isLoading={purchasesLoading}
+              hasPurchased={hasPurchased}
+            />
           </div>
 
-          {/* Step 2: Upload Layout */}
-          <div className="bg-surface rounded-xl border border-border p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">
-                2
-              </span>
-              <h2 className="text-lg font-semibold font-display">
-                Upload Your Layout
-              </h2>
-            </div>
-
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onClick={() => fileInputRef.current?.click()}
-              className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-                isDragging
-                  ? "border-accent bg-accent/10"
-                  : uploadedFile
-                    ? "border-green-500/50 bg-green-500/5"
-                    : "border-border hover:border-foreground/30 hover:bg-surface-light"
-              }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xml"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleFile(file);
-                }}
-                className="hidden"
-              />
-
-              {uploadedFile && userLayout ? (
-                <div>
-                  <svg
-                    className="w-10 h-10 mx-auto mb-3 text-green-500"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+          {/* Interstitial: unowned paid sequence selected */}
+          {selectedSeq && !isAccessible && (
+            <div className="bg-surface rounded-xl border border-border p-6">
+              <h3 className="text-lg font-display font-semibold mb-1">
+                {selectedSeq.title}{" "}
+                <span className="text-foreground/50 font-normal">
+                  — {selectedSeq.artist}
+                </span>
+              </h3>
+              <p className="text-sm text-foreground/60 mt-2 mb-5">
+                You don&apos;t own this sequence yet.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                {isInCart(selectedSeq.id) ? (
+                  <Link
+                    href="/cart"
+                    className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-semibold text-sm bg-green-600 hover:bg-green-700 text-white transition-all"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <p className="text-foreground font-medium">
-                    {uploadedFile.name}
-                  </p>
-                  <p className="text-sm text-foreground/60 mt-1">
-                    {userLayout.modelCount} models detected &middot;{" "}
-                    {(uploadedFile.size / 1024).toFixed(1)} KB
-                  </p>
-                  <p className="text-xs text-foreground/40 mt-2">
-                    Click to replace
-                  </p>
-                </div>
-              ) : (
-                <div>
-                  <svg
-                    className="w-10 h-10 mx-auto mb-3 text-foreground/30"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                    In Cart — View Cart
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleAddToCart}
+                    className="flex-1 py-3 px-5 rounded-xl font-semibold text-sm bg-accent hover:bg-accent/90 text-white transition-all"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                    />
-                  </svg>
-                  <p className="text-foreground/70 font-medium">
-                    Drag & drop your xlights_rgbeffects.xml
-                  </p>
-                  <p className="text-sm text-foreground/40 mt-1">
-                    or click to browse
-                  </p>
-                </div>
+                    Add to Cart — ${selectedSeq.price.toFixed(2)}
+                  </button>
+                )}
+                <Link
+                  href={`/sequences/${selectedSeq.slug}`}
+                  className="inline-flex items-center justify-center gap-1 py-3 px-5 rounded-xl font-medium text-sm text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-all"
+                >
+                  View Sequence &rarr;
+                </Link>
+              </div>
+              {!isLoggedIn && (
+                <p className="text-xs text-zinc-500 mt-4">
+                  Already purchased?{" "}
+                  <Link
+                    href="/login?redirect=/modiq"
+                    className="text-zinc-400 hover:text-zinc-300 underline"
+                  >
+                    Log in to access it.
+                  </Link>
+                </p>
               )}
             </div>
+          )}
 
-            <p className="text-xs text-foreground/40 mt-3">
-              Find this file in your xLights show folder. Your files are
-              processed locally in your browser and never uploaded to any
-              server.
-            </p>
-          </div>
+          {/* Step 2: Upload Layout (only when sequence is accessible) */}
+          {(!selectedSeq || isAccessible) && (
+            <div className="bg-surface rounded-xl border border-border p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">
+                  2
+                </span>
+                <h2 className="text-lg font-semibold font-display">
+                  Upload Your Layout
+                </h2>
+              </div>
+
+              <div
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                  isDragging
+                    ? "border-accent bg-accent/10"
+                    : uploadedFile
+                      ? "border-green-500/50 bg-green-500/5"
+                      : "border-border hover:border-foreground/30 hover:bg-surface-light"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xml"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                  }}
+                  className="hidden"
+                />
+
+                {uploadedFile && userLayout ? (
+                  <div>
+                    <svg
+                      className="w-10 h-10 mx-auto mb-3 text-green-500"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <p className="text-foreground font-medium">
+                      {uploadedFile.name}
+                    </p>
+                    <p className="text-sm text-foreground/60 mt-1">
+                      {userLayout.modelCount} models detected &middot;{" "}
+                      {(uploadedFile.size / 1024).toFixed(1)} KB
+                    </p>
+                    <p className="text-xs text-foreground/40 mt-2">
+                      Click to replace
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <svg
+                      className="w-10 h-10 mx-auto mb-3 text-foreground/30"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                      />
+                    </svg>
+                    <p className="text-foreground/70 font-medium">
+                      Drag & drop your xlights_rgbeffects.xml
+                    </p>
+                    <p className="text-sm text-foreground/40 mt-1">
+                      or click to browse
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-foreground/40 mt-3">
+                Find this file in your xLights show folder. Your files are
+                processed locally in your browser and never uploaded to any
+                server.
+              </p>
+            </div>
+          )}
 
           {/* Error */}
           {error && (
@@ -334,7 +434,7 @@ export default function ModIQTool() {
           {/* Run Button */}
           <button
             onClick={runMapping}
-            disabled={!selectedSequence || !userLayout}
+            disabled={!selectedSequence || !isAccessible || !userLayout}
             className="w-full py-4 rounded-xl font-display font-bold text-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-accent hover:bg-accent/90 text-white"
           >
             ModIQ It
