@@ -401,32 +401,36 @@ function HotspotCardContent({ hotspot }: { hotspot: Hotspot }) {
 // Controller data
 const controllers = [
   {
-    icon: "⚡",
-    name: "HinksPix PRO V3",
+    name: "HinksPix Pro V3",
     meta: "48 ports · 171 universes",
     quantity: 1,
-    url: "https://www.holidaycoro.com",
+    url: "https://www.holidaycoro.com/Flex-Modular-Lighting-Controller-System-p/951.htm",
+    imageUrl:
+      "https://cdn4.volusion.store/ospkt-vnbus/v/vspfiles/photos/951-3T.png?v-cache=1753875608",
   },
   {
-    icon: "📡",
-    name: "4-Port Differential Receivers",
+    name: "Long Range Differential",
     meta: "long range smart receivers",
-    quantity: 6,
-    url: "https://www.holidaycoro.com/Ready2Run-4-8-SPI-Flex-Long-Range-SMART-Receiver-p/936.htm",
+    quantity: 4,
+    url: "https://www.holidaycoro.com/Flex-Modular-Lighting-Controller-System-p/951.htm",
+    imageUrl:
+      "https://cdn4.volusion.store/ospkt-vnbus/v/vspfiles/photos/951-6T.jpg?v-cache=1753875608",
   },
   {
-    icon: "🔌",
     name: "Smart Receivers",
     meta: "flex expansion boards",
-    quantity: 3,
-    url: "https://www.holidaycoro.com/Flex-Long-Range-Differential-Rec",
+    quantity: 12,
+    url: "https://www.holidaycoro.com/Flex-Long-Range-Differential-Receiver-SMART-p/951-62.htm",
+    imageUrl:
+      "https://cdn4.volusion.store/ospkt-vnbus/v/vspfiles/photos/951-62-2T.jpg?v-cache=1760805226",
   },
   {
-    icon: "🎛️",
-    name: "AlphaPix 16",
+    name: "Alphapix 16",
     meta: "mega tree · 18 universes",
     quantity: 1,
-    url: "https://www.holidaycoro.com",
+    url: "https://www.holidaycoro.com/AlphaPix-16-Pixel-Controller-V3-p/721-v3.htm",
+    imageUrl:
+      "https://cdn4.volusion.store/ospkt-vnbus/v/vspfiles/photos/721-V3-2T.jpg?v-cache=1535294485",
   },
 ];
 
@@ -598,7 +602,9 @@ export default function LayoutExplorer() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <div className="ctrl-item-icon">{ctrl.icon}</div>
+                    <div className="ctrl-item-thumb">
+                      <img src={ctrl.imageUrl} alt={ctrl.name} loading="lazy" />
+                    </div>
                     <div className="ctrl-item-info">
                       <div className="ctrl-item-name">{ctrl.name}</div>
                       <div className="ctrl-item-meta">
