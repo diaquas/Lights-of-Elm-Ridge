@@ -19,101 +19,6 @@ const displayStats = {
   fmStation: "87.9",
 };
 
-// Props list
-const propsList = [
-  {
-    name: "Matrix",
-    pixels: "7,168",
-    description: "70×102 P10 panel — videos, images, text effects",
-  },
-  {
-    name: "Spinners (6)",
-    pixels: "5,792",
-    description:
-      "Fuzion, Rosa Grande, Overlord, 3× Showstopper, Click Click Boom",
-  },
-  {
-    name: "Fence Panels (7)",
-    pixels: "4,655",
-    description: "665 pixels each — vertical pixel fence sections",
-  },
-  {
-    name: "Mega Tree",
-    pixels: "3,000",
-    description: "12 strings × 250 pixels — 180° display",
-  },
-  {
-    name: "Pixel Poles (8)",
-    pixels: "2,400",
-    description: "300 pixels each — driveway and yard poles",
-  },
-  {
-    name: "Rosa Tombstones (4)",
-    pixels: "1,940",
-    description: "485 pixels each — large animated tombstones",
-  },
-  {
-    name: "House Outline",
-    pixels: "~2,000",
-    description: "26 eave sections + 15 vertical runs",
-  },
-  {
-    name: "Tombstones (10)",
-    pixels: "1,500",
-    description: "4 large (150px) + 6 small tombstones",
-  },
-  {
-    name: "Trees (6)",
-    pixels: "1,200",
-    description: "Wrapped real trees with spiral patterns",
-  },
-  {
-    name: "Spiders (8)",
-    pixels: "975",
-    description: "100 px each + 175 px tree topper spider",
-  },
-  {
-    name: "Arches (8)",
-    pixels: "800",
-    description: "100 pixels each — entrance and yard arches",
-  },
-  {
-    name: "Spiral Trees (8)",
-    pixels: "800",
-    description: "100 pixels each — GE style spiral trees",
-  },
-  {
-    name: "Fireworks (2)",
-    pixels: "720",
-    description: "360 pixels each — exploding firework props",
-  },
-];
-
-// Controller details
-const controllers = [
-  {
-    name: "HinksPix PRO V3",
-    role: "Main Controller",
-    universes: 171,
-    description:
-      "Powers house, yard props, spinners, fence, and most display elements. Brightness at 70%.",
-  },
-  {
-    name: "AlphaPix 16",
-    role: "Mega Tree",
-    universes: 18,
-    description:
-      "Dedicated controller for the 3,000 pixel mega tree at 100% brightness.",
-  },
-  {
-    name: "AlphaPix Flex",
-    role: "AC Controller",
-    universes: 1,
-    description:
-      "Controls AC flood lights and special effects at 100% brightness.",
-  },
-];
-
 export default function TheShowPage() {
   // Get video data
   const liveVideoGroups = getAllLiveVideos();
@@ -200,8 +105,6 @@ export default function TheShowPage() {
           christmasSongs={christmasSongs}
           vendors={vendors}
           displayStats={displayStats}
-          propsList={propsList}
-          controllers={controllers}
         />
       </div>
 

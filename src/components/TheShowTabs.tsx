@@ -25,13 +25,6 @@ interface TheShowTabsProps {
     controllers: string;
     fmStation: string;
   };
-  propsList: { name: string; pixels: string; description: string }[];
-  controllers: {
-    name: string;
-    role: string;
-    universes: number;
-    description: string;
-  }[];
 }
 
 // Icons
@@ -250,13 +243,14 @@ export default function TheShowTabs({
   christmasSongs,
   vendors,
   displayStats,
-  propsList,
-  controllers,
 }: TheShowTabsProps) {
   // Main tab state
   const [activeTab, setActiveTab] = useState<"watch" | "playlist" | "display">(
     "display",
   );
+
+  // Tech stack collapsible state
+  const [techStackOpen, setTechStackOpen] = useState(false);
 
   // Playlist category tab state
   const [playlistCategory, setPlaylistCategory] = useState<
@@ -330,16 +324,13 @@ export default function TheShowTabs({
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          TAB 1: THE DISPLAY — Tech specs & hardware
+          TAB 1: THE DISPLAY — Interactive explorer + tech specs
           ═══════════════════════════════════════════════════════════ */}
       <div
         id="display"
         className={`show-tab-panel ${activeTab === "display" ? "active" : ""}`}
         role="tabpanel"
       >
-        {/* Interactive Layout Explorer */}
-        <LayoutExplorer />
-
         {/* Stat row */}
         <div className="display-stats">
           <div className="display-stat">
@@ -360,159 +351,74 @@ export default function TheShowTabs({
           </div>
         </div>
 
-        {/* Controllers */}
-        <div className="spec-section">
-          <div className="spec-section-header">
-            <span className="spec-section-icon">🎛️</span>
-            <h2 className="spec-section-title">Controllers</h2>
-          </div>
-          <div className="controller-grid">
-            {controllers.map((controller) => (
-              <div key={controller.name} className="controller-card">
-                <div className="controller-card-name">{controller.name}</div>
-                <div className="controller-card-meta">
-                  {controller.universes} universes
-                </div>
-                <div className="controller-card-desc">
-                  {controller.description}
-                </div>
-                <span className="controller-card-tag">{controller.role}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Interactive Layout Explorer */}
+        <LayoutExplorer />
 
-        {/* Props Table */}
-        <div className="spec-section">
-          <div className="spec-section-header">
-            <span className="spec-section-icon">🎃</span>
-            <h2 className="spec-section-title">Props &amp; Pixel Counts</h2>
-          </div>
-          <div className="props-table-wrapper">
-            <table className="props-table">
-              <thead>
-                <tr>
-                  <th>Prop</th>
-                  <th>Pixels</th>
-                  <th>Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                {propsList.map((prop) => (
-                  <tr key={prop.name}>
-                    <td className="prop-name">{prop.name}</td>
-                    <td className="prop-pixels">{prop.pixels}</td>
-                    <td>{prop.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Hardware Setup */}
-        <div className="spec-section">
-          <div className="spec-section-header">
-            <span className="spec-section-icon">⚡</span>
-            <h2 className="spec-section-title">Hardware Setup</h2>
-          </div>
-          <div className="hw-grid">
-            <div className="hw-card">
-              <div className="hw-card-title">Network</div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>E1.31 Protocol</strong> — industry standard
-                </span>
-              </div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>190 Universes</strong> — 510 channels each
-                </span>
-              </div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>Smart Receivers</strong> — differential signal
-                  boosting
-                </span>
-              </div>
+        {/* Tech Stack — collapsible */}
+        <div className={`tech-stack ${techStackOpen ? "open" : ""}`}>
+          <button
+            className="tech-stack-toggle"
+            onClick={() => setTechStackOpen(!techStackOpen)}
+            aria-expanded={techStackOpen}
+          >
+            <div className="tech-stack-toggle-left">
+              <span className="tech-stack-icon">⚡</span>
+              <span className="tech-stack-title">Under the Hood</span>
             </div>
-            <div className="hw-card">
-              <div className="hw-card-title">Power</div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>5V Supplies</strong> — multiple Mean Well units
+            <svg
+              className="tech-stack-chevron"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          <div className="tech-stack-body">
+            <div className="tech-stack-rows">
+              <div className="tech-stack-row">
+                <span className="tech-stack-label">Network</span>
+                <span className="tech-stack-detail">
+                  E1.31 protocol · 190 universes · 510 channels each
                 </span>
               </div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>Power Injection</strong> — every 150 pixels
+              <div className="tech-stack-row">
+                <span className="tech-stack-label">Power</span>
+                <span className="tech-stack-detail">
+                  Multiple Mean Well 5V supplies · power injection every 150px ·
+                  dedicated 20A circuits
                 </span>
               </div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>Dedicated Circuits</strong> — multiple 20A
+              <div className="tech-stack-row">
+                <span className="tech-stack-label">Show Player</span>
+                <span className="tech-stack-detail">
+                  xSchedule + Remote Falcon (viewer song requests) · FM 87.9
                 </span>
               </div>
-            </div>
-            <div className="hw-card">
-              <div className="hw-card-title">Show Player</div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>xSchedule</strong> — native scheduler + player
-                </span>
-              </div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>Remote Falcon</strong> — viewers request songs
-                </span>
-              </div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>FM Transmitter</strong> — tune to 87.9
-                </span>
-              </div>
-            </div>
-            <div className="hw-card">
-              <div className="hw-card-title">Pixels</div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>WS2811 Bullet Nodes</strong> — 12mm for most
-                </span>
-              </div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>WS2812B Strips</strong> — matrix + detail
-                </span>
-              </div>
-              <div className="hw-card-item">
-                <span className="hw-card-check">✓</span>{" "}
-                <span>
-                  <strong>IP67 Waterproof</strong> — all outdoor-rated
+              <div className="tech-stack-row">
+                <span className="tech-stack-label">Pixels</span>
+                <span className="tech-stack-detail">
+                  WS2811 bullet nodes (12mm) + WS2812B strips · all IP67
+                  outdoor-rated
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Display CTA */}
+        {/* Shopping List Wizard CTA */}
         <div className="display-cta">
           <div className="display-cta-text">
-            <strong>Can I run these sequences?</strong> Designed for
-            matrix-capable displays but remappable to most xLights setups.
+            <strong>Want to build something like this?</strong> Tell us about
+            your space and we&apos;ll generate a custom shopping list.
           </div>
-          <Link href="/sequences" className="btn-primary">
-            Browse Sequences
+          <Link href="/build-your-show" className="btn-primary">
+            Try the Shopping List Wizard →
           </Link>
         </div>
       </div>
