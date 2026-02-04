@@ -255,7 +255,7 @@ export default function TheShowTabs({
 }: TheShowTabsProps) {
   // Main tab state
   const [activeTab, setActiveTab] = useState<"watch" | "playlist" | "display">(
-    "watch",
+    "display",
   );
 
   // Playlist category tab state
@@ -301,6 +301,14 @@ export default function TheShowTabs({
       <div className="show-tab-bar-wrapper seq-anim-in seq-delay-2">
         <div className="show-tab-bar" role="tablist">
           <button
+            className={`show-tab-btn ${activeTab === "display" ? "active" : ""}`}
+            role="tab"
+            aria-selected={activeTab === "display"}
+            onClick={() => switchTab("display")}
+          >
+            <span className="show-tab-btn-icon">🏠</span> The Display
+          </button>
+          <button
             className={`show-tab-btn ${activeTab === "watch" ? "active" : ""}`}
             role="tab"
             aria-selected={activeTab === "watch"}
@@ -318,183 +326,11 @@ export default function TheShowTabs({
             <span className="show-tab-btn-icon">♫</span> Playlist
             <span className="show-tab-btn-count">{totalSongs} songs</span>
           </button>
-          <button
-            className={`show-tab-btn ${activeTab === "display" ? "active" : ""}`}
-            role="tab"
-            aria-selected={activeTab === "display"}
-            onClick={() => switchTab("display")}
-          >
-            <span className="show-tab-btn-icon">⚙</span> The Display
-          </button>
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          TAB 1: WATCH — Video gallery by season
-          ═══════════════════════════════════════════════════════════ */}
-      <div
-        id="watch"
-        className={`show-tab-panel ${activeTab === "watch" ? "active" : ""}`}
-        role="tabpanel"
-      >
-        {videoGroups.map((group, groupIndex) => (
-          <div key={group.year}>
-            <div
-              className={`season-header seq-anim-in seq-delay-${Math.min(groupIndex + 3, 6)}`}
-            >
-              <div className="season-title-group">
-                <span className="season-icon">🏠</span>
-                <h2 className="season-title">{group.year} Season</h2>
-                <span className="season-meta">
-                  {group.videos.length} videos
-                </span>
-              </div>
-              <a
-                href={`https://www.youtube.com/playlist?list=${group.playlistId}`}
-                className="season-link"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                View playlist ↗
-              </a>
-            </div>
-
-            <div
-              className={`video-grid seq-anim-in seq-delay-${Math.min(groupIndex + 3, 6)}`}
-            >
-              {group.videos.map((video) => (
-                <VideoCard key={video.id} video={video} />
-              ))}
-            </div>
-          </div>
-        ))}
-
-        {/* Behind the Scenes teaser */}
-        <div className="bts-teaser seq-anim-in seq-delay-5">
-          <div className="bts-teaser-title">🎬 Behind the Scenes</div>
-          <p className="bts-teaser-desc">
-            Setup timelapses, tutorials, and the nerdy details you didn&apos;t
-            know you needed. Coming soon.
-          </p>
-          <Link href="/behind-the-scenes" className="btn-sm">
-            Get notified →
-          </Link>
-        </div>
-
-        {/* Subscribe CTA */}
-        <div className="subscribe-bar seq-anim-in seq-delay-6">
-          <div className="subscribe-bar-text">
-            Don&apos;t miss a show{" "}
-            <span>— new footage as we build and grow the display</span>
-          </div>
-          <a
-            href="https://www.youtube.com/channel/UCKvEDoz59mtUv2UCuJq6vuA"
-            className="btn-yt"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <YouTubeIcon />
-            Subscribe on YouTube
-          </a>
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════
-          TAB 2: PLAYLIST — Tracklist with category subtabs
-          ═══════════════════════════════════════════════════════════ */}
-      <div
-        id="playlist"
-        className={`show-tab-panel ${activeTab === "playlist" ? "active" : ""}`}
-        role="tabpanel"
-      >
-        <div className="show-playlist-header">
-          <div className="show-playlist-tabs" role="tablist">
-            <button
-              className={`show-pl-tab ${playlistCategory === "halloween" ? "active" : ""}`}
-              onClick={() => setPlaylistCategory("halloween")}
-            >
-              <span className="show-pl-tab-icon">🎃</span> Halloween{" "}
-              <span className="show-pl-tab-count">
-                ({halloweenSongs.length})
-              </span>
-            </button>
-            <button
-              className={`show-pl-tab ${playlistCategory === "christmas" ? "active" : ""}`}
-              onClick={() => setPlaylistCategory("christmas")}
-            >
-              <span className="show-pl-tab-icon">🎄</span> Christmas{" "}
-              <span className="show-pl-tab-count">
-                ({christmasSongs.length})
-              </span>
-            </button>
-          </div>
-          <span className="show-pl-original-count">
-            <strong>{currentOriginals}</strong> original / {currentSongs.length}{" "}
-            total
-          </span>
-        </div>
-
-        {/* Main Category Section */}
-        <section>
-          <div className="show-section-header">
-            <div className="show-section-title-group">
-              <span className="show-section-icon">
-                {playlistCategory === "halloween" ? "🎃" : "🎄"}
-              </span>
-              <h2 className="show-section-title">
-                {playlistCategory === "halloween" ? "Halloween" : "Christmas"}
-              </h2>
-              <span className="show-section-meta">
-                {currentOriginals} original / {currentSongs.length} total
-              </span>
-            </div>
-          </div>
-
-          <div className="tracklist">
-            {currentSongs.map((song, index) => (
-              <TrackRow key={song.id} song={song} trackNum={index + 1} />
-            ))}
-          </div>
-        </section>
-
-        {/* Vendor Credits */}
-        <div className="show-vendor-section">
-          <h3 className="show-vendor-section-title">Vendor Credits</h3>
-          <p className="show-vendor-section-sub">
-            Talented sequencers whose work helps make the show. Support them!
-          </p>
-          <div className="vendor-grid">
-            {vendors.map((vendor) => (
-              <a
-                key={vendor.name}
-                href={vendor.url}
-                className="vendor-chip"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {vendor.name}{" "}
-                <span className="vendor-chip-ct">· {vendor.count}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* Playlist CTA */}
-        <div className="show-playlist-cta">
-          <h3 className="show-playlist-cta-title">
-            Want to Add These to Your Show?
-          </h3>
-          <p className="show-playlist-cta-desc">
-            Many of our original sequences are available for purchase.
-          </p>
-          <Link href="/sequences" className="btn-primary">
-            Browse Sequences <ChevronIcon />
-          </Link>
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════
-          TAB 3: THE DISPLAY — Tech specs & hardware
+          TAB 1: THE DISPLAY — Tech specs & hardware
           ═══════════════════════════════════════════════════════════ */}
       <div
         id="display"
@@ -677,6 +513,170 @@ export default function TheShowTabs({
           </div>
           <Link href="/sequences" className="btn-primary">
             Browse Sequences
+          </Link>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════
+          TAB 2: WATCH — Video gallery by season
+          ═══════════════════════════════════════════════════════════ */}
+      <div
+        id="watch"
+        className={`show-tab-panel ${activeTab === "watch" ? "active" : ""}`}
+        role="tabpanel"
+      >
+        {videoGroups.map((group, groupIndex) => (
+          <div key={group.year}>
+            <div
+              className={`season-header seq-anim-in seq-delay-${Math.min(groupIndex + 3, 6)}`}
+            >
+              <div className="season-title-group">
+                <span className="season-icon">🏠</span>
+                <h2 className="season-title">{group.year} Season</h2>
+                <span className="season-meta">
+                  {group.videos.length} videos
+                </span>
+              </div>
+              <a
+                href={`https://www.youtube.com/playlist?list=${group.playlistId}`}
+                className="season-link"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View playlist ↗
+              </a>
+            </div>
+
+            <div
+              className={`video-grid seq-anim-in seq-delay-${Math.min(groupIndex + 3, 6)}`}
+            >
+              {group.videos.map((video) => (
+                <VideoCard key={video.id} video={video} />
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {/* Behind the Scenes teaser */}
+        <div className="bts-teaser seq-anim-in seq-delay-5">
+          <div className="bts-teaser-title">🎬 Behind the Scenes</div>
+          <p className="bts-teaser-desc">
+            Setup timelapses, tutorials, and the nerdy details you didn&apos;t
+            know you needed. Coming soon.
+          </p>
+          <Link href="/behind-the-scenes" className="btn-sm">
+            Get notified →
+          </Link>
+        </div>
+
+        {/* Subscribe CTA */}
+        <div className="subscribe-bar seq-anim-in seq-delay-6">
+          <div className="subscribe-bar-text">
+            Don&apos;t miss a show{" "}
+            <span>— new footage as we build and grow the display</span>
+          </div>
+          <a
+            href="https://www.youtube.com/channel/UCKvEDoz59mtUv2UCuJq6vuA"
+            className="btn-yt"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <YouTubeIcon />
+            Subscribe on YouTube
+          </a>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════
+          TAB 3: PLAYLIST — Tracklist with category subtabs
+          ═══════════════════════════════════════════════════════════ */}
+      <div
+        id="playlist"
+        className={`show-tab-panel ${activeTab === "playlist" ? "active" : ""}`}
+        role="tabpanel"
+      >
+        <div className="show-playlist-header">
+          <div className="show-playlist-tabs" role="tablist">
+            <button
+              className={`show-pl-tab ${playlistCategory === "halloween" ? "active" : ""}`}
+              onClick={() => setPlaylistCategory("halloween")}
+            >
+              <span className="show-pl-tab-icon">🎃</span> Halloween{" "}
+              <span className="show-pl-tab-count">
+                ({halloweenSongs.length})
+              </span>
+            </button>
+            <button
+              className={`show-pl-tab ${playlistCategory === "christmas" ? "active" : ""}`}
+              onClick={() => setPlaylistCategory("christmas")}
+            >
+              <span className="show-pl-tab-icon">🎄</span> Christmas{" "}
+              <span className="show-pl-tab-count">
+                ({christmasSongs.length})
+              </span>
+            </button>
+          </div>
+          <span className="show-pl-original-count">
+            <strong>{currentOriginals}</strong> original / {currentSongs.length}{" "}
+            total
+          </span>
+        </div>
+
+        {/* Main Category Section */}
+        <section>
+          <div className="show-section-header">
+            <div className="show-section-title-group">
+              <span className="show-section-icon">
+                {playlistCategory === "halloween" ? "🎃" : "🎄"}
+              </span>
+              <h2 className="show-section-title">
+                {playlistCategory === "halloween" ? "Halloween" : "Christmas"}
+              </h2>
+              <span className="show-section-meta">
+                {currentOriginals} original / {currentSongs.length} total
+              </span>
+            </div>
+          </div>
+
+          <div className="tracklist">
+            {currentSongs.map((song, index) => (
+              <TrackRow key={song.id} song={song} trackNum={index + 1} />
+            ))}
+          </div>
+        </section>
+
+        {/* Vendor Credits */}
+        <div className="show-vendor-section">
+          <h3 className="show-vendor-section-title">Vendor Credits</h3>
+          <p className="show-vendor-section-sub">
+            Talented sequencers whose work helps make the show. Support them!
+          </p>
+          <div className="vendor-grid">
+            {vendors.map((vendor) => (
+              <a
+                key={vendor.name}
+                href={vendor.url}
+                className="vendor-chip"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {vendor.name}{" "}
+                <span className="vendor-chip-ct">· {vendor.count}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Playlist CTA */}
+        <div className="show-playlist-cta">
+          <h3 className="show-playlist-cta-title">
+            Want to Add These to Your Show?
+          </h3>
+          <p className="show-playlist-cta-desc">
+            Many of our original sequences are available for purchase.
+          </p>
+          <Link href="/sequences" className="btn-primary">
+            Browse Sequences <ChevronIcon />
           </Link>
         </div>
       </div>
