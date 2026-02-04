@@ -30,3 +30,5 @@ export {
   generateMappingReport,
   downloadMappingReport,
 } from "./xmap-generator";
+
+export { parseXsqModels, getSequenceModelList } from "./xsq-parser";
