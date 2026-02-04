@@ -70,7 +70,7 @@ body {
 }
 
 .site-logo-top {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: 0.04em;
   color: #f4f4f5;
@@ -83,7 +83,7 @@ body {
 }
 
 .site-logo-of {
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 600;
   color: #ef4444;
   letter-spacing: 0.05em;
@@ -91,9 +91,9 @@ body {
 }
 
 .site-logo-place {
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   color: #a1a1aa;
   text-transform: uppercase;
 }
@@ -314,6 +314,200 @@ html {
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HOMEPAGE — Latest Drops + Stats Bar
+   ═══════════════════════════════════════════════════════════ */
+
+.latest-section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 32px 24px;
+}
+
+.latest-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.latest-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.latest-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+.latest-subtitle {
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.latest-see-all {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ef4444;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.latest-see-all:hover {
+  text-decoration: underline;
+}
+
+.latest-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.latest-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
+}
+
+.latest-card:hover {
+  border-color: #ef4444;
+  transform: translateY(-2px);
+}
+
+.latest-card-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #111;
+}
+
+.latest-card-thumb img,
+.latest-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.latest-card:hover .latest-card-thumb img,
+.latest-card:hover .latest-card-img {
+  transform: scale(1.05);
+}
+
+.latest-card-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-new {
+  background: #ef4444;
+  color: #fff;
+}
+
+.badge-free {
+  background: #22c55e;
+  color: #fff;
+}
+
+.latest-card-body {
+  padding: 12px 14px 14px;
+}
+
+.latest-card-title {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--foreground);
+}
+
+.latest-card-artist {
+  font-size: 12px;
+  color: #a1a1aa;
+  margin-top: 2px;
+}
+
+.latest-card-price {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ef4444;
+  margin-top: 6px;
+}
+
+/* Stats bar */
+.stats-bar {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 32px 40px;
+}
+
+.stats-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.stats-bar-item strong {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.stats-bar-sep {
+  color: #63636e;
+  opacity: 0.3;
+}
+
+@media (max-width: 768px) {
+  .latest-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .latest-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .latest-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
