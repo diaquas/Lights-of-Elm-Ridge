@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800');
+  </style>
+  <rect width="32" height="32" rx="6" fill="#0b0b0e"/>
+  <text x="4" y="22" font-family="Syne, sans-serif" font-weight="800" font-size="20" fill="#f4f4f5">L</text>
+  <rect x="21" y="7" width="7" height="3" rx="1" fill="#ef4444"/>
+  <rect x="21" y="13" width="7" height="3" rx="1" fill="#ef4444" opacity="0.6"/>
+  <rect x="21" y="19" width="7" height="3" rx="1" fill="#ef4444" opacity="0.3"/>
+</svg>

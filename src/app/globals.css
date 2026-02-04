@@ -57,6 +57,52 @@ body {
   line-height: 1.6;
 }
 
+/* Site Logo — CSS wordmark */
+.site-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-family: "Syne", sans-serif;
+  line-height: 1;
+  gap: 1px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.site-logo-top {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #f4f4f5;
+}
+
+.site-logo-bottom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.site-logo-of {
+  font-size: 8px;
+  font-weight: 600;
+  color: #ef4444;
+  letter-spacing: 0.05em;
+  text-transform: lowercase;
+}
+
+.site-logo-place {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #a1a1aa;
+  text-transform: uppercase;
+}
+
+.site-logo-sm {
+  transform: scale(0.9);
+  transform-origin: left top;
+}
+
 /* Typography Scale */
 h1,
 h2,
