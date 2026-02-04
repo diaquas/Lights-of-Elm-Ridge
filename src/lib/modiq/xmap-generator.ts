@@ -105,40 +105,55 @@ export function downloadXmap(xmapContent: string, sequenceName: string): void {
 }
 
 /**
- * Generate a human-readable text report of mapping results.
- * Designed to be pasted into a doc/chat for annotation and review.
+ * Escape a value for CSV: wrap in quotes if it contains commas, quotes, or newlines.
+ */
+function csvEscape(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+/**
+ * Generate a CSV report of mapping results with a blank Training Comments column.
+ * Columns:
+ *   Row, Confidence, Score, Source Model, Source Type, Source Pixels,
+ *   Dest Model, Dest Type, Dest Pixels, Reason,
+ *   Name, Spatial, Shape, Type, Pixels, Training Comments
+ *
+ * Submodel rows appear directly below their parent with "sub" in the Row column.
+ * Unused dest models appear at the bottom with "unused" in the Row column.
  */
 export function generateMappingReport(
   result: MappingResult,
   sequenceName: string,
 ): string {
-  const lines: string[] = [];
+  const rows: string[][] = [];
 
-  lines.push(`ModIQ Mapping Report: ${sequenceName}`);
-  lines.push("=".repeat(60));
-  lines.push("");
-  lines.push("Summary:");
-  lines.push(`  Source models: ${result.totalSource}`);
-  lines.push(`  Dest models:   ${result.totalDest}`);
-  lines.push(`  Mapped:        ${result.mappedCount}/${result.totalSource}`);
-  lines.push(`  High:          ${result.highConfidence}`);
-  lines.push(`  Medium:        ${result.mediumConfidence}`);
-  lines.push(`  Low:           ${result.lowConfidence}`);
-  lines.push(`  Unmapped:      ${result.unmappedSource}`);
-  lines.push(`  Unused dest:   ${result.unmappedDest}`);
-  lines.push("");
-  lines.push("=".repeat(60));
-  lines.push("MAPPINGS");
-  lines.push("=".repeat(60));
-  lines.push("");
+  // Header
+  rows.push([
+    "Row",
+    "Confidence",
+    "Score",
+    "Source Model",
+    "Source Type",
+    "Source Pixels",
+    "Dest Model",
+    "Dest Type",
+    "Dest Pixels",
+    "Reason",
+    "F:Name",
+    "F:Spatial",
+    "F:Shape",
+    "F:Type",
+    "F:Pixels",
+    "Correct Dest Model",
+    "Training Comments",
+  ]);
 
+  // Mapping rows
   for (let i = 0; i < result.mappings.length; i++) {
     const m = result.mappings[i];
-    const num = String(i + 1).padStart(2, " ");
-    const conf = m.confidence.toUpperCase().padEnd(8);
-    const score = m.score.toFixed(2);
-    const srcName = m.sourceModel.name;
-    const destName = m.destModel?.name || "(no match)";
     const srcType = m.sourceModel.isGroup ? "GRP" : m.sourceModel.type;
     const destType = m.destModel
       ? m.destModel.isGroup
@@ -146,66 +161,94 @@ export function generateMappingReport(
         : m.destModel.type
       : "";
 
-    lines.push(`#${num}  [${conf}]  score=${score}`);
-    lines.push(
-      `      SRC: ${srcName}  (${srcType}, ${m.sourceModel.pixelCount}px)`,
-    );
-    lines.push(
-      `      DST: ${destName}${destType ? `  (${destType}, ${m.destModel!.pixelCount}px)` : ""}`,
-    );
+    rows.push([
+      String(i + 1),
+      m.confidence.toUpperCase(),
+      m.score.toFixed(2),
+      m.sourceModel.name,
+      srcType,
+      String(m.sourceModel.pixelCount),
+      m.destModel?.name || "",
+      destType,
+      m.destModel ? String(m.destModel.pixelCount) : "",
+      m.reason,
+      m.factors.name.toFixed(2),
+      m.factors.spatial.toFixed(2),
+      m.factors.shape.toFixed(2),
+      m.factors.type.toFixed(2),
+      m.factors.pixels.toFixed(2),
+      "",
+      "",
+    ]);
 
-    if (m.reason) {
-      lines.push(`      WHY: ${m.reason}`);
+    // Submodel rows
+    for (const sub of m.submodelMappings) {
+      rows.push([
+        `${i + 1}-sub`,
+        sub.confidence.toUpperCase(),
+        "",
+        sub.sourceName,
+        "",
+        sub.pixelDiff.split("→")[0]?.trim() || "",
+        sub.destName || "",
+        "",
+        sub.pixelDiff.split("→")[1]?.trim() || "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+      ]);
     }
-
-    lines.push(
-      `      FACTORS: name=${m.factors.name.toFixed(2)} spatial=${m.factors.spatial.toFixed(2)} shape=${m.factors.shape.toFixed(2)} type=${m.factors.type.toFixed(2)} pixels=${m.factors.pixels.toFixed(2)}`,
-    );
-
-    if (m.submodelMappings.length > 0) {
-      lines.push(`      SUBMODELS (${m.submodelMappings.length}):`);
-      for (const sub of m.submodelMappings) {
-        const subConf = sub.confidence.toUpperCase().padEnd(8);
-        const dest = sub.destName || "(unmapped)";
-        lines.push(
-          `        [${subConf}] ${sub.sourceName} --> ${dest}  (${sub.pixelDiff})`,
-        );
-      }
-    }
-
-    lines.push("");
   }
 
+  // Unused dest models
   if (result.unusedDestModels.length > 0) {
-    lines.push("=".repeat(60));
-    lines.push(`UNUSED DEST MODELS (${result.unusedDestModels.length})`);
-    lines.push("=".repeat(60));
-    lines.push("");
     for (const m of result.unusedDestModels) {
       const type = m.isGroup ? "GRP" : m.type;
-      lines.push(`  - ${m.name}  (${type}, ${m.pixelCount}px)`);
+      rows.push([
+        "unused",
+        "",
+        "",
+        "",
+        "",
+        "",
+        m.name,
+        type,
+        String(m.pixelCount),
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+      ]);
     }
-    lines.push("");
   }
 
-  return lines.join("\n");
+  return rows.map((row) => row.map(csvEscape).join(",")).join("\n") + "\n";
 }
 
 /**
- * Trigger a browser download for a text report file.
+ * Trigger a browser download for a CSV report file.
  */
 export function downloadMappingReport(
   reportContent: string,
   sequenceName: string,
 ): void {
-  const blob = new Blob([reportContent], { type: "text/plain;charset=utf-8" });
+  const blob = new Blob([reportContent], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const safeName = sequenceName
     .replace(/[^a-zA-Z0-9-_ ]/g, "")
     .replace(/\s+/g, "_");
   a.href = url;
-  a.download = `ModIQ_Report_${safeName}.txt`;
+  a.download = `ModIQ_Report_${safeName}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
