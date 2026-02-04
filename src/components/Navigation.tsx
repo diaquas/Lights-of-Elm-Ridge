@@ -12,8 +12,12 @@ const navLinks = [
   { href: "/", label: "Home" },
   { href: "/sequences", label: "Sequences" },
   { href: "/the-show", label: "The Show" },
-  { href: "/build-your-show", label: "Build Your Show" },
   { href: "/about", label: "About" },
+];
+
+const toolsLinks = [
+  { href: "/modiq", label: "ModIQ", badge: "NEW" },
+  { href: "/build-your-show", label: "Shop Wizard" },
 ];
 
 export default function Navigation() {
@@ -22,6 +26,7 @@ export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
   const supabase = createClient();
   const { itemCount } = useCart();
 
@@ -90,6 +95,58 @@ export default function Navigation() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Tools Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setToolsMenuOpen(!toolsMenuOpen)}
+                  className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    toolsLinks.some((l) => pathname === l.href)
+                      ? "bg-accent/20 text-accent"
+                      : "text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                  }`}
+                  aria-expanded={toolsMenuOpen}
+                  aria-haspopup="true"
+                >
+                  Tools
+                  <svg
+                    className={`w-3.5 h-3.5 transition-transform ${toolsMenuOpen ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+                {toolsMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-52 max-w-[calc(100vw-32px)] bg-surface rounded-lg border border-border shadow-lg py-1">
+                    {toolsLinks.map((tool) => (
+                      <Link
+                        key={tool.href}
+                        href={tool.href}
+                        onClick={() => setToolsMenuOpen(false)}
+                        className={`flex items-center justify-between px-4 py-3 text-sm transition-all ${
+                          pathname === tool.href
+                            ? "text-accent bg-accent/10"
+                            : "text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                        }`}
+                      >
+                        <span className="font-medium">{tool.label}</span>
+                        {"badge" in tool && tool.badge && (
+                          <span className="text-[10px] font-bold tracking-wider bg-accent/20 text-accent px-1.5 py-0.5 rounded">
+                            {tool.badge}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Cart Dropdown */}
               <CartDropdown />
@@ -219,6 +276,32 @@ export default function Navigation() {
                   }`}
                 >
                   {link.label}
+                </Link>
+              ))}
+
+              {/* Mobile Tools */}
+              <div className="px-4 py-2 mt-2">
+                <p className="text-xs text-foreground/40 uppercase tracking-wider font-medium">
+                  Tools
+                </p>
+              </div>
+              {toolsLinks.map((tool) => (
+                <Link
+                  key={tool.href}
+                  href={tool.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+                    pathname === tool.href
+                      ? "bg-accent/20 text-accent"
+                      : "text-foreground/70 hover:text-foreground hover:bg-surface-light"
+                  }`}
+                >
+                  <span>{tool.label}</span>
+                  {"badge" in tool && tool.badge && (
+                    <span className="text-[10px] font-bold tracking-wider bg-accent/20 text-accent px-1.5 py-0.5 rounded">
+                      {tool.badge}
+                    </span>
+                  )}
                 </Link>
               ))}
 
