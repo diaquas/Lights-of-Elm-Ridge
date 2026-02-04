@@ -820,6 +820,101 @@ html {
   padding: 0 var(--page-gutter, 40px) 80px;
 }
 
+/* Built For — prop reference strip */
+.props-strip {
+  background: var(--seq-surface);
+  border: 1px solid var(--seq-surface-border);
+  border-radius: var(--seq-radius-md);
+  padding: 16px 20px;
+  margin-top: 32px;
+}
+
+.props-strip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.props-strip-icon {
+  font-size: 15px;
+}
+
+.props-strip-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--seq-text-primary);
+}
+
+.props-strip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.prop-tag {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--seq-text-secondary);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 10px;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+
+.props-strip-footer {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--seq-text-tertiary);
+  line-height: 1.5;
+}
+
+.props-strip-footer a {
+  color: var(--seq-accent, #ef4444);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.props-strip-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Slim info bar */
+.info-bar {
+  margin-top: 16px;
+  padding: 12px 20px;
+  background: var(--seq-surface);
+  border: 1px solid var(--seq-surface-border);
+  border-radius: var(--seq-radius-md);
+}
+
+.info-bar-items {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--seq-text-secondary);
+}
+
+.info-bar-check {
+  color: #22c55e;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.info-bar-sep {
+  color: var(--seq-text-tertiary);
+  opacity: 0.4;
+}
+
+.info-bar-note {
+  color: var(--seq-text-tertiary);
+  font-style: italic;
+}
+
 /* Section header */
 .seq-section-header {
   display: flex;
