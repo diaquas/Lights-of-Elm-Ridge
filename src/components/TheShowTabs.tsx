@@ -300,7 +300,7 @@ export default function TheShowTabs({
             aria-selected={activeTab === "display"}
             onClick={() => switchTab("display")}
           >
-            <span className="show-tab-btn-icon">🏠</span> The Display
+            <span className="show-tab-btn-icon">⌂</span> The Display
           </button>
           <button
             className={`show-tab-btn ${activeTab === "watch" ? "active" : ""}`}
@@ -390,8 +390,8 @@ export default function TheShowTabs({
               <div className="tech-stack-row">
                 <span className="tech-stack-label">Power</span>
                 <span className="tech-stack-detail">
-                  Multiple Mean Well 5V supplies · power injection every 150px ·
-                  dedicated 20A circuits
+                  Multiple Mean Well 12V supplies · power injection every 150px
+                  · dedicated 20A circuits
                 </span>
               </div>
               <div className="tech-stack-row">
