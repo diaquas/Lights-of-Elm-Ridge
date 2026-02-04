@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import ModIQTool from "@/components/ModIQTool";
 
@@ -33,7 +34,9 @@ export const metadata: Metadata = {
 export default function ModIQPage() {
   return (
     <div className="min-h-screen">
-      <ModIQTool />
+      <Suspense>
+        <ModIQTool />
+      </Suspense>
     </div>
   );
 }
