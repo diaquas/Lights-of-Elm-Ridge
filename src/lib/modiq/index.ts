@@ -23,4 +23,10 @@ export type {
   SubmodelMapping,
 } from "./matcher";
 
-export { generateXmap, downloadXmap, createXmapBlob } from "./xmap-generator";
+export {
+  generateXmap,
+  downloadXmap,
+  createXmapBlob,
+  generateMappingReport,
+  downloadMappingReport,
+} from "./xmap-generator";
