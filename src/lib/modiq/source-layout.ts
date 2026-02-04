@@ -18,6 +18,7 @@ export interface SourceModel {
   posY: number;
   isGroup: boolean;
   submodels: string[];
+  memberModels?: string[]; // For groups: names of models in this group
 }
 
 /**
@@ -1490,5 +1491,6 @@ export function sourceModelToParsedModel(source: SourceModel): ParsedModel {
     })),
     isGroup: source.isGroup,
     aliases: [],
+    memberModels: source.memberModels || [],
   };
 }

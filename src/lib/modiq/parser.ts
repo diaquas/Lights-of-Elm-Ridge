@@ -28,6 +28,7 @@ export interface ParsedModel {
   submodels: SubModel[];
   isGroup: boolean;
   aliases: string[];
+  memberModels: string[]; // For groups: names of models in this group
 }
 
 export interface ParsedLayout {
@@ -279,11 +280,6 @@ export function parseRgbEffectsXml(
       customModel,
     );
 
-    // Detect group models (name ends with "GRP" or "- GRP" or "Group")
-    const isGroup =
-      /[-\s]GRP$|[-\s]Group$/i.test(name) ||
-      name.toUpperCase().endsWith(" GRP");
-
     models.push({
       name,
       displayAs,
@@ -298,8 +294,64 @@ export function parseRgbEffectsXml(
       worldPosY,
       worldPosZ,
       submodels,
-      isGroup,
+      isGroup: false,
       aliases,
+      memberModels: [],
+    });
+  });
+
+  // ─── Parse Model Groups ────────────────────────────────────────
+  // In xLights, groups are stored as <modelGroup> elements inside
+  // <modelGroups>, completely separate from <model> elements.
+  const groupElements = doc.querySelectorAll("modelGroups > modelGroup");
+  groupElements.forEach((el) => {
+    const name = el.getAttribute("name") || "";
+    if (!name) return;
+
+    // Member models are stored as a comma-separated "models" attribute
+    const modelsAttr = el.getAttribute("models") || "";
+    const memberModels = modelsAttr
+      .split(",")
+      .map((m) => m.trim())
+      .filter(Boolean);
+
+    // Groups may have position data via centrex/centrey or WorldPosX/WorldPosY
+    const worldPosX =
+      parseFloat(el.getAttribute("WorldPosX") || "") ||
+      parseFloat(el.getAttribute("centrex") || "") ||
+      0;
+    const worldPosY =
+      parseFloat(el.getAttribute("WorldPosY") || "") ||
+      parseFloat(el.getAttribute("centrey") || "") ||
+      0;
+    const worldPosZ =
+      parseFloat(el.getAttribute("WorldPosZ") || "") || 0;
+
+    // Parse aliases (groups can have aliases too)
+    const aliasEls = el.querySelectorAll("Aliases > alias");
+    const aliases: string[] = [];
+    aliasEls.forEach((alias) => {
+      const aliasName = alias.getAttribute("name") || "";
+      if (aliasName) aliases.push(aliasName);
+    });
+
+    models.push({
+      name,
+      displayAs: "ModelGroup",
+      type: "Group",
+      pixelCount: 0,
+      parm1: 0,
+      parm2: 0,
+      parm3: 0,
+      stringType: "",
+      startChannel: "",
+      worldPosX,
+      worldPosY,
+      worldPosZ,
+      submodels: [],
+      isGroup: true,
+      aliases,
+      memberModels,
     });
   });
 
