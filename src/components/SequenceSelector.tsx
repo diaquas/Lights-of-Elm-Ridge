@@ -209,13 +209,17 @@ function SectionHeader({ label }: { label: string }) {
 function TierIcon({ tier }: { tier: Tier }) {
   if (tier === "owned") {
     return (
-      <span className="text-green-400 text-sm flex-shrink-0">&check;</span>
+      <span className="text-green-400 text-sm flex-shrink-0">{"\u2713"}</span>
     );
   }
   if (tier === "free") {
-    return <span className="text-red-400 text-sm flex-shrink-0">&starf;</span>;
+    return (
+      <span className="text-red-400 text-sm flex-shrink-0">{"\u2605"}</span>
+    );
   }
-  return <span className="text-zinc-500 text-sm flex-shrink-0">&#9675;</span>;
+  return (
+    <span className="text-zinc-500 text-sm flex-shrink-0">{"\u25CB"}</span>
+  );
 }
 
 function SequenceItem({
