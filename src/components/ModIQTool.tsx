@@ -235,7 +235,7 @@ export default function ModIQTool() {
   }, []);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* ── Hero ───────────────────────────────────────── */}
       <div className="text-center mb-12">
         <div className="mb-6">
@@ -535,125 +535,133 @@ export default function ModIQTool() {
                 %)
               </span>
             </div>
-
-            {mappingResult.unmappedDest > 0 && (
-              <p className="text-xs text-foreground/40 mt-3">
-                {mappingResult.unmappedDest} models in your layout have no
-                equivalent in this sequence.
-              </p>
-            )}
           </div>
 
-          {/* Confidence Accordion Tables */}
-          {(["high", "medium", "low", "unmapped"] as Confidence[]).map(
-            (tier) => {
-              const tierMappings = mappingResult.mappings.filter(
-                (m) => m.confidence === tier,
-              );
-              if (tierMappings.length === 0) return null;
-              const style = CONFIDENCE_STYLES[tier];
-              const pct =
-                mappingResult.totalSource > 0
-                  ? (
-                      (tierMappings.length / mappingResult.totalSource) *
-                      100
-                    ).toFixed(1)
-                  : "0.0";
-              const isOpen = expandedSections.has(tier);
+          {/* Two-column: Accordions + Unmapped Sidebar */}
+          <div
+            className={`grid gap-6 ${mappingResult.unusedDestModels.length > 0 ? "lg:grid-cols-[1fr_280px]" : ""}`}
+          >
+            <div className="space-y-4 min-w-0">
+              {/* Confidence Accordion Tables */}
+              {(["high", "medium", "low", "unmapped"] as Confidence[]).map(
+                (tier) => {
+                  const tierMappings = mappingResult.mappings.filter(
+                    (m) => m.confidence === tier,
+                  );
+                  if (tierMappings.length === 0) return null;
+                  const style = CONFIDENCE_STYLES[tier];
+                  const pct =
+                    mappingResult.totalSource > 0
+                      ? (
+                          (tierMappings.length / mappingResult.totalSource) *
+                          100
+                        ).toFixed(1)
+                      : "0.0";
+                  const isOpen = expandedSections.has(tier);
 
-              return (
-                <div
-                  key={tier}
-                  className="bg-surface rounded-xl border border-border overflow-hidden"
-                >
-                  {/* Accordion header */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(tier)}
-                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-surface-light transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold tracking-wider ${style.bg} ${style.text}`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${style.dot}`} />
-                        {style.label}
-                      </span>
-                      <span className="text-foreground font-semibold text-lg">
-                        {tierMappings.length}
-                      </span>
-                      <span className="text-foreground/40 text-sm">
-                        ({pct}%)
-                      </span>
-                    </div>
-                    <svg
-                      className={`w-5 h-5 text-foreground/40 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  return (
+                    <div
+                      key={tier}
+                      className="bg-surface rounded-xl border border-border overflow-hidden"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-
-                  {/* Accordion content */}
-                  {isOpen && (
-                    <>
-                      <div className="hidden sm:grid grid-cols-[1fr_24px_1fr] gap-2 px-6 py-2 bg-surface-light text-xs text-foreground/50 uppercase tracking-wider font-medium border-t border-border">
-                        <span>Our Model</span>
-                        <span />
-                        <span>Your Model</span>
-                      </div>
-                      <div className="divide-y divide-border border-t border-border">
-                        {tierMappings.map((mapping) => {
-                          const globalIdx =
-                            mappingResult.mappings.indexOf(mapping);
-                          return (
-                            <MappingRow
-                              key={globalIdx}
-                              mapping={mapping}
-                              isExpanded={expandedMappings.has(globalIdx)}
-                              onToggle={() => toggleExpanded(globalIdx)}
+                      {/* Accordion header */}
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(tier)}
+                        className="w-full px-6 py-4 flex items-center justify-between hover:bg-surface-light transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold tracking-wider ${style.bg} ${style.text}`}
+                          >
+                            <span
+                              className={`w-2 h-2 rounded-full ${style.dot}`}
                             />
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            },
-          )}
+                            {style.label}
+                          </span>
+                          <span className="text-foreground font-semibold text-lg">
+                            {tierMappings.length}
+                          </span>
+                          <span className="text-foreground/40 text-sm">
+                            ({pct}%)
+                          </span>
+                        </div>
+                        <svg
+                          className={`w-5 h-5 text-foreground/40 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
 
-          {/* Unused Dest Models */}
-          {mappingResult.unusedDestModels.length > 0 && (
-            <div className="bg-surface rounded-xl border border-border p-6">
-              <h3 className="text-sm font-semibold text-foreground/60 mb-3">
-                Your models not used in this sequence (
-                {mappingResult.unusedDestModels.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {mappingResult.unusedDestModels.slice(0, 30).map((m, i) => (
-                  <span
-                    key={i}
-                    className="text-xs bg-surface-light rounded px-2 py-1 text-foreground/50"
-                  >
-                    {m.name}
-                  </span>
-                ))}
-                {mappingResult.unusedDestModels.length > 30 && (
-                  <span className="text-xs text-foreground/40">
-                    +{mappingResult.unusedDestModels.length - 30} more
-                  </span>
-                )}
-              </div>
+                      {/* Accordion content */}
+                      {isOpen && (
+                        <>
+                          <div className="hidden sm:grid grid-cols-[1fr_24px_1fr] gap-2 px-6 py-2 bg-surface-light text-xs text-foreground/50 uppercase tracking-wider font-medium border-t border-border">
+                            <span>Our Model</span>
+                            <span />
+                            <span>Your Model</span>
+                          </div>
+                          <div className="divide-y divide-border border-t border-border">
+                            {tierMappings.map((mapping) => {
+                              const globalIdx =
+                                mappingResult.mappings.indexOf(mapping);
+                              return (
+                                <MappingRow
+                                  key={globalIdx}
+                                  mapping={mapping}
+                                  isExpanded={expandedMappings.has(globalIdx)}
+                                  onToggle={() => toggleExpanded(globalIdx)}
+                                />
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                },
+              )}
             </div>
-          )}
+
+            {/* Right sidebar: Your Unmapped Models */}
+            {mappingResult.unusedDestModels.length > 0 && (
+              <div className="lg:sticky lg:top-6 self-start">
+                <div className="bg-surface rounded-xl border border-border overflow-hidden">
+                  <div className="px-5 py-4 border-b border-border">
+                    <h3 className="font-display font-semibold text-sm">
+                      Your Unmapped Models
+                    </h3>
+                    <p className="text-xs text-foreground/40 mt-1">
+                      {mappingResult.unusedDestModels.length} models with no
+                      match in this sequence
+                    </p>
+                  </div>
+                  <div className="max-h-[32rem] overflow-y-auto divide-y divide-border/50">
+                    {mappingResult.unusedDestModels.map((m, i) => (
+                      <div key={i} className="px-5 py-2.5">
+                        <div className="text-sm font-medium text-foreground/70">
+                          {m.name}
+                        </div>
+                        <div className="text-[11px] text-foreground/40 mt-0.5">
+                          {m.isGroup
+                            ? "Group"
+                            : `${m.pixelCount}px \u00B7 ${m.type}`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row gap-3">
