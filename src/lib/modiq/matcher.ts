@@ -30,6 +30,15 @@
  *   - Eave/vert individual deprioritization against non-house-line models
  *   - Group-only children detection: lower confidence when no children exposed
  *   - Phase 3 quantity matching: cross-prop class matching for unmapped models
+ *
+ * Vendor-catalog derived rules (V2.3):
+ *   - Eave↔horizontal and vert↔vertical treated as synonymous exact matches
+ *   - Canonical base-name matching via EQUIVALENT_BASES
+ *   - Vendor pixel fingerprinting (CCC spinners, GE Overlord, Boscoyo, etc.)
+ *   - Hybrid prop type relations (Snowflake↔Spinner, Arch↔Matrix)
+ *   - Enhanced singing face detection via submodel names (mouth/eyes/phoneme)
+ *   - Vendor abbreviation synonyms (MOAW, BOAW, spin, etc.)
+ *   - Phase 3b: Group-level interchangeability-class matching
  */
 
 import type { ParsedModel } from "./parser";
@@ -97,6 +106,7 @@ const SYNONYMS: Record<string, string[]> = {
   l: ["left", "lft"],
   r: ["right", "rgt", "rt"],
   c: ["center", "ctr", "centre", "mid", "middle"],
+  lt: ["left"],
   // Sizes
   lg: ["large", "big"],
   sm: ["small", "mini", "tiny"],
@@ -104,8 +114,9 @@ const SYNONYMS: Record<string, string[]> = {
   // Structural
   grp: ["group", "all"],
   mod: ["model"],
-  vert: ["vertical", "verticals"],
+  vert: ["vertical", "verticals", "verts", "verticle", "verticl"],
   horiz: ["horizontal", "horizontals"],
+  eave: ["horizontal", "horizontals", "eaves"],
   // Props
   arch: ["arches", "archway"],
   ss: ["showstopper"],
@@ -113,6 +124,10 @@ const SYNONYMS: Record<string, string[]> = {
   dw: ["driveway"],
   sw: ["sidewalk"],
   pole: ["pixel pole"],
+  // Vendor abbreviations / type patterns
+  spin: ["spinner"],
+  moaw: ["wreath"],
+  boaw: ["wreath"],
   // Common renames from community files
   tumba: ["tombstone", "tomb"],
   contorno: ["outline"],
@@ -186,6 +201,33 @@ const PROP_KEYWORDS = [
   "window",
   "wreath",
 ];
+
+/**
+ * Equivalent base names — words treated as identical for base-name comparison.
+ * "Eave 1" ≡ "Horizontal 1", "Vert 3" ≡ "Vertical 3", etc.
+ * Maps each variant to a shared canonical form.
+ */
+const EQUIVALENT_BASES: Record<string, string> = {
+  eave: "structural_horizontal",
+  eaves: "structural_horizontal",
+  horizontal: "structural_horizontal",
+  horizontals: "structural_horizontal",
+  vert: "structural_vertical",
+  verts: "structural_vertical",
+  vertical: "structural_vertical",
+  verticals: "structural_vertical",
+  verticle: "structural_vertical",
+  verticl: "structural_vertical",
+};
+
+/**
+ * Map a base name to its canonical form using EQUIVALENT_BASES.
+ * Each word is individually canonicalized so "eave" → "structural_horizontal".
+ */
+function canonicalBase(base: string): string {
+  const words = base.split(/\s+/);
+  return words.map((w) => EQUIVALENT_BASES[w] || w).join(" ");
+}
 
 /**
  * Normalize a model name for comparison:
@@ -273,6 +315,21 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
 
   // Base name exact match (e.g. "arch" === "arch" for "Arch 1" vs "ARCH 3")
   if (srcBase === destBase && srcBase.length > 0) return 0.85;
+
+  // Canonical base-name match: e.g. "Eave 1" ≡ "Horizontal 1",
+  // "Vert 3" ≡ "Vertical 3", including common misspellings.
+  const srcCanonical = canonicalBase(srcBase);
+  const destCanonical = canonicalBase(destBase);
+  if (
+    srcCanonical === destCanonical &&
+    srcCanonical.length > 0 &&
+    srcBase !== destBase
+  ) {
+    const srcIdx = extractIndex(source.name);
+    const destIdx = extractIndex(dest.name);
+    if (srcIdx !== -1 && destIdx !== -1 && srcIdx === destIdx) return 1.0;
+    return 0.85;
+  }
 
   // "Pixel Pole N" and "Pole N" are the same thing
   const srcPoleBase = srcBase.replace(/^pixel\s+/, "");
@@ -563,7 +620,7 @@ const RELATED_TYPES: Record<string, string[]> = {
   "Spiral Tree": ["Tree"],
   Arch: ["Candy Cane"],
   "Candy Cane": ["Arch"],
-  Spinner: ["Wreath"],
+  Spinner: ["Wreath", "Snowflake"],
   Wreath: ["Spinner"],
   Spider: ["Custom"],
   Bat: ["Custom"],
@@ -581,8 +638,8 @@ const RELATED_TYPES: Record<string, string[]> = {
   Window: [],
   "Pixel Forest": ["Matrix", "Fence"],
   "Singing Face": ["Custom"],
-  Star: [],
-  Snowflake: ["Star"],
+  Star: ["Snowflake"],
+  Snowflake: ["Star", "Spinner"],
   Group: [],
 };
 
@@ -722,9 +779,11 @@ function isHouseLine(model: ParsedModel): boolean {
   );
 }
 
-/** Check if a model is a singing face/prop. */
+/** Check if a model is a singing face/prop.
+ *  Detects via name ("singing") or submodel names (mouth/eyes/phoneme). */
 function isSinging(model: ParsedModel): boolean {
-  return /\bsinging\b/i.test(model.name);
+  if (/\bsinging\b/i.test(model.name)) return true;
+  return model.submodels.some((s) => /\b(mouth|eyes?|phoneme)\b/i.test(s.name));
 }
 
 /** Interchangeability classes — props within the same class can cross-match
@@ -771,6 +830,23 @@ function getInterchangeClass(model: ParsedModel): string | null {
   }
   return null;
 }
+
+/**
+ * Known vendor product pixel counts. When both source and dest share a
+ * pixel count that maps to a known product, they're likely the same physical
+ * prop — applied as a supplementary score boost.
+ */
+const VENDOR_PIXEL_HINTS: Record<number, string> = {
+  269: "ccc_spinner_18",
+  451: "ccc_spinner_24",
+  519: "ccc_spinner_25",
+  596: "ccc_spinner_36",
+  640: "ge_flake_640",
+  800: "efl_showstopper",
+  1046: "ccc_spinner_48",
+  1117: "boscoyo_mesmerizer",
+  1529: "ge_overlord",
+};
 
 function computeScore(
   source: ParsedModel,
@@ -892,6 +968,18 @@ function computeScore(
     score *= 0.4;
   } else if (destIsEaveVert && !isHouseLine(source) && !source.isGroup) {
     score *= 0.4;
+  }
+
+  // Vendor pixel hint: when both models share a pixel count matching a known
+  // vendor product, boost score — they're likely the same physical prop
+  if (
+    !source.isGroup &&
+    !dest.isGroup &&
+    source.pixelCount === dest.pixelCount &&
+    source.pixelCount > 0 &&
+    VENDOR_PIXEL_HINTS[source.pixelCount]
+  ) {
+    score = Math.min(1.0, score * 1.15);
   }
 
   return { score, factors };
@@ -1225,6 +1313,108 @@ export function matchModels(
                   pixels: scorePixels(src, destMatch),
                 },
                 reason: `Quantity match (${cls.replace(/_/g, " ")})`,
+                submodelMappings: subMappings,
+              };
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // ── Phase 3b: Group-level interchangeability matching ──
+  // Same cross-prop class matching applied to unmapped groups.
+  // e.g. "All - Mini Pumpkins - GRP" → "GROUP - All Ghosts" when both
+  // are in the halloween_yard class and no exact match exists.
+  const unmappedSourceGroups = allMappings
+    .filter((m) => m.destModel === null && m.sourceModel.isGroup)
+    .map((m) => m.sourceModel);
+
+  if (unmappedSourceGroups.length > 0) {
+    const usedDestAfterP3 = new Set(
+      allMappings.filter((m) => m.destModel).map((m) => m.destModel!.name),
+    );
+    const unusedDestGroups = destModels.filter(
+      (m) => m.isGroup && !usedDestAfterP3.has(m.name),
+    );
+
+    if (unusedDestGroups.length > 0) {
+      // Determine interchangeability class for a group from name + members
+      const getGroupClass = (model: ParsedModel): string | null => {
+        const n = model.name.toLowerCase();
+        const members = (model.memberModels || []).join(" ").toLowerCase();
+        const combined = n + " " + members;
+        for (const [cls, keywords] of Object.entries(INTERCHANGEABLE_CLASSES)) {
+          for (const kw of keywords) {
+            if (combined.includes(kw)) return cls;
+          }
+        }
+        return null;
+      };
+
+      const unmappedGroupsByClass = new Map<string, ParsedModel[]>();
+      for (const src of unmappedSourceGroups) {
+        const cls = getGroupClass(src);
+        if (cls) {
+          if (!unmappedGroupsByClass.has(cls))
+            unmappedGroupsByClass.set(cls, []);
+          unmappedGroupsByClass.get(cls)!.push(src);
+        }
+      }
+
+      const unusedGroupsByClass = new Map<string, ParsedModel[]>();
+      for (const d of unusedDestGroups) {
+        const cls = getGroupClass(d);
+        if (cls) {
+          if (!unusedGroupsByClass.has(cls)) unusedGroupsByClass.set(cls, []);
+          unusedGroupsByClass.get(cls)!.push(d);
+        }
+      }
+
+      for (const [cls, srcGroups] of unmappedGroupsByClass) {
+        const destPool = unusedGroupsByClass.get(cls);
+        if (!destPool || destPool.length === 0) continue;
+
+        const usedDestInClass = new Set<number>();
+        for (const src of srcGroups) {
+          let bestIdx = -1;
+          let bestScore = 0;
+          for (let d = 0; d < destPool.length; d++) {
+            if (usedDestInClass.has(d)) continue;
+            const dest = destPool[d];
+            const memberS = scoreMemberOverlap(src, dest);
+            const typeS = scoreType(src, dest);
+            const nameS = scoreName(src, dest);
+            const combined = nameS * 0.4 + memberS * 0.4 + typeS * 0.2;
+            if (combined > bestScore) {
+              bestScore = combined;
+              bestIdx = d;
+            }
+          }
+
+          if (bestIdx >= 0 && bestScore > 0.15) {
+            usedDestInClass.add(bestIdx);
+            const destMatch = destPool[bestIdx];
+            const finalScore = bestScore * 0.7;
+            const subMappings = mapSubmodels(src, destMatch);
+
+            const mappingIdx = allMappings.findIndex(
+              (m) => m.sourceModel === src && m.destModel === null,
+            );
+            if (mappingIdx >= 0) {
+              allMappings[mappingIdx] = {
+                sourceModel: src,
+                destModel: destMatch,
+                score: finalScore,
+                confidence: scoreToConfidence(finalScore),
+                factors: {
+                  name: scoreName(src, destMatch),
+                  spatial: 0,
+                  shape: 0.5,
+                  type: scoreType(src, destMatch),
+                  pixels: 0.5,
+                },
+                reason: `Group quantity match (${cls.replace(/_/g, " ")})`,
                 submodelMappings: subMappings,
               };
             }

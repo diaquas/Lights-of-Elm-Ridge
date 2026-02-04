@@ -521,14 +521,14 @@ export default function ModIQTool() {
               <span className="text-2xl font-bold">
                 {mappingResult.mappedCount}
                 <span className="text-lg text-foreground/40">
-                  /{mappingResult.totalSource}
+                  /{mappingResult.totalDest}
                 </span>
               </span>
               <span className="text-sm text-foreground/50">
-                mapped (
-                {mappingResult.totalSource > 0
+                of their models mapped (
+                {mappingResult.totalDest > 0
                   ? (
-                      (mappingResult.mappedCount / mappingResult.totalSource) *
+                      (mappingResult.mappedCount / mappingResult.totalDest) *
                       100
                     ).toFixed(1)
                   : "0.0"}
@@ -551,9 +551,9 @@ export default function ModIQTool() {
                   if (tierMappings.length === 0) return null;
                   const style = CONFIDENCE_STYLES[tier];
                   const pct =
-                    mappingResult.totalSource > 0
+                    mappingResult.totalDest > 0
                       ? (
-                          (tierMappings.length / mappingResult.totalSource) *
+                          (tierMappings.length / mappingResult.totalDest) *
                           100
                         ).toFixed(1)
                       : "0.0";
