@@ -8,9 +8,20 @@
  *   2. Spatial Position        (25%) — disambiguates duplicates (Arch 1 vs Arch 2)
  *   3. Shape Classification    (15%) — circular, linear, matrix, point, custom
  *   4. Model Type (DisplayAs)  (12%) — xLights universal type
- *   5. Node Count              (8%)  — pixel/node count similarity
+ *   5. Node Count              (8%)  — pixel/node count similarity (drift-tiered)
  *
+ * Groups: matched primarily on name + type with boosted confidence.
  * Groups appear at the top of each confidence section.
+ *
+ * Training-derived rules (V2.1):
+ *   - Node count drift tiers: 0→1.0, 1-99→0.5, 100-499→0.25, ≥500→0.0
+ *   - Moving Head / MH models excluded from matching
+ *   - Matrix type-locked: only matches other Matrix types
+ *   - "Pixel Pole" treated as synonym for "Pole"
+ *   - Floods type-locked: only match other floods
+ *   - "NO" in group names prevents cross-matching
+ *   - Holiday mismatch detection (Halloween vs Christmas indicators)
+ *   - GE vendor prefix requires exact product line match
  */
 
 import type { ParsedModel } from "./parser";
@@ -93,6 +104,7 @@ const SYNONYMS: Record<string, string[]> = {
   ge: ["gilbert", "engineering"],
   dw: ["driveway"],
   sw: ["sidewalk"],
+  pole: ["pixel pole"],
   // Common renames from community files
   tumba: ["tombstone", "tomb"],
   contorno: ["outline"],
@@ -181,11 +193,8 @@ function normalizeName(name: string): string {
   n = n.replace(/^\d{1,3}\.\d{1,3}(\.\d+)?(grp|mod|sub)?\s*/i, "");
   // Replace separators with spaces
   n = n.replace(/[-_.\t]+/g, " ");
-  // Strip noise words
-  n = n.replace(
-    /\b(all|group|grp|my|the|model|mod|no |everything|but)\b/gi,
-    "",
-  );
+  // Strip noise words (keep "no" — it's meaningful for group matching)
+  n = n.replace(/\b(all|group|grp|my|the|model|mod|everything|but)\b/gi, "");
   // Collapse whitespace
   n = n.replace(/\s+/g, " ").trim();
   return n;
@@ -256,6 +265,19 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
 
   // Base name exact match (e.g. "arch" === "arch" for "Arch 1" vs "ARCH 3")
   if (srcBase === destBase && srcBase.length > 0) return 0.85;
+
+  // "Pixel Pole N" and "Pole N" are the same thing
+  const srcPoleBase = srcBase.replace(/^pixel\s+/, "");
+  const destPoleBase = destBase.replace(/^pixel\s+/, "");
+  if (
+    srcPoleBase === destPoleBase &&
+    srcPoleBase.length > 0 &&
+    (srcBase.startsWith("pixel ") || destBase.startsWith("pixel ")) &&
+    extractIndex(source.name) === extractIndex(dest.name) &&
+    extractIndex(source.name) !== -1
+  ) {
+    return 1.0;
+  }
 
   // Tokenized overlap with synonym expansion
   const srcTokens = tokenize(srcNorm);
@@ -529,9 +551,9 @@ const RELATED_TYPES: Record<string, string[]> = {
   Tombstone: ["Custom"],
   Pumpkin: ["Custom", "Ghost"],
   Ghost: ["Custom", "Pumpkin"],
-  Matrix: ["Fence", "Sign"],
-  Fence: ["Matrix"],
-  Sign: ["Matrix"],
+  Matrix: [],
+  Fence: [],
+  Sign: [],
   Line: ["Roofline", "Outline"],
   Roofline: ["Line"],
   Outline: ["Line", "Roofline"],
@@ -562,6 +584,13 @@ function scoreType(source: ParsedModel, dest: ParsedModel): number {
 // FACTOR 5: Node Count (8%)
 // ═══════════════════════════════════════════════════════════════════
 
+/**
+ * Node count scoring using drift tiers (from training data):
+ *   drift 0       → 1.0
+ *   drift 1-99    → 0.5
+ *   drift 100-499 → 0.25
+ *   drift ≥ 500   → 0.0
+ */
 function scorePixels(source: ParsedModel, dest: ParsedModel): number {
   if (source.isGroup || dest.isGroup) return 0.5;
 
@@ -570,12 +599,78 @@ function scorePixels(source: ParsedModel, dest: ParsedModel): number {
 
   if (srcPx === 0 || destPx === 0) return 0.5;
 
-  return Math.max(0, 1.0 - Math.abs(srcPx - destPx) / Math.max(srcPx, destPx));
+  const drift = Math.abs(srcPx - destPx);
+  if (drift === 0) return 1.0;
+  if (drift < 100) return 0.5;
+  if (drift < 500) return 0.25;
+  return 0.0;
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // Combined Scoring
 // ═══════════════════════════════════════════════════════════════════
+
+// ─── Hard Exclusion Helpers ────────────────────────────────────────
+
+/** Moving Head / MH models are DMX fixtures, never match to pixel models. */
+function isMovingHead(model: ParsedModel): boolean {
+  const n = model.name.toLowerCase();
+  return /\bm\.?h\b|moving\s*head/i.test(n);
+}
+
+/** Check if a model is a Matrix type. */
+function isMatrixType(model: ParsedModel): boolean {
+  const da = model.displayAs.toLowerCase();
+  const n = model.name.toLowerCase();
+  return (
+    da.includes("matrix") || model.type === "Matrix" || /\bmatrix\b/i.test(n)
+  );
+}
+
+/** Check if a model is a Flood type. */
+function isFloodType(model: ParsedModel): boolean {
+  return model.type === "Flood" || /\bflood\b/i.test(model.name);
+}
+
+/**
+ * Holiday indicator detection.
+ * Returns "halloween", "christmas", or null if no clear indicator.
+ */
+const HALLOWEEN_INDICATORS =
+  /\b(spider|bat|ghost|pumpkin|tombstone|tomb|skull|skeleton|witch|zombie|reaper|scarecrow|cauldron|coffin|graveyard|rip)\b/i;
+const CHRISTMAS_INDICATORS =
+  /\b(wreath|snowflake|flake|bow|candy\s*cane|cane|snowman|stocking|nutcracker|ornament|present|gift|sleigh|reindeer|santa|angel|nativity|grinch|elf)\b/i;
+
+function detectHoliday(model: ParsedModel): "halloween" | "christmas" | null {
+  const n = model.name;
+  if (HALLOWEEN_INDICATORS.test(n)) return "halloween";
+  if (CHRISTMAS_INDICATORS.test(n)) return "christmas";
+  return null;
+}
+
+/**
+ * Check if a group name contains "no" as a negation word.
+ * e.g. "All - No Spinners - GRP", "All Pixels GRP - No Yard"
+ */
+function groupHasNegation(model: ParsedModel): boolean {
+  return /\bno\b/i.test(model.name);
+}
+
+/**
+ * Extract the GE product line from a model name.
+ * "GE Fuzion 1" → "fuzion", "GE Rosa Grande 2" → "rosa grande"
+ * Returns null if no GE prefix.
+ */
+function extractGeProduct(name: string): string | null {
+  const match = name.match(
+    /\bGE\s+((?:Click\s+Click\s+Boom|Rosa\s+Grande|Grand\s+Illusion|Space\s+Odyss(?:ey|y)|Shape\s+Shifter|King(?:s)?\s+(?:Diamond|Ransom)|SpinArchy|Starburst\s+xTreme|Starlord|Squared|XLS|Fuzion|Overlord|Showstopper|Flake\s+\w+))/i,
+  );
+  if (match) return match[1].toLowerCase();
+  // Simple fallback: "GE <word>" → the word
+  const simple = name.match(/\bGE\s+(\w+)/i);
+  if (simple) return simple[1].toLowerCase();
+  return null;
+}
 
 function computeScore(
   source: ParsedModel,
@@ -583,6 +678,32 @@ function computeScore(
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
 ): { score: number; factors: ModelMapping["factors"] } {
+  const zeroFactors = { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 };
+
+  // ── Hard exclusions (return 0 immediately) ─────────────
+
+  // Never match against Moving Head / MH models
+  if (isMovingHead(dest) || isMovingHead(source)) {
+    return { score: 0, factors: zeroFactors };
+  }
+
+  // Matrix type-lock: matrix only matches matrix
+  if (isMatrixType(source) !== isMatrixType(dest)) {
+    // Allow if both are groups (groups can contain mixed types)
+    if (!(source.isGroup && dest.isGroup)) {
+      return { score: 0, factors: zeroFactors };
+    }
+  }
+
+  // Flood type-lock: floods only match other floods
+  if (isFloodType(source) !== isFloodType(dest)) {
+    if (!(source.isGroup && dest.isGroup)) {
+      return { score: 0, factors: zeroFactors };
+    }
+  }
+
+  // ── Compute base factors ───────────────────────────────
+
   const factors = {
     name: scoreName(source, dest),
     spatial: scoreSpatial(source, dest, sourceBounds, destBounds),
@@ -591,16 +712,43 @@ function computeScore(
     pixels: scorePixels(source, dest),
   };
 
-  // For group-vs-group matching, blend in member overlap as a strong signal.
-  // Member overlap replaces spatial/shape/pixels which don't apply to groups.
+  // ── Holiday mismatch penalty ───────────────────────────
+  // If source is clearly Halloween and dest is clearly Christmas (or vice
+  // versa), zero out the score for holiday-specific indicator models.
+  const srcHoliday = detectHoliday(source);
+  const destHoliday = detectHoliday(dest);
+  if (srcHoliday && destHoliday && srcHoliday !== destHoliday) {
+    return { score: 0, factors };
+  }
+
+  // ── GE vendor prefix exact match requirement ───────────
+  // When both models have a GE prefix, the product line must match exactly.
+  // "GE Fuzion" should not match "GE Rosa Grande".
+  const srcGe = extractGeProduct(source.name);
+  const destGe = extractGeProduct(dest.name);
+  if (srcGe && destGe && srcGe !== destGe) {
+    // Allow very low score for GE mismatch (might still be best available)
+    return { score: Math.min(0.1, factors.name * 0.1), factors };
+  }
+
+  // ── Group-vs-group matching ────────────────────────────
   if (source.isGroup && dest.isGroup) {
+    // "NO" logic: if one group has "no" negation and the other doesn't,
+    // they almost certainly don't match
+    const srcNeg = groupHasNegation(source);
+    const destNeg = groupHasNegation(dest);
+    if (srcNeg !== destNeg) {
+      return { score: 0, factors };
+    }
+
     const memberScore = scoreMemberOverlap(source, dest);
-    // Groups: Name 35%, Members 40%, Type 10%, Spatial 15%
-    const score =
-      factors.name * 0.35 +
-      memberScore * 0.4 +
-      factors.type * 0.1 +
-      factors.spatial * 0.15;
+    // Groups: Name 55%, Members 30%, Type 15%
+    // (bumped name weight — groups match primarily on name, and spatial
+    // doesn't apply; boosted scores push groups into HIGH tier)
+    const rawScore =
+      factors.name * 0.55 + memberScore * 0.3 + factors.type * 0.15;
+    // Boost: if root name matches well, push toward HIGH
+    const score = Math.min(1.0, rawScore * 1.3);
     return { score, factors };
   }
 
