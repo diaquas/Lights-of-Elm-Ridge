@@ -9,6 +9,8 @@ import {
   matchModels,
   generateXmap,
   downloadXmap,
+  generateMappingReport,
+  downloadMappingReport,
 } from "@/lib/modiq";
 import type { ParsedLayout, MappingResult, Confidence } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
@@ -97,9 +99,15 @@ export default function ModIQTool() {
     setError("");
 
     const steps: ProcessingStep[] = [
-      { label: `Parsing your layout — ${userLayout.modelCount} models found`, status: "done" },
+      {
+        label: `Parsing your layout — ${userLayout.modelCount} models found`,
+        status: "done",
+      },
       { label: "Analyzing model types and positions", status: "active" },
-      { label: `Matching against ${sequences.find((s) => s.slug === selectedSequence)?.title || selectedSequence}`, status: "pending" },
+      {
+        label: `Matching against ${sequences.find((s) => s.slug === selectedSequence)?.title || selectedSequence}`,
+        status: "pending",
+      },
       { label: "Resolving submodel structures", status: "pending" },
       { label: "Generating optimal mapping", status: "pending" },
     ];
@@ -145,6 +153,15 @@ export default function ModIQTool() {
       selectedSequence;
     const xmapContent = generateXmap(mappingResult, seqName);
     downloadXmap(xmapContent, seqName);
+  }, [mappingResult, selectedSequence]);
+
+  const handleExportReport = useCallback(() => {
+    if (!mappingResult) return;
+    const seqName =
+      sequences.find((s) => s.slug === selectedSequence)?.title ||
+      selectedSequence;
+    const report = generateMappingReport(mappingResult, seqName);
+    downloadMappingReport(report, seqName);
   }, [mappingResult, selectedSequence]);
 
   // ─── Reset ──────────────────────────────────────────────
@@ -302,7 +319,8 @@ export default function ModIQTool() {
 
             <p className="text-xs text-foreground/40 mt-3">
               Find this file in your xLights show folder. Your files are
-              processed locally in your browser and never uploaded to any server.
+              processed locally in your browser and never uploaded to any
+              server.
             </p>
           </div>
 
@@ -382,8 +400,8 @@ export default function ModIQTool() {
               Mapping Results
             </h2>
             <p className="text-sm text-foreground/60 mb-4">
-              {sequences.find((s) => s.slug === selectedSequence)?.title} →
-              Your Layout
+              {sequences.find((s) => s.slug === selectedSequence)?.title} → Your
+              Layout
             </p>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -473,6 +491,12 @@ export default function ModIQTool() {
               className="flex-1 py-4 rounded-xl font-display font-bold text-lg bg-accent hover:bg-accent/90 text-white transition-all"
             >
               Download Mapping File (.xmap)
+            </button>
+            <button
+              onClick={handleExportReport}
+              className="px-6 py-4 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-all"
+            >
+              Export Report (.txt)
             </button>
             <button
               onClick={handleReset}
@@ -600,8 +624,18 @@ function MappingRow({
   onToggle,
 }: {
   mapping: {
-    sourceModel: { name: string; type: string; pixelCount: number; isGroup: boolean };
-    destModel: { name: string; type: string; pixelCount: number; isGroup: boolean } | null;
+    sourceModel: {
+      name: string;
+      type: string;
+      pixelCount: number;
+      isGroup: boolean;
+    };
+    destModel: {
+      name: string;
+      type: string;
+      pixelCount: number;
+      isGroup: boolean;
+    } | null;
     confidence: Confidence;
     reason: string;
     submodelMappings: {
@@ -637,7 +671,9 @@ function MappingRow({
 
         {/* Source model */}
         <div className="mb-1 sm:mb-0">
-          <span className="text-sm font-medium">{mapping.sourceModel.name}</span>
+          <span className="text-sm font-medium">
+            {mapping.sourceModel.name}
+          </span>
           {!mapping.sourceModel.isGroup && (
             <span className="text-xs text-foreground/40 ml-2">
               {mapping.sourceModel.pixelCount}px &middot;{" "}
@@ -648,8 +684,18 @@ function MappingRow({
 
         {/* Arrow */}
         <div className="hidden sm:flex items-center justify-center text-foreground/30">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M14 5l7 7m0 0l-7 7m7-7H3"
+            />
           </svg>
         </div>
 
@@ -700,9 +746,7 @@ function MappingRow({
                   <span
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${subStyle.bg} ${subStyle.text}`}
                   >
-                    <span
-                      className={`w-1 h-1 rounded-full ${subStyle.dot}`}
-                    />
+                    <span className={`w-1 h-1 rounded-full ${subStyle.dot}`} />
                     {subStyle.label}
                   </span>
                   <span className="text-foreground/70">{sub.sourceName}</span>

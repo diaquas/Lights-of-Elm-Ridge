@@ -53,9 +53,7 @@ export function generateXmap(
     const destName = mapping.destModel?.name || "";
 
     // Top-level model mapping
-    lines.push(
-      [srcName, "", "", destName, "white"].join(TAB),
-    );
+    lines.push([srcName, "", "", destName, "white"].join(TAB));
 
     // Submodel mappings
     for (const subMap of mapping.submodelMappings) {
@@ -91,10 +89,7 @@ export function createXmapBlob(xmapContent: string): Blob {
 /**
  * Trigger a browser download for an xmap file.
  */
-export function downloadXmap(
-  xmapContent: string,
-  sequenceName: string,
-): void {
+export function downloadXmap(xmapContent: string, sequenceName: string): void {
   const blob = createXmapBlob(xmapContent);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -103,6 +98,114 @@ export function downloadXmap(
     .replace(/\s+/g, "_");
   a.href = url;
   a.download = `ModIQ_${safeName}.xmap`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Generate a human-readable text report of mapping results.
+ * Designed to be pasted into a doc/chat for annotation and review.
+ */
+export function generateMappingReport(
+  result: MappingResult,
+  sequenceName: string,
+): string {
+  const lines: string[] = [];
+
+  lines.push(`ModIQ Mapping Report: ${sequenceName}`);
+  lines.push("=".repeat(60));
+  lines.push("");
+  lines.push("Summary:");
+  lines.push(`  Source models: ${result.totalSource}`);
+  lines.push(`  Dest models:   ${result.totalDest}`);
+  lines.push(`  Mapped:        ${result.mappedCount}/${result.totalSource}`);
+  lines.push(`  High:          ${result.highConfidence}`);
+  lines.push(`  Medium:        ${result.mediumConfidence}`);
+  lines.push(`  Low:           ${result.lowConfidence}`);
+  lines.push(`  Unmapped:      ${result.unmappedSource}`);
+  lines.push(`  Unused dest:   ${result.unmappedDest}`);
+  lines.push("");
+  lines.push("=".repeat(60));
+  lines.push("MAPPINGS");
+  lines.push("=".repeat(60));
+  lines.push("");
+
+  for (let i = 0; i < result.mappings.length; i++) {
+    const m = result.mappings[i];
+    const num = String(i + 1).padStart(2, " ");
+    const conf = m.confidence.toUpperCase().padEnd(8);
+    const score = m.score.toFixed(2);
+    const srcName = m.sourceModel.name;
+    const destName = m.destModel?.name || "(no match)";
+    const srcType = m.sourceModel.isGroup ? "GRP" : m.sourceModel.type;
+    const destType = m.destModel
+      ? m.destModel.isGroup
+        ? "GRP"
+        : m.destModel.type
+      : "";
+
+    lines.push(`#${num}  [${conf}]  score=${score}`);
+    lines.push(
+      `      SRC: ${srcName}  (${srcType}, ${m.sourceModel.pixelCount}px)`,
+    );
+    lines.push(
+      `      DST: ${destName}${destType ? `  (${destType}, ${m.destModel!.pixelCount}px)` : ""}`,
+    );
+
+    if (m.reason) {
+      lines.push(`      WHY: ${m.reason}`);
+    }
+
+    lines.push(
+      `      FACTORS: name=${m.factors.name.toFixed(2)} spatial=${m.factors.spatial.toFixed(2)} shape=${m.factors.shape.toFixed(2)} type=${m.factors.type.toFixed(2)} pixels=${m.factors.pixels.toFixed(2)}`,
+    );
+
+    if (m.submodelMappings.length > 0) {
+      lines.push(`      SUBMODELS (${m.submodelMappings.length}):`);
+      for (const sub of m.submodelMappings) {
+        const subConf = sub.confidence.toUpperCase().padEnd(8);
+        const dest = sub.destName || "(unmapped)";
+        lines.push(
+          `        [${subConf}] ${sub.sourceName} --> ${dest}  (${sub.pixelDiff})`,
+        );
+      }
+    }
+
+    lines.push("");
+  }
+
+  if (result.unusedDestModels.length > 0) {
+    lines.push("=".repeat(60));
+    lines.push(`UNUSED DEST MODELS (${result.unusedDestModels.length})`);
+    lines.push("=".repeat(60));
+    lines.push("");
+    for (const m of result.unusedDestModels) {
+      const type = m.isGroup ? "GRP" : m.type;
+      lines.push(`  - ${m.name}  (${type}, ${m.pixelCount}px)`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Trigger a browser download for a text report file.
+ */
+export function downloadMappingReport(
+  reportContent: string,
+  sequenceName: string,
+): void {
+  const blob = new Blob([reportContent], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const safeName = sequenceName
+    .replace(/[^a-zA-Z0-9-_ ]/g, "")
+    .replace(/\s+/g, "_");
+  a.href = url;
+  a.download = `ModIQ_Report_${safeName}.txt`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
