@@ -7,6 +7,7 @@
  */
 
 import type { ParsedModel } from "./parser";
+import { getSequenceModelList, isModelInSequence } from "./xsq-parser";
 
 export interface SourceModel {
   name: string;
@@ -417,13 +418,55 @@ export const SOURCE_MODELS: SourceModel[] = [
     isGroup: false,
     submodels: [],
   },
+  {
+    name: "Window - Tower",
+    type: "Window",
+    displayAs: "Window Frame",
+    pixelCount: 100,
+    zone: "high-center",
+    posX: 0.5,
+    posY: 0.7,
+    isGroup: false,
+    submodels: [],
+  },
 
-  // ── Eaves (Roofline) ──────────────────────────────────
-  ...Array.from({ length: 26 }, (_, i) => ({
-    name: `Eave ${i + 1}${i === 4 ? " - Entrance Arch" : ""}`,
-    type: i === 4 ? "Arch" : "Roofline",
-    displayAs: i === 4 ? "Arches" : "Single Line",
-    pixelCount: i === 4 ? 150 : 50 + Math.floor(Math.random() * 100),
+  // ── Eaves (Roofline) — real names from xsq ───────────
+  ...(
+    [
+      "Eave 1- Office Left",
+      "Eave 2 - Office Peak 1",
+      "Eave 3 - Office Peak 2",
+      "Eave 4 - Office Right",
+      "Eave 5 - Entrance Arch",
+      "Eave 6 - Tower Left",
+      "Eave 7 - Tower Peak 1",
+      "Eave 8 - Tower Peak 2",
+      "Eave 9 - Upper Tower Right",
+      "Eave 10 - Lower Tower Forward",
+      "Eave 11 - Lower Tower Right",
+      "Eave 12 - Avery Eave",
+      "Eave 13 - Avery Right",
+      "Eave 14 - Ellis Eave",
+      "Eave 15 - Ellis Right",
+      "Eave 16 - Guest Left",
+      "Eave 17 - Guest Eave",
+      "Eave 18 - Guest Right",
+      "Eave 19 - Guest Bath",
+      "Eave 20 - Guest Bath Right",
+      "Eave 21 - Garage 1",
+      "Eave 22 - Garage Left",
+      "Eave 23 - Garage Peak 1",
+      "Eave 24 - Garage Peak 2",
+      "Eave 25 - Garage Right",
+      "Eave 26 - Garage 2",
+    ] as const
+  ).map((name, i) => ({
+    name,
+    type: name.includes("Entrance Arch") ? "Arch" : "Roofline",
+    displayAs: name.includes("Entrance Arch")
+      ? "Arches"
+      : ("Single Line" as string),
+    pixelCount: name.includes("Entrance Arch") ? 150 : 75,
     zone: "high-center" as const,
     posX: 0.1 + (i / 26) * 0.8,
     posY: 0.7 + (i % 3) * 0.05,
@@ -431,12 +474,30 @@ export const SOURCE_MODELS: SourceModel[] = [
     submodels: [] as string[],
   })),
 
-  // ── Vertical Lines ────────────────────────────────────
-  ...Array.from({ length: 15 }, (_, i) => ({
-    name: `Vert ${i + 1}`,
+  // ── Vertical Lines — real names from xsq ─────────────
+  ...(
+    [
+      "Vert 1 - Office 1",
+      "Vert 2 - Office 2",
+      "Vert 3 - Tower 1",
+      "Vert 4 - Entrance 1",
+      "Vert 5 - Entrance 2",
+      "Vert 6 - Tower 2",
+      "Vert 7 - Dining",
+      "Vert 8 - Avery",
+      "Vert 9 - Guest 1",
+      "Vert 10 - Guest 2",
+      "Vert 11 - Ellis",
+      "Vert 12 - Guest Bath",
+      "Vert 13 - Garage 1",
+      "Vert 14 - Garage 2",
+      "Vert 15 - Garage 3",
+    ] as const
+  ).map((name, i) => ({
+    name,
     type: "Line",
-    displayAs: "Single Line",
-    pixelCount: 30 + Math.floor(Math.random() * 50),
+    displayAs: "Single Line" as string,
+    pixelCount: 50,
     zone: "mid-center" as const,
     posX: 0.2 + (i / 15) * 0.6,
     posY: 0.65,
@@ -1457,13 +1518,24 @@ export function getAllSourceModels(): SourceModel[] {
 
 /**
  * Get source models relevant to a specific sequence.
- * For V1, all sequences use the same layout, so this returns everything.
- * In V2+, this could filter based on which models a specific sequence actually uses.
+ * If we have an xsq-derived model list for the sequence, filter to only
+ * include models that the sequence actually uses. Otherwise falls back
+ * to returning everything.
  */
 export function getSourceModelsForSequence(
-  _sequenceSlug: string,
+  sequenceSlug: string,
 ): SourceModel[] {
-  return getAllSourceModels();
+  const allModels = getAllSourceModels();
+  const sequenceModels = getSequenceModelList(sequenceSlug);
+
+  if (!sequenceModels) {
+    // No xsq data available for this sequence — return all models
+    return allModels;
+  }
+
+  return allModels.filter((model) =>
+    isModelInSequence(model.name, sequenceModels),
+  );
 }
 
 /**
