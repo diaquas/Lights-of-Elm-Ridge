@@ -48,6 +48,9 @@ export default function ModIQTool() {
   const [expandedMappings, setExpandedMappings] = useState<Set<number>>(
     new Set(),
   );
+  const [expandedSections, setExpandedSections] = useState<Set<Confidence>>(
+    new Set(["high", "medium", "low", "unmapped"]),
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -210,6 +213,7 @@ export default function ModIQTool() {
     setMappingResult(null);
     setProcessingSteps([]);
     setExpandedMappings(new Set());
+    setExpandedSections(new Set(["high", "medium", "low", "unmapped"]));
   }, []);
 
   const toggleExpanded = useCallback((idx: number) => {
@@ -217,6 +221,15 @@ export default function ModIQTool() {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx);
       else next.add(idx);
+      return next;
+    });
+  }, []);
+
+  const toggleSection = useCallback((tier: Confidence) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(tier)) next.delete(tier);
+      else next.add(tier);
       return next;
     });
   }, []);
@@ -504,60 +517,118 @@ export default function ModIQTool() {
               Layout
             </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-              <StatBox
-                label="Mapped"
-                value={mappingResult.mappedCount}
-                total={mappingResult.totalSource}
-                color="text-foreground"
-              />
-              <StatBox
-                label="High"
-                value={mappingResult.highConfidence}
-                color="text-green-400"
-              />
-              <StatBox
-                label="Medium"
-                value={mappingResult.mediumConfidence}
-                color="text-amber-400"
-              />
-              <StatBox
-                label="Low / Unmapped"
-                value={
-                  mappingResult.lowConfidence + mappingResult.unmappedSource
-                }
-                color="text-red-400"
-              />
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-bold">
+                {mappingResult.mappedCount}
+                <span className="text-lg text-foreground/40">
+                  /{mappingResult.totalSource}
+                </span>
+              </span>
+              <span className="text-sm text-foreground/50">
+                mapped (
+                {mappingResult.totalSource > 0
+                  ? (
+                      (mappingResult.mappedCount / mappingResult.totalSource) *
+                      100
+                    ).toFixed(1)
+                  : "0.0"}
+                %)
+              </span>
             </div>
 
             {mappingResult.unmappedDest > 0 && (
-              <p className="text-xs text-foreground/40">
+              <p className="text-xs text-foreground/40 mt-3">
                 {mappingResult.unmappedDest} models in your layout have no
                 equivalent in this sequence.
               </p>
             )}
           </div>
 
-          {/* Mapping Table */}
-          <div className="bg-surface rounded-xl border border-border overflow-hidden">
-            <div className="hidden sm:grid grid-cols-[100px_1fr_24px_1fr] gap-2 px-6 py-3 bg-surface-light text-xs text-foreground/50 uppercase tracking-wider font-medium border-b border-border">
-              <span>Confidence</span>
-              <span>Our Model</span>
-              <span />
-              <span>Your Model</span>
-            </div>
+          {/* Confidence Accordion Tables */}
+          {(["high", "medium", "low", "unmapped"] as Confidence[]).map(
+            (tier) => {
+              const tierMappings = mappingResult.mappings.filter(
+                (m) => m.confidence === tier,
+              );
+              if (tierMappings.length === 0) return null;
+              const style = CONFIDENCE_STYLES[tier];
+              const pct =
+                mappingResult.totalSource > 0
+                  ? (
+                      (tierMappings.length / mappingResult.totalSource) *
+                      100
+                    ).toFixed(1)
+                  : "0.0";
+              const isOpen = expandedSections.has(tier);
 
-            <div className="divide-y divide-border">
-              {mappingResult.mappings.map((mapping, idx) => (
-                <MappingRow
-                  key={idx}
-                  mapping={mapping}
-                  isExpanded={expandedMappings.has(idx)}
-                  onToggle={() => toggleExpanded(idx)}
-                />
-              ))}
-            </div>
-          </div>
+              return (
+                <div
+                  key={tier}
+                  className="bg-surface rounded-xl border border-border overflow-hidden"
+                >
+                  {/* Accordion header */}
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(tier)}
+                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-surface-light transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold tracking-wider ${style.bg} ${style.text}`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${style.dot}`} />
+                        {style.label}
+                      </span>
+                      <span className="text-foreground font-semibold text-lg">
+                        {tierMappings.length}
+                      </span>
+                      <span className="text-foreground/40 text-sm">
+                        ({pct}%)
+                      </span>
+                    </div>
+                    <svg
+                      className={`w-5 h-5 text-foreground/40 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+
+                  {/* Accordion content */}
+                  {isOpen && (
+                    <>
+                      <div className="hidden sm:grid grid-cols-[1fr_24px_1fr] gap-2 px-6 py-2 bg-surface-light text-xs text-foreground/50 uppercase tracking-wider font-medium border-t border-border">
+                        <span>Our Model</span>
+                        <span />
+                        <span>Your Model</span>
+                      </div>
+                      <div className="divide-y divide-border border-t border-border">
+                        {tierMappings.map((mapping) => {
+                          const globalIdx =
+                            mappingResult.mappings.indexOf(mapping);
+                          return (
+                            <MappingRow
+                              key={globalIdx}
+                              mapping={mapping}
+                              isExpanded={expandedMappings.has(globalIdx)}
+                              onToggle={() => toggleExpanded(globalIdx)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            },
+          )}
 
           {/* Unused Dest Models */}
           {mappingResult.unusedDestModels.length > 0 && (
@@ -664,30 +735,6 @@ export default function ModIQTool() {
 
 // ─── Sub-components ───────────────────────────────────────────────
 
-function StatBox({
-  label,
-  value,
-  total,
-  color,
-}: {
-  label: string;
-  value: number;
-  total?: number;
-  color: string;
-}) {
-  return (
-    <div className="bg-background rounded-lg p-3 text-center">
-      <div className={`text-2xl font-bold ${color}`}>
-        {value}
-        {total !== undefined && (
-          <span className="text-sm text-foreground/40">/{total}</span>
-        )}
-      </div>
-      <div className="text-xs text-foreground/50 mt-1">{label}</div>
-    </div>
-  );
-}
-
 const CONFIDENCE_STYLES: Record<
   Confidence,
   { bg: string; text: string; label: string; dot: string }
@@ -748,27 +795,16 @@ function MappingRow({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const style = CONFIDENCE_STYLES[mapping.confidence];
   const hasSubmodels = mapping.submodelMappings.length > 0;
 
   return (
     <div>
       <div
-        className={`px-4 sm:px-6 py-3 sm:grid sm:grid-cols-[100px_1fr_24px_1fr] sm:gap-2 items-center ${
+        className={`px-4 sm:px-6 py-3 sm:grid sm:grid-cols-[1fr_24px_1fr] sm:gap-2 items-center ${
           hasSubmodels ? "cursor-pointer hover:bg-surface-light" : ""
         }`}
         onClick={hasSubmodels ? onToggle : undefined}
       >
-        {/* Confidence badge */}
-        <div className="flex items-center gap-2 mb-2 sm:mb-0">
-          <span
-            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${style.bg} ${style.text}`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
-            {style.label}
-          </span>
-        </div>
-
         {/* Source model */}
         <div className="mb-1 sm:mb-0">
           <span className="text-sm font-medium">
