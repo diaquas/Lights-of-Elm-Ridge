@@ -405,7 +405,6 @@ export default function LayoutExplorer() {
     y: number;
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   // Calculate card position when hotspot is clicked
   const handleHotspotClick = (hotspot: Hotspot, event: React.MouseEvent) => {
@@ -435,14 +434,14 @@ export default function LayoutExplorer() {
     setActiveHotspot(hotspot.id);
   };
 
-  // Close on click outside
+  // Close on click outside — check against any .hotspot-card, not just one ref
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
       if (
         activeHotspot &&
-        cardRef.current &&
-        !cardRef.current.contains(event.target as Node) &&
-        !(event.target as HTMLElement).closest(".hotspot-dot")
+        !target.closest(".hotspot-card") &&
+        !target.closest(".hotspot-dot")
       ) {
         setActiveHotspot(null);
         setCardPosition(null);
@@ -472,16 +471,11 @@ export default function LayoutExplorer() {
     <div className="layout-explorer">
       {/* Header */}
       <div className="explorer-header">
-        <div className="explorer-label">Interactive Layout</div>
         <h3 className="explorer-title">Explore the Display</h3>
         <p className="explorer-subtitle">
           Click any hotspot to see what&apos;s there — every prop, every pixel
           count.
         </p>
-        <div className="explorer-hint">
-          <span className="explorer-hint-dot" />
-          Click the red dots to explore each area
-        </div>
       </div>
 
       {/* Layout Map */}
@@ -534,7 +528,6 @@ export default function LayoutExplorer() {
         {/* Desktop Card - positioned absolutely */}
         {activeHotspotData && cardPosition && (
           <div
-            ref={cardRef}
             className="hotspot-card desktop-card"
             style={{
               left: cardPosition.x,
@@ -547,7 +540,7 @@ export default function LayoutExplorer() {
 
         {/* Mobile Card - fixed at bottom */}
         {activeHotspotData && (
-          <div ref={cardRef} className="hotspot-card mobile-card">
+          <div className="hotspot-card mobile-card">
             <div className="card-header">
               <div className="card-header-left">
                 <span className="card-icon">{activeHotspotData.icon}</span>
