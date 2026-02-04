@@ -1,15 +1,16 @@
 /**
- * ModIQ — Matching Engine
+ * ModIQ — Matching Engine (V2)
  *
- * Multi-factor weighted scoring algorithm that matches source models
- * (from our sequences) to destination models (user's layout).
+ * Three-phase matching: Groups first, then individual models, then submodels.
  *
- * Factors:
- *   1. Model Type Match    (35%)
- *   2. Pixel Count Match   (25%)
- *   3. Spatial Position     (20%)
- *   4. Name Similarity      (10%)
- *   5. Submodel Structure   (10%)
+ * Scoring priority (updated from community file analysis):
+ *   1. Fuzzy Name Match       (40%) — the strongest signal
+ *   2. Spatial Position        (25%) — disambiguates duplicates (Arch 1 vs Arch 2)
+ *   3. Shape Classification    (15%) — circular, linear, matrix, point, custom
+ *   4. Model Type (DisplayAs)  (12%) — xLights universal type
+ *   5. Node Count              (8%)  — pixel/node count similarity
+ *
+ * Groups appear at the top of each confidence section.
  */
 
 import type { ParsedModel } from "./parser";
@@ -22,7 +23,7 @@ export interface SubmodelMapping {
   sourceName: string;
   destName: string;
   confidence: Confidence;
-  pixelDiff: string; // e.g. "120px → 100px"
+  pixelDiff: string;
 }
 
 export interface ModelMapping {
@@ -31,13 +32,13 @@ export interface ModelMapping {
   score: number;
   confidence: Confidence;
   factors: {
+    name: number;
+    spatial: number;
+    shape: number;
     type: number;
     pixels: number;
-    spatial: number;
-    name: number;
-    submodel: number;
   };
-  reason: string; // human-readable explanation of key factors
+  reason: string;
   submodelMappings: SubmodelMapping[];
 }
 
@@ -54,17 +55,387 @@ export interface MappingResult {
   unusedDestModels: ParsedModel[];
 }
 
-// ─── Weights ────────────────────────────────────────────────────────
+// ─── Weights (new priority order) ───────────────────────────────────
 
 const WEIGHTS = {
-  type: 0.35,
-  pixels: 0.25,
-  spatial: 0.2,
-  name: 0.1,
-  submodel: 0.1,
+  name: 0.4,
+  spatial: 0.25,
+  shape: 0.15,
+  type: 0.12,
+  pixels: 0.08,
 };
 
-// ─── Factor 1: Type Match ───────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// FACTOR 1: Fuzzy Name Matching (40%)
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Expanded abbreviation/synonym map built from analyzing 7 community files.
+ * Maps short forms → canonical forms for cross-matching.
+ */
+const SYNONYMS: Record<string, string[]> = {
+  // Directions
+  l: ["left", "lft"],
+  r: ["right", "rgt", "rt"],
+  c: ["center", "ctr", "centre", "mid", "middle"],
+  // Sizes
+  lg: ["large", "big"],
+  sm: ["small", "mini", "tiny"],
+  med: ["medium"],
+  // Structural
+  grp: ["group", "all"],
+  mod: ["model"],
+  vert: ["vertical", "verticals"],
+  horiz: ["horizontal", "horizontals"],
+  // Props
+  arch: ["arches", "archway"],
+  ss: ["showstopper"],
+  ge: ["gilbert", "engineering"],
+  dw: ["driveway"],
+  sw: ["sidewalk"],
+  // Common renames from community files
+  tumba: ["tombstone", "tomb"],
+  contorno: ["outline"],
+  estrella: ["star"],
+  arbol: ["tree"],
+  cana: ["cane"],
+  araña: ["spider"],
+  murcielago: ["bat"],
+  fantasma: ["ghost"],
+  calabaza: ["pumpkin"],
+  // Compound abbreviations
+  mt: ["mega tree", "megatree"],
+  mh: ["moving head", "movinghead"],
+  ppd: ["wreath"],
+};
+
+/**
+ * Canonical prop-type keywords. When these appear in a name,
+ * they are the "essence" of what the model is.
+ */
+const PROP_KEYWORDS = [
+  "arch",
+  "arches",
+  "archway",
+  "bat",
+  "bulb",
+  "cane",
+  "candy",
+  "cat",
+  "circle",
+  "cross",
+  "eave",
+  "fence",
+  "firework",
+  "flake",
+  "flood",
+  "forest",
+  "fuzion",
+  "garage",
+  "ghost",
+  "horizontal",
+  "house",
+  "icicle",
+  "icicles",
+  "matrix",
+  "mega",
+  "megatree",
+  "mini",
+  "outline",
+  "panel",
+  "pole",
+  "present",
+  "pumpkin",
+  "ring",
+  "roof",
+  "roofline",
+  "rosa",
+  "sign",
+  "singing",
+  "skull",
+  "snowflake",
+  "snowman",
+  "spider",
+  "spinner",
+  "spiral",
+  "star",
+  "tombstone",
+  "tree",
+  "tune",
+  "vertical",
+  "window",
+  "wreath",
+];
+
+/**
+ * Normalize a model name for comparison:
+ * - lowercase
+ * - strip separators to spaces
+ * - strip version prefixes like "01.11" or "02.14.0Grp"
+ * - strip common noise words (all, group, grp, my, the, model, mod)
+ * - strip trailing numeric indices for base-name comparison
+ */
+function normalizeName(name: string): string {
+  let n = name.toLowerCase();
+  // Strip version-prefix patterns like "01.11", "02.14.0Grp", "03.7.0Mod"
+  n = n.replace(/^\d{1,3}\.\d{1,3}(\.\d+)?(grp|mod|sub)?\s*/i, "");
+  // Replace separators with spaces
+  n = n.replace(/[-_.\t]+/g, " ");
+  // Strip noise words
+  n = n.replace(
+    /\b(all|group|grp|my|the|model|mod|no |everything|but)\b/gi,
+    "",
+  );
+  // Collapse whitespace
+  n = n.replace(/\s+/g, " ").trim();
+  return n;
+}
+
+/**
+ * Extract the "base name" — the prop-type keyword without numeric index.
+ * "Arch 3" → "arch", "Spinner - Showstopper 2" → "spinner showstopper"
+ */
+function baseName(name: string): string {
+  let n = normalizeName(name);
+  // Strip trailing numbers (but not numbers mid-name like "p5" or "350")
+  n = n.replace(/\s+\d+$/, "");
+  // Strip leading numbers left over
+  n = n.replace(/^\d+\s+/, "");
+  return n;
+}
+
+/**
+ * Extract the numeric index from a name (for positional ordering).
+ * "Arch 3" → 3, "Spider - 12" → 12, "Pole" → -1
+ */
+function extractIndex(name: string): number {
+  const n = normalizeName(name);
+  const match = n.match(/(\d+)\s*$/);
+  return match ? parseInt(match[1]) : -1;
+}
+
+/**
+ * Tokenize a normalized name, expanding synonyms.
+ */
+function tokenize(normalized: string): Set<string> {
+  const rawTokens = normalized.split(/\s+/).filter(Boolean);
+  const expanded = new Set<string>();
+  for (const tok of rawTokens) {
+    expanded.add(tok);
+    // Add synonym expansions
+    const syns = SYNONYMS[tok];
+    if (syns) {
+      for (const s of syns) expanded.add(s);
+    }
+    // Reverse: if tok matches a synonym value, add the key too
+    for (const [key, vals] of Object.entries(SYNONYMS)) {
+      if (vals.includes(tok)) expanded.add(key);
+    }
+  }
+  return expanded;
+}
+
+/**
+ * Core fuzzy name score.
+ *
+ * Strategy:
+ * 1. Exact normalized match → 1.0
+ * 2. Base-name match (ignoring index) → 0.85
+ * 3. Token overlap with synonym expansion → proportional score
+ * 4. Substring containment bonus
+ */
+function scoreName(source: ParsedModel, dest: ParsedModel): number {
+  const srcNorm = normalizeName(source.name);
+  const destNorm = normalizeName(dest.name);
+
+  // Exact normalized match
+  if (srcNorm === destNorm) return 1.0;
+
+  const srcBase = baseName(source.name);
+  const destBase = baseName(dest.name);
+
+  // Base name exact match (e.g. "arch" === "arch" for "Arch 1" vs "ARCH 3")
+  if (srcBase === destBase && srcBase.length > 0) return 0.85;
+
+  // Tokenized overlap with synonym expansion
+  const srcTokens = tokenize(srcNorm);
+  const destTokens = tokenize(destNorm);
+
+  if (srcTokens.size === 0 || destTokens.size === 0) return 0;
+
+  // Count matches (bidirectional)
+  let matches = 0;
+  for (const t of srcTokens) {
+    if (destTokens.has(t)) matches++;
+  }
+  const overlapScore = matches / Math.max(srcTokens.size, destTokens.size);
+
+  // Substring containment bonus: "showstopper" in "Showstopper Spinner Left"
+  let substringBonus = 0;
+  if (srcBase.length >= 3 && destNorm.includes(srcBase)) substringBonus = 0.15;
+  else if (destBase.length >= 3 && srcNorm.includes(destBase))
+    substringBonus = 0.15;
+
+  // Prop keyword match bonus: if both contain the same prop keyword
+  let keywordBonus = 0;
+  for (const kw of PROP_KEYWORDS) {
+    if (srcNorm.includes(kw) && destNorm.includes(kw)) {
+      keywordBonus = 0.2;
+      break;
+    }
+  }
+
+  return Math.min(1.0, overlapScore + substringBonus + keywordBonus);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FACTOR 2: Spatial Position (25%)
+// ═══════════════════════════════════════════════════════════════════
+
+interface NormalizedBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+function getNormalizedBounds(models: ParsedModel[]): NormalizedBounds {
+  const nonGroup = models.filter((m) => !m.isGroup);
+  if (nonGroup.length === 0) {
+    return { minX: 0, maxX: 1, minY: 0, maxY: 1 };
+  }
+  return {
+    minX: Math.min(...nonGroup.map((m) => m.worldPosX)),
+    maxX: Math.max(...nonGroup.map((m) => m.worldPosX)),
+    minY: Math.min(...nonGroup.map((m) => m.worldPosY)),
+    maxY: Math.max(...nonGroup.map((m) => m.worldPosY)),
+  };
+}
+
+function normalizePosition(value: number, min: number, max: number): number {
+  const range = max - min;
+  if (range === 0) return 0.5;
+  return (value - min) / range;
+}
+
+/**
+ * Spatial scoring using Euclidean distance in normalized space.
+ * Closer models score higher. Handles the Arch1-vs-Arch2 problem:
+ * when two arches have the same base name, position is the tiebreaker.
+ */
+function scoreSpatial(
+  source: ParsedModel,
+  dest: ParsedModel,
+  sourceBounds: NormalizedBounds,
+  destBounds: NormalizedBounds,
+): number {
+  if (source.isGroup || dest.isGroup) return 0.5;
+
+  const srcX = normalizePosition(source.worldPosX, sourceBounds.minX, sourceBounds.maxX);
+  const srcY = normalizePosition(source.worldPosY, sourceBounds.minY, sourceBounds.maxY);
+  const destX = normalizePosition(dest.worldPosX, destBounds.minX, destBounds.maxX);
+  const destY = normalizePosition(dest.worldPosY, destBounds.minY, destBounds.maxY);
+
+  // Euclidean distance in normalized [0,1] space. Max possible = sqrt(2) ≈ 1.414
+  const dist = Math.sqrt((srcX - destX) ** 2 + (srcY - destY) ** 2);
+
+  // Convert to score: 0 distance = 1.0, sqrt(2) distance = 0.0
+  return Math.max(0, 1.0 - dist / 1.414);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FACTOR 3: Shape Classification (15%)
+// ═══════════════════════════════════════════════════════════════════
+
+type Shape = "circular" | "linear" | "matrix" | "triangle" | "point" | "custom";
+
+/**
+ * Classify a model's physical shape from its DisplayAs and name.
+ * This is geometry-level, not prop-type-level.
+ */
+function classifyShape(model: ParsedModel): Shape {
+  const da = model.displayAs.toLowerCase();
+  const name = model.name.toLowerCase();
+
+  // Circular shapes
+  if (
+    da === "circle" ||
+    da === "spinner" ||
+    da === "sphere" ||
+    da === "wreaths" ||
+    /spinner|wreath|circle|ring|globe|ball|rosa|fuzion|overlord|starburst/i.test(name)
+  ) {
+    return "circular";
+  }
+
+  // Matrix / rectangular shapes
+  if (
+    da.includes("matrix") ||
+    da === "cube" ||
+    da === "window frame" ||
+    /matrix|panel|p5|p10|fence|window|sign|tune.*to/i.test(name)
+  ) {
+    return "matrix";
+  }
+
+  // Linear shapes
+  if (
+    da === "single line" ||
+    da === "poly line" ||
+    da === "icicles" ||
+    da === "arches" ||
+    da === "candy cane" ||
+    da === "candy canes" ||
+    /eave|vert|horizontal|roofline|outline|driveway|pole|cane|icicle|arch/i.test(name)
+  ) {
+    return "linear";
+  }
+
+  // Triangle / tree shapes
+  if (
+    da.includes("tree") ||
+    /tree|mega.*tree|spiral|firework/i.test(name)
+  ) {
+    return "triangle";
+  }
+
+  // Point shapes (stars, floods, small props)
+  if (
+    da === "star" ||
+    /star|flood|bulb/i.test(name)
+  ) {
+    return "point";
+  }
+
+  return "custom";
+}
+
+function scoreShape(source: ParsedModel, dest: ParsedModel): number {
+  if (source.isGroup || dest.isGroup) return 0.5;
+
+  const srcShape = classifyShape(source);
+  const destShape = classifyShape(dest);
+
+  if (srcShape === destShape) return 1.0;
+
+  // Partial matches for related shapes
+  const related: Record<Shape, Shape[]> = {
+    circular: ["custom"],
+    linear: ["custom"],
+    matrix: ["custom"],
+    triangle: ["custom"],
+    point: ["custom"],
+    custom: ["circular", "linear", "matrix", "triangle", "point"],
+  };
+
+  if (related[srcShape]?.includes(destShape)) return 0.4;
+
+  return 0.0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FACTOR 4: Model Type / DisplayAs (12%)
+// ═══════════════════════════════════════════════════════════════════
 
 const RELATED_TYPES: Record<string, string[]> = {
   Tree: ["Mega Tree", "Spiral Tree"],
@@ -96,269 +467,36 @@ const RELATED_TYPES: Record<string, string[]> = {
 };
 
 function scoreType(source: ParsedModel, dest: ParsedModel): number {
-  // Exact match
   if (source.type === dest.type) return 1.0;
 
-  // Groups match groups with similar names
-  if (source.isGroup && dest.isGroup) {
-    return scoreGroupTypeMatch(source.name, dest.name);
-  }
+  if (source.isGroup && dest.isGroup) return 0.7;
 
-  // Related type match
   const related = RELATED_TYPES[source.type] || [];
   if (related.includes(dest.type)) return 0.7;
 
-  // If dest is Custom, it might be the same thing with a generic type
-  if (dest.type === "Custom") return 0.4;
-  if (source.type === "Custom") return 0.4;
+  if (dest.type === "Custom" || source.type === "Custom") return 0.3;
 
   return 0.0;
 }
 
-function scoreGroupTypeMatch(sourceName: string, destName: string): number {
-  // Extract keywords from group names
-  const sourceKeywords = extractGroupKeywords(sourceName);
-  const destKeywords = extractGroupKeywords(destName);
-
-  // Check for overlap
-  const overlap = sourceKeywords.filter((k) => destKeywords.includes(k));
-  if (overlap.length > 0) {
-    return Math.min(1.0, overlap.length / Math.max(sourceKeywords.length, 1));
-  }
-
-  return 0.3; // Base group-to-group score
-}
-
-function extractGroupKeywords(name: string): string[] {
-  const lower = name.toLowerCase();
-  const keywords: string[] = [];
-
-  const patterns: [RegExp, string][] = [
-    [/arch/i, "arch"],
-    [/eave|horizontal|roofline/i, "eave"],
-    [/vert/i, "vert"],
-    [/house|outline/i, "house"],
-    [/spider/i, "spider"],
-    [/bat/i, "bat"],
-    [/tomb/i, "tombstone"],
-    [/pumpkin|ghost/i, "pumpkin"],
-    [/tree|mini.?tree/i, "tree"],
-    [/star/i, "star"],
-    [/pole/i, "pole"],
-    [/snowflake|flake/i, "snowflake"],
-    [/present|gift|wreath/i, "present"],
-    [/cane|candy/i, "cane"],
-    [/spinner/i, "spinner"],
-    [/fence/i, "fence"],
-    [/pixel.?forest|forest/i, "forest"],
-    [/firework|spiral/i, "firework"],
-    [/window/i, "window"],
-    [/flood/i, "flood"],
-    [/fuzion|rosa/i, "fuzion"],
-    [/all|everything|no\s/i, "all"],
-    [/icicle/i, "icicle"],
-  ];
-
-  for (const [pattern, keyword] of patterns) {
-    if (pattern.test(lower)) keywords.push(keyword);
-  }
-
-  return keywords;
-}
-
-// ─── Factor 2: Pixel Count Match ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// FACTOR 5: Node Count (8%)
+// ═══════════════════════════════════════════════════════════════════
 
 function scorePixels(source: ParsedModel, dest: ParsedModel): number {
-  // Groups don't have meaningful pixel counts
   if (source.isGroup || dest.isGroup) return 0.5;
 
   const srcPx = source.pixelCount;
   const destPx = dest.pixelCount;
 
-  if (srcPx === 0 || destPx === 0) return 0.5; // neutral if unknown
+  if (srcPx === 0 || destPx === 0) return 0.5;
 
-  const ratio =
-    1.0 - Math.abs(srcPx - destPx) / Math.max(srcPx, destPx);
-
-  // Apply minimum threshold — below 0.3 means they're so different
-  // it's probably not the same prop
-  return Math.max(ratio, 0);
+  return Math.max(0, 1.0 - Math.abs(srcPx - destPx) / Math.max(srcPx, destPx));
 }
 
-// ─── Factor 3: Spatial Position ─────────────────────────────────────
-
-interface NormalizedBounds {
-  minX: number;
-  maxX: number;
-  minY: number;
-  maxY: number;
-}
-
-function getNormalizedBounds(models: ParsedModel[]): NormalizedBounds {
-  const nonGroup = models.filter((m) => !m.isGroup);
-  if (nonGroup.length === 0) {
-    return { minX: 0, maxX: 1, minY: 0, maxY: 1 };
-  }
-
-  return {
-    minX: Math.min(...nonGroup.map((m) => m.worldPosX)),
-    maxX: Math.max(...nonGroup.map((m) => m.worldPosX)),
-    minY: Math.min(...nonGroup.map((m) => m.worldPosY)),
-    maxY: Math.max(...nonGroup.map((m) => m.worldPosY)),
-  };
-}
-
-function normalizePosition(
-  value: number,
-  min: number,
-  max: number,
-): number {
-  const range = max - min;
-  if (range === 0) return 0.5;
-  return (value - min) / range;
-}
-
-function assignZone(normX: number, normY: number): string {
-  const col = normX < 0.33 ? "left" : normX < 0.66 ? "center" : "right";
-  const row = normY > 0.66 ? "high" : normY > 0.33 ? "mid" : "low";
-  return `${row}-${col}`;
-}
-
-function scoreSpatial(
-  source: ParsedModel,
-  dest: ParsedModel,
-  sourceBounds: NormalizedBounds,
-  destBounds: NormalizedBounds,
-): number {
-  // Groups don't have meaningful positions
-  if (source.isGroup || dest.isGroup) return 0.5;
-
-  const srcNormX = normalizePosition(
-    source.worldPosX,
-    sourceBounds.minX,
-    sourceBounds.maxX,
-  );
-  const srcNormY = normalizePosition(
-    source.worldPosY,
-    sourceBounds.minY,
-    sourceBounds.maxY,
-  );
-  const destNormX = normalizePosition(
-    dest.worldPosX,
-    destBounds.minX,
-    destBounds.maxX,
-  );
-  const destNormY = normalizePosition(
-    dest.worldPosY,
-    destBounds.minY,
-    destBounds.maxY,
-  );
-
-  const srcZone = assignZone(srcNormX, srcNormY);
-  const destZone = assignZone(destNormX, destNormY);
-
-  if (srcZone === destZone) return 1.0;
-
-  // Adjacent zones
-  const [srcRow, srcCol] = srcZone.split("-");
-  const [destRow, destCol] = destZone.split("-");
-  if (srcRow === destRow || srcCol === destCol) return 0.6;
-
-  return 0.2;
-}
-
-// ─── Factor 4: Name Similarity ──────────────────────────────────────
-
-const ABBREVIATION_MAP: Record<string, string[]> = {
-  dw: ["driveway"],
-  l: ["left"],
-  r: ["right"],
-  c: ["center"],
-  lg: ["large"],
-  sm: ["small"],
-  med: ["medium"],
-  grp: ["group"],
-  mod: ["model"],
-  vert: ["vertical"],
-  horiz: ["horizontal"],
-  arch: ["arches"],
-  ss: ["showstopper"],
-  ge: ["gilbert", "engineering"],
-};
-
-function normalizeName(name: string): string {
-  let normalized = name.toLowerCase();
-  // Remove common separators and prefixes
-  normalized = normalized.replace(/[-_.\s]+/g, " ").trim();
-  // Remove "all", "my", "the", numeric-only suffixes
-  normalized = normalized
-    .replace(/^(all|my|the)\s+/i, "")
-    .replace(/\s+(grp|group)$/i, "")
-    .replace(/\s+\d+$/, "");
-  return normalized;
-}
-
-function tokenOverlap(a: string, b: string): number {
-  const tokensA = new Set(normalizeName(a).split(/\s+/));
-  const tokensB = new Set(normalizeName(b).split(/\s+/));
-
-  if (tokensA.size === 0 || tokensB.size === 0) return 0;
-
-  let matches = 0;
-  for (const token of tokensA) {
-    if (tokensB.has(token)) matches++;
-    // Check abbreviation expansions
-    const expansions = ABBREVIATION_MAP[token] || [];
-    for (const exp of expansions) {
-      if (tokensB.has(exp)) matches += 0.5;
-    }
-  }
-
-  return matches / Math.max(tokensA.size, tokensB.size);
-}
-
-function scoreName(source: ParsedModel, dest: ParsedModel): number {
-  // Direct name match (case-insensitive)
-  if (source.name.toLowerCase() === dest.name.toLowerCase()) return 1.0;
-
-  // Token overlap
-  return tokenOverlap(source.name, dest.name);
-}
-
-// ─── Factor 5: Submodel Structure ───────────────────────────────────
-
-function scoreSubmodel(source: ParsedModel, dest: ParsedModel): number {
-  const srcSubs = source.submodels;
-  const destSubs = dest.submodels;
-
-  // Neither has submodels — neutral
-  if (srcSubs.length === 0 && destSubs.length === 0) return 0.5;
-
-  // One has submodels, other doesn't — slight penalty
-  if (srcSubs.length === 0 || destSubs.length === 0) return 0.3;
-
-  // Both have submodels — compare count similarity
-  const countRatio =
-    1.0 -
-    Math.abs(srcSubs.length - destSubs.length) /
-      Math.max(srcSubs.length, destSubs.length);
-
-  // Check name overlap between submodel names
-  const srcNames = srcSubs.map((s) => s.name.toLowerCase());
-  const destNames = destSubs.map((s) => s.name.toLowerCase());
-  let nameMatches = 0;
-  for (const sn of srcNames) {
-    if (destNames.some((dn) => dn === sn || dn.includes(sn) || sn.includes(dn))) {
-      nameMatches++;
-    }
-  }
-  const nameOverlap =
-    srcNames.length > 0 ? nameMatches / srcNames.length : 0;
-
-  return countRatio * 0.5 + nameOverlap * 0.5;
-}
-
-// ─── Combined Scoring ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Combined Scoring
+// ═══════════════════════════════════════════════════════════════════
 
 function computeScore(
   source: ParsedModel,
@@ -367,27 +505,27 @@ function computeScore(
   destBounds: NormalizedBounds,
 ): { score: number; factors: ModelMapping["factors"] } {
   const factors = {
+    name: scoreName(source, dest),
+    spatial: scoreSpatial(source, dest, sourceBounds, destBounds),
+    shape: scoreShape(source, dest),
     type: scoreType(source, dest),
     pixels: scorePixels(source, dest),
-    spatial: scoreSpatial(source, dest, sourceBounds, destBounds),
-    name: scoreName(source, dest),
-    submodel: scoreSubmodel(source, dest),
   };
 
   const score =
-    factors.type * WEIGHTS.type +
-    factors.pixels * WEIGHTS.pixels +
-    factors.spatial * WEIGHTS.spatial +
     factors.name * WEIGHTS.name +
-    factors.submodel * WEIGHTS.submodel;
+    factors.spatial * WEIGHTS.spatial +
+    factors.shape * WEIGHTS.shape +
+    factors.type * WEIGHTS.type +
+    factors.pixels * WEIGHTS.pixels;
 
   return { score, factors };
 }
 
 function scoreToConfidence(score: number): Confidence {
-  if (score >= 0.85) return "high";
-  if (score >= 0.6) return "medium";
-  if (score >= 0.4) return "low";
+  if (score >= 0.8) return "high";
+  if (score >= 0.55) return "medium";
+  if (score >= 0.35) return "low";
   return "unmapped";
 }
 
@@ -397,26 +535,33 @@ function generateReason(mapping: ModelMapping): string {
 
   const parts: string[] = [];
 
-  if (factors.type >= 0.9) parts.push("Type match");
-  else if (factors.type >= 0.7) parts.push("Related type");
-  else if (factors.type < 0.5) parts.push("Type mismatch");
+  if (factors.name >= 0.85) parts.push("Name match");
+  else if (factors.name >= 0.5) parts.push("Fuzzy name match");
 
-  if (factors.pixels >= 0.9) {
-    parts.push("Pixel count match");
-  } else if (factors.pixels < 0.6 && !sourceModel.isGroup) {
+  if (factors.spatial >= 0.8 && !sourceModel.isGroup)
+    parts.push("Position match");
+
+  if (factors.shape >= 0.9) parts.push("Shape match");
+  else if (factors.shape < 0.3 && !sourceModel.isGroup)
+    parts.push("Shape mismatch");
+
+  if (factors.type >= 0.9) parts.push("Type match");
+  else if (factors.type < 0.4) parts.push("Type mismatch");
+
+  if (factors.pixels >= 0.9 && !sourceModel.isGroup) {
+    parts.push("Node count match");
+  } else if (factors.pixels < 0.5 && !sourceModel.isGroup) {
     parts.push(
-      `Pixel count differs (${sourceModel.pixelCount} vs ${destModel.pixelCount})`,
+      `Node count differs (${sourceModel.pixelCount} vs ${destModel.pixelCount})`,
     );
   }
-
-  if (factors.name >= 0.7) parts.push("Name match");
-
-  if (factors.submodel >= 0.7) parts.push("Submodel structure match");
 
   return parts.join(" · ") || "Best available match";
 }
 
-// ─── Submodel Mapping ───────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Submodel Matching
+// ═══════════════════════════════════════════════════════════════════
 
 function mapSubmodels(
   source: ParsedModel,
@@ -435,14 +580,18 @@ function mapSubmodels(
       if (usedDest.has(i)) continue;
       const destSub = dest.submodels[i];
 
-      // Score by name similarity and pixel count
-      let score = tokenOverlap(srcSub.name, destSub.name);
+      // Build a temporary ParsedModel-like object for name scoring
+      const srcFake = { ...source, name: srcSub.name } as ParsedModel;
+      const destFake = { ...dest, name: destSub.name } as ParsedModel;
+      let score = scoreName(srcFake, destFake);
+
+      // Blend in pixel similarity if available
       if (srcSub.pixelCount > 0 && destSub.pixelCount > 0) {
         const pxRatio =
           1.0 -
           Math.abs(srcSub.pixelCount - destSub.pixelCount) /
             Math.max(srcSub.pixelCount, destSub.pixelCount);
-        score = score * 0.6 + pxRatio * 0.4;
+        score = score * 0.7 + pxRatio * 0.3;
       }
 
       if (score > bestScore) {
@@ -473,15 +622,17 @@ function mapSubmodels(
   return mappings;
 }
 
-// ─── Main Matching Algorithm ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Main Matching Algorithm — Three-Phase
+// ═══════════════════════════════════════════════════════════════════
 
 /**
- * Match source models to destination models using the 5-factor scoring algorithm.
+ * Phase 1: Match groups (most important — entire display groups)
+ * Phase 2: Match individual models
+ * Phase 3: Resolve submodels within matched models
  *
- * Uses a greedy approach grouped by type:
- * 1. Build score matrix for each type group
- * 2. Sort by spatial position within groups
- * 3. Assign greedily: best score first
+ * Within each phase, greedy assignment by score (highest first).
+ * Groups appear at the top of each confidence section in output.
  */
 export function matchModels(
   sourceModels: ParsedModel[],
@@ -490,48 +641,145 @@ export function matchModels(
   const sourceBounds = getNormalizedBounds(sourceModels);
   const destBounds = getNormalizedBounds(destModels);
 
-  // Build full score matrix
-  const scoreMatrix: {
+  // Separate groups from individual models
+  const sourceGroups = sourceModels.filter((m) => m.isGroup);
+  const sourceIndividuals = sourceModels.filter((m) => !m.isGroup);
+  const destGroups = destModels.filter((m) => m.isGroup);
+  const destIndividuals = destModels.filter((m) => !m.isGroup);
+
+  const assignedSourceIdx = new Set<number>();
+  const assignedDestIdx = new Set<number>();
+  const allMappings: ModelMapping[] = [];
+
+  // ── Phase 1: Match Groups ──────────────────────────────
+  const groupMappings = greedyMatch(
+    sourceGroups,
+    destGroups,
+    sourceBounds,
+    destBounds,
+  );
+  for (const m of groupMappings) {
+    allMappings.push(m);
+    if (m.destModel) {
+      // Track by original index in full destModels array
+      const destIdx = destModels.indexOf(m.destModel);
+      if (destIdx >= 0) assignedDestIdx.add(destIdx);
+    }
+    const srcIdx = sourceModels.indexOf(m.sourceModel);
+    if (srcIdx >= 0) assignedSourceIdx.add(srcIdx);
+  }
+
+  // ── Phase 2: Match Individual Models ───────────────────
+  // Dest pool: individual models + any unmatched groups (a group in dest
+  // might be the best match for an individual source model)
+  const remainingDest = destModels.filter(
+    (_, i) => !assignedDestIdx.has(i),
+  );
+
+  const individualMappings = greedyMatch(
+    sourceIndividuals,
+    remainingDest,
+    sourceBounds,
+    destBounds,
+  );
+  for (const m of individualMappings) {
+    allMappings.push(m);
+  }
+
+  // ── Collect unused dest models ─────────────────────────
+  const usedDest = new Set(
+    allMappings
+      .filter((m) => m.destModel)
+      .map((m) => m.destModel!.name),
+  );
+  const unusedDestModels = destModels.filter((m) => !usedDest.has(m.name));
+
+  // ── Sort: Groups at top of each confidence tier ────────
+  const confidenceOrder: Record<Confidence, number> = {
+    high: 0,
+    medium: 1,
+    low: 2,
+    unmapped: 3,
+  };
+  allMappings.sort((a, b) => {
+    // Primary: confidence tier
+    const cDiff =
+      confidenceOrder[a.confidence] - confidenceOrder[b.confidence];
+    if (cDiff !== 0) return cDiff;
+    // Secondary: groups before individuals within same tier
+    const aGroup = a.sourceModel.isGroup ? 0 : 1;
+    const bGroup = b.sourceModel.isGroup ? 0 : 1;
+    if (aGroup !== bGroup) return aGroup - bGroup;
+    // Tertiary: higher score first
+    return b.score - a.score;
+  });
+
+  const mapped = allMappings.filter((m) => m.destModel !== null);
+  return {
+    mappings: allMappings,
+    totalSource: sourceModels.length,
+    totalDest: destModels.length,
+    mappedCount: mapped.length,
+    highConfidence: mapped.filter((m) => m.confidence === "high").length,
+    mediumConfidence: mapped.filter((m) => m.confidence === "medium").length,
+    lowConfidence: mapped.filter((m) => m.confidence === "low").length,
+    unmappedSource: sourceModels.length - mapped.length,
+    unmappedDest: unusedDestModels.length,
+    unusedDestModels,
+  };
+}
+
+/**
+ * Greedy matching within a pool of source and dest models.
+ * Returns mappings for all source models (matched or unmapped).
+ */
+function greedyMatch(
+  sources: ParsedModel[],
+  dests: ParsedModel[],
+  sourceBounds: NormalizedBounds,
+  destBounds: NormalizedBounds,
+): ModelMapping[] {
+  // Build score matrix
+  const entries: {
     srcIdx: number;
     destIdx: number;
     score: number;
     factors: ModelMapping["factors"];
   }[] = [];
 
-  for (let s = 0; s < sourceModels.length; s++) {
-    for (let d = 0; d < destModels.length; d++) {
+  for (let s = 0; s < sources.length; s++) {
+    for (let d = 0; d < dests.length; d++) {
       const { score, factors } = computeScore(
-        sourceModels[s],
-        destModels[d],
+        sources[s],
+        dests[d],
         sourceBounds,
         destBounds,
       );
-      // Only consider pairs with minimum type compatibility
-      if (factors.type > 0) {
-        scoreMatrix.push({ srcIdx: s, destIdx: d, score, factors });
+      // Only consider if there's some name or type affinity
+      if (score > 0.1) {
+        entries.push({ srcIdx: s, destIdx: d, score, factors });
       }
     }
   }
 
-  // Sort by score descending (greedy: assign best matches first)
-  scoreMatrix.sort((a, b) => b.score - a.score);
+  // Sort by score descending
+  entries.sort((a, b) => b.score - a.score);
 
-  const assignedSource = new Set<number>();
+  const assignedSrc = new Set<number>();
   const assignedDest = new Set<number>();
   const mappings: ModelMapping[] = [];
 
   // Greedy assignment
-  for (const entry of scoreMatrix) {
-    if (assignedSource.has(entry.srcIdx) || assignedDest.has(entry.destIdx)) {
+  for (const entry of entries) {
+    if (assignedSrc.has(entry.srcIdx) || assignedDest.has(entry.destIdx))
       continue;
-    }
 
-    const sourceModel = sourceModels[entry.srcIdx];
-    const destModel = destModels[entry.destIdx];
+    const sourceModel = sources[entry.srcIdx];
+    const destModel = dests[entry.destIdx];
     const confidence = scoreToConfidence(entry.score);
 
-    // Skip very low scores
-    if (entry.score < 0.15) continue;
+    // Don't assign if confidence is too low
+    if (confidence === "unmapped") continue;
 
     const mapping: ModelMapping = {
       sourceModel,
@@ -545,57 +793,24 @@ export function matchModels(
     mapping.reason = generateReason(mapping);
 
     mappings.push(mapping);
-    assignedSource.add(entry.srcIdx);
+    assignedSrc.add(entry.srcIdx);
     assignedDest.add(entry.destIdx);
   }
 
   // Add unmapped source models
-  for (let s = 0; s < sourceModels.length; s++) {
-    if (!assignedSource.has(s)) {
+  for (let s = 0; s < sources.length; s++) {
+    if (!assignedSrc.has(s)) {
       mappings.push({
-        sourceModel: sourceModels[s],
+        sourceModel: sources[s],
         destModel: null,
         score: 0,
         confidence: "unmapped",
-        factors: { type: 0, pixels: 0, spatial: 0, name: 0, submodel: 0 },
+        factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 },
         reason: "No suitable match found in your layout.",
         submodelMappings: [],
       });
     }
   }
 
-  // Collect unused dest models
-  const unusedDestModels: ParsedModel[] = [];
-  for (let d = 0; d < destModels.length; d++) {
-    if (!assignedDest.has(d)) {
-      unusedDestModels.push(destModels[d]);
-    }
-  }
-
-  // Sort: mapped first (high → medium → low), then unmapped
-  const confidenceOrder: Record<Confidence, number> = {
-    high: 0,
-    medium: 1,
-    low: 2,
-    unmapped: 3,
-  };
-  mappings.sort(
-    (a, b) =>
-      confidenceOrder[a.confidence] - confidenceOrder[b.confidence] ||
-      b.score - a.score,
-  );
-
-  const mapped = mappings.filter((m) => m.destModel !== null);
-  return {
-    mappings,
-    totalSource: sourceModels.length,
-    totalDest: destModels.length,
-    mappedCount: mapped.length,
-    highConfidence: mapped.filter((m) => m.confidence === "high").length,
-    mediumConfidence: mapped.filter((m) => m.confidence === "medium").length,
-    lowConfidence: mapped.filter((m) => m.confidence === "low").length,
-    unmappedSource: sourceModels.length - mapped.length,
-    unmappedDest: unusedDestModels.length,
-    unusedDestModels,
-  };
+  return mappings;
 }
