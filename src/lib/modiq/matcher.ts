@@ -285,7 +285,69 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
     }
   }
 
-  return Math.min(1.0, overlapScore + substringBonus + keywordBonus);
+  // Check aliases: if any alias of source matches dest (or vice versa)
+  let aliasBonus = 0;
+  for (const alias of source.aliases) {
+    const aliasNorm = normalizeName(alias.replace(/^oldname:/, ""));
+    if (aliasNorm === destNorm || aliasNorm === destBase) {
+      aliasBonus = 0.3;
+      break;
+    }
+  }
+  for (const alias of dest.aliases) {
+    const aliasNorm = normalizeName(alias.replace(/^oldname:/, ""));
+    if (aliasNorm === srcNorm || aliasNorm === srcBase) {
+      aliasBonus = 0.3;
+      break;
+    }
+  }
+
+  return Math.min(1.0, overlapScore + substringBonus + keywordBonus + aliasBonus);
+}
+
+/**
+ * Score how well two groups match based on their member model lists.
+ * Compares the base names of member models to find overlap.
+ * Returns 0..1 where 1 means identical member composition.
+ */
+function scoreMemberOverlap(source: ParsedModel, dest: ParsedModel): number {
+  const srcMembers = source.memberModels || [];
+  const destMembers = dest.memberModels || [];
+
+  if (srcMembers.length === 0 || destMembers.length === 0) return 0;
+
+  // Extract base names from member model names
+  const srcBases = new Set(srcMembers.map((m) => baseName(m)));
+  const destBases = new Set(destMembers.map((m) => baseName(m)));
+
+  // Count how many base names overlap
+  let matches = 0;
+  for (const b of srcBases) {
+    if (b.length > 0 && destBases.has(b)) matches++;
+  }
+
+  if (matches === 0) {
+    // Try token-level matching for cross-language cases
+    const srcTokenSets = srcMembers.map((m) => tokenize(normalizeName(m)));
+    const destTokenSets = destMembers.map((m) => tokenize(normalizeName(m)));
+
+    let tokenMatches = 0;
+    for (const srcSet of srcTokenSets) {
+      for (const destSet of destTokenSets) {
+        let overlap = 0;
+        for (const t of srcSet) {
+          if (destSet.has(t)) overlap++;
+        }
+        if (overlap / Math.max(srcSet.size, destSet.size) > 0.5) {
+          tokenMatches++;
+          break;
+        }
+      }
+    }
+    return tokenMatches / Math.max(srcMembers.length, destMembers.length);
+  }
+
+  return matches / Math.max(srcBases.size, destBases.size);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -511,6 +573,19 @@ function computeScore(
     type: scoreType(source, dest),
     pixels: scorePixels(source, dest),
   };
+
+  // For group-vs-group matching, blend in member overlap as a strong signal.
+  // Member overlap replaces spatial/shape/pixels which don't apply to groups.
+  if (source.isGroup && dest.isGroup) {
+    const memberScore = scoreMemberOverlap(source, dest);
+    // Groups: Name 35%, Members 40%, Type 10%, Spatial 15%
+    const score =
+      factors.name * 0.35 +
+      memberScore * 0.4 +
+      factors.type * 0.1 +
+      factors.spatial * 0.15;
+    return { score, factors };
+  }
 
   const score =
     factors.name * WEIGHTS.name +
