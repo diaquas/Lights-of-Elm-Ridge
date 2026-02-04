@@ -22,6 +22,14 @@
  *   - "NO" in group names prevents cross-matching
  *   - Holiday mismatch detection (Halloween vs Christmas indicators)
  *   - GE vendor prefix requires exact product line match
+ *
+ * Training-derived rules (V2.2):
+ *   - House-location terms deprioritize name, boost type (office, garage, etc.)
+ *   - Flood↔Line interop: floods can match Line-type models
+ *   - Singing face/prop boost with number matching
+ *   - Eave/vert individual deprioritization against non-house-line models
+ *   - Group-only children detection: lower confidence when no children exposed
+ *   - Phase 3 quantity matching: cross-prop class matching for unmapped models
  */
 
 import type { ParsedModel } from "./parser";
@@ -277,6 +285,17 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
     extractIndex(source.name) !== -1
   ) {
     return 1.0;
+  }
+
+  // Singing face/prop: boost when both models are singing types.
+  // Use numbers when possible; otherwise fall back to nodes/submodels.
+  if (isSinging(source) && isSinging(dest)) {
+    const srcIdx = extractIndex(source.name);
+    const destIdx = extractIndex(dest.name);
+    if (srcIdx !== -1 && destIdx !== -1 && srcIdx === destIdx) {
+      return 1.0; // Same singing face number
+    }
+    return 0.85; // Both singing — rank by nodes/submodels
   }
 
   // Tokenized overlap with synonym expansion
@@ -554,11 +573,11 @@ const RELATED_TYPES: Record<string, string[]> = {
   Matrix: [],
   Fence: [],
   Sign: [],
-  Line: ["Roofline", "Outline"],
+  Line: ["Roofline", "Outline", "Flood"],
   Roofline: ["Line"],
   Outline: ["Line", "Roofline"],
   Pole: ["Line"],
-  Flood: [],
+  Flood: ["Line"],
   Window: [],
   "Pixel Forest": ["Matrix", "Fence"],
   "Singing Face": ["Custom"],
@@ -672,6 +691,87 @@ function extractGeProduct(name: string): string | null {
   return null;
 }
 
+/** House-location terms — rooms/areas of a house. Models with these are
+ *  location-qualified (e.g. "Office Eave 1") and name matching should be
+ *  deprioritized in favor of type matching. */
+const HOUSE_LOCATION_TERMS =
+  /\b(office|garage|door|living\s*room|bedroom|dining\s*room|bathroom|kitchen|hallway|porch|patio|den|foyer|attic|basement|laundry|closet|pantry|loft)\b/i;
+
+function hasHouseLocation(model: ParsedModel): boolean {
+  return HOUSE_LOCATION_TERMS.test(model.name);
+}
+
+/** Check if a model is a Line type (for Flood↔Line interop). */
+function isLineType(model: ParsedModel): boolean {
+  return (
+    model.type === "Line" ||
+    model.displayAs.toLowerCase() === "single line" ||
+    model.displayAs.toLowerCase() === "poly line"
+  );
+}
+
+/** Check if a model is a house-line structural element. */
+const HOUSE_LINE_PATTERN =
+  /\b(eave|vert(?:ical)?|roof(?:line)?|outline|horizontal|gutter)\b/i;
+
+function isHouseLine(model: ParsedModel): boolean {
+  return (
+    HOUSE_LINE_PATTERN.test(model.name) ||
+    model.type === "Roofline" ||
+    model.type === "Outline"
+  );
+}
+
+/** Check if a model is a singing face/prop. */
+function isSinging(model: ParsedModel): boolean {
+  return /\bsinging\b/i.test(model.name);
+}
+
+/** Interchangeability classes — props within the same class can cross-match
+ *  during quantity matching when no exact-type match exists in the dest. */
+const INTERCHANGEABLE_CLASSES: Record<string, string[]> = {
+  halloween_yard: [
+    "pumpkin",
+    "ghost",
+    "tombstone",
+    "skeleton",
+    "spider",
+    "bat",
+    "skull",
+    "witch",
+    "zombie",
+    "reaper",
+    "scarecrow",
+    "cauldron",
+    "coffin",
+  ],
+  christmas_yard: [
+    "snowman",
+    "present",
+    "gift",
+    "candy cane",
+    "stocking",
+    "nutcracker",
+    "ornament",
+  ],
+  tree: ["tree", "mega tree", "megatree", "spiral"],
+  arch: ["arch", "archway", "candy cane", "cane"],
+  star_flake: ["star", "snowflake", "flake"],
+  wreath_spinner: ["wreath", "spinner", "rosa", "fuzion"],
+  structural_line: ["eave", "vertical", "roofline", "outline", "horizontal"],
+};
+
+/** Get the interchangeability class for a model, or null if none. */
+function getInterchangeClass(model: ParsedModel): string | null {
+  const n = model.name.toLowerCase();
+  for (const [cls, keywords] of Object.entries(INTERCHANGEABLE_CLASSES)) {
+    for (const kw of keywords) {
+      if (n.includes(kw)) return cls;
+    }
+  }
+  return null;
+}
+
 function computeScore(
   source: ParsedModel,
   dest: ParsedModel,
@@ -695,10 +795,17 @@ function computeScore(
     }
   }
 
-  // Flood type-lock: floods only match other floods
-  if (isFloodType(source) !== isFloodType(dest)) {
-    if (!(source.isGroup && dest.isGroup)) {
-      return { score: 0, factors: zeroFactors };
+  // Flood type-lock: floods match other floods or lines (many sequences
+  // build floods as a line of very few, very large pixels)
+  if (isFloodType(source) || isFloodType(dest)) {
+    const bothFlood = isFloodType(source) && isFloodType(dest);
+    const floodLine =
+      (isFloodType(source) && isLineType(dest)) ||
+      (isFloodType(dest) && isLineType(source));
+    if (!bothFlood && !floodLine) {
+      if (!(source.isGroup && dest.isGroup)) {
+        return { score: 0, factors: zeroFactors };
+      }
     }
   }
 
@@ -752,12 +859,40 @@ function computeScore(
     return { score, factors };
   }
 
-  const score =
+  // House-location terms: deprioritize name, boost type when model name
+  // contains room/area qualifiers (e.g. "Office Eave 1", "Garage Outline")
+  if (
+    (hasHouseLocation(source) || hasHouseLocation(dest)) &&
+    !source.isGroup &&
+    !dest.isGroup
+  ) {
+    const houseScore =
+      factors.name * 0.25 +
+      factors.spatial * WEIGHTS.spatial +
+      factors.shape * WEIGHTS.shape +
+      factors.type * 0.27 +
+      factors.pixels * WEIGHTS.pixels;
+    return { score: houseScore, factors };
+  }
+
+  let score =
     factors.name * WEIGHTS.name +
     factors.spatial * WEIGHTS.spatial +
     factors.shape * WEIGHTS.shape +
     factors.type * WEIGHTS.type +
     factors.pixels * WEIGHTS.pixels;
+
+  // Eave/vert individual models should preferably match other house-line
+  // models (eave, vert, roofline, outline), not random props
+  const srcIsEaveVert =
+    /\b(eave|vert(?:ical)?)\b/i.test(source.name) && !source.isGroup;
+  const destIsEaveVert =
+    /\b(eave|vert(?:ical)?)\b/i.test(dest.name) && !dest.isGroup;
+  if (srcIsEaveVert && !isHouseLine(dest) && !dest.isGroup) {
+    score *= 0.4;
+  } else if (destIsEaveVert && !isHouseLine(source) && !source.isGroup) {
+    score *= 0.4;
+  }
 
   return { score, factors };
 }
@@ -964,6 +1099,139 @@ export function matchModels(
   );
   for (const m of individualMappings) {
     allMappings.push(m);
+  }
+
+  // ── Post-processing: Group-only children detection ─────
+  // When a dest group has member model names listed but none of those
+  // members exist as individual models in the dest layout, the match
+  // is less verifiable — lower confidence by one tier.
+  for (const mapping of allMappings) {
+    if (
+      mapping.destModel &&
+      mapping.destModel.isGroup &&
+      mapping.confidence !== "unmapped"
+    ) {
+      const members = mapping.destModel.memberModels || [];
+      if (members.length > 0) {
+        const hasExposedChildren = members.some((memberName) => {
+          const mb = baseName(memberName);
+          return (
+            mb.length > 0 &&
+            destIndividuals.some((d) => baseName(d.name) === mb)
+          );
+        });
+        if (!hasExposedChildren) {
+          if (mapping.confidence === "high") {
+            mapping.confidence = "medium";
+            mapping.reason += " · Group children not exposed in layout";
+          } else if (mapping.confidence === "medium") {
+            mapping.confidence = "low";
+            mapping.reason += " · Group children not exposed in layout";
+          }
+        }
+      }
+    }
+  }
+
+  // ── Phase 3: Quantity matching for unmapped source models ──
+  // After exact matching, try to cross-match unmapped source models
+  // to unused dest models within the same interchangeability class
+  // (e.g. 8 pumpkins → 7 ghosts when no pumpkins exist in dest).
+  const unmappedSources = allMappings
+    .filter((m) => m.destModel === null && !m.sourceModel.isGroup)
+    .map((m) => m.sourceModel);
+
+  if (unmappedSources.length > 0) {
+    const usedDestSoFar = new Set(
+      allMappings.filter((m) => m.destModel).map((m) => m.destModel!.name),
+    );
+    const unusedDests = destModels.filter(
+      (m) => !m.isGroup && !usedDestSoFar.has(m.name),
+    );
+
+    if (unusedDests.length > 0) {
+      // Group unmapped sources by interchangeability class
+      const unmappedByClass = new Map<string, ParsedModel[]>();
+      for (const src of unmappedSources) {
+        const cls = getInterchangeClass(src);
+        if (cls) {
+          if (!unmappedByClass.has(cls)) unmappedByClass.set(cls, []);
+          unmappedByClass.get(cls)!.push(src);
+        }
+      }
+
+      // Group unused dests by interchangeability class
+      const unusedByClass = new Map<string, ParsedModel[]>();
+      for (const dest of unusedDests) {
+        const cls = getInterchangeClass(dest);
+        if (cls) {
+          if (!unusedByClass.has(cls)) unusedByClass.set(cls, []);
+          unusedByClass.get(cls)!.push(dest);
+        }
+      }
+
+      // Match within same interchangeability class
+      for (const [cls, srcModels] of unmappedByClass) {
+        const destPool = unusedByClass.get(cls);
+        if (!destPool || destPool.length === 0) continue;
+
+        // Sort both by numeric index for ordinal matching
+        const sortedSrc = [...srcModels].sort(
+          (a, b) => extractIndex(a.name) - extractIndex(b.name),
+        );
+        const sortedDest = [...destPool].sort(
+          (a, b) => extractIndex(a.name) - extractIndex(b.name),
+        );
+
+        const usedDestInClass = new Set<number>();
+        for (const src of sortedSrc) {
+          let bestIdx = -1;
+          let bestScore = 0;
+          for (let d = 0; d < sortedDest.length; d++) {
+            if (usedDestInClass.has(d)) continue;
+            const dest = sortedDest[d];
+            // Score: blend of name similarity + node count similarity
+            const nameS = scoreName(src, dest);
+            const pixS = scorePixels(src, dest);
+            const combined = nameS * 0.6 + pixS * 0.4;
+            if (combined > bestScore) {
+              bestScore = combined;
+              bestIdx = d;
+            }
+          }
+
+          if (bestIdx >= 0 && bestScore > 0.15) {
+            usedDestInClass.add(bestIdx);
+            const destMatch = sortedDest[bestIdx];
+            // Penalize cross-prop matches (cap at 0.7x original)
+            const finalScore = bestScore * 0.7;
+            const subMappings = mapSubmodels(src, destMatch);
+
+            // Update the existing unmapped entry in allMappings
+            const mappingIdx = allMappings.findIndex(
+              (m) => m.sourceModel === src && m.destModel === null,
+            );
+            if (mappingIdx >= 0) {
+              allMappings[mappingIdx] = {
+                sourceModel: src,
+                destModel: destMatch,
+                score: finalScore,
+                confidence: scoreToConfidence(finalScore),
+                factors: {
+                  name: scoreName(src, destMatch),
+                  spatial: 0,
+                  shape: scoreShape(src, destMatch),
+                  type: scoreType(src, destMatch),
+                  pixels: scorePixels(src, destMatch),
+                },
+                reason: `Quantity match (${cls.replace(/_/g, " ")})`,
+                submodelMappings: subMappings,
+              };
+            }
+          }
+        }
+      }
+    }
   }
 
   // ── Collect unused dest models ─────────────────────────
