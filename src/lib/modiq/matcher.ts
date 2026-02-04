@@ -1559,3 +1559,56 @@ function greedyMatch(
 
   return mappings;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Public Helpers for Interactive Mapping (V2)
+// ═══════════════════════════════════════════════════════════════════
+
+export { mapSubmodels, scoreToConfidence };
+
+/**
+ * Return ranked match suggestions for a given dest model against a pool
+ * of source models. Used by the interactive mapping UI to populate
+ * the remap dropdown with scored candidates.
+ */
+export function suggestMatches(
+  destModel: ParsedModel,
+  sourcePool: ParsedModel[],
+  allSourceModels: ParsedModel[],
+  allDestModels: ParsedModel[],
+): {
+  model: ParsedModel;
+  score: number;
+  confidence: Confidence;
+  factors: ModelMapping["factors"];
+}[] {
+  const sourceBounds = getNormalizedBounds(allSourceModels);
+  const destBounds = getNormalizedBounds(allDestModels);
+
+  const suggestions: {
+    model: ParsedModel;
+    score: number;
+    confidence: Confidence;
+    factors: ModelMapping["factors"];
+  }[] = [];
+
+  for (const source of sourcePool) {
+    const { score, factors } = computeScore(
+      source,
+      destModel,
+      sourceBounds,
+      destBounds,
+    );
+    if (score > 0.05) {
+      suggestions.push({
+        model: source,
+        score,
+        confidence: scoreToConfidence(score),
+        factors,
+      });
+    }
+  }
+
+  suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.slice(0, 20);
+}

@@ -15,7 +15,12 @@ export {
 } from "./source-layout";
 export type { SourceModel } from "./source-layout";
 
-export { matchModels } from "./matcher";
+export {
+  matchModels,
+  suggestMatches,
+  mapSubmodels,
+  scoreToConfidence,
+} from "./matcher";
 export type {
   Confidence,
   ModelMapping,
