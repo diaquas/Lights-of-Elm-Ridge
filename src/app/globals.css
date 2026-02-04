@@ -2464,17 +2464,17 @@ html {
 
 .hotspot-dot {
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--seq-accent);
-  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  background: #ef4444;
+  border: none;
   position: relative;
   z-index: 2;
   transition:
     transform 0.25s,
     box-shadow 0.25s;
-  box-shadow: 0 0 0 0 var(--seq-accent-glow);
+  box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.5);
 }
 
 .hotspot-dot::before {
@@ -2534,8 +2534,8 @@ html {
 /* Hotspot Card */
 .hotspot-card {
   z-index: 20;
-  width: 280px;
-  max-height: 360px;
+  width: 300px;
+  max-height: 400px;
   background: var(--seq-surface);
   border: 1px solid var(--seq-surface-border);
   border-radius: var(--seq-radius-md);
@@ -2675,6 +2675,48 @@ html {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.card-item-thumb {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--seq-radius-xs);
+  background: var(--seq-surface-raised);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-item-thumb-placeholder {
+  font-size: 18px;
+  opacity: 0.5;
+}
+
+a.card-item {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.card-item-arrow {
+  flex-shrink: 0;
+  color: var(--seq-text-tertiary);
+  transition:
+    color 0.15s,
+    transform 0.15s;
+}
+
+.card-item:hover .card-item-arrow {
+  color: var(--seq-accent);
+  transform: translateX(2px);
 }
 
 /* Mobile backdrop */
