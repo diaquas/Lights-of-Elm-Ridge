@@ -398,14 +398,81 @@ function HotspotCardContent({ hotspot }: { hotspot: Hotspot }) {
   );
 }
 
+// Controller data
+const controllers = [
+  {
+    icon: "⚡",
+    name: "HinksPix PRO V3",
+    meta: "48 ports · 171 universes",
+    quantity: 1,
+    url: "https://www.holidaycoro.com",
+  },
+  {
+    icon: "📡",
+    name: "4-Port Differential Receivers",
+    meta: "long range smart receivers",
+    quantity: 6,
+    url: "https://www.holidaycoro.com/Ready2Run-4-8-SPI-Flex-Long-Range-SMART-Receiver-p/936.htm",
+  },
+  {
+    icon: "🔌",
+    name: "Smart Receivers",
+    meta: "flex expansion boards",
+    quantity: 3,
+    url: "https://www.holidaycoro.com/Flex-Long-Range-Differential-Rec",
+  },
+  {
+    icon: "🎛️",
+    name: "AlphaPix 16",
+    meta: "mega tree · 18 universes",
+    quantity: 1,
+    url: "https://www.holidaycoro.com",
+  },
+];
+
+function ChevronDown({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function ChevronRight() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
 export default function LayoutExplorer() {
   const [activeHotspot, setActiveHotspot] = useState<string | null>(null);
   const [cardPosition, setCardPosition] = useState<{
     x: number;
     y: number;
   } | null>(null);
+  const [controllersOpen, setControllersOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   // Calculate card position when hotspot is clicked
   const handleHotspotClick = (hotspot: Hotspot, event: React.MouseEvent) => {
@@ -435,14 +502,14 @@ export default function LayoutExplorer() {
     setActiveHotspot(hotspot.id);
   };
 
-  // Close on click outside
+  // Close on click outside — check against any .hotspot-card, not just one ref
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
       if (
         activeHotspot &&
-        cardRef.current &&
-        !cardRef.current.contains(event.target as Node) &&
-        !(event.target as HTMLElement).closest(".hotspot-dot")
+        !target.closest(".hotspot-card") &&
+        !target.closest(".hotspot-dot")
       ) {
         setActiveHotspot(null);
         setCardPosition(null);
@@ -472,16 +539,11 @@ export default function LayoutExplorer() {
     <div className="layout-explorer">
       {/* Header */}
       <div className="explorer-header">
-        <div className="explorer-label">Interactive Layout</div>
         <h3 className="explorer-title">Explore the Display</h3>
         <p className="explorer-subtitle">
           Click any hotspot to see what&apos;s there — every prop, every pixel
           count.
         </p>
-        <div className="explorer-hint">
-          <span className="explorer-hint-dot" />
-          Click the red dots to explore each area
-        </div>
       </div>
 
       {/* Layout Map */}
@@ -511,6 +573,47 @@ export default function LayoutExplorer() {
             priority
             unoptimized
           />
+
+          {/* Controllers overlay - top left curtain */}
+          <div className={`ctrl-overlay ${controllersOpen ? "open" : ""}`}>
+            <button
+              className="ctrl-tab"
+              onClick={() => setControllersOpen(!controllersOpen)}
+              aria-expanded={controllersOpen}
+              aria-controls="ctrlPanel"
+            >
+              <div className="ctrl-tab-left">
+                <span className="ctrl-tab-icon">🎛️</span>
+                <span className="ctrl-tab-label">Controllers</span>
+              </div>
+              <ChevronDown className="ctrl-tab-chevron" />
+            </button>
+            <div className="ctrl-panel" id="ctrlPanel">
+              <div className="ctrl-items">
+                {controllers.map((ctrl) => (
+                  <a
+                    key={ctrl.name}
+                    href={ctrl.url}
+                    className="ctrl-item"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <div className="ctrl-item-icon">{ctrl.icon}</div>
+                    <div className="ctrl-item-info">
+                      <div className="ctrl-item-name">{ctrl.name}</div>
+                      <div className="ctrl-item-meta">
+                        <span className="ctrl-item-qty">x{ctrl.quantity}</span>
+                        {ctrl.meta}
+                      </div>
+                    </div>
+                    <span className="ctrl-item-arrow">
+                      <ChevronRight />
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Hotspots */}
@@ -534,7 +637,6 @@ export default function LayoutExplorer() {
         {/* Desktop Card - positioned absolutely */}
         {activeHotspotData && cardPosition && (
           <div
-            ref={cardRef}
             className="hotspot-card desktop-card"
             style={{
               left: cardPosition.x,
@@ -547,7 +649,7 @@ export default function LayoutExplorer() {
 
         {/* Mobile Card - fixed at bottom */}
         {activeHotspotData && (
-          <div ref={cardRef} className="hotspot-card mobile-card">
+          <div className="hotspot-card mobile-card">
             <div className="card-header">
               <div className="card-header-left">
                 <span className="card-icon">{activeHotspotData.icon}</span>
