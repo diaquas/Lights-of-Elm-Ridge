@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   icons: {
     icon: { url: "/favicon.svg", type: "image/svg+xml" },
     shortcut: "/favicon.svg",
-    apple: "/logo.jpg",
+    apple: "/apple-touch-icon.png",
   },
   openGraph: {
     type: "website",
@@ -40,19 +40,19 @@ export const metadata: Metadata = {
       "Professional xLights sequences for Halloween and Christmas displays. Real show footage, behind-the-scenes content, and custom sequencing services.",
     images: [
       {
-        url: "/logo.jpg",
-        width: 512,
-        height: 512,
-        alt: "Lights of Elm Ridge Logo",
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Lights of Elm Ridge — Professional xLights Sequences",
       },
     ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Lights of Elm Ridge | xLights Sequences",
     description:
       "Professional xLights sequences for Halloween and Christmas displays.",
-    images: ["/logo.jpg"],
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
@@ -69,7 +69,7 @@ const organizationSchema = {
   "@type": "Organization",
   name: "Lights of Elm Ridge",
   url: "https://lightsofelmridge.com",
-  logo: "https://lightsofelmridge.com/logo.jpg",
+  logo: "https://lightsofelmridge.com/og-image.png",
   description:
     "Professional xLights sequences for Halloween and Christmas displays.",
   sameAs: ["https://www.youtube.com/@LightsofElmRidge"],
