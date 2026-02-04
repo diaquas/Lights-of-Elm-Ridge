@@ -27,8 +27,8 @@ export const metadata: Metadata = {
   authors: [{ name: "Lights of Elm Ridge" }],
   creator: "Lights of Elm Ridge",
   icons: {
-    icon: "/logo.jpg",
-    shortcut: "/logo.jpg",
+    icon: { url: "/favicon.svg", type: "image/svg+xml" },
+    shortcut: "/favicon.svg",
     apple: "/logo.jpg",
   },
   openGraph: {

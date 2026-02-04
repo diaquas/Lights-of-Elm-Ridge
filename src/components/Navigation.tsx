@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -68,16 +67,11 @@ export default function Navigation() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 group">
-              <Image
-                src="/logo.jpg"
-                alt="Lights of Elm Ridge"
-                width={48}
-                height={48}
-                className="rounded-lg"
-              />
-              <span className="font-bold text-lg gradient-text hidden sm:inline">
-                Lights of Elm Ridge
+            <Link href="/" className="site-logo">
+              <span className="site-logo-top">LIGHTS</span>
+              <span className="site-logo-bottom">
+                <span className="site-logo-of">of</span>
+                <span className="site-logo-place">Elm Ridge</span>
               </span>
             </Link>
 
