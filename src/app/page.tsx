@@ -1,20 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { sequences, getThumbnailUrl } from "@/data/sequences";
-import Testimonials from "@/components/Testimonials";
-
-// Get 4 featured sequences for the homepage grid
-const featuredSequences = sequences.slice(0, 4);
-
-// Helper to get best available image for a sequence
-function getSequenceImage(sequence: (typeof sequences)[0]): string {
-  return (
-    sequence.thumbnailUrl ||
-    getThumbnailUrl(sequence.youtubeId) ||
-    sequence.artworkUrl ||
-    "/logo.jpg"
-  );
-}
 
 export default function Home() {
   return (
@@ -69,7 +54,7 @@ export default function Home() {
               </svg>
             </Link>
             <Link
-              href="/the-show"
+              href="/the-show#display"
               className="inline-flex items-center gap-2 px-6 py-3 bg-white/6 hover:bg-white/8 text-foreground font-semibold rounded-lg border border-white/8 hover:border-white/14 transition-all"
             >
               <svg
@@ -85,7 +70,7 @@ export default function Home() {
                   strokeLinejoin="round"
                 />
               </svg>
-              Watch The Show
+              Explore the Display
             </Link>
           </div>
           <p className="mt-3.5 text-[13px] text-foreground/40 italic">
@@ -95,231 +80,143 @@ export default function Home() {
       </section>
 
       {/* ════════════════════════════════════════════════════
-          QUICK-NAV STRIP — "What We're Plugging In"
-          Lightweight 3-column, one sentence each, arrow links.
-          Paths: Sequences / The Show / Build Your Show
+          LATEST DROPS — featured sequence cards
+          Album art, song name, artist, price
           ════════════════════════════════════════════════════ */}
-      <section className="max-w-[1100px] mx-auto px-8">
-        <div className="pt-9 pb-1.5">
-          <h2 className="text-[22px] font-bold tracking-tight">
-            What We&apos;re Plugging In
-          </h2>
-          <p className="text-sm text-foreground/40 mt-0.5">
-            Three ways to get your light show fix. No cover charge, but tips are
-            appreciated.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4">
-          {/* Card: Sequences */}
-          <Link
-            href="/sequences"
-            className="group flex flex-col p-5 bg-surface border border-border rounded-[10px] transition-all duration-300 hover:border-border/60 hover:bg-surface-light hover:-translate-y-0.5"
-          >
-            <span className="text-[22px] leading-none mb-2.5">🎵</span>
-            <div className="text-base font-bold tracking-tight mb-1">
-              xLights Sequences
-            </div>
-            <p className="text-[13.5px] text-foreground/60 leading-snug flex-1">
-              Meticulously crafted sequences ready to drop into your show — free
-              starters and premium packs, all with mockup previews.
-            </p>
-            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent mt-3 transition-all group-hover:gap-2">
-              Explore Sequences
-              <svg
-                className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                viewBox="0 0 24 24"
-              >
-                <polyline
-                  points="9 18 15 12 9 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-          </Link>
-
-          {/* Card: The Show */}
-          <Link
-            href="/the-show"
-            className="group flex flex-col p-5 bg-surface border border-border rounded-[10px] transition-all duration-300 hover:border-border/60 hover:bg-surface-light hover:-translate-y-0.5"
-          >
-            <span className="text-[22px] leading-none mb-2.5">🏠</span>
-            <div className="text-base font-bold tracking-tight mb-1">
-              The Real Show
-            </div>
-            <p className="text-[13.5px] text-foreground/60 leading-snug flex-1">
-              Real house, real pixels, no smoke and mirrors — full recordings,
-              individual songs, and proof it actually works.
-            </p>
-            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent mt-3 transition-all group-hover:gap-2">
-              Watch The Show
-              <svg
-                className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                viewBox="0 0 24 24"
-              >
-                <polyline
-                  points="9 18 15 12 9 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-          </Link>
-
-          {/* Card: Build Your Show */}
-          <Link
-            href="/build-your-show"
-            className="group flex flex-col p-5 bg-surface border border-border rounded-[10px] transition-all duration-300 hover:border-border/60 hover:bg-surface-light hover:-translate-y-0.5"
-          >
-            <span className="text-[22px] leading-none mb-2.5">🔧</span>
-            <div className="text-base font-bold tracking-tight mb-1">
-              Build Your Show
-            </div>
-            <p className="text-[13.5px] text-foreground/60 leading-snug flex-1">
-              Gear guides, shopping lists, and the wizard tool that builds your
-              first display — from &quot;what&apos;s a pixel?&quot; to opening
-              night.
-            </p>
-            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent mt-3 transition-all group-hover:gap-2">
-              Start Building
-              <svg
-                className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                viewBox="0 0 24 24"
-              >
-                <polyline
-                  points="9 18 15 12 9 6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </span>
-          </Link>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════
-          FRESH OFF THE TIMELINE — latest sequences
-          Uses unified card component matching the listing page.
-          ════════════════════════════════════════════════════ */}
-      <section className="max-w-[1100px] mx-auto px-8">
-        <div className="flex items-baseline justify-between pt-11 pb-4 gap-3">
-          <div className="flex items-center gap-2.5">
-            <span className="text-lg">✨</span>
-            <h2 className="text-[22px] font-bold tracking-tight">
-              Fresh Off the Timeline
-            </h2>
-            <span className="text-sm text-foreground/40 ml-1">
-              Latest sequences, still warm from the render farm.
+      <section className="latest-section">
+        <div className="latest-header">
+          <div className="latest-header-left">
+            <h2 className="latest-title">Latest Drops</h2>
+            <span className="latest-subtitle">
+              Fresh sequences ready to run
             </span>
           </div>
-          <Link
-            href="/sequences"
-            className="hidden md:flex items-center gap-1 text-[13px] text-foreground/60 font-medium px-3.5 py-1.5 rounded-md bg-white/6 border border-white/8 hover:bg-white/8 hover:text-foreground transition-colors"
-          >
-            View All
+          <Link href="/sequences" className="latest-see-all">
+            See all sequences
             <svg
-              className="w-3 h-3"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
               strokeWidth={2.2}
-              viewBox="0 0 24 24"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <polyline
-                points="9 18 15 12 9 6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <polyline points="9 18 15 12 9 6" />
             </svg>
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {featuredSequences.map((sequence) => (
-            <Link
-              key={sequence.id}
-              href={`/sequences/${sequence.slug}`}
-              className="group block bg-surface border border-border rounded-[10px] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-border/60 hover:shadow-lg hover:shadow-black/30"
-            >
-              {/* Thumbnail */}
-              <div className="relative aspect-video overflow-hidden bg-black/50">
-                <Image
-                  src={getSequenceImage(sequence)}
-                  alt={`${sequence.title} by ${sequence.artist}`}
-                  fill
-                  className="object-cover transition-transform duration-400 group-hover:scale-[1.03]"
-                  unoptimized
-                />
-                {/* Badges */}
-                <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-500/12 text-amber-500">
-                    {sequence.category}
-                  </span>
-                  {sequence.yearAdded === 2026 && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-green-500/12 text-green-500">
-                      New
-                    </span>
-                  )}
-                </div>
-              </div>
-              {/* Body */}
-              <div className="p-3">
-                <div className="text-sm font-semibold text-foreground leading-tight truncate">
-                  {sequence.title}
-                </div>
-                <div className="text-xs text-foreground/40 truncate">
-                  {sequence.artist}
-                </div>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-[15px] font-bold">
-                    {sequence.price === 0 ? "FREE" : `$${sequence.price}`}
-                  </span>
-                  <span className="text-xs font-semibold text-accent flex items-center gap-1">
-                    View →
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        <div className="pt-5 text-center">
+        <div className="latest-grid">
           <Link
-            href="/sequences"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground/60 px-6 py-2.5 rounded-lg bg-white/6 border border-white/8 hover:bg-white/8 hover:text-foreground transition-colors"
+            href="/sequences/i-think-were-alone-now"
+            className="latest-card"
           >
-            View All Sequences
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.2}
-              viewBox="0 0 24 24"
-            >
-              <polyline
-                points="9 18 15 12 9 6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+            <div className="latest-card-thumb">
+              <Image
+                src="https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31"
+                alt=""
+                width={300}
+                height={300}
+                className="latest-card-img"
+                unoptimized
               />
-            </svg>
+              <span className="latest-card-badge badge-new">New</span>
+            </div>
+            <div className="latest-card-body">
+              <div className="latest-card-title">
+                I Think We&apos;re Alone Now
+              </div>
+              <div className="latest-card-artist">Hidden Citizens</div>
+              <div className="latest-card-price">$20</div>
+            </div>
+          </Link>
+
+          <Link href="/sequences/wellerman-sea-shanty" className="latest-card">
+            <div className="latest-card-thumb">
+              <Image
+                src="/wellermanmain.png"
+                alt=""
+                width={300}
+                height={300}
+                className="latest-card-img"
+                unoptimized
+              />
+              <span className="latest-card-badge badge-new">New</span>
+            </div>
+            <div className="latest-card-body">
+              <div className="latest-card-title">Wellerman Sea Shanty</div>
+              <div className="latest-card-artist">2WEI</div>
+              <div className="latest-card-price">$20</div>
+            </div>
+          </Link>
+
+          <Link href="/sequences/in-the-air-tonight" className="latest-card">
+            <div className="latest-card-thumb">
+              <Image
+                src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjSf3UrSAQfwnaylGcVjyRvdMXp5-qn72SG0GHTvv6kOUzIOhPAastqwB_FaoQlXZLuu_kRc1rfg2yhVF2msc20MaSYqs14Wvc9ibY4tT2e8_AYtZeKvfBVUPhX0ZbDz7lt9rsQ2WynFAM/s633/phil+collins+in+the+air+tonight+deer+main.jpg"
+                alt=""
+                width={300}
+                height={300}
+                className="latest-card-img"
+                unoptimized
+              />
+              <span className="latest-card-badge badge-new">New</span>
+            </div>
+            <div className="latest-card-body">
+              <div className="latest-card-title">In the Air Tonight</div>
+              <div className="latest-card-artist">Phil Collins</div>
+              <div className="latest-card-price">$20</div>
+            </div>
+          </Link>
+
+          <Link
+            href="/sequences/spooky-scary-skeletons"
+            className="latest-card"
+          >
+            <div className="latest-card-thumb">
+              <Image
+                src="/spookymain.png"
+                alt=""
+                width={300}
+                height={300}
+                className="latest-card-img"
+                unoptimized
+              />
+              <span className="latest-card-badge badge-free">Free</span>
+            </div>
+            <div className="latest-card-body">
+              <div className="latest-card-title">Spooky Scary Skeletons</div>
+              <div className="latest-card-artist">Andrew Gold</div>
+              <div className="latest-card-price">Free</div>
+            </div>
           </Link>
         </div>
       </section>
 
       {/* ════════════════════════════════════════════════════
-          TESTIMONIALS — social proof section
-          Customer reviews and stats
+          STATS BAR — slim credibility strip
           ════════════════════════════════════════════════════ */}
-      <Testimonials />
+      <div className="stats-bar">
+        <div className="stats-bar-inner">
+          <span className="stats-bar-item">
+            <strong>35k+</strong> pixels
+          </span>
+          <span className="stats-bar-sep">·</span>
+          <span className="stats-bar-item">
+            <strong>20</strong> original sequences
+          </span>
+          <span className="stats-bar-sep">·</span>
+          <span className="stats-bar-item">
+            <strong>62</strong> songs in the playlist
+          </span>
+          <span className="stats-bar-sep">·</span>
+          <span className="stats-bar-item">
+            <strong>FM 87.9</strong> tune in live
+          </span>
+        </div>
+      </div>
 
       {/* ════════════════════════════════════════════════════
           YOUTUBE SUBSCRIBE STRIP
