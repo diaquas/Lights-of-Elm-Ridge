@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { sequences, getThumbnailUrl } from "@/data/sequences";
+import Testimonials from "@/components/Testimonials";
 
 // Get 4 featured sequences for the homepage grid
 const featuredSequences = sequences.slice(0, 4);
@@ -313,6 +314,12 @@ export default function Home() {
           </Link>
         </div>
       </section>
+
+      {/* ════════════════════════════════════════════════════
+          TESTIMONIALS — social proof section
+          Customer reviews and stats
+          ════════════════════════════════════════════════════ */}
+      <Testimonials />
 
       {/* ════════════════════════════════════════════════════
           YOUTUBE SUBSCRIBE STRIP
