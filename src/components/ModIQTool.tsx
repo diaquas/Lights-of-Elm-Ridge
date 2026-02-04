@@ -496,7 +496,7 @@ export default function ModIQTool() {
               onClick={handleExportReport}
               className="px-6 py-4 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-all"
             >
-              Export Report (.txt)
+              Export Report (.csv)
             </button>
             <button
               onClick={handleReset}
