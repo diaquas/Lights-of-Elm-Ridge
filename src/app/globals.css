@@ -2357,6 +2357,376 @@ html {
   text-align: center;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT EXPLORER — Interactive hotspot map
+   ═══════════════════════════════════════════════════════════ */
+
+.layout-explorer {
+  margin-top: 24px;
+}
+
+.explorer-header {
+  padding: 0 0 16px;
+}
+
+.explorer-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--seq-accent);
+  margin-bottom: 6px;
+}
+
+.explorer-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--seq-text-primary);
+}
+
+.explorer-subtitle {
+  font-size: 14px;
+  color: var(--seq-text-secondary);
+  margin-top: 4px;
+}
+
+.explorer-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--seq-text-tertiary);
+  margin-top: 10px;
+  padding: 5px 12px;
+  background: var(--seq-tag-bg);
+  border: 1px solid var(--seq-tag-border);
+  border-radius: 100px;
+}
+
+.explorer-hint-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--seq-accent);
+  animation: pulse-hint 2s ease-in-out infinite;
+}
+
+@keyframes pulse-hint {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.3);
+  }
+}
+
+/* Layout Map Container */
+.layout-map {
+  position: relative;
+  margin-top: 8px;
+}
+
+.layout-map-frame {
+  position: relative;
+  border-radius: var(--seq-radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--seq-surface-border);
+  background: #000;
+}
+
+.layout-map-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: brightness(1.1);
+  transition: filter 0.3s;
+}
+
+.layout-map.has-active .layout-map-img {
+  filter: brightness(0.65);
+}
+
+/* Hotspot Dots */
+.hotspot {
+  position: absolute;
+  z-index: 10;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+
+.hotspot-dot {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--seq-accent);
+  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  position: relative;
+  z-index: 2;
+  transition:
+    transform 0.25s,
+    box-shadow 0.25s;
+  box-shadow: 0 0 0 0 var(--seq-accent-glow);
+}
+
+.hotspot-dot::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(239, 68, 68, 0.3);
+  animation: ring-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes ring-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.hotspot:hover .hotspot-dot,
+.hotspot.active .hotspot-dot {
+  transform: scale(1.25);
+  box-shadow: 0 0 16px 4px var(--seq-accent-glow);
+}
+
+.hotspot.active .hotspot-dot::before {
+  animation: none;
+  opacity: 0;
+}
+
+.hotspot-label {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: #fff;
+  text-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.9),
+    0 0 10px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.hotspot:hover .hotspot-label,
+.hotspot.active .hotspot-label {
+  opacity: 1;
+}
+
+/* Hotspot Card */
+.hotspot-card {
+  z-index: 20;
+  width: 280px;
+  max-height: 360px;
+  background: var(--seq-surface);
+  border: 1px solid var(--seq-surface-border);
+  border-radius: var(--seq-radius-md);
+  box-shadow:
+    0 12px 48px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(6px) scale(0.97);
+  animation: card-in 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+@keyframes card-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.hotspot-card.desktop-card {
+  position: absolute;
+}
+
+.hotspot-card.mobile-card {
+  display: none;
+}
+
+.card-header {
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--seq-surface-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-icon {
+  font-size: 16px;
+}
+
+.card-title {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--seq-text-primary);
+}
+
+.card-count {
+  font-size: 11px;
+  color: var(--seq-text-tertiary);
+  background: var(--seq-tag-bg);
+  border: 1px solid var(--seq-tag-border);
+  padding: 2px 8px;
+  border-radius: 100px;
+}
+
+.card-close {
+  background: none;
+  border: none;
+  padding: 4px;
+  color: var(--seq-text-tertiary);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.card-close:hover {
+  color: var(--seq-text-primary);
+}
+
+.card-items {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #333 transparent;
+}
+
+.card-items::-webkit-scrollbar {
+  width: 5px;
+}
+
+.card-items::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.card-items::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.card-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  transition: background 0.15s;
+}
+
+.card-item:hover {
+  background: var(--seq-surface-hover);
+}
+
+.card-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--seq-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-item-meta {
+  font-size: 11.5px;
+  color: var(--seq-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1px;
+}
+
+.card-item-qty {
+  color: var(--seq-accent);
+  font-weight: 600;
+}
+
+.card-item-vendor {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Mobile backdrop */
+.mobile-backdrop {
+  display: none;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .explorer-title {
+    font-size: 18px;
+  }
+
+  .hotspot-dot {
+    width: 24px;
+    height: 24px;
+  }
+
+  .hotspot-label {
+    font-size: 9px;
+  }
+
+  .hotspot-card.desktop-card {
+    display: none;
+  }
+
+  .hotspot-card.mobile-card {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    width: 100%;
+    max-height: 60vh;
+    border-radius: var(--seq-radius-lg) var(--seq-radius-lg) 0 0;
+    z-index: 1000;
+  }
+
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  .card-items {
+    max-height: calc(60vh - 60px);
+  }
+}
+
 /* Stat row */
 .display-stats {
   display: flex;

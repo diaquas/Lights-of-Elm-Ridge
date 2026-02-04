@@ -6,6 +6,7 @@ import Image from "next/image";
 import type { Song } from "@/data/songlist";
 import type { YouTubeVideo } from "@/data/youtube-config";
 import { sequences } from "@/data/sequences";
+import LayoutExplorer from "@/components/LayoutExplorer";
 
 interface VideoGroup {
   year: number;
@@ -500,21 +501,8 @@ export default function TheShowTabs({
         className={`show-tab-panel ${activeTab === "display" ? "active" : ""}`}
         role="tabpanel"
       >
-        {/* Layout image */}
-        <div className="display-layout-img">
-          <Image
-            src="/layout.jpg"
-            alt="xLights Layout View"
-            width={1100}
-            height={360}
-            className="object-cover"
-            priority={activeTab === "display"}
-            unoptimized
-          />
-          <div className="display-layout-caption">
-            xLights Layout View — 2025 Season
-          </div>
-        </div>
+        {/* Interactive Layout Explorer */}
+        <LayoutExplorer />
 
         {/* Stat row */}
         <div className="display-stats">
