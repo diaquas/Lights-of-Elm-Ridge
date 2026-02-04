@@ -824,7 +824,7 @@ export function matchModels(
   );
   const unusedDestModels = destModels.filter((m) => !usedDest.has(m.name));
 
-  // ── Sort: Groups at top of each confidence tier ────────
+  // ── Sort: confidence → groups first → natural source name ──
   const confidenceOrder: Record<Confidence, number> = {
     high: 0,
     medium: 1,
@@ -839,8 +839,12 @@ export function matchModels(
     const aGroup = a.sourceModel.isGroup ? 0 : 1;
     const bGroup = b.sourceModel.isGroup ? 0 : 1;
     if (aGroup !== bGroup) return aGroup - bGroup;
-    // Tertiary: higher score first
-    return b.score - a.score;
+    // Tertiary: natural number sort on source model name
+    // (e.g. "Eave 2" < "Eave 10" < "Eave 100")
+    return a.sourceModel.name.localeCompare(b.sourceModel.name, undefined, {
+      numeric: true,
+      sensitivity: "base",
+    });
   });
 
   const mapped = allMappings.filter((m) => m.destModel !== null);
