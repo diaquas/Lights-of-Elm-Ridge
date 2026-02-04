@@ -1,0 +1,97 @@
+false
+39
+Floods
+Matrix
+Spider 1
+Spider 2
+Spider 3
+Spider 4
+Spider 5
+Spider 6
+Bat 1
+Bat 2
+Bat 3
+Bat 4
+Bat 5
+Tombstone 1
+Tombstone 2
+Tombstone 3
+Tombstone 4
+Firework 1
+Firework 2
+Pole 1
+Pole 2
+Pole 3
+Pole 4
+All - No Spinners - GRP
+All House Outlines - GRP
+All Arches - GRP
+All Fireworks - GRP
+All Poles - GRP
+All Mini Pumpkins - GRP
+All Spiders - GRP
+All Mini Trees - GRP
+All Tombstones - GRP
+All Bats - GRP
+Singing Pumpkin
+All Pixel Forest - GRP
+All House Horizontals - GRP
+All House Verts - GRP
+All Tombstone Outlines - GRP
+All Tombstone RIPs - GRP
+Floods			FloodLights	white
+Floods	Strand 1			white
+Floods	Strand 1	Flood 1	FloodLight1	white
+Floods	Strand 1	Flood 2	FloodLight2	white
+Floods	Strand 1	Flood 3	FloodLight3	white
+Floods	Strand 1	Flood 4	FloodLight4	white
+Floods	Strand 1	Flood 5	FloodLight5	white
+Floods	Strand 1	Flood 6	FloodLight6	white
+Floods	Strand 1	Flood 7	FloodLight7	white
+Floods	Strand 1	Flood 8	FloodLight8	white
+Matrix			Matrix	white
+Spider 1			Spider 1	white
+Spider 2			Spider 2	white
+Spider 3			Spider 3	white
+Spider 4			Spider 4	white
+Spider 5			Spider 5	white
+Spider 6			Spider 6	white
+Bat 1			Bat 1	white
+Bat 2			Bat 2	white
+Bat 3			Bat 3	white
+Bat 4			Bat 2	white
+Bat 5			Bat 1	white
+Tombstone 1			Tumba 1	white
+Tombstone 1	Outline		Tumba 1/Contorno	white
+Tombstone 1	RIP		Tumba 1/RIP	white
+Tombstone 2			Tumba 2	white
+Tombstone 2	Outline with Cross		Tumba 2/Contorno	white
+Tombstone 2	RIP		Tumba 2/RIP	white
+Tombstone 3			Tumba 3	white
+Tombstone 3	Outline		Tumba 3/Contorno	white
+Tombstone 3	RIP		Tumba 3/RIP	white
+Tombstone 4			Tumba 4	white
+Tombstone 4	Outline		Tumba 4/Contorno	white
+Tombstone 4	RIP		Tumba 4/RIP	white
+Firework 1			Tumba 5	white
+Firework 2			Tumba 5	white
+Pole 1			Star 1	white
+Pole 2			Star 2	white
+Pole 3			Star 3	white
+Pole 4			Star 4	white
+All - No Spinners - GRP			All	white
+All House Outlines - GRP			House Outline	white
+All Arches - GRP			Arches	white
+All Fireworks - GRP			Stars	white
+All Poles - GRP			Stars	white
+All Mini Pumpkins - GRP			01 Icicles 1	white
+All Spiders - GRP			Spiders	white
+All Mini Trees - GRP			13 Icicles 2	white
+All Tombstones - GRP			Tombs	white
+All Bats - GRP			Bats	white
+Singing Pumpkin			Male Singing Prop 2	white
+All Pixel Forest - GRP			Spider Web	white
+All House Horizontals - GRP			Horizontal Lines	white
+All House Verts - GRP			Vertical Lines	white
+All Tombstone Outlines - GRP			Contornos Tumbas	white
+All Tombstone RIPs - GRP			RIPs	white
