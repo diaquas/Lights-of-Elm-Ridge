@@ -38,3 +38,12 @@ export {
 } from "./xmap-generator";
 
 export { parseXsqModels, getSequenceModelList } from "./xsq-parser";
+
+export { buildEffectTree, getActiveSourceModels } from "./effect-tree";
+export type {
+  EffectTree,
+  GroupEffectInfo,
+  ModelEffectInfo,
+  GroupScenario,
+  EffectSummary,
+} from "./effect-tree";

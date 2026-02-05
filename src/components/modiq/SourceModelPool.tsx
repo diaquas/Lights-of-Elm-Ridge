@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, memo } from "react";
-import type { ParsedModel } from "@/lib/modiq";
+import type { ParsedModel, EffectTree } from "@/lib/modiq";
 import DraggableSourceCard from "./DraggableSourceCard";
 import type { DragItem } from "@/hooks/useDragAndDrop";
 
@@ -16,6 +16,8 @@ interface SourceModelPoolProps {
   /** Mobile tap-to-select */
   selectedSourceModel: string | null;
   onTapSelect: (modelName: string) => void;
+  /** Effect tree for effect-aware categorization */
+  effectTree: EffectTree | null;
 }
 
 export default memo(function SourceModelPool({
@@ -27,6 +29,7 @@ export default memo(function SourceModelPool({
   getDragDataTransfer,
   selectedSourceModel,
   onTapSelect,
+  effectTree,
 }: SourceModelPoolProps) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -41,6 +44,37 @@ export default memo(function SourceModelPool({
     () => allSourceModels.filter((m) => assignedSourceNames.has(m.name)),
     [allSourceModels, assignedSourceNames],
   );
+
+  // Effect-aware categorization: groups vs individuals
+  const { unmappedGroups, unmappedIndividuals, hasEffectCategories } =
+    useMemo(() => {
+      if (!effectTree) {
+        return {
+          unmappedGroups: [] as ParsedModel[],
+          unmappedIndividuals: [] as ParsedModel[],
+          hasEffectCategories: false,
+        };
+      }
+      const groupNames = new Set(
+        effectTree.groupsWithEffects
+          .filter((g) => g.scenario !== "C")
+          .map((g) => g.model.name),
+      );
+      const groups: ParsedModel[] = [];
+      const individuals: ParsedModel[] = [];
+      for (const m of unmappedModels) {
+        if (groupNames.has(m.name)) {
+          groups.push(m);
+        } else {
+          individuals.push(m);
+        }
+      }
+      return {
+        unmappedGroups: groups,
+        unmappedIndividuals: individuals,
+        hasEffectCategories: groups.length > 0 || individuals.length > 0,
+      };
+    }, [effectTree, unmappedModels]);
 
   // Collect unique types for filter
   const modelTypes = useMemo(() => {
@@ -90,6 +124,11 @@ export default memo(function SourceModelPool({
         <h3 className="font-display font-bold text-[15px]">Source Models</h3>
         <p className="text-[11px] text-foreground/40 mt-0.5">
           {unmappedModels.length} available &middot; {mappedModels.length} mapped
+          {effectTree && (
+            <span className="text-cyan-400/60">
+              {" "}&middot; {effectTree.summary.effectiveMappingItems} active layers
+            </span>
+          )}
         </p>
       </div>
 
@@ -121,25 +160,77 @@ export default memo(function SourceModelPool({
       {/* Source model cards — min 10 rows, fills remaining viewport height */}
       <div className="flex-1 min-h-[440px] overflow-y-auto">
         {filteredUnmapped.length > 0 ? (
-          <div>
-            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
-              Unmapped ({filteredUnmapped.length})
+          hasEffectCategories ? (
+            <>
+              {/* Groups with Effects section */}
+              {applyFilters(unmappedGroups).length > 0 && (
+                <div>
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-400/70 bg-cyan-500/5 sticky top-0 z-10 flex items-center gap-1.5">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                    </svg>
+                    Groups with Effects ({applyFilters(unmappedGroups).length})
+                  </div>
+                  <div className="px-2 py-1.5">
+                    {applyFilters(unmappedGroups).map((m) => (
+                      <DraggableSourceCard
+                        key={m.name}
+                        model={m}
+                        isMapped={false}
+                        onDragStart={onDragStart}
+                        onDragEnd={onDragEnd}
+                        getDragDataTransfer={getDragDataTransfer}
+                        isSelected={selectedSourceModel === m.name}
+                        onTap={onTapSelect}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Individual Models section */}
+              {applyFilters(unmappedIndividuals).length > 0 && (
+                <div>
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
+                    Individual Models ({applyFilters(unmappedIndividuals).length})
+                  </div>
+                  <div className="px-2 py-1.5">
+                    {applyFilters(unmappedIndividuals).map((m) => (
+                      <DraggableSourceCard
+                        key={m.name}
+                        model={m}
+                        isMapped={false}
+                        onDragStart={onDragStart}
+                        onDragEnd={onDragEnd}
+                        getDragDataTransfer={getDragDataTransfer}
+                        isSelected={selectedSourceModel === m.name}
+                        onTap={onTapSelect}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div>
+              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
+                Unmapped ({filteredUnmapped.length})
+              </div>
+              <div className="px-2 py-1.5">
+                {filteredUnmapped.map((m) => (
+                  <DraggableSourceCard
+                    key={m.name}
+                    model={m}
+                    isMapped={false}
+                    onDragStart={onDragStart}
+                    onDragEnd={onDragEnd}
+                    getDragDataTransfer={getDragDataTransfer}
+                    isSelected={selectedSourceModel === m.name}
+                    onTap={onTapSelect}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="px-2 py-1.5">
-              {filteredUnmapped.map((m) => (
-                <DraggableSourceCard
-                  key={m.name}
-                  model={m}
-                  isMapped={false}
-                  onDragStart={onDragStart}
-                  onDragEnd={onDragEnd}
-                  getDragDataTransfer={getDragDataTransfer}
-                  isSelected={selectedSourceModel === m.name}
-                  onTap={onTapSelect}
-                />
-              ))}
-            </div>
-          </div>
+          )
         ) : unmappedModels.length === 0 ? (
           <div className="px-3 py-4 text-center text-[13px] text-green-400/60">
             All source models mapped!

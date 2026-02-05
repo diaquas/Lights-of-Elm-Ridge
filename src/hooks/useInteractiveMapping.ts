@@ -6,6 +6,7 @@ import type {
   ModelMapping,
   Confidence,
   SubmodelMapping,
+  EffectTree,
 } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
 import { suggestMatches, mapSubmodels, isDmxModel } from "@/lib/modiq";
@@ -21,6 +22,10 @@ export interface DestMapping {
   submodelMappings: SubmodelMapping[];
   isSkipped: boolean;
   isManualOverride: boolean;
+  /** True if this model is auto-resolved by a parent group mapping */
+  isCoveredByGroup: boolean;
+  /** Name of the parent group that covers this model */
+  coveredByGroupName: string | null;
 }
 
 type UndoAction =
@@ -61,6 +66,8 @@ export interface InteractiveMappingState {
   mediumCount: number;
   lowCount: number;
   unmappedCount: number;
+  coveredByGroupCount: number;
+  effectTree: EffectTree | null;
   toMappingResult: () => MappingResult;
   nextUnmappedDest: () => string | null;
   getSuggestions: (destModel: ParsedModel) => ReturnType<typeof suggestMatches>;
@@ -72,6 +79,7 @@ export function useInteractiveMapping(
   initialResult: MappingResult | null,
   sourceModels: ParsedModel[],
   destModels: ParsedModel[],
+  effectTree?: EffectTree | null,
 ): InteractiveMappingState {
   // Core state: dest model name → source model name (or null)
   // Only include auto-mappings that reached a real confidence tier (HIGH/MED/LOW).
@@ -113,6 +121,33 @@ export function useInteractiveMapping(
     for (const m of destModels) map.set(m.name, m);
     return map;
   }, [destModels]);
+
+  // Group coverage: dest member name → parent dest group name
+  // When a dest group has a source assignment, its member children
+  // that don't have their own explicit assignment are "covered".
+  const groupCovered = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const dm of destModels) {
+      if (
+        dm.isGroup &&
+        dm.memberModels.length > 0 &&
+        assignments.has(dm.name)
+      ) {
+        for (const memberName of dm.memberModels) {
+          // Only cover members that exist as dest models,
+          // don't have their own assignment, and aren't skipped
+          if (
+            destByName.has(memberName) &&
+            !assignments.has(memberName) &&
+            !skipped.has(memberName)
+          ) {
+            map.set(memberName, dm.name);
+          }
+        }
+      }
+    }
+    return map;
+  }, [destModels, assignments, skipped, destByName]);
 
   // Original auto-mapping lookup: destName → ModelMapping
   const autoMappingByDest = useMemo(() => {
@@ -160,9 +195,12 @@ export function useInteractiveMapping(
           submodelMappings: [],
           isSkipped: true,
           isManualOverride: false,
+          isCoveredByGroup: false,
+          coveredByGroupName: null,
         };
       }
 
+      // Check individual assignment first (takes priority over group coverage)
       const srcName = assignments.get(destModel.name) ?? null;
       const srcModel = srcName ? (sourceByName.get(srcName) ?? null) : null;
       const isOverride = overrides.has(destModel.name);
@@ -179,6 +217,8 @@ export function useInteractiveMapping(
           submodelMappings: autoMapping.submodelMappings,
           isSkipped: false,
           isManualOverride: false,
+          isCoveredByGroup: false,
+          coveredByGroupName: null,
         };
       }
 
@@ -193,6 +233,25 @@ export function useInteractiveMapping(
           submodelMappings: subs,
           isSkipped: false,
           isManualOverride: true,
+          isCoveredByGroup: false,
+          coveredByGroupName: null,
+        };
+      }
+
+      // No individual assignment — check if covered by parent group
+      const coveringGroup = groupCovered.get(destModel.name);
+      if (coveringGroup) {
+        return {
+          destModel,
+          sourceModel: null,
+          confidence: "high" as Confidence,
+          score: 1.0,
+          reason: `Covered by group: ${coveringGroup}`,
+          submodelMappings: [],
+          isSkipped: false,
+          isManualOverride: false,
+          isCoveredByGroup: true,
+          coveredByGroupName: coveringGroup,
         };
       }
 
@@ -205,6 +264,8 @@ export function useInteractiveMapping(
         submodelMappings: [],
         isSkipped: false,
         isManualOverride: false,
+        isCoveredByGroup: false,
+        coveredByGroupName: null,
       };
     });
   }, [
@@ -212,6 +273,7 @@ export function useInteractiveMapping(
     assignments,
     skipped,
     overrides,
+    groupCovered,
     sourceByName,
     autoMappingByDest,
   ]);
@@ -223,8 +285,12 @@ export function useInteractiveMapping(
     let medium = 0;
     let low = 0;
     let unmapped = 0;
+    let covered = 0;
     for (const dm of destMappings) {
-      if (dm.sourceModel) {
+      if (dm.isCoveredByGroup) {
+        covered++;
+        mapped++; // Count as mapped for percentage
+      } else if (dm.sourceModel) {
         mapped++;
         if (dm.confidence === "high") high++;
         else if (dm.confidence === "medium") medium++;
@@ -237,7 +303,7 @@ export function useInteractiveMapping(
     const total = destModels.length;
     const effective = total - skippedSize;
     const pct = effective > 0 ? Math.round((mapped / effective) * 1000) / 10 : 0;
-    return { mapped, high, medium, low, unmapped, skippedSize, total, pct };
+    return { mapped, high, medium, low, unmapped, covered, skippedSize, total, pct };
   }, [destMappings, skipped, destModels.length]);
 
   const mappedCount = stats.mapped;
@@ -494,12 +560,16 @@ export function useInteractiveMapping(
   // Navigation: find next unmapped dest model name
   const nextUnmappedDest = useCallback((): string | null => {
     for (const dm of destModels) {
-      if (!assignments.has(dm.name) && !skipped.has(dm.name)) {
+      if (
+        !assignments.has(dm.name) &&
+        !skipped.has(dm.name) &&
+        !groupCovered.has(dm.name)
+      ) {
         return dm.name;
       }
     }
     return null;
-  }, [destModels, assignments, skipped]);
+  }, [destModels, assignments, skipped, groupCovered]);
 
   // Suggestions helper
   const getSuggestions = useCallback(
@@ -535,6 +605,8 @@ export function useInteractiveMapping(
     mediumCount,
     lowCount,
     unmappedCount,
+    coveredByGroupCount: stats.covered,
+    effectTree: effectTree ?? null,
     toMappingResult,
     nextUnmappedDest,
     getSuggestions,
