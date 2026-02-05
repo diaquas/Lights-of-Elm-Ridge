@@ -21,6 +21,259 @@ The current implementation works but has UX gaps. The core algorithms (effect tr
 
 ## P0: Critical Fixes (Do First)
 
+### TICKET-000: Restore Confidence-Based Sections in MAPPED Area
+
+**Problem**: The MAPPED section used to have subsections split by confidence level (High/Medium/Low), each collapsible. This helped users audit the auto-mapping — "these 15 low-confidence mappings might need review." This structure was removed.
+
+**Current Behavior**: MAPPED section is either a flat list or just a count. No confidence breakdown visible.
+
+**Desired Behavior**: Structure the left panel with confidence tiers in the MAPPED section (not Needs Mapping):
+
+```
+NEEDS MAPPING (92)
+├── GROUPS (38)
+│   └── [unmapped groups with suggestion pills]
+└── INDIVIDUAL MODELS (54)
+    └── [unmapped models with suggestion pills]
+
+─────────────────────────────────
+
+MAPPED (113)                          [collapsible, collapsed by default]
+├── ▼ HIGH CONFIDENCE (67)            [expanded when MAPPED is open]
+│   └── [auto-mapped items with ≥70% match score]
+├── ▼ MEDIUM CONFIDENCE (31)          [expanded when MAPPED is open]
+│   └── [auto-mapped items with 40-69% match score]
+├── ▶ LOW CONFIDENCE (15)             [collapsed — these need review]
+│   └── [auto-mapped items with <40% match score]
+└── ▶ MANUAL (X)                      [collapsed, only shows if manual mappings exist]
+    └── [items user dragged manually — no auto-score]
+
+─────────────────────────────────
+
+SKIPPED (0)                           [only visible if count > 0]
+└── [items user explicitly skipped]
+```
+
+**Key Points**:
+- "NEEDS MAPPING" keeps simple Groups/Individual Models split (no confidence — they're not mapped yet)
+- "MAPPED" section has confidence tiers to help users audit auto-mapping quality
+- High and Medium confidence = probably fine, collapsed by default is okay
+- Low confidence = might need review, worth surfacing
+- Manual = user overrides, tracked separately
+- Users can expand any tier to review, click to edit/remove mappings
+
+**Acceptance Criteria**:
+- [ ] NEEDS MAPPING section has Groups and Individual Models subsections (current behavior, keep it)
+- [ ] MAPPED section exists below NEEDS MAPPING, collapsed by default
+- [ ] When MAPPED is expanded, shows confidence tiers: High (≥70%), Medium (40-69%), Low (<40%)
+- [ ] Optional MANUAL tier for user-dragged mappings (no auto-score)
+- [ ] Each tier collapsible independently
+- [ ] Tier headers show counts
+- [ ] Each mapped item shows: source → target, confidence %, remove action
+- [ ] SKIPPED section only visible when count > 0
+
+---
+
+### TICKET-000A: Require .xsq File Upload for Third-Party Vendors
+
+**Problem**: The "Other Vendor" upload path only asks for xlights_rgbeffects.xml. Without the .xsq sequence file, we can't build the effect tree — meaning we can't identify which layers actually have effects, can't classify groups into Scenarios A/B/C, and can't do intelligent filtering. The user ends up mapping 214 models when only 22 have actual effects.
+
+**Current Behavior**: "Other Vendor" option shows single upload for xlights_rgbeffects.xml only.
+
+**Desired Behavior**: "Other Vendor" requires TWO files:
+1. **xlights_rgbeffects.xml** — the vendor's layout file (model definitions)
+2. **.xsq file** — the actual sequence file (contains the effect tree)
+
+The .xsq file is what enables:
+- Effect tree parsing (which layers have effects?)
+- Active layer filtering (205 active layers from 214 models)
+- Group scenario classification (A/B/C)
+- Intelligent "resolves X children" calculations
+
+**UI Design**:
+```
+○ Other Vendor
+  Upload their sequence files
+
+  ┌─────────────────────────────────────────────────────┐
+  │  📄 Sequence file (.xsq)                            │
+  │  Drop your .xsq file here or click to browse        │
+  │                                                     │
+  │  This is the sequence you purchased/downloaded.     │
+  └─────────────────────────────────────────────────────┘
+
+  ┌─────────────────────────────────────────────────────┐
+  │  📄 Layout file (xlights_rgbeffects.xml)  Optional  │
+  │  Drop the vendor's layout file here                 │
+  │                                                     │
+  │  If not provided, we'll extract it from the .xsq    │
+  └─────────────────────────────────────────────────────┘
+```
+
+**Note**: Modern .xsq files often embed the layout. If we can extract it from the .xsq, the second upload becomes optional. But .xsq is always required.
+
+**Acceptance Criteria**:
+- [ ] "Other Vendor" path requires .xsq file (primary upload)
+- [ ] xlights_rgbeffects.xml is secondary/optional if extractable from .xsq
+- [ ] Clear labeling: "Sequence file (.xsq)" and "Layout file (xlights_rgbeffects.xml)"
+- [ ] Helper text explains what each file is
+- [ ] Validation: show error if .xsq is missing
+- [ ] "ModIQ It" button disabled until .xsq is provided
+- [ ] Processing screen shows "Effect tree: X active layers from Y models" (proves .xsq was parsed)
+
+**Implementation Hints**:
+```tsx
+// State for other vendor uploads
+const [xsqFile, setXsqFile] = useState<File | null>(null);
+const [layoutFile, setLayoutFile] = useState<File | null>(null);
+
+// Validation
+const canProceed = selectedSource === 'lights-of-elm-ridge' 
+  ? !!selectedSequence 
+  : !!xsqFile; // .xsq required for other vendor
+
+// Upload UI
+{sourceType === 'other-vendor' && (
+  <div className="space-y-4">
+    <FileDropzone
+      label="Sequence file (.xsq)"
+      accept=".xsq"
+      required
+      file={xsqFile}
+      onDrop={setXsqFile}
+      helpText="This is the sequence you purchased/downloaded"
+    />
+    <FileDropzone
+      label="Layout file (xlights_rgbeffects.xml)"
+      accept=".xml"
+      required={false}
+      file={layoutFile}
+      onDrop={setLayoutFile}
+      helpText="Optional — we'll try to extract from .xsq if not provided"
+    />
+  </div>
+)}
+```
+
+**Files to Modify**:
+- `components/upload/SourceSelector.tsx` — add .xsq upload field
+- `components/upload/FileDropzone.tsx` — ensure it handles .xsq files
+- `lib/parser/xsqParser.ts` — ensure .xsq parsing extracts effect tree
+- `pages/modiq.tsx` (or equivalent) — update validation logic
+
+**Implementation Hints**:
+```tsx
+// Group items by confidence
+const groupByConfidence = (items: SourceLayer[]) => {
+  return {
+    high: items.filter(i => i.bestMatchScore >= 70),
+    medium: items.filter(i => i.bestMatchScore >= 40 && i.bestMatchScore < 70),
+    low: items.filter(i => i.bestMatchScore > 0 && i.bestMatchScore < 40),
+    none: items.filter(i => i.bestMatchScore === 0 || !i.bestMatch),
+  };
+};
+
+// Collapsible section component
+<CollapsibleSection
+  title={`HIGH CONFIDENCE (${highConfidence.length})`}
+  defaultOpen={true}
+  className="border-l-2 border-green-500"
+>
+  {/* Groups first */}
+  {highConfidence.filter(i => i.type === 'group').map(...)}
+  {/* Then individual models */}
+  {highConfidence.filter(i => i.type !== 'group').map(...)}
+</CollapsibleSection>
+```
+
+**Visual Treatment**:
+- High confidence: green left border accent
+- Medium confidence: amber/yellow left border accent
+- Low confidence: grey left border accent
+- No matches: no accent, dimmed text
+
+**Files to Modify**:
+- `components/mapping/SourceLayerList.tsx` — restructure into confidence sections
+- `components/ui/CollapsibleSection.tsx` — ensure collapse component exists
+
+---
+
+### TICKET-000B: Style Scrollbar to be Thinner and Subtle
+
+**Problem**: The scrollbar on the left panel is chunky and visually prominent. It should be thinner and blend into the dark background.
+
+**Current Behavior**: Default browser scrollbar (thick, light grey, stands out).
+
+**Desired Behavior**: Thin, subtle scrollbar that appears on hover or scroll:
+- 6px wide (instead of default ~16px)
+- Dark track (nearly invisible, matches background)
+- Slightly lighter thumb (zinc-700 or similar)
+- Thumb rounds on ends
+- Optional: only visible on hover/scroll, fades out after inactivity
+
+**Acceptance Criteria**:
+- [ ] Scrollbar is ~6px wide
+- [ ] Track is dark/invisible
+- [ ] Thumb is subtle grey, rounded
+- [ ] Works in Chrome, Firefox, Safari
+- [ ] Doesn't affect scroll functionality
+
+**Implementation Hints**:
+```css
+/* Add to global CSS or Tailwind config */
+
+/* For Webkit browsers (Chrome, Safari, Edge) */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(63 63 70); /* zinc-700 */
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(82 82 91); /* zinc-600 */
+}
+
+/* For Firefox */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(63 63 70) transparent;
+}
+```
+
+Then apply the class:
+```tsx
+<div className="overflow-y-auto custom-scrollbar">
+  {/* scrollable content */}
+</div>
+```
+
+**Tailwind Plugin Alternative**:
+```js
+// tailwind.config.js
+module.exports = {
+  plugins: [
+    require('tailwind-scrollbar')({ nocompatible: true }),
+  ],
+}
+
+// Then use:
+<div className="overflow-y-auto scrollbar-thin scrollbar-thumb-zinc-700 scrollbar-track-transparent">
+```
+
+**Files to Modify**:
+- `styles/globals.css` — add scrollbar styles
+- `components/mapping/SourceLayerList.tsx` — add className to scrollable container
+- `components/mapping/YourModelsPanel.tsx` — same for right panel if needed
+
+---
+
 ### TICKET-001: Add Group Cascade Preview
 
 **Problem**: When users see a group like "All - Mini Trees - GRP (8 members)", they can't see which child models would be auto-resolved by mapping this group. This hides the main value proposition of group mapping.
