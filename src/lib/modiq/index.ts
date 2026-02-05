@@ -18,6 +18,7 @@ export type { SourceModel, DisplayType } from "./source-layout";
 export {
   matchModels,
   suggestMatches,
+  suggestMatchesForSource,
   mapSubmodels,
   scoreToConfidence,
   isDmxModel,

@@ -19,22 +19,24 @@ import {
   buildEffectTree,
   getActiveSourceModels,
 } from "@/lib/modiq";
-import type { ParsedLayout, MappingResult, Confidence, DisplayType, EffectTree } from "@/lib/modiq";
+import type { ParsedLayout, MappingResult, DisplayType, EffectTree } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
+import { isDmxModel } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
 import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
 import { useCart } from "@/contexts/CartContext";
 import {
   useInteractiveMapping,
-  type DestMapping,
+  type SourceLayerMapping,
 } from "@/hooks/useInteractiveMapping";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useMappingTelemetry } from "@/hooks/useMappingTelemetry";
 import MappingProgressBar from "@/components/modiq/MappingProgressBar";
-import SourceModelPool from "@/components/modiq/SourceModelPool";
+import SourceLayerRow from "@/components/modiq/SourceLayerRow";
+import DraggableUserCard from "@/components/modiq/DraggableUserCard";
+import AssignedUsersSection from "@/components/modiq/AssignedUsersSection";
 import SequenceSelector from "@/components/SequenceSelector";
-import InteractiveMappingRow from "@/components/modiq/InteractiveMappingRow";
 import ExportDialog from "@/components/modiq/ExportDialog";
 import PostExportScreen from "@/components/modiq/PostExportScreen";
 
@@ -810,31 +812,8 @@ export default function ModIQTool() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Interactive Results View (V2 Refined + Performance Optimized)
+// Interactive Results View (V3 Source-First Layout)
 // ═══════════════════════════════════════════════════════════════════
-
-const CONFIDENCE_ORDER: Confidence[] = ["unmapped", "high", "medium", "low"];
-
-const CONFIDENCE_STYLES: Record<
-  Confidence,
-  { text: string; label: string; dot: string }
-> = {
-  high: { text: "text-green-400", label: "HIGH", dot: "bg-green-400" },
-  medium: { text: "text-amber-400", label: "MED", dot: "bg-amber-400" },
-  low: { text: "text-red-400", label: "LOW", dot: "bg-red-400" },
-  unmapped: {
-    text: "text-foreground/30",
-    label: "NONE",
-    dot: "bg-foreground/30",
-  },
-};
-
-const SECTION_LABELS: Record<Confidence, string> = {
-  unmapped: "NEEDS MAPPING",
-  high: "HIGH CONFIDENCE",
-  medium: "MED CONFIDENCE",
-  low: "LOW CONFIDENCE",
-};
 
 function InteractiveResults({
   initialResult,
@@ -869,21 +848,21 @@ function InteractiveResults({
   const dnd = useDragAndDrop();
   const telemetry = useMappingTelemetry(selectedSequence);
 
-  // Sections: unmapped always expanded, others collapsed by default
-  const [expandedSections, setExpandedSections] = useState<Set<Confidence>>(
-    new Set(["unmapped"]),
-  );
-  const [focusedDest, setFocusedDest] = useState<string | null>(null);
+  // V3 mode: use source-first layout when effect tree is available
+  const isV3 = interactive.sourceLayerMappings.length > 0;
+
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [focusedSourceLayer, setFocusedSourceLayer] = useState<string | null>(null);
 
-  // Left panel filter state
+  // Left panel sections open state
+  const [showMappedSection, setShowMappedSection] = useState(false);
+  const [showSkippedSection, setShowSkippedSection] = useState(false);
+
+  // Left panel filter
   const [leftSearch, setLeftSearch] = useState("");
-  const [leftTypeFilter, setLeftTypeFilter] = useState<string>("all");
 
-  // Mobile tap-to-select state
-  const [selectedSourceForTap, setSelectedSourceForTap] = useState<
-    string | null
-  >(null);
+  // Right panel search
+  const [rightSearch, setRightSearch] = useState("");
 
   const seqTitle = useMemo(() => {
     if (mapFromMode === "elm-ridge") {
@@ -893,136 +872,103 @@ function InteractiveResults({
     return sourceFileName || "Source Layout";
   }, [mapFromMode, sourceFileName, displayType]);
 
-  const toggleSection = useCallback((tier: Confidence) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(tier)) next.delete(tier);
-      else next.add(tier);
-      return next;
-    });
-  }, []);
-
-  // Group dest mappings by confidence tier + skipped + covered in single pass
-  const { tiers, skippedMappings, coveredMappings, autoMappedCount, manualCount } =
+  // Group source layers by status
+  const { unmappedLayers, mappedLayers, skippedLayers, unmappedGroups, unmappedIndividuals } =
     useMemo(() => {
-      const grouped: Record<Confidence, DestMapping[]> = {
-        high: [],
-        medium: [],
-        low: [],
-        unmapped: [],
-      };
-      const skipped: DestMapping[] = [];
-      const covered: DestMapping[] = [];
-      let auto = 0;
-      let manual = 0;
-      for (const dm of interactive.destMappings) {
-        if (dm.isSkipped) {
-          skipped.push(dm);
-          continue;
+      const unmapped: SourceLayerMapping[] = [];
+      const mapped: SourceLayerMapping[] = [];
+      const skippedList: SourceLayerMapping[] = [];
+      const groups: SourceLayerMapping[] = [];
+      const individuals: SourceLayerMapping[] = [];
+      for (const sl of interactive.sourceLayerMappings) {
+        if (sl.isSkipped) {
+          skippedList.push(sl);
+        } else if (sl.isMapped) {
+          mapped.push(sl);
+        } else {
+          unmapped.push(sl);
+          if (sl.isGroup) groups.push(sl);
+          else individuals.push(sl);
         }
-        if (dm.isCoveredByGroup) {
-          covered.push(dm);
-          continue;
-        }
-        grouped[dm.confidence].push(dm);
-        if (dm.sourceModel && !dm.isManualOverride) auto++;
-        if (dm.isManualOverride) manual++;
       }
       return {
-        tiers: grouped,
-        skippedMappings: skipped,
-        coveredMappings: covered,
-        autoMappedCount: auto,
-        manualCount: manual,
+        unmappedLayers: unmapped,
+        mappedLayers: mapped,
+        skippedLayers: skippedList,
+        unmappedGroups: groups,
+        unmappedIndividuals: individuals,
       };
-    }, [interactive.destMappings]);
+    }, [interactive.sourceLayerMappings]);
 
-  // Collect unique dest model types for filter
-  const destModelTypes = useMemo(() => {
-    const types = new Set<string>();
-    for (const m of destModels) {
-      if (!m.isGroup) types.add(m.type);
-    }
-    return Array.from(types).sort();
-  }, [destModels]);
-
-  // Filter helper for left panel
-  const filterMappings = useCallback(
-    (mappings: DestMapping[]) => {
-      if (!leftSearch && leftTypeFilter === "all") return mappings;
-      let filtered = mappings;
-      if (leftSearch) {
-        const q = leftSearch.toLowerCase();
-        filtered = filtered.filter(
-          (dm) =>
-            dm.destModel.name.toLowerCase().includes(q) ||
-            (dm.sourceModel?.name.toLowerCase().includes(q) ?? false),
-        );
-      }
-      if (leftTypeFilter !== "all") {
-        filtered = filtered.filter(
-          (dm) =>
-            dm.destModel.type === leftTypeFilter ||
-            (dm.destModel.isGroup && leftTypeFilter === "Group"),
-        );
-      }
-      return filtered;
+  // Filter layers by search
+  const filterLayers = useCallback(
+    (layers: SourceLayerMapping[]) => {
+      if (!leftSearch) return layers;
+      const q = leftSearch.toLowerCase();
+      return layers.filter(
+        (sl) =>
+          sl.sourceModel.name.toLowerCase().includes(q) ||
+          (sl.assignedUserModel?.name.toLowerCase().includes(q) ?? false),
+      );
     },
-    [leftSearch, leftTypeFilter],
+    [leftSearch],
   );
 
-  // Reverse assignment map for source pool: source name -> dest name
-  const reverseAssignmentMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const dm of interactive.destMappings) {
-      if (dm.sourceModel) {
-        map.set(dm.sourceModel.name, dm.destModel.name);
-      }
-    }
-    return map;
-  }, [interactive.destMappings]);
+  // Best matches for focused source layer (dynamic right panel section)
+  const bestMatchesForFocused = useMemo(() => {
+    if (!focusedSourceLayer) return [];
+    const sl = interactive.sourceLayerMappings.find(
+      (s) => s.sourceModel.name === focusedSourceLayer,
+    );
+    if (!sl) return [];
+    return interactive.getSuggestionsForLayer(sl.sourceModel).slice(0, 5);
+  }, [focusedSourceLayer, interactive]);
 
-  // Best match for unmapped models — only depends on unmapped list + getSuggestions
-  const bestMatches = useMemo(() => {
-    const map = new Map<string, { name: string; score: number }>();
-    for (const dm of tiers.unmapped) {
-      const suggestions = interactive.getSuggestions(dm.destModel);
-      if (suggestions.length > 0) {
-        map.set(dm.destModel.name, {
-          name: suggestions[0].model.name,
-          score: suggestions[0].score,
-        });
+  // Right panel: user models categorized
+  const { userGroups, userModels, assignedUsers } = useMemo(() => {
+    const groups: ParsedModel[] = [];
+    const models: ParsedModel[] = [];
+    const assigned: ParsedModel[] = [];
+    const q = rightSearch.toLowerCase();
+    for (const m of destModels) {
+      if (isDmxModel(m)) continue;
+      if (q && !m.name.toLowerCase().includes(q) && !m.type.toLowerCase().includes(q)) continue;
+      if (interactive.assignedUserModelNames.has(m.name)) {
+        assigned.push(m);
+      } else if (m.isGroup) {
+        groups.push(m);
+      } else {
+        models.push(m);
       }
     }
-    return map;
-  }, [tiers.unmapped, interactive.getSuggestions]);
+    return { userGroups: groups, userModels: models, assignedUsers: assigned };
+  }, [destModels, interactive.assignedUserModelNames, rightSearch]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
     enabled: true,
     onTab: () => {
-      const next = interactive.nextUnmappedDest();
+      const next = interactive.nextUnmappedLayer();
       if (next) {
-        setFocusedDest(next);
-        setExpandedSections((prev) => new Set(prev).add("unmapped"));
-        const el = document.getElementById(`dest-row-${next}`);
+        setFocusedSourceLayer(next);
+        const el = document.getElementById(`source-layer-${next}`);
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     },
-    onEnter: () => {},
+    onEnter: () => {
+      // Accept best match for focused layer
+      if (focusedSourceLayer && bestMatchesForFocused.length > 0) {
+        interactive.assignUserModelToLayer(
+          focusedSourceLayer,
+          bestMatchesForFocused[0].model.name,
+        );
+        setFocusedSourceLayer(null);
+      }
+    },
     onSkip: () => {
-      if (focusedDest) {
-        interactive.skipModel(focusedDest);
-        telemetry.trackAction({
-          sequenceSlug: selectedSequence,
-          action: "skip",
-          targetModel: { name: focusedDest, displayAs: "", pixels: 0 },
-          previousMapping: null,
-          aiConfidence: null,
-          aiSuggested: null,
-          method: "dropdown_pick",
-        });
-        setFocusedDest(null);
+      if (focusedSourceLayer) {
+        interactive.skipSourceLayer(focusedSourceLayer);
+        setFocusedSourceLayer(null);
       }
     },
     onUndo: () => {
@@ -1030,82 +976,27 @@ function InteractiveResults({
     },
   });
 
-  // Stable per-row callbacks — avoid inline closures in render
-  const handleRowAssign = useCallback(
-    (destModelName: string, sourceModelName: string) => {
-      interactive.assignSource(destModelName, sourceModelName);
-      setFocusedDest(null);
-      setSelectedSourceForTap(null);
-    },
-    [interactive],
-  );
-
-  const handleRowClear = useCallback(
-    (destModelName: string) => {
-      interactive.clearMapping(destModelName);
-    },
-    [interactive],
-  );
-
-  const handleRowSkip = useCallback(
-    (destModelName: string) => {
-      interactive.skipModel(destModelName);
-    },
-    [interactive],
-  );
-
-  // DnD drop handler
-  const handleRowDrop = useCallback(
-    (destModelName: string, e: React.DragEvent) => {
+  // Handle drop on a source layer: user drags their model FROM right panel
+  const handleLayerDrop = useCallback(
+    (sourceLayerName: string, e: React.DragEvent) => {
       const data = e.dataTransfer.getData("text/plain");
+      // Parse: data is "modiq-drag:modelName"
       const dragItem = dnd.parseDragDataTransfer(data);
       if (!dragItem) return;
-
-      const currentMapping = interactive.destMappings.find(
-        (dm) => dm.destModel.name === destModelName,
-      );
-
-      interactive.assignSource(destModelName, dragItem.sourceModelName);
-      telemetry.trackAction({
-        sequenceSlug: selectedSequence,
-        action: currentMapping?.sourceModel ? "remap" : "drag_map",
-        sourceModel: { name: dragItem.sourceModelName, type: "", pixels: 0 },
-        targetModel: { name: destModelName, displayAs: "", pixels: 0 },
-        previousMapping: currentMapping?.sourceModel?.name ?? null,
-        aiConfidence: null,
-        aiSuggested: null,
-        method: "drag_drop",
-      });
-
+      // In V3, the dragged item is a USER model being dropped onto a source layer
+      interactive.assignUserModelToLayer(sourceLayerName, dragItem.sourceModelName);
       dnd.handleDragEnd();
-      setSelectedSourceForTap(null);
     },
-    [dnd, interactive, selectedSequence, telemetry],
+    [dnd, interactive],
   );
 
-  // Mobile tap-to-map
-  const handleTapMap = useCallback(
-    (destModelName: string) => {
-      if (!selectedSourceForTap) return;
-      interactive.assignSource(destModelName, selectedSourceForTap);
-      telemetry.trackAction({
-        sequenceSlug: selectedSequence,
-        action: "click_map",
-        sourceModel: { name: selectedSourceForTap, type: "", pixels: 0 },
-        targetModel: { name: destModelName, displayAs: "", pixels: 0 },
-        previousMapping: null,
-        aiConfidence: null,
-        aiSuggested: null,
-        method: "dropdown_pick",
-      });
-      setSelectedSourceForTap(null);
+  // Handle clicking the suggestion pill to accept best match
+  const handleAcceptSuggestion = useCallback(
+    (sourceLayerName: string, userModelName: string) => {
+      interactive.assignUserModelToLayer(sourceLayerName, userModelName);
     },
-    [selectedSourceForTap, interactive, selectedSequence, telemetry],
+    [interactive],
   );
-
-  const handleTapSelectSource = useCallback((modelName: string) => {
-    setSelectedSourceForTap((prev) => (prev === modelName ? null : modelName));
-  }, []);
 
   // Export handlers
   const doExport = useCallback(() => {
@@ -1125,12 +1016,12 @@ function InteractiveResults({
   }, [interactive, seqTitle, selectedSequence, telemetry, onExported]);
 
   const handleExport = useCallback(() => {
-    if (tiers.unmapped.length > 0) {
+    if (interactive.unmappedLayerCount > 0) {
       setShowExportDialog(true);
       return;
     }
     doExport();
-  }, [tiers.unmapped.length, doExport]);
+  }, [interactive.unmappedLayerCount, doExport]);
 
   const handleExportAnyway = useCallback(() => {
     setShowExportDialog(false);
@@ -1138,12 +1029,12 @@ function InteractiveResults({
   }, [doExport]);
 
   const handleSkipAllAndExport = useCallback(() => {
-    for (const dm of tiers.unmapped) {
-      interactive.skipModel(dm.destModel.name);
+    for (const sl of unmappedLayers) {
+      interactive.skipSourceLayer(sl.sourceModel.name);
     }
     setShowExportDialog(false);
     setTimeout(() => doExport(), 50);
-  }, [tiers.unmapped, interactive, doExport]);
+  }, [unmappedLayers, interactive, doExport]);
 
   const handleExportReport = useCallback(() => {
     const result = interactive.toMappingResult();
@@ -1157,7 +1048,7 @@ function InteractiveResults({
 
   return (
     <div className="space-y-0">
-      {/* ── Sticky Top Bar — compact ~72px ────────────── */}
+      {/* ── Sticky Status Bar ────────────────────────────── */}
       <div className="sticky top-0 z-40 bg-background/95 border-b border-border -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 mb-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-1">
@@ -1182,34 +1073,48 @@ function InteractiveResults({
               <button
                 onClick={handleExport}
                 className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all ${
-                  interactive.unmappedCount === 0
+                  interactive.unmappedLayerCount === 0
                     ? "bg-green-500 text-white hover:bg-green-600"
                     : "border border-accent text-accent hover:bg-accent/10"
                 }`}
               >
-                Export {interactive.unmappedCount > 0 && `(${interactive.unmappedCount} unmapped)`}
+                Export {interactive.unmappedLayerCount > 0 && `(${interactive.unmappedLayerCount} unmapped)`}
               </button>
             </div>
           </div>
 
-          <MappingProgressBar
-            mappedCount={interactive.mappedCount}
-            totalCount={interactive.totalDest}
-            skippedCount={interactive.skippedCount}
-            highCount={interactive.highCount}
-            mediumCount={interactive.mediumCount}
-            lowCount={interactive.lowCount}
-            coveredByGroupCount={interactive.coveredByGroupCount}
-            percentage={interactive.mappedPercentage}
-          />
+          {isV3 ? (
+            <MappingProgressBar
+              mode="v3"
+              mappedLayerCount={interactive.mappedLayerCount}
+              totalSourceLayers={interactive.totalSourceLayers}
+              skippedLayerCount={interactive.skippedLayerCount}
+              groupsMappedCount={interactive.groupsMappedCount}
+              groupsCoveredChildCount={interactive.groupsCoveredChildCount}
+              directMappedCount={interactive.directMappedCount}
+              unmappedLayerCount={interactive.unmappedLayerCount}
+            />
+          ) : (
+            <MappingProgressBar
+              mode="v2"
+              mappedCount={interactive.mappedCount}
+              totalCount={interactive.totalDest}
+              skippedCount={interactive.skippedCount}
+              highCount={interactive.highCount}
+              mediumCount={interactive.mediumCount}
+              lowCount={interactive.lowCount}
+              coveredByGroupCount={interactive.coveredByGroupCount}
+              percentage={interactive.mappedPercentage}
+            />
+          )}
         </div>
       </div>
 
-      {/* ── Two-Panel Layout ───────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px] items-start">
-        {/* Left panel: YOUR LAYOUT — viewport-capped with internal scroll */}
+      {/* ── Two-Panel Layout (V3: 60/40 split) ────────── */}
+      <div className="grid gap-4 lg:grid-cols-[1fr_380px] items-start">
+        {/* ═══ Left Panel: Sequence Layers (The Task List) ═══ */}
         <div className="min-w-0 flex flex-col lg:max-h-[calc(100vh-8.5rem)]">
-          {/* Filter controls */}
+          {/* Intro + filter */}
           <div className="flex items-center gap-2 mb-2 flex-shrink-0">
             <div className="relative flex-1">
               <svg
@@ -1227,210 +1132,326 @@ function InteractiveResults({
               </svg>
               <input
                 type="text"
-                placeholder="Filter models..."
+                placeholder="Filter layers..."
                 value={leftSearch}
                 onChange={(e) => setLeftSearch(e.target.value)}
                 className="w-full text-[12px] pl-8 pr-3 py-1.5 h-8 rounded bg-surface border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
               />
             </div>
-            {destModelTypes.length > 1 && (
-              <select
-                value={leftTypeFilter}
-                onChange={(e) => setLeftTypeFilter(e.target.value)}
-                className="text-[12px] px-2.5 py-1.5 h-8 rounded bg-surface border border-border focus:border-accent focus:outline-none text-foreground/60"
-              >
-                <option value="all">All Types</option>
-                {destModelTypes.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
 
-          {/* Scrollable confidence sections */}
+          {/* Scrollable sections */}
           <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
-          {/* Confidence tier sections — "Needs Mapping" first */}
-          {CONFIDENCE_ORDER.map((tier) => {
-            const tierMappings = filterMappings(tiers[tier]);
-            const unfilteredCount = tiers[tier].length;
-            if (unfilteredCount === 0) return null;
-
-            const style = CONFIDENCE_STYLES[tier];
-            const effectiveTotal =
-              interactive.totalDest - interactive.skippedCount;
-            const pct =
-              effectiveTotal > 0
-                ? ((unfilteredCount / effectiveTotal) * 100).toFixed(1)
-                : "0.0";
-            const isOpen = expandedSections.has(tier);
-            const isNeedsMapping = tier === "unmapped";
-
-            return (
-              <div
-                key={tier}
-                className={`bg-surface rounded-lg border overflow-hidden ${
-                  isNeedsMapping
-                    ? "border-amber-500/30 ring-1 ring-amber-500/10"
-                    : "border-border"
-                }`}
-              >
-                {/* Section header — compact 36px */}
-                <button
-                  type="button"
-                  onClick={() => toggleSection(tier)}
-                  className={`w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors ${
-                    isNeedsMapping ? "bg-amber-500/5" : ""
-                  }`}
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot}`}
-                  />
-                  <span
-                    className={`text-[11px] font-semibold uppercase tracking-wider ${style.text}`}
-                  >
-                    {SECTION_LABELS[tier]}
+            {/* ─── NEEDS MAPPING ─────────────────────────── */}
+            {unmappedLayers.length > 0 && (
+              <div className="bg-surface rounded-lg border border-amber-500/30 ring-1 ring-amber-500/10 overflow-hidden">
+                <div className="px-3 h-9 flex items-center gap-2 bg-amber-500/5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">
+                    NEEDS MAPPING
                   </span>
                   <span className="text-[13px] font-bold text-foreground">
-                    {unfilteredCount}
+                    {unmappedLayers.length}
                   </span>
-                  <span className="text-[11px] text-foreground/40">
-                    ({pct}%)
+                </div>
+
+                <div className="border-t border-border">
+                  <div className="px-3 py-1.5 text-[11px] text-foreground/40 bg-surface-light border-b border-border">
+                    Assign your models to each source layer. Groups first — they carry the most effects.
+                  </div>
+
+                  {/* Groups tier */}
+                  {filterLayers(unmappedGroups).length > 0 && (
+                    <div>
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-teal-400/70 bg-teal-500/5 border-b border-border/50">
+                        GROUPS ({filterLayers(unmappedGroups).length})
+                      </div>
+                      <div className="space-y-0 divide-y divide-border/30">
+                        {filterLayers(unmappedGroups).map((sl) => (
+                          <SourceLayerRow
+                            key={sl.sourceModel.name}
+                            layer={sl}
+                            isFocused={focusedSourceLayer === sl.sourceModel.name}
+                            onFocus={() => setFocusedSourceLayer(sl.sourceModel.name)}
+                            onDrop={handleLayerDrop}
+                            onAcceptSuggestion={handleAcceptSuggestion}
+                            onSkip={() => interactive.skipSourceLayer(sl.sourceModel.name)}
+                            onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
+                            getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
+                            isDragActive={dnd.state.isDragging}
+                            onDragEnter={dnd.handleDragEnter}
+                            onDragLeave={dnd.handleDragLeave}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Individual models tier */}
+                  {filterLayers(unmappedIndividuals).length > 0 && (
+                    <div>
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light border-b border-border/50">
+                        INDIVIDUAL MODELS ({filterLayers(unmappedIndividuals).length})
+                      </div>
+                      <div className="space-y-0 divide-y divide-border/30">
+                        {filterLayers(unmappedIndividuals).map((sl) => (
+                          <SourceLayerRow
+                            key={sl.sourceModel.name}
+                            layer={sl}
+                            isFocused={focusedSourceLayer === sl.sourceModel.name}
+                            onFocus={() => setFocusedSourceLayer(sl.sourceModel.name)}
+                            onDrop={handleLayerDrop}
+                            onAcceptSuggestion={handleAcceptSuggestion}
+                            onSkip={() => interactive.skipSourceLayer(sl.sourceModel.name)}
+                            onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
+                            getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
+                            isDragActive={dnd.state.isDragging}
+                            onDragEnter={dnd.handleDragEnter}
+                            onDragLeave={dnd.handleDragLeave}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ─── MAPPED ────────────────────────────────── */}
+            {mappedLayers.length > 0 && (
+              <div className="bg-surface rounded-lg border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowMappedSection(!showMappedSection)}
+                  className="w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors"
+                >
+                  <span className="w-2 h-2 rounded-full bg-green-400" />
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-green-400">
+                    MAPPED
+                  </span>
+                  <span className="text-[13px] font-bold text-foreground">
+                    {mappedLayers.length}
                   </span>
                   <svg
-                    className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${isOpen ? "rotate-180" : ""}`}
+                    className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${showMappedSection ? "rotate-180" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
-
-                {isOpen && (
-                  <>
-                    {isNeedsMapping && tierMappings.length > 0 && (
-                      <div className="px-3 py-1.5 bg-surface-light text-[11px] text-foreground/40 border-t border-border">
-                        {selectedSourceForTap
-                          ? `Tap a row to map "${selectedSourceForTap}" — or tap source card to deselect`
-                          : "Drag a source model here, or click to pick a match"}
-                      </div>
-                    )}
-                    <div className="border-t border-border space-y-1.5 p-1.5">
-                      {tierMappings.length > 0 ? (
-                        tierMappings.map((dm) => (
-                          <div
-                            key={dm.destModel.name}
-                            id={`dest-row-${dm.destModel.name}`}
-                          >
-                            <InteractiveMappingRow
-                              destModel={dm.destModel}
-                              sourceModel={dm.sourceModel}
-                              confidence={dm.confidence}
-                              reason={dm.reason}
-                              submodelMappings={dm.submodelMappings}
-                              isSkipped={dm.isSkipped}
-                              isManualOverride={dm.isManualOverride}
-                              isFocused={focusedDest === dm.destModel.name}
-                              onAssign={(name) =>
-                                handleRowAssign(dm.destModel.name, name)
-                              }
-                              onClear={() =>
-                                handleRowClear(dm.destModel.name)
-                              }
-                              onSkip={() =>
-                                handleRowSkip(dm.destModel.name)
-                              }
-                              getSuggestions={() =>
-                                interactive.getSuggestions(dm.destModel)
-                              }
-                              availableSourceModels={
-                                interactive.availableSourceModels
-                              }
-                              isDragActive={dnd.state.isDragging}
-                              isDropTarget={
-                                dnd.state.activeDropTarget === dm.destModel.name
-                              }
-                              onDragEnter={dnd.handleDragEnter}
-                              onDragLeave={dnd.handleDragLeave}
-                              onDrop={handleRowDrop}
-                              selectedSourceModel={selectedSourceForTap}
-                              onTapMap={handleTapMap}
-                              bestMatch={bestMatches.get(dm.destModel.name)}
-                            />
+                {showMappedSection && (
+                  <div className="border-t border-border divide-y divide-border/30">
+                    {mappedLayers.map((sl) => (
+                      <div
+                        key={sl.sourceModel.name}
+                        className="px-3 py-2 flex items-center gap-2"
+                      >
+                        <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            {sl.isGroup && (
+                              <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">GRP</span>
+                            )}
+                            <span className="text-[13px] text-foreground truncate">{sl.sourceModel.name}</span>
                           </div>
-                        ))
-                      ) : (
-                        <div className="px-3 py-3 text-[13px] text-foreground/30 text-center">
-                          No models match your filter
+                          <div className="text-[11px] text-foreground/40 truncate">
+                            &rarr; Your &quot;{sl.assignedUserModel?.name}&quot;
+                            {sl.coveredChildCount > 0 && (
+                              <span className="text-teal-400/60 ml-1">
+                                ({sl.coveredChildCount} resolved)
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </>
+                        <button
+                          type="button"
+                          onClick={() => interactive.clearLayerMapping(sl.sourceModel.name)}
+                          className="text-[10px] text-foreground/30 hover:text-foreground/60 px-1"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-            );
-          })}
+            )}
 
-          {/* Covered by Groups section */}
-          {coveredMappings.length > 0 && (
-            <CoveredByGroupSection mappings={coveredMappings} />
-          )}
-
-          {/* Skipped section */}
-          {skippedMappings.length > 0 && (
-            <div className="bg-surface rounded-lg border border-border overflow-hidden opacity-60">
-              <div className="px-3 h-9 flex items-center gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/20">
-                  SKIPPED
-                </span>
-                <span className="text-[13px] font-bold text-foreground/40">
-                  {skippedMappings.length}
-                </span>
-              </div>
-              <div className="border-t border-border">
-                {skippedMappings.map((dm) => (
-                  <div
-                    key={dm.destModel.name}
-                    className="px-3 py-1.5 flex items-center justify-between border-b border-border/30 last:border-b-0"
+            {/* ─── SKIPPED ───────────────────────────────── */}
+            {skippedLayers.length > 0 && (
+              <div className="bg-surface rounded-lg border border-border overflow-hidden opacity-60">
+                <button
+                  type="button"
+                  onClick={() => setShowSkippedSection(!showSkippedSection)}
+                  className="w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors"
+                >
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/20">
+                    SKIPPED
+                  </span>
+                  <span className="text-[13px] font-bold text-foreground/40">
+                    {skippedLayers.length}
+                  </span>
+                  <svg
+                    className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${showSkippedSection ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <span className="text-[13px] text-foreground/30 line-through truncate">
-                      {dm.destModel.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => interactive.unskipModel(dm.destModel.name)}
-                      className="text-[10px] text-accent/60 hover:text-accent px-2 py-0.5 rounded"
-                    >
-                      unskip
-                    </button>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {showSkippedSection && (
+                  <div className="border-t border-border">
+                    {skippedLayers.map((sl) => (
+                      <div
+                        key={sl.sourceModel.name}
+                        className="px-3 py-1.5 flex items-center justify-between border-b border-border/30 last:border-b-0"
+                      >
+                        <span className="text-[13px] text-foreground/30 line-through truncate">
+                          {sl.sourceModel.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => interactive.unskipSourceLayer(sl.sourceModel.name)}
+                          className="text-[10px] text-accent/60 hover:text-accent px-2 py-0.5 rounded"
+                        >
+                          unskip
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
-          </div>{/* end scrollable confidence sections */}
+            )}
+
+            {/* All done state */}
+            {unmappedLayers.length === 0 && mappedLayers.length > 0 && (
+              <div className="bg-green-500/5 border border-green-500/20 rounded-lg px-4 py-6 text-center">
+                <div className="text-green-400 text-lg font-display font-bold mb-1">
+                  Full sequence coverage!
+                </div>
+                <p className="text-[13px] text-foreground/50">
+                  All {interactive.mappedLayerCount} sequence layers have a destination in your layout.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right panel: Source model pool — sticky, capped at viewport */}
+        {/* ═══ Right Panel: Your Models (The Answer Pool) ═══ */}
         <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-8.5rem)]">
-          <SourceModelPool
-            allSourceModels={interactive.allSourceModels}
-            assignedSourceNames={interactive.assignedSourceNames}
-            assignmentMap={reverseAssignmentMap}
-            onDragStart={dnd.handleDragStart}
-            onDragEnd={dnd.handleDragEnd}
-            getDragDataTransfer={dnd.getDragDataTransfer}
-            selectedSourceModel={selectedSourceForTap}
-            onTapSelect={handleTapSelectSource}
-            effectTree={interactive.effectTree}
-          />
+          <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-full">
+            {/* Header */}
+            <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
+              <h3 className="font-display font-bold text-[15px]">Your Models</h3>
+              <p className="text-[11px] text-foreground/40 mt-0.5">
+                {destModels.length} models &middot; {userGroups.length + userModels.length} available
+              </p>
+            </div>
+
+            {/* Search */}
+            <div className="px-3 py-2 border-b border-border flex-shrink-0">
+              <input
+                type="text"
+                placeholder="Search your models..."
+                value={rightSearch}
+                onChange={(e) => setRightSearch(e.target.value)}
+                className="w-full text-[12px] px-2.5 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+              />
+            </div>
+
+            {/* Cards area */}
+            <div className="flex-1 min-h-[440px] overflow-y-auto">
+              {/* Dynamic Best Matches */}
+              {focusedSourceLayer && bestMatchesForFocused.length > 0 && (
+                <div>
+                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-accent/70 bg-accent/5 sticky top-0 z-10 border-b border-border/50">
+                    Best Matches for: {focusedSourceLayer}
+                  </div>
+                  <div className="px-2 py-1.5 space-y-0.5 border-b border-border">
+                    {bestMatchesForFocused.map((match) => (
+                      <DraggableUserCard
+                        key={match.model.name}
+                        model={match.model}
+                        score={match.score}
+                        isAssigned={interactive.assignedUserModelNames.has(match.model.name)}
+                        onDragStart={dnd.handleDragStart}
+                        onDragEnd={dnd.handleDragEnd}
+                        getDragDataTransfer={dnd.getDragDataTransfer}
+                        onClickAssign={() => {
+                          if (focusedSourceLayer) {
+                            interactive.assignUserModelToLayer(focusedSourceLayer, match.model.name);
+                          }
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!focusedSourceLayer && (
+                <div className="px-3 py-2.5 text-[11px] text-foreground/30 text-center border-b border-border/50">
+                  Click a source layer to see best matches
+                </div>
+              )}
+
+              {/* Groups */}
+              {userGroups.length > 0 && (
+                <div>
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
+                    Groups ({userGroups.length})
+                  </div>
+                  <div className="px-2 py-1">
+                    {userGroups.map((m) => (
+                      <DraggableUserCard
+                        key={m.name}
+                        model={m}
+                        isAssigned={false}
+                        onDragStart={dnd.handleDragStart}
+                        onDragEnd={dnd.handleDragEnd}
+                        getDragDataTransfer={dnd.getDragDataTransfer}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Individual Models */}
+              {userModels.length > 0 && (
+                <div>
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
+                    Models ({userModels.length})
+                  </div>
+                  <div className="px-2 py-1">
+                    {userModels.map((m) => (
+                      <DraggableUserCard
+                        key={m.name}
+                        model={m}
+                        isAssigned={false}
+                        onDragStart={dnd.handleDragStart}
+                        onDragEnd={dnd.handleDragEnd}
+                        getDragDataTransfer={dnd.getDragDataTransfer}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Already Assigned */}
+              {assignedUsers.length > 0 && (
+                <AssignedUsersSection
+                  users={assignedUsers}
+                  onDragStart={dnd.handleDragStart}
+                  onDragEnd={dnd.handleDragEnd}
+                  getDragDataTransfer={dnd.getDragDataTransfer}
+                />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1456,9 +1477,11 @@ function InteractiveResults({
         </button>
       </div>
 
-      {/* Keyboard shortcuts legend */}
+      {/* Keyboard shortcuts */}
       <div className="flex items-center justify-center gap-4 text-[10px] text-foreground/25 py-1.5">
         <span>Tab: next unmapped</span>
+        <span>&middot;</span>
+        <span>Enter: accept suggestion</span>
         <span>&middot;</span>
         <span>S: skip</span>
         <span>&middot;</span>
@@ -1468,7 +1491,7 @@ function InteractiveResults({
       {/* Export Warning Dialog */}
       {showExportDialog && (
         <ExportDialog
-          unmappedNames={tiers.unmapped.map((dm) => dm.destModel.name)}
+          unmappedNames={unmappedLayers.map((sl) => sl.sourceModel.name)}
           onExportAnyway={handleExportAnyway}
           onSkipAllAndExport={handleSkipAllAndExport}
           onKeepMapping={handleKeepMapping}
@@ -1479,85 +1502,6 @@ function InteractiveResults({
 }
 
 // ─── Sub-components ───────────────────────────────────────────────
-
-function CoveredByGroupSection({ mappings }: { mappings: DestMapping[] }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  // Group by parent group name
-  const groups = useMemo(() => {
-    const map = new Map<string, DestMapping[]>();
-    for (const dm of mappings) {
-      const groupName = dm.coveredByGroupName || "Unknown Group";
-      const list = map.get(groupName) || [];
-      list.push(dm);
-      map.set(groupName, list);
-    }
-    return map;
-  }, [mappings]);
-
-  return (
-    <div className="bg-surface rounded-lg border border-cyan-500/20 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors bg-cyan-500/5"
-      >
-        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-cyan-400" />
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400">
-          COVERED BY GROUPS
-        </span>
-        <span className="text-[13px] font-bold text-foreground">
-          {mappings.length}
-        </span>
-        <svg
-          className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${isOpen ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-      {isOpen && (
-        <div className="border-t border-border">
-          {Array.from(groups.entries()).map(([groupName, members]) => (
-            <div key={groupName}>
-              <div className="px-3 py-1.5 bg-surface-light flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-cyan-400/60 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
-                </svg>
-                <span className="text-[11px] font-semibold text-cyan-400/80 truncate">
-                  {groupName}
-                </span>
-                <span className="text-[10px] text-foreground/30 ml-auto flex-shrink-0">
-                  {members.length} models
-                </span>
-              </div>
-              {members.map((dm) => (
-                <div
-                  key={dm.destModel.name}
-                  className="px-3 py-1.5 flex items-center justify-between border-b border-border/20 last:border-b-0"
-                >
-                  <span className="text-[12px] text-foreground/50 truncate pl-4">
-                    {dm.destModel.name}
-                  </span>
-                  <span className="text-[10px] text-cyan-400/50 flex-shrink-0">
-                    via group
-                  </span>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function HowItWorksCard({
   number,
