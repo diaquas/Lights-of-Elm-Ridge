@@ -31,7 +31,14 @@ type UndoAction =
       wasSkipped: boolean;
     }
   | { type: "clear"; destName: string; prevSourceName: string }
-  | { type: "skip"; destName: string; prevSourceName: string | null };
+  | { type: "skip"; destName: string; prevSourceName: string | null }
+  | {
+      type: "swap";
+      destNameA: string;
+      prevSourceA: string;
+      destNameB: string;
+      prevSourceB: string;
+    };
 
 export interface InteractiveMappingState {
   destMappings: DestMapping[];
@@ -43,6 +50,7 @@ export interface InteractiveMappingState {
   clearMapping: (destModelName: string) => void;
   skipModel: (destModelName: string) => void;
   unskipModel: (destModelName: string) => void;
+  swapMappings: (destNameA: string, destNameB: string) => void;
   undo: () => void;
   canUndo: boolean;
   mappedCount: number;
@@ -290,6 +298,38 @@ export function useInteractiveMapping(
     });
   }, []);
 
+  const swapMappings = useCallback(
+    (destNameA: string, destNameB: string) => {
+      const srcA = assignments.get(destNameA) ?? null;
+      const srcB = assignments.get(destNameB) ?? null;
+      if (!srcA || !srcB) return; // both must be mapped to swap
+
+      setUndoStack((s) => [
+        ...s,
+        {
+          type: "swap",
+          destNameA,
+          prevSourceA: srcA,
+          destNameB,
+          prevSourceB: srcB,
+        },
+      ]);
+      setAssignments((prev) => {
+        const next = new Map(prev);
+        next.set(destNameA, srcB);
+        next.set(destNameB, srcA);
+        return next;
+      });
+      setOverrides((prev) => {
+        const next = new Set(prev);
+        next.add(destNameA);
+        next.add(destNameB);
+        return next;
+      });
+    },
+    [assignments],
+  );
+
   const undo = useCallback(() => {
     setUndoStack((stack) => {
       if (stack.length === 0) return stack;
@@ -333,6 +373,13 @@ export function useInteractiveMapping(
             return next;
           });
         }
+      } else if (action.type === "swap") {
+        setAssignments((prev) => {
+          const next = new Map(prev);
+          next.set(action.destNameA, action.prevSourceA);
+          next.set(action.destNameB, action.prevSourceB);
+          return next;
+        });
       }
 
       return newStack;
@@ -450,6 +497,7 @@ export function useInteractiveMapping(
     clearMapping,
     skipModel,
     unskipModel,
+    swapMappings,
     undo,
     canUndo: undoStack.length > 0,
     mappedCount,
