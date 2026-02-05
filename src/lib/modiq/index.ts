@@ -20,6 +20,7 @@ export {
   suggestMatches,
   mapSubmodels,
   scoreToConfidence,
+  isDmxModel,
 } from "./matcher";
 export type {
   Confidence,

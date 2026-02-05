@@ -8,7 +8,7 @@ import type {
   SubmodelMapping,
 } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
-import { suggestMatches, mapSubmodels } from "@/lib/modiq";
+import { suggestMatches, mapSubmodels, isDmxModel } from "@/lib/modiq";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -86,7 +86,15 @@ export function useInteractiveMapping(
       return map;
     },
   );
-  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [skipped, setSkipped] = useState<Set<string>>(() => {
+    // Auto-skip DMX dest models — they're non-pixel fixtures and should
+    // never appear as "unmapped" or count in the export warning.
+    const dmxSkipped = new Set<string>();
+    for (const dm of destModels) {
+      if (isDmxModel(dm)) dmxSkipped.add(dm.name);
+    }
+    return dmxSkipped;
+  });
   const [overrides, setOverrides] = useState<Set<string>>(new Set());
   const [undoStack, setUndoStack] = useState<UndoAction[]>([]);
 
@@ -124,9 +132,12 @@ export function useInteractiveMapping(
     return set;
   }, [assignments]);
 
-  // Available (unassigned) source models
+  // Available (unassigned, non-DMX) source models
   const availableSourceModels = useMemo(
-    () => sourceModels.filter((m) => !assignedSourceNames.has(m.name)),
+    () =>
+      sourceModels.filter(
+        (m) => !assignedSourceNames.has(m.name) && !isDmxModel(m),
+      ),
     [sourceModels, assignedSourceNames],
   );
 
