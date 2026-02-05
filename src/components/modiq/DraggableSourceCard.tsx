@@ -49,19 +49,19 @@ export default memo(function DraggableSourceCard({
 
   const typeLabel = model.isGroup ? "GRP" : model.type.toUpperCase();
 
-  // Compact single-line card: 40px total (8px padding + 4px margin)
+  // Unified 44px card to match mapping row heights
   return (
     <div
       draggable={!isMapped}
       onDragStart={isMapped ? undefined : handleDragStart}
       onDragEnd={isMapped ? undefined : onDragEnd}
       onClick={handleClick}
-      className={`flex items-center gap-2 rounded px-2.5 py-2 mb-1 transition-[border-color,transform] duration-150 ${
+      className={`flex items-center gap-2 rounded min-h-[44px] px-2.5 py-2 mb-0.5 transition-[border-color,transform] duration-150 ${
         isMapped
           ? "opacity-40 cursor-default border border-border/50"
           : isSelected
             ? "border border-accent bg-accent/10 shadow-md cursor-pointer"
-            : "border border-border bg-surface hover:border-foreground/30 cursor-grab active:cursor-grabbing active:scale-[1.02] active:shadow-lg"
+            : "border border-border bg-surface hover:border-foreground/30 hover:bg-white/[0.03] cursor-grab active:cursor-grabbing active:scale-[1.01] active:shadow-[0_4px_16px_rgba(0,0,0,0.4)] active:z-10"
       }`}
     >
       {/* Drag handle */}

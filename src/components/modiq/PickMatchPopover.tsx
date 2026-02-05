@@ -39,42 +39,55 @@ export default memo(function PickMatchPopover({
   const [highlightIdx, setHighlightIdx] = useState(0);
   const popoverRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const [position, setPosition] = useState<{ top: number; left: number }>({
-    top: 0,
-    left: 0,
-  });
+  const [position, setPosition] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  }>({ top: 0, left: 0, width: 380 });
   const [mounted, setMounted] = useState(false);
 
-  // Calculate position on mount and anchor changes
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Position the popover to match left panel width
   useEffect(() => {
     if (!mounted || !anchorRef.current || !popoverRef.current) return;
 
     const rect = anchorRef.current.getBoundingClientRect();
     const popoverHeight = popoverRef.current.offsetHeight;
-    const popoverWidth = 380;
     const viewportHeight = window.innerHeight;
 
+    // Find the left panel container width — walk up to the grid child
+    let panelEl: HTMLElement | null = anchorRef.current;
+    while (panelEl && !panelEl.classList.contains("min-w-0")) {
+      panelEl = panelEl.parentElement;
+    }
+    const panelWidth = panelEl
+      ? panelEl.getBoundingClientRect().width
+      : Math.min(rect.width, 720);
+    const panelLeft = panelEl
+      ? panelEl.getBoundingClientRect().left
+      : rect.left;
+
+    // Clamp width between 400 and 720
+    const width = Math.max(400, Math.min(720, panelWidth));
+
     let top = rect.bottom + 4;
-    let left = rect.left;
+    let left = panelLeft;
 
     // Flip above if not enough room below
     if (top + popoverHeight > viewportHeight - 16) {
       top = rect.top - popoverHeight - 4;
     }
 
-    // Nudge left if overflowing right
-    if (left + popoverWidth > window.innerWidth - 16) {
-      left = window.innerWidth - popoverWidth - 16;
+    // Ensure not off-screen
+    if (left + width > window.innerWidth - 16) {
+      left = window.innerWidth - width - 16;
     }
-
-    // Ensure not off-screen left
     if (left < 16) left = 16;
 
-    setPosition({ top, left });
+    setPosition({ top, left, width });
   }, [mounted, anchorRef]);
 
   // Close on click outside
@@ -91,11 +104,10 @@ export default memo(function PickMatchPopover({
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
-  // Close on Escape
+  // Close on Escape / Tab
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "Tab") {
+      if (e.key === "Escape" || e.key === "Tab") {
         e.preventDefault();
         onClose();
       }
@@ -122,7 +134,6 @@ export default memo(function PickMatchPopover({
     [topSuggestions],
   );
 
-  // Filtered suggestions
   const filteredSuggestions = useMemo(() => {
     if (!search) return topSuggestions;
     const q = search.toLowerCase();
@@ -133,7 +144,6 @@ export default memo(function PickMatchPopover({
     );
   }, [topSuggestions, search]);
 
-  // All available (excluding suggestions, excluding already-mapped)
   const filteredAvailable = useMemo(() => {
     const q = search.toLowerCase();
     return availableSourceModels
@@ -146,7 +156,6 @@ export default memo(function PickMatchPopover({
       );
   }, [availableSourceModels, suggestionNames, search]);
 
-  // Combined flat list for keyboard navigation
   const allItems = useMemo(() => {
     const items: {
       name: string;
@@ -179,7 +188,6 @@ export default memo(function PickMatchPopover({
     return items;
   }, [filteredSuggestions, filteredAvailable]);
 
-  // Reset highlight when search changes
   useEffect(() => {
     setHighlightIdx(0);
   }, [search]);
@@ -219,145 +227,153 @@ export default memo(function PickMatchPopover({
   if (!mounted) return null;
 
   const popover = (
-    <div
-      ref={popoverRef}
-      role="listbox"
-      className="fixed flex flex-col overflow-hidden rounded-lg border border-border bg-zinc-900 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)]"
-      style={{
-        top: position.top,
-        left: position.left,
-        width: 380,
-        maxHeight: 400,
-        zIndex: 1000,
-      }}
-    >
-      {/* Search input */}
-      <div className="p-2 border-b border-zinc-800 flex-shrink-0">
-        <div className="relative">
-          <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            ref={inputRef}
-            role="combobox"
-            aria-expanded="true"
-            aria-haspopup="listbox"
-            type="text"
-            placeholder="Search source models..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-full h-8 pl-8 pr-3 text-[13px] bg-zinc-800 border border-zinc-700 rounded text-zinc-200 outline-none focus:border-zinc-500 placeholder:text-zinc-500"
-          />
-        </div>
-      </div>
-
-      {/* Scrollable results */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">
-        {/* Suggestions section */}
-        {filteredSuggestions.length > 0 && (
-          <>
-            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400 sticky top-0 bg-zinc-900">
-              Suggestions
-            </div>
-            {filteredSuggestions.map((s, i) => {
-              const globalIdx = i;
-              return (
-                <button
-                  key={s.model.name}
-                  role="option"
-                  aria-selected={highlightIdx === globalIdx}
-                  type="button"
-                  onClick={() => handleSelect(s.model.name)}
-                  onMouseEnter={() => setHighlightIdx(globalIdx)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${
-                    highlightIdx === globalIdx
-                      ? "bg-zinc-800"
-                      : "hover:bg-zinc-800/50"
-                  }`}
-                >
-                  <span className="text-[13px] font-medium text-zinc-200 truncate flex-1">
-                    {s.model.name}
-                  </span>
-                  <span className="text-[11px] text-zinc-500 flex-shrink-0 min-w-[48px] text-right tabular-nums">
-                    {s.model.pixelCount}px
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 uppercase tracking-wide flex-shrink-0">
-                    {s.model.isGroup ? "GRP" : s.model.type}
-                  </span>
-                  <span className="text-[11px] text-amber-400 flex-shrink-0 min-w-[32px] text-right tabular-nums">
-                    {(s.score * 100).toFixed(0)}%
-                  </span>
-                </button>
-              );
-            })}
-          </>
-        )}
-
-        {/* All available section */}
-        {filteredAvailable.length > 0 && (
-          <>
-            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 sticky top-0 bg-zinc-900">
-              All Available
-            </div>
-            {filteredAvailable.map((m, i) => {
-              const globalIdx = filteredSuggestions.length + i;
-              return (
-                <button
-                  key={m.name}
-                  role="option"
-                  aria-selected={highlightIdx === globalIdx}
-                  type="button"
-                  onClick={() => handleSelect(m.name)}
-                  onMouseEnter={() => setHighlightIdx(globalIdx)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${
-                    highlightIdx === globalIdx
-                      ? "bg-zinc-800"
-                      : "hover:bg-zinc-800/50"
-                  }`}
-                >
-                  <span className="text-[13px] font-medium text-zinc-200 truncate flex-1">
-                    {m.name}
-                  </span>
-                  <span className="text-[11px] text-zinc-500 flex-shrink-0 min-w-[48px] text-right tabular-nums">
-                    {m.pixelCount}px
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 uppercase tracking-wide flex-shrink-0">
-                    {m.isGroup ? "GRP" : m.type}
-                  </span>
-                </button>
-              );
-            })}
-          </>
-        )}
-
-        {allItems.length === 0 && (
-          <div className="px-3 py-6 text-center text-[13px] text-zinc-500">
-            No available models
-          </div>
-        )}
-      </div>
-
-      {/* Skip action */}
-      <button
-        type="button"
-        onClick={handleSkip}
-        className="flex items-center gap-1.5 px-3 py-2 border-t border-zinc-800 text-[12px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors flex-shrink-0"
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/25"
+        style={{ zIndex: 999 }}
+        onClick={onClose}
+      />
+      <div
+        ref={popoverRef}
+        role="listbox"
+        className="fixed flex flex-col overflow-hidden rounded-[10px] border border-[#2a2a2a] bg-[#141414] shadow-[0_12px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03)]"
+        style={{
+          top: position.top,
+          left: position.left,
+          width: position.width,
+          maxHeight: 420,
+          zIndex: 1000,
+        }}
       >
-        <span>&#8856;</span>
-        Skip this model
-      </button>
-    </div>
+        {/* Search input */}
+        <div className="p-2 border-b border-[#2a2a2a] flex-shrink-0">
+          <div className="relative">
+            <svg
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              ref={inputRef}
+              role="combobox"
+              aria-expanded="true"
+              aria-haspopup="listbox"
+              type="text"
+              placeholder="Search source models..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full h-8 pl-8 pr-3 text-[13px] bg-zinc-800 border border-zinc-700 rounded text-zinc-200 outline-none focus:border-zinc-500 placeholder:text-zinc-500"
+            />
+          </div>
+        </div>
+
+        {/* Scrollable results */}
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          {/* Suggestions section — green themed */}
+          {filteredSuggestions.length > 0 && (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-green-400 sticky top-0 bg-[#141414]">
+                Suggestions
+              </div>
+              {filteredSuggestions.map((s, i) => {
+                const globalIdx = i;
+                return (
+                  <button
+                    key={s.model.name}
+                    role="option"
+                    aria-selected={highlightIdx === globalIdx}
+                    type="button"
+                    onClick={() => handleSelect(s.model.name)}
+                    onMouseEnter={() => setHighlightIdx(globalIdx)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${
+                      highlightIdx === globalIdx
+                        ? "bg-green-500/[0.08]"
+                        : "hover:bg-green-500/[0.05]"
+                    }`}
+                  >
+                    <span className="text-[13px] font-medium text-green-400 truncate flex-1">
+                      {s.model.name}
+                    </span>
+                    <span className="text-[11px] text-green-400/60 flex-shrink-0 min-w-[48px] text-right tabular-nums">
+                      {s.model.pixelCount}px
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/[0.08] text-green-400/70 border border-green-500/15 uppercase tracking-wide flex-shrink-0">
+                      {s.model.isGroup ? "GRP" : s.model.type}
+                    </span>
+                    <span className="text-[12px] font-semibold text-green-400 flex-shrink-0 min-w-[32px] text-right tabular-nums">
+                      {(s.score * 100).toFixed(0)}%
+                    </span>
+                  </button>
+                );
+              })}
+            </>
+          )}
+
+          {/* All available section — neutral */}
+          {filteredAvailable.length > 0 && (
+            <>
+              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 sticky top-0 bg-[#141414]">
+                All Available
+              </div>
+              {filteredAvailable.map((m, i) => {
+                const globalIdx = filteredSuggestions.length + i;
+                return (
+                  <button
+                    key={m.name}
+                    role="option"
+                    aria-selected={highlightIdx === globalIdx}
+                    type="button"
+                    onClick={() => handleSelect(m.name)}
+                    onMouseEnter={() => setHighlightIdx(globalIdx)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${
+                      highlightIdx === globalIdx
+                        ? "bg-zinc-800"
+                        : "hover:bg-zinc-800/50"
+                    }`}
+                  >
+                    <span className="text-[13px] text-zinc-200 truncate flex-1">
+                      {m.name}
+                    </span>
+                    <span className="text-[11px] text-zinc-500 flex-shrink-0 min-w-[48px] text-right tabular-nums">
+                      {m.pixelCount}px
+                    </span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 uppercase tracking-wide flex-shrink-0">
+                      {m.isGroup ? "GRP" : m.type}
+                    </span>
+                  </button>
+                );
+              })}
+            </>
+          )}
+
+          {allItems.length === 0 && (
+            <div className="px-3 py-6 text-center text-[13px] text-zinc-500">
+              No available models
+            </div>
+          )}
+        </div>
+
+        {/* Skip action */}
+        <button
+          type="button"
+          onClick={handleSkip}
+          className="flex items-center gap-1.5 px-3 py-2 border-t border-[#2a2a2a] text-[12px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors flex-shrink-0"
+        >
+          <span>&#8856;</span>
+          Skip this model
+        </button>
+      </div>
+    </>
   );
 
   return createPortal(popover, document.body);

@@ -1218,17 +1218,13 @@ function InteractiveResults({
               )}
               <button
                 onClick={handleExport}
-                className={`text-[13px] px-3.5 py-1.5 rounded-xl font-semibold transition-colors ${
-                  interactive.unmappedCount > 0
-                    ? "bg-accent/80 hover:bg-accent text-white"
-                    : "bg-accent hover:bg-accent/90 text-white"
+                className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all ${
+                  interactive.unmappedCount === 0
+                    ? "bg-green-500 text-white hover:bg-green-600"
+                    : "border border-accent text-accent hover:bg-accent/10"
                 }`}
               >
-                {interactive.unmappedCount > 0
-                  ? `Export (${interactive.unmappedCount} unmapped)`
-                  : skippedMappings.length > 0
-                    ? `Export .xmap (${skippedMappings.length} skipped)`
-                    : "Export .xmap"}
+                Export {interactive.unmappedCount > 0 && `(${interactive.unmappedCount} unmapped)`}
               </button>
             </div>
           </div>
@@ -1242,16 +1238,6 @@ function InteractiveResults({
             lowCount={interactive.lowCount}
             percentage={interactive.mappedPercentage}
           />
-
-          <div className="flex items-center gap-3 mt-1 text-[10px] text-foreground/40">
-            <span>{autoMappedCount} auto</span>
-            <span>&middot;</span>
-            <span>{manualCount} manual</span>
-            <span>&middot;</span>
-            <span>{interactive.skippedCount} skipped</span>
-            <span>&middot;</span>
-            <span>{interactive.unmappedCount} remaining</span>
-          </div>
         </div>
       </div>
 
