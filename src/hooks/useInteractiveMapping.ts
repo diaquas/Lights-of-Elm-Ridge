@@ -35,6 +35,7 @@ export interface DestMapping {
 }
 
 type UndoAction =
+  // V2 dest-centric
   | {
       type: "assign";
       destName: string;
@@ -49,12 +50,18 @@ type UndoAction =
       prevSourceA: string;
       destNameB: string;
       prevSourceB: string;
-    };
+    }
+  // V3 many-to-many links
+  | { type: "v3_addLink"; sourceName: string; destName: string }
+  | { type: "v3_removeLink"; sourceName: string; destName: string }
+  | { type: "v3_clearLayer"; sourceName: string; prevDests: string[] }
+  | { type: "v3_skipLayer"; sourceName: string; prevDests: string[] };
 
 /** V3 source-first: one entry per source layer that needs mapping */
 export interface SourceLayerMapping {
   sourceModel: ParsedModel;
-  assignedUserModel: ParsedModel | null;
+  /** All user models linked to this source layer (many-to-one support) */
+  assignedUserModels: ParsedModel[];
   isGroup: boolean;
   scenario: GroupScenario | null;
   memberNames: string[];
@@ -64,6 +71,7 @@ export interface SourceLayerMapping {
   /** How many children are auto-resolved by mapping this group */
   coveredChildCount: number;
   isSkipped: boolean;
+  /** True if at least one user model is assigned */
   isMapped: boolean;
 }
 
@@ -97,9 +105,11 @@ export interface InteractiveMappingState {
 
   // ── V3 source-first (the primary UI view) ──
   sourceLayerMappings: SourceLayerMapping[];
-  /** Assign a user model to a source layer (replacing any previous assignment) */
+  /** Add a link from user model to source layer (additive, many-to-one) */
   assignUserModelToLayer: (sourceLayerName: string, userModelName: string) => void;
-  /** Clear a source layer's user model assignment */
+  /** Remove a specific link from a source layer to a user model */
+  removeLinkFromLayer: (sourceName: string, destName: string) => void;
+  /** Clear ALL user model links for a source layer */
   clearLayerMapping: (sourceLayerName: string) => void;
   /** Skip a source layer (remove from task list) */
   skipSourceLayer: (sourceLayerName: string) => void;
@@ -107,8 +117,10 @@ export interface InteractiveMappingState {
   unskipSourceLayer: (sourceLayerName: string) => void;
   /** Get ranked user model suggestions for a source layer */
   getSuggestionsForLayer: (sourceModel: ParsedModel) => ReturnType<typeof suggestMatchesForSource>;
-  /** Set of user model names currently assigned to source layers */
+  /** Set of user model names currently assigned to any source layer */
   assignedUserModelNames: Set<string>;
+  /** Inverse map: dest name → set of source names it's linked to (for right panel indicators) */
+  destToSourcesMap: Map<string, Set<string>>;
   /** Source-centric stats */
   totalSourceLayers: number;
   mappedLayerCount: number;
@@ -157,6 +169,23 @@ export function useInteractiveMapping(
   });
   const [overrides, setOverrides] = useState<Set<string>>(new Set());
   const [undoStack, setUndoStack] = useState<UndoAction[]>([]);
+
+  // V3 link state: source layer name → set of user (dest) model names
+  // Declared here (with other state) so toMappingResult can reference it.
+  const [sourceDestLinks, setSourceDestLinks] = useState<
+    Map<string, Set<string>>
+  >(() => {
+    if (!initialResult) return new Map();
+    const map = new Map<string, Set<string>>();
+    for (const m of initialResult.mappings) {
+      if (m.destModel && m.confidence !== "unmapped") {
+        const set = map.get(m.sourceModel.name) ?? new Set();
+        set.add(m.destModel.name);
+        map.set(m.sourceModel.name, set);
+      }
+    }
+    return map;
+  });
 
   // Lookup maps
   const sourceByName = useMemo(() => {
@@ -478,6 +507,7 @@ export function useInteractiveMapping(
       const action = stack[stack.length - 1];
       const newStack = stack.slice(0, -1);
 
+      // V2 undo actions
       if (action.type === "assign") {
         setAssignments((prev) => {
           const next = new Map(prev);
@@ -524,63 +554,143 @@ export function useInteractiveMapping(
         });
       }
 
+      // V3 undo actions (many-to-many links)
+      else if (action.type === "v3_addLink") {
+        setSourceDestLinks((prev) => {
+          const next = new Map(prev);
+          const set = new Set(next.get(action.sourceName) ?? []);
+          set.delete(action.destName);
+          if (set.size === 0) next.delete(action.sourceName);
+          else next.set(action.sourceName, set);
+          return next;
+        });
+      } else if (action.type === "v3_removeLink") {
+        setSourceDestLinks((prev) => {
+          const next = new Map(prev);
+          const set = new Set(next.get(action.sourceName) ?? []);
+          set.add(action.destName);
+          next.set(action.sourceName, set);
+          return next;
+        });
+      } else if (action.type === "v3_clearLayer") {
+        setSourceDestLinks((prev) => {
+          const next = new Map(prev);
+          next.set(action.sourceName, new Set(action.prevDests));
+          return next;
+        });
+      } else if (action.type === "v3_skipLayer") {
+        setSkippedSourceLayers((prev) => {
+          const next = new Set(prev);
+          next.delete(action.sourceName);
+          return next;
+        });
+        // Restore previous links
+        if (action.prevDests.length > 0) {
+          setSourceDestLinks((prev) => {
+            const next = new Map(prev);
+            next.set(action.sourceName, new Set(action.prevDests));
+            return next;
+          });
+        }
+      }
+
       return newStack;
     });
   }, []);
 
   // Reconstruct source-centric MappingResult for export
+  // V3 mode uses sourceDestLinks (many-to-many), V2 uses assignments (one-to-one)
   const toMappingResult = useCallback((): MappingResult => {
-    // Build reverse map: source name → dest name
-    const srcToDest = new Map<string, string>();
-    for (const [destName, srcName] of assignments) {
-      if (srcName) srcToDest.set(srcName, destName);
-    }
-
     const mappings: ModelMapping[] = [];
+    const usedDestNames = new Set<string>();
 
-    for (const src of sourceModels) {
-      const destName = srcToDest.get(src.name);
-      const dest = destName ? (destByName.get(destName) ?? null) : null;
+    // Check if V3 links are active
+    const hasV3Links = sourceDestLinks.size > 0;
 
-      if (dest) {
-        const autoMapping = autoMappingByDest.get(dest.name);
-        const isOverride = overrides.has(dest.name);
-
-        if (autoMapping && !isOverride) {
-          mappings.push(autoMapping);
+    if (hasV3Links) {
+      // V3 mode: build from sourceDestLinks (supports many-to-one)
+      for (const src of sourceModels) {
+        const dests = sourceDestLinks.get(src.name);
+        if (dests && dests.size > 0) {
+          for (const destName of dests) {
+            const dest = destByName.get(destName) ?? null;
+            if (dest) {
+              usedDestNames.add(destName);
+              const autoMapping = autoMappingByDest.get(dest.name);
+              const isOverride = overrides.has(dest.name);
+              if (autoMapping && !isOverride && autoMapping.sourceModel.name === src.name) {
+                mappings.push(autoMapping);
+              } else {
+                const subs = mapSubmodels(src, dest);
+                mappings.push({
+                  sourceModel: src,
+                  destModel: dest,
+                  score: 0.6,
+                  confidence: "medium",
+                  factors: { name: 0.6, spatial: 0.5, shape: 0.5, type: 0.5, pixels: 0.5 },
+                  reason: "Manual mapping",
+                  submodelMappings: subs,
+                });
+              }
+            }
+          }
         } else {
-          const subs = mapSubmodels(src, dest);
           mappings.push({
             sourceModel: src,
-            destModel: dest,
-            score: 0.6,
-            confidence: "medium",
-            factors: {
-              name: 0.6,
-              spatial: 0.5,
-              shape: 0.5,
-              type: 0.5,
-              pixels: 0.5,
-            },
-            reason: "Manual mapping",
-            submodelMappings: subs,
+            destModel: null,
+            score: 0,
+            confidence: "unmapped",
+            factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 },
+            reason: "No suitable match found in your layout.",
+            submodelMappings: [],
           });
         }
-      } else {
-        mappings.push({
-          sourceModel: src,
-          destModel: null,
-          score: 0,
-          confidence: "unmapped",
-          factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 },
-          reason: "No suitable match found in your layout.",
-          submodelMappings: [],
-        });
+      }
+    } else {
+      // V2 mode: build from assignments (one-to-one)
+      const srcToDest = new Map<string, string>();
+      for (const [destName, srcName] of assignments) {
+        if (srcName) srcToDest.set(srcName, destName);
+      }
+
+      for (const src of sourceModels) {
+        const destName = srcToDest.get(src.name);
+        const dest = destName ? (destByName.get(destName) ?? null) : null;
+
+        if (dest) {
+          usedDestNames.add(dest.name);
+          const autoMapping = autoMappingByDest.get(dest.name);
+          const isOverride = overrides.has(dest.name);
+
+          if (autoMapping && !isOverride) {
+            mappings.push(autoMapping);
+          } else {
+            const subs = mapSubmodels(src, dest);
+            mappings.push({
+              sourceModel: src,
+              destModel: dest,
+              score: 0.6,
+              confidence: "medium",
+              factors: { name: 0.6, spatial: 0.5, shape: 0.5, type: 0.5, pixels: 0.5 },
+              reason: "Manual mapping",
+              submodelMappings: subs,
+            });
+          }
+        } else {
+          mappings.push({
+            sourceModel: src,
+            destModel: null,
+            score: 0,
+            confidence: "unmapped",
+            factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 },
+            reason: "No suitable match found in your layout.",
+            submodelMappings: [],
+          });
+        }
       }
     }
 
     const mapped = mappings.filter((m) => m.destModel !== null);
-    const usedDestNames = new Set(mapped.map((m) => m.destModel!.name));
     const unusedDestModels = destModels.filter(
       (m) => !usedDestNames.has(m.name),
     );
@@ -598,6 +708,7 @@ export function useInteractiveMapping(
       unusedDestModels,
     };
   }, [
+    sourceDestLinks,
     assignments,
     overrides,
     sourceModels,
@@ -634,7 +745,7 @@ export function useInteractiveMapping(
   );
 
   // ═══════════════════════════════════════════════════════════════
-  // V3 Source-First View
+  // V3 Source-First View — Many-to-Many Links
   // ═══════════════════════════════════════════════════════════════
 
   // Skipped source layers (separate from dest skips)
@@ -642,23 +753,30 @@ export function useInteractiveMapping(
     new Set(),
   );
 
-  // Inverse map: source name → user (dest) model name
-  const sourceToUserMap = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const [destName, srcName] of assignments) {
-      if (srcName) map.set(srcName, destName);
+  // Derived: source → Set<destName> (from sourceDestLinks — already the right shape)
+  // Inverse: dest → Set<sourceName> (for right panel assignment indicators)
+  const destToSourcesMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const [srcName, dests] of sourceDestLinks) {
+      for (const destName of dests) {
+        const set = map.get(destName) ?? new Set();
+        set.add(srcName);
+        map.set(destName, set);
+      }
     }
     return map;
-  }, [assignments]);
+  }, [sourceDestLinks]);
 
   // Set of user model names currently assigned to any source layer
   const assignedUserModelNames = useMemo(() => {
     const set = new Set<string>();
-    for (const [destName, srcName] of assignments) {
-      if (srcName) set.add(destName);
+    for (const dests of sourceDestLinks.values()) {
+      for (const destName of dests) {
+        set.add(destName);
+      }
     }
     return set;
-  }, [assignments]);
+  }, [sourceDestLinks]);
 
   // Build source-layer mappings from effect tree
   const sourceLayerMappings: SourceLayerMapping[] = useMemo(() => {
@@ -669,21 +787,24 @@ export function useInteractiveMapping(
     // Groups with effects (Scenario A and B — C are individual-only)
     for (const gInfo of effectTree.groupsWithEffects) {
       if (gInfo.scenario === "C") continue;
-      const userModelName = sourceToUserMap.get(gInfo.model.name);
-      const userModel = userModelName
-        ? destByName.get(userModelName) ?? null
-        : null;
+      const destNames = sourceDestLinks.get(gInfo.model.name);
+      const userModels: ParsedModel[] = [];
+      if (destNames) {
+        for (const dn of destNames) {
+          const m = destByName.get(dn);
+          if (m) userModels.push(m);
+        }
+      }
 
       // Count children resolved by mapping this group
-      // For non-all-encompassing groups: members without individual effects
       let coveredChildCount = 0;
-      if (userModel && !gInfo.isAllEncompassing) {
+      if (userModels.length > 0 && !gInfo.isAllEncompassing) {
         coveredChildCount = gInfo.membersWithoutEffects.length;
       }
 
       layers.push({
         sourceModel: gInfo.model,
-        assignedUserModel: userModel,
+        assignedUserModels: userModels,
         isGroup: true,
         scenario: gInfo.scenario,
         memberNames: gInfo.model.memberModels,
@@ -692,21 +813,25 @@ export function useInteractiveMapping(
         isAllEncompassing: gInfo.isAllEncompassing,
         coveredChildCount,
         isSkipped: skippedSourceLayers.has(gInfo.model.name),
-        isMapped: !!userModel,
+        isMapped: userModels.length > 0,
       });
     }
 
     // Individual models needing mapping
     for (const mInfo of effectTree.modelsWithEffects) {
       if (!mInfo.needsIndividualMapping) continue;
-      const userModelName = sourceToUserMap.get(mInfo.model.name);
-      const userModel = userModelName
-        ? destByName.get(userModelName) ?? null
-        : null;
+      const destNames = sourceDestLinks.get(mInfo.model.name);
+      const userModels: ParsedModel[] = [];
+      if (destNames) {
+        for (const dn of destNames) {
+          const m = destByName.get(dn);
+          if (m) userModels.push(m);
+        }
+      }
 
       layers.push({
         sourceModel: mInfo.model,
-        assignedUserModel: userModel,
+        assignedUserModels: userModels,
         isGroup: false,
         scenario: null,
         memberNames: [],
@@ -715,12 +840,12 @@ export function useInteractiveMapping(
         isAllEncompassing: false,
         coveredChildCount: 0,
         isSkipped: skippedSourceLayers.has(mInfo.model.name),
-        isMapped: !!userModel,
+        isMapped: userModels.length > 0,
       });
     }
 
     return layers;
-  }, [effectTree, sourceToUserMap, destByName, skippedSourceLayers]);
+  }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers]);
 
   // V3 source-centric stats
   const sourceStats = useMemo(() => {
@@ -766,42 +891,132 @@ export function useInteractiveMapping(
     };
   }, [sourceLayerMappings]);
 
-  // V3 actions
+  // V3 actions — many-to-many
 
-  /** Assign a user model to a source layer, clearing any previous assignment */
+  /** Add a link from user model to source layer (additive, never replaces) */
   const assignUserModelToLayer = useCallback(
     (sourceLayerName: string, userModelName: string) => {
-      // Find any user model currently assigned to this source layer
-      const existingUserModel = sourceToUserMap.get(sourceLayerName);
-      if (existingUserModel && existingUserModel !== userModelName) {
-        // Clear the old assignment
-        clearMapping(existingUserModel);
-      }
-      // Assign: user model (dest) → source layer (source)
-      assignSource(userModelName, sourceLayerName);
+      // Check if this exact link already exists (no-op for duplicates)
+      const existing = sourceDestLinks.get(sourceLayerName);
+      if (existing?.has(userModelName)) return;
+
+      setUndoStack((s) => [
+        ...s,
+        { type: "v3_addLink", sourceName: sourceLayerName, destName: userModelName },
+      ]);
+      setSourceDestLinks((prev) => {
+        const next = new Map(prev);
+        const set = new Set(next.get(sourceLayerName) ?? []);
+        set.add(userModelName);
+        next.set(sourceLayerName, set);
+        return next;
+      });
+      // Also update V2 assignments for compat (last-write wins for dest→source)
+      setAssignments((prev) => {
+        const next = new Map(prev);
+        next.set(userModelName, sourceLayerName);
+        return next;
+      });
+      // Unskip if it was skipped
+      setSkippedSourceLayers((prev) => {
+        if (!prev.has(sourceLayerName)) return prev;
+        const next = new Set(prev);
+        next.delete(sourceLayerName);
+        return next;
+      });
     },
-    [sourceToUserMap, clearMapping, assignSource],
+    [sourceDestLinks],
   );
 
-  /** Clear a source layer's mapping by finding and removing the assigned user model */
+  /** Remove a specific link from source layer to user model */
+  const removeLinkFromLayer = useCallback(
+    (sourceName: string, destName: string) => {
+      const existing = sourceDestLinks.get(sourceName);
+      if (!existing?.has(destName)) return;
+
+      setUndoStack((s) => [
+        ...s,
+        { type: "v3_removeLink", sourceName, destName },
+      ]);
+      setSourceDestLinks((prev) => {
+        const next = new Map(prev);
+        const set = new Set(next.get(sourceName) ?? []);
+        set.delete(destName);
+        if (set.size === 0) next.delete(sourceName);
+        else next.set(sourceName, set);
+        return next;
+      });
+      // Clean up V2 assignments
+      setAssignments((prev) => {
+        if (prev.get(destName) === sourceName) {
+          const next = new Map(prev);
+          next.delete(destName);
+          return next;
+        }
+        return prev;
+      });
+    },
+    [sourceDestLinks],
+  );
+
+  /** Clear ALL user model links for a source layer */
   const clearLayerMapping = useCallback(
     (sourceLayerName: string) => {
-      const userModelName = sourceToUserMap.get(sourceLayerName);
-      if (userModelName) {
-        clearMapping(userModelName);
-      }
+      const existing = sourceDestLinks.get(sourceLayerName);
+      if (!existing || existing.size === 0) return;
+
+      const prevDests = Array.from(existing);
+      setUndoStack((s) => [
+        ...s,
+        { type: "v3_clearLayer", sourceName: sourceLayerName, prevDests },
+      ]);
+      setSourceDestLinks((prev) => {
+        const next = new Map(prev);
+        next.delete(sourceLayerName);
+        return next;
+      });
+      // Clean up V2 assignments
+      setAssignments((prev) => {
+        const next = new Map(prev);
+        for (const dn of prevDests) {
+          if (next.get(dn) === sourceLayerName) next.delete(dn);
+        }
+        return next;
+      });
     },
-    [sourceToUserMap, clearMapping],
+    [sourceDestLinks],
   );
 
-  const skipSourceLayer = useCallback((sourceLayerName: string) => {
-    // Also clear any existing assignment
-    const userModelName = sourceToUserMap.get(sourceLayerName);
-    if (userModelName) {
-      clearMapping(userModelName);
-    }
-    setSkippedSourceLayers((prev) => new Set(prev).add(sourceLayerName));
-  }, [sourceToUserMap, clearMapping]);
+  const skipSourceLayer = useCallback(
+    (sourceLayerName: string) => {
+      const existing = sourceDestLinks.get(sourceLayerName);
+      const prevDests = existing ? Array.from(existing) : [];
+
+      setUndoStack((s) => [
+        ...s,
+        { type: "v3_skipLayer", sourceName: sourceLayerName, prevDests },
+      ]);
+
+      // Clear links
+      if (prevDests.length > 0) {
+        setSourceDestLinks((prev) => {
+          const next = new Map(prev);
+          next.delete(sourceLayerName);
+          return next;
+        });
+        setAssignments((prev) => {
+          const next = new Map(prev);
+          for (const dn of prevDests) {
+            if (next.get(dn) === sourceLayerName) next.delete(dn);
+          }
+          return next;
+        });
+      }
+
+      setSkippedSourceLayers((prev) => new Set(prev).add(sourceLayerName));
+    },
+    [sourceDestLinks],
+  );
 
   const unskipSourceLayer = useCallback((sourceLayerName: string) => {
     setSkippedSourceLayers((prev) => {
@@ -812,15 +1027,13 @@ export function useInteractiveMapping(
   }, []);
 
   // V3 suggestions: given a source layer, rank user models
+  // With many-to-one, all non-DMX models are candidates EXCEPT those
+  // already linked to THIS specific source layer.
   const getSuggestionsForLayer = useCallback(
     (sourceModel: ParsedModel) => {
-      // Filter dest models: exclude DMX, include unassigned + currently assigned to this source
-      const currentUserModel = sourceToUserMap.get(sourceModel.name);
+      const alreadyLinked = sourceDestLinks.get(sourceModel.name);
       const pool = destModels.filter(
-        (m) =>
-          !isDmxModel(m) &&
-          (!assignedUserModelNames.has(m.name) ||
-            m.name === currentUserModel),
+        (m) => !isDmxModel(m) && !alreadyLinked?.has(m.name),
       );
       return suggestMatchesForSource(
         sourceModel,
@@ -829,12 +1042,7 @@ export function useInteractiveMapping(
         destModels,
       );
     },
-    [
-      destModels,
-      sourceModels,
-      sourceToUserMap,
-      assignedUserModelNames,
-    ],
+    [destModels, sourceModels, sourceDestLinks],
   );
 
   // V3 navigation: find next unmapped source layer
@@ -875,14 +1083,16 @@ export function useInteractiveMapping(
     nextUnmappedDest,
     getSuggestions,
 
-    // V3 source-first
+    // V3 source-first (many-to-many)
     sourceLayerMappings,
     assignUserModelToLayer,
+    removeLinkFromLayer,
     clearLayerMapping,
     skipSourceLayer,
     unskipSourceLayer,
     getSuggestionsForLayer,
     assignedUserModelNames,
+    destToSourcesMap,
     totalSourceLayers: sourceStats.total,
     mappedLayerCount: sourceStats.mapped,
     skippedLayerCount: sourceStats.skippedLayers,

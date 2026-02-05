@@ -33,21 +33,30 @@ export function generateXmap(
 ): string {
   const lines: string[] = [];
 
-  // Get only the mapped entries (including unmapped source models that we list)
   const allSourceMappings = result.mappings;
+
+  // Deduplicate source model names (many-to-one produces multiple entries per source)
+  const uniqueSourceNames: string[] = [];
+  const seenSources = new Set<string>();
+  for (const mapping of allSourceMappings) {
+    if (!seenSources.has(mapping.sourceModel.name)) {
+      seenSources.add(mapping.sourceModel.name);
+      uniqueSourceNames.push(mapping.sourceModel.name);
+    }
+  }
 
   // Line 1: Boolean flag
   lines.push("false");
 
-  // Line 2: Count of source models
-  lines.push(String(allSourceMappings.length));
+  // Line 2: Count of unique source models
+  lines.push(String(uniqueSourceNames.length));
 
-  // Lines 3..N+2: Source model names
-  for (const mapping of allSourceMappings) {
-    lines.push(mapping.sourceModel.name);
+  // Lines 3..N+2: Unique source model names
+  for (const name of uniqueSourceNames) {
+    lines.push(name);
   }
 
-  // Mapping rows
+  // Mapping rows (includes all entries, even multiple dests per source)
   for (const mapping of allSourceMappings) {
     const srcName = mapping.sourceModel.name;
     const destName = mapping.destModel?.name || "";
@@ -58,7 +67,6 @@ export function generateXmap(
     // Submodel mappings
     for (const subMap of mapping.submodelMappings) {
       if (subMap.destName) {
-        // Source submodel → Destination model/submodel
         lines.push(
           [
             srcName,
@@ -69,7 +77,6 @@ export function generateXmap(
           ].join(TAB),
         );
       }
-      // Skip unmapped submodels in the output (xLights handles these gracefully)
     }
   }
 

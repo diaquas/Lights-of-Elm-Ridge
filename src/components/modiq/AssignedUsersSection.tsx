@@ -48,7 +48,6 @@ export default memo(function AssignedUsersSection({
             <DraggableUserCard
               key={m.name}
               model={m}
-              isAssigned={true}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               getDragDataTransfer={getDragDataTransfer}

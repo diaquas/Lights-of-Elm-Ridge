@@ -4,12 +4,29 @@ import { useState } from "react";
 
 type SurveyRating = "great" | "okay" | "rough" | null;
 
+interface BoostLine {
+  userGroupName: string;
+  sourceGroupName: string;
+}
+
 interface PostExportScreenProps {
   sequenceTitle: string;
   fileName: string;
   onDownloadAgain: () => void;
   onMapAnother: () => void;
   skippedCount: number;
+  /** Display coverage percentage (0-100) */
+  displayCoverage?: number;
+  /** Sequence coverage stats */
+  sequenceCoverage?: { mapped: number; total: number };
+  /** Boost mappings that were accepted */
+  boostLines?: BoostLine[];
+  /** Groups mapped count */
+  groupsMappedCount?: number;
+  /** Child models resolved by group mappings */
+  groupsCoveredChildCount?: number;
+  /** Direct individual model maps */
+  directMappedCount?: number;
 }
 
 export default function PostExportScreen({
@@ -18,6 +35,12 @@ export default function PostExportScreen({
   onDownloadAgain,
   onMapAnother,
   skippedCount,
+  displayCoverage,
+  sequenceCoverage,
+  boostLines,
+  groupsMappedCount,
+  groupsCoveredChildCount,
+  directMappedCount,
 }: PostExportScreenProps) {
   const [surveyRating, setSurveyRating] = useState<SurveyRating>(null);
   const [surveySubmitted, setSurveySubmitted] = useState(false);
@@ -55,13 +78,82 @@ export default function PostExportScreen({
           </span>{" "}
           saved to your downloads.
         </p>
-        {skippedCount > 0 && (
-          <p className="text-sm text-foreground/40">
-            {skippedCount} model{skippedCount !== 1 ? "s" : ""} were skipped and
-            won&apos;t receive effects.
-          </p>
-        )}
       </div>
+
+      {/* Coverage summary */}
+      {(sequenceCoverage || displayCoverage !== undefined) && (
+        <div className="bg-surface rounded-xl border border-border p-6 space-y-3">
+          {sequenceCoverage && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-foreground/60">Sequence coverage:</span>
+              <span className="font-bold text-foreground">
+                {sequenceCoverage.mapped}/{sequenceCoverage.total}
+              </span>
+              <span className="text-foreground/40">
+                {sequenceCoverage.mapped === sequenceCoverage.total ? "\u2014 full" : ""}
+              </span>
+            </div>
+          )}
+          {displayCoverage !== undefined && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-foreground/60">Display coverage:</span>
+              <span className={"font-bold " + (displayCoverage >= 100 ? "text-green-400" : "text-amber-400")}>
+                {displayCoverage}%
+              </span>
+              <span className="text-foreground/40">
+                {displayCoverage >= 100
+                  ? "\u2014 every group in your layout receives effects"
+                  : ""}
+              </span>
+            </div>
+          )}
+
+          {/* Mapping stats */}
+          {(groupsMappedCount !== undefined || directMappedCount !== undefined) && (
+            <div className="border-t border-border pt-3 mt-3 space-y-1 text-sm text-foreground/50">
+              {groupsMappedCount !== undefined && groupsMappedCount > 0 && (
+                <div>
+                  Groups mapped: {groupsMappedCount}
+                  {groupsCoveredChildCount !== undefined && groupsCoveredChildCount > 0
+                    ? " (resolved " + groupsCoveredChildCount + " child models)"
+                    : ""}
+                </div>
+              )}
+              {directMappedCount !== undefined && directMappedCount > 0 && (
+                <div>Direct model maps: {directMappedCount}</div>
+              )}
+              {skippedCount > 0 && (
+                <div>Skipped: {skippedCount}</div>
+              )}
+            </div>
+          )}
+
+          {/* Boost lines */}
+          {boostLines && boostLines.length > 0 && (
+            <div className="border-t border-border pt-3 mt-3">
+              <div className="flex items-center gap-1.5 text-sm text-green-400 font-semibold mb-2">
+                <span>&#x2728;</span>
+                <span>Bonus: {boostLines.length} group{boostLines.length > 1 ? "s" : ""} linked for fuller display</span>
+              </div>
+              <div className="space-y-1 text-xs text-foreground/50">
+                {boostLines.map((bl, i) => (
+                  <div key={i}>
+                    {bl.userGroupName} &rarr; {bl.sourceGroupName}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Non-boost skipped count (legacy path when no coverage data) */}
+      {!sequenceCoverage && !displayCoverage && skippedCount > 0 && (
+        <p className="text-sm text-foreground/40 text-center">
+          {skippedCount} model{skippedCount !== 1 ? "s" : ""} were skipped and
+          won&apos;t receive effects.
+        </p>
+      )}
 
       {/* How to import */}
       <div className="bg-surface rounded-xl border border-border p-6">
