@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useCallback, memo } from "react";
+import { useState, useCallback, useRef, memo } from "react";
 import type {
   ParsedModel,
   Confidence,
   SubmodelMapping,
   ModelMapping,
 } from "@/lib/modiq";
-import MappingDropdown from "./MappingDropdown";
+import PickMatchPopover from "./PickMatchPopover";
 
 interface Suggestion {
   model: ParsedModel;
@@ -81,15 +81,20 @@ export default memo(function InteractiveMappingRow({
   bestMatch,
 }: InteractiveMappingRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
   const [showRemapConfirm, setShowRemapConfirm] = useState<string | null>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
 
   const hasSubmodels = submodelMappings.length > 0;
   const isMapped = sourceModel !== null;
 
-  const handleOpenDropdown = useCallback((e: React.MouseEvent) => {
+  const handleOpenPopover = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setDropdownOpen(true);
+    setPopoverOpen(true);
+  }, []);
+
+  const handleClosePopover = useCallback(() => {
+    setPopoverOpen(false);
   }, []);
 
   const handleClearClick = useCallback(
@@ -167,20 +172,30 @@ export default memo(function InteractiveMappingRow({
     );
   }
 
-  // ─── Unmapped row — compact 56px, entire row is drop target ───
+  // ─── Unmapped row — 3-line card, entire row is drop target ───
   if (!isMapped) {
     const metaText = destModel.isGroup
       ? "Group"
-      : `${destModel.type} \u00B7 ${destModel.pixelCount}px`;
+      : `${destModel.pixelCount}px \u00B7 ${destModel.type}`;
 
     return (
       <div
+        ref={rowRef}
         onDragOver={handleDragOver}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={selectedSourceModel ? handleTapMap : handleOpenDropdown}
-        className={`grid grid-cols-[20px_1fr_auto_auto] items-center gap-x-2 px-3 py-2.5 min-h-[56px] border border-dashed rounded-md cursor-pointer transition-[border-color,background] duration-150 ${
+        onClick={
+          selectedSourceModel
+            ? handleTapMap
+            : (e) => {
+                // Don't open popover if clicking action buttons
+                const target = e.target as HTMLElement;
+                if (target.closest("[data-action]")) return;
+                setPopoverOpen(true);
+              }
+        }
+        className={`relative px-3 py-2.5 border border-dashed rounded-md cursor-pointer transition-[border-color,background] duration-150 ${
           isDropTarget
             ? "border-green-500 bg-green-500/5"
             : isFocused
@@ -190,76 +205,87 @@ export default memo(function InteractiveMappingRow({
                 : "border-foreground/15 hover:border-foreground/30 hover:bg-surface-light"
         }`}
       >
-        {/* Col 1: status dot */}
-        <span className="w-2 h-2 rounded-full bg-foreground/20 flex-shrink-0" />
+        <div className="flex items-start gap-2.5">
+          {/* Open dot (unmapped indicator) — hollow circle */}
+          <span className="w-2 h-2 rounded-full border border-foreground/30 mt-1.5 flex-shrink-0" />
 
-        {/* Col 2: model name + meta */}
-        <div className="min-w-0">
-          <div className="text-[13px] font-semibold text-foreground truncate">
-            {destModel.name}
-          </div>
-          <div className="text-[11px] text-foreground/40 truncate">
-            {isDropTarget
-              ? "Release to map"
-              : selectedSourceModel
-                ? `Tap to map ${selectedSourceModel}`
-                : metaText}
-          </div>
-        </div>
-
-        {/* Col 3: best match inline */}
-        {bestMatch && bestMatch.score > 0 && !isDropTarget && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAssign(bestMatch.name);
-            }}
-            className="text-[11px] text-amber-400/70 hover:text-amber-400 truncate max-w-[180px] flex-shrink-0 transition-colors"
-            title={`Apply best match: ${bestMatch.name}`}
-          >
-            <span className="mr-1">&#x1F4A1;</span>
-            {bestMatch.name} {(bestMatch.score * 100).toFixed(0)}%
-          </button>
-        )}
-
-        {/* Col 4: pick + skip buttons */}
-        <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            type="button"
-            onClick={handleOpenDropdown}
-            className="text-[12px] px-2 py-0.5 rounded bg-foreground/5 text-foreground/40 border border-foreground/10 hover:text-foreground/70 hover:bg-foreground/10 transition-colors"
-          >
-            &#9662;
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSkip();
-            }}
-            className="text-[11px] text-foreground/20 hover:text-foreground/50 px-1.5 py-0.5 transition-colors"
-          >
-            &#8856;
-          </button>
-        </div>
-
-        {/* Dropdown (spans full width below grid) */}
-        {dropdownOpen && (
-          <div className="col-span-full mt-2">
-            <div className="relative">
-              <MappingDropdown
-                destModel={destModel}
-                suggestions={getSuggestions()}
-                availableSourceModels={availableSourceModels}
-                onSelect={(name) => onAssign(name)}
-                onClear={onClear}
-                onSkip={onSkip}
-                onClose={() => setDropdownOpen(false)}
-                hasCurrent={false}
-              />
+          {/* Content area */}
+          <div className="flex-1 min-w-0">
+            {/* Line 1: Model name (bold, prominent) */}
+            <div className="text-[13px] font-semibold text-foreground truncate">
+              {destModel.name}
             </div>
+
+            {/* Line 2: Metadata (pixel count, type) */}
+            <div className="text-[11px] text-foreground/40 truncate">
+              {isDropTarget
+                ? "Release to map"
+                : selectedSourceModel
+                  ? `Tap to map ${selectedSourceModel}`
+                  : metaText}
+            </div>
+
+            {/* Line 3: Best suggestion or "no close matches" */}
+            {!isDropTarget && !selectedSourceModel && (
+              <div className="text-[11px] mt-0.5 truncate">
+                {bestMatch && bestMatch.score > 0 ? (
+                  <button
+                    type="button"
+                    data-action="suggestion"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAssign(bestMatch.name);
+                    }}
+                    className="text-amber-400/70 hover:text-amber-400 transition-colors"
+                    title={`Apply best match: ${bestMatch.name}`}
+                  >
+                    <span className="mr-1">&#x1F4A1;</span>
+                    {bestMatch.name} ({(bestMatch.score * 100).toFixed(0)}%)
+                  </button>
+                ) : (
+                  <span className="text-foreground/25">
+                    No close matches in source layout
+                  </span>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* Pick + Skip buttons */}
+          <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+            <button
+              type="button"
+              data-action="pick"
+              aria-haspopup="listbox"
+              onClick={handleOpenPopover}
+              className="text-[12px] px-2 py-0.5 rounded bg-foreground/5 text-foreground/40 border border-foreground/10 hover:text-foreground/70 hover:bg-foreground/10 transition-colors"
+            >
+              &#9662;
+            </button>
+            <button
+              type="button"
+              data-action="skip"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSkip();
+              }}
+              className="text-[11px] text-foreground/20 hover:text-foreground/50 px-1.5 py-0.5 transition-colors"
+            >
+              &#8856;
+            </button>
+          </div>
+        </div>
+
+        {/* Pick-match popover (portal-based, renders above everything) */}
+        {popoverOpen && (
+          <PickMatchPopover
+            anchorRef={rowRef}
+            suggestions={getSuggestions()}
+            availableSourceModels={availableSourceModels}
+            onSelect={(name) => onAssign(name)}
+            onSkip={onSkip}
+            onClose={handleClosePopover}
+          />
         )}
       </div>
     );
@@ -268,6 +294,7 @@ export default memo(function InteractiveMappingRow({
   // ─── Mapped row — compact 48px ─────────────────────
   return (
     <div
+      ref={rowRef}
       className={`transition-[border-color] duration-150 ${
         isFocused ? "ring-1 ring-accent/40 ring-inset" : ""
       } ${isDropTarget ? "bg-amber-500/5 ring-1 ring-amber-400/30 ring-inset" : ""}`}
@@ -318,7 +345,9 @@ export default memo(function InteractiveMappingRow({
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-[13px]">
             <span className="font-medium truncate">{destModel.name}</span>
-            <span className="text-foreground/20 text-[11px] flex-shrink-0">&rarr;</span>
+            <span className="text-foreground/20 text-[11px] flex-shrink-0">
+              &rarr;
+            </span>
             <span className="font-medium truncate">{sourceModel.name}</span>
             {isManualOverride && (
               <span className="text-[9px] px-1 py-0.5 rounded bg-accent/10 text-accent/60 font-medium flex-shrink-0">
@@ -360,7 +389,7 @@ export default memo(function InteractiveMappingRow({
         {/* Col 4+5: action buttons — visible on hover */}
         <button
           type="button"
-          onClick={handleOpenDropdown}
+          onClick={handleOpenPopover}
           className="w-6 h-6 flex items-center justify-center rounded text-foreground/20 opacity-0 group-hover:opacity-100 hover:text-accent hover:bg-accent/10 transition-all"
           title="Remap"
         >
@@ -398,23 +427,19 @@ export default memo(function InteractiveMappingRow({
             />
           </svg>
         </button>
-
-        {/* Dropdown */}
-        {dropdownOpen && (
-          <div className="col-span-full relative mt-1">
-            <MappingDropdown
-              destModel={destModel}
-              suggestions={getSuggestions()}
-              availableSourceModels={availableSourceModels}
-              onSelect={(name) => onAssign(name)}
-              onClear={onClear}
-              onSkip={onSkip}
-              onClose={() => setDropdownOpen(false)}
-              hasCurrent={true}
-            />
-          </div>
-        )}
       </div>
+
+      {/* Popover for remap (portal-based) */}
+      {popoverOpen && (
+        <PickMatchPopover
+          anchorRef={rowRef}
+          suggestions={getSuggestions()}
+          availableSourceModels={availableSourceModels}
+          onSelect={(name) => onAssign(name)}
+          onSkip={onSkip}
+          onClose={handleClosePopover}
+        />
+      )}
 
       {/* Expanded submodel view — compact 32px per row */}
       {isExpanded && hasSubmodels && (

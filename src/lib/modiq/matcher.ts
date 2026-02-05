@@ -986,9 +986,9 @@ function computeScore(
 }
 
 function scoreToConfidence(score: number): Confidence {
-  if (score >= 0.8) return "high";
-  if (score >= 0.55) return "medium";
-  if (score >= 0.35) return "low";
+  if (score >= 0.85) return "high";
+  if (score >= 0.60) return "medium";
+  if (score >= 0.40) return "low";
   return "unmapped";
 }
 
