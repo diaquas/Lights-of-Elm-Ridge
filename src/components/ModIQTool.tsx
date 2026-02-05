@@ -15,8 +15,11 @@ import {
   downloadXmap,
   generateMappingReport,
   downloadMappingReport,
+  getSequenceModelList,
+  buildEffectTree,
+  getActiveSourceModels,
 } from "@/lib/modiq";
-import type { ParsedLayout, MappingResult, Confidence, DisplayType } from "@/lib/modiq";
+import type { ParsedLayout, MappingResult, Confidence, DisplayType, EffectTree } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
 import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
@@ -107,6 +110,9 @@ export default function ModIQTool() {
   // Store source models for the interactive mapping hook
   const [sourceModels, setSourceModels] = useState<ParsedModel[]>([]);
 
+  // Effect tree for effect-aware mapping
+  const [effectTree, setEffectTree] = useState<EffectTree | null>(null);
+
   // Export state
   const [exportFileName, setExportFileName] = useState("");
 
@@ -189,48 +195,94 @@ export default function ModIQTool() {
           ? `${ELM_RIDGE_LAYOUT_TITLE} (${displayLabel})`
           : sourceFile?.name || "Source Layout";
 
+    // Check if effect-aware filtering will be applied
+    const hasEffectData =
+      mapFromMode === "elm-ridge" && selectedSequence
+        ? !!getSequenceModelList(selectedSequence)
+        : false;
+
     const steps: ProcessingStep[] = [
       {
         label: `Parsing your layout — ${userLayout.modelCount} models found`,
         status: "done",
       },
       { label: "Analyzing model types and positions", status: "active" },
+      ...(hasEffectData
+        ? [
+            {
+              label: "Building effect tree from sequence data",
+              status: "pending" as const,
+            },
+          ]
+        : []),
       { label: `Matching against ${seqTitle}`, status: "pending" },
       { label: "Resolving submodel structures", status: "pending" },
       { label: "Generating optimal mapping", status: "pending" },
     ];
     setProcessingSteps([...steps]);
 
-    await delay(400);
+    // Helper to advance processing steps sequentially
+    let si = 0; // starts at step 0 (already "done")
+    const advance = async (ms: number) => {
+      steps[si].status = "done";
+      si++;
+      if (si < steps.length) steps[si].status = "active";
+      setProcessingSteps([...steps]);
+      await delay(ms);
+    };
 
-    steps[1].status = "done";
-    steps[2].status = "active";
-    setProcessingSteps([...steps]);
+    await advance(400); // "Analyzing model types and positions" → active
     await delay(500);
 
     // Build source models
-    let srcModels: ParsedModel[];
+    let allSrcModels: ParsedModel[];
     if (mapFromMode === "elm-ridge") {
-      srcModels = getSourceModelsForSequence(displayType).map(
+      allSrcModels = getSourceModelsForSequence(displayType).map(
         sourceModelToParsedModel,
       );
     } else {
-      srcModels = sourceLayout!.models;
+      allSrcModels = sourceLayout!.models;
     }
+
+    // Build effect tree if sequence model list is available
+    let tree: EffectTree | null = null;
+    let srcModels: ParsedModel[];
+    const seqModelList =
+      mapFromMode === "elm-ridge" && selectedSequence
+        ? getSequenceModelList(selectedSequence)
+        : undefined;
+
+    if (hasEffectData) {
+      await advance(300); // "Building effect tree" → active
+    }
+
+    if (seqModelList) {
+      tree = buildEffectTree(allSrcModels, seqModelList);
+      srcModels = getActiveSourceModels(allSrcModels, tree);
+    } else {
+      srcModels = allSrcModels;
+    }
+
+    if (hasEffectData && tree) {
+      // Update the effect tree step label with results
+      steps[si].label = `Effect tree: ${tree.summary.effectiveMappingItems} active layers from ${tree.summary.totalModelsInLayout} models`;
+      await delay(300);
+    }
+
+    setEffectTree(tree);
     setSourceModels(srcModels);
+
+    await advance(300); // "Matching against ..." → active
     const result = matchModels(srcModels, userLayout.models);
 
-    steps[2].status = "done";
-    steps[3].status = "active";
-    setProcessingSteps([...steps]);
-    await delay(300);
+    await advance(300); // "Resolving submodel structures" → active
+    await delay(200);
 
-    steps[3].status = "done";
-    steps[4].status = "active";
-    setProcessingSteps([...steps]);
-    await delay(300);
+    await advance(200); // "Generating optimal mapping" → active
+    await delay(200);
 
-    steps[4].status = "done";
+    // Mark final step done
+    steps[si].status = "done";
     setProcessingSteps([...steps]);
     await delay(200);
 
@@ -697,6 +749,7 @@ export default function ModIQTool() {
             mapFromMode={mapFromMode}
             displayType={displayType}
             sourceFileName={sourceFile?.name}
+            effectTree={effectTree}
             onReset={handleReset}
             onExported={(fileName) => {
               setExportFileName(fileName);
@@ -791,6 +844,7 @@ function InteractiveResults({
   mapFromMode,
   displayType,
   sourceFileName,
+  effectTree,
   onReset,
   onExported,
 }: {
@@ -801,6 +855,7 @@ function InteractiveResults({
   mapFromMode: MapFromMode;
   displayType: DisplayType;
   sourceFileName?: string;
+  effectTree: EffectTree | null;
   onReset: () => void;
   onExported: (fileName: string) => void;
 }) {
@@ -808,6 +863,7 @@ function InteractiveResults({
     initialResult,
     sourceModels,
     destModels,
+    effectTree,
   );
 
   const dnd = useDragAndDrop();
@@ -846,8 +902,8 @@ function InteractiveResults({
     });
   }, []);
 
-  // Group dest mappings by confidence tier + skipped in single pass
-  const { tiers, skippedMappings, autoMappedCount, manualCount } =
+  // Group dest mappings by confidence tier + skipped + covered in single pass
+  const { tiers, skippedMappings, coveredMappings, autoMappedCount, manualCount } =
     useMemo(() => {
       const grouped: Record<Confidence, DestMapping[]> = {
         high: [],
@@ -856,11 +912,16 @@ function InteractiveResults({
         unmapped: [],
       };
       const skipped: DestMapping[] = [];
+      const covered: DestMapping[] = [];
       let auto = 0;
       let manual = 0;
       for (const dm of interactive.destMappings) {
         if (dm.isSkipped) {
           skipped.push(dm);
+          continue;
+        }
+        if (dm.isCoveredByGroup) {
+          covered.push(dm);
           continue;
         }
         grouped[dm.confidence].push(dm);
@@ -870,6 +931,7 @@ function InteractiveResults({
       return {
         tiers: grouped,
         skippedMappings: skipped,
+        coveredMappings: covered,
         autoMappedCount: auto,
         manualCount: manual,
       };
@@ -1137,6 +1199,7 @@ function InteractiveResults({
             highCount={interactive.highCount}
             mediumCount={interactive.mediumCount}
             lowCount={interactive.lowCount}
+            coveredByGroupCount={interactive.coveredByGroupCount}
             percentage={interactive.mappedPercentage}
           />
         </div>
@@ -1315,6 +1378,11 @@ function InteractiveResults({
             );
           })}
 
+          {/* Covered by Groups section */}
+          {coveredMappings.length > 0 && (
+            <CoveredByGroupSection mappings={coveredMappings} />
+          )}
+
           {/* Skipped section */}
           {skippedMappings.length > 0 && (
             <div className="bg-surface rounded-lg border border-border overflow-hidden opacity-60">
@@ -1361,6 +1429,7 @@ function InteractiveResults({
             getDragDataTransfer={dnd.getDragDataTransfer}
             selectedSourceModel={selectedSourceForTap}
             onTapSelect={handleTapSelectSource}
+            effectTree={interactive.effectTree}
           />
         </div>
       </div>
@@ -1410,6 +1479,85 @@ function InteractiveResults({
 }
 
 // ─── Sub-components ───────────────────────────────────────────────
+
+function CoveredByGroupSection({ mappings }: { mappings: DestMapping[] }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Group by parent group name
+  const groups = useMemo(() => {
+    const map = new Map<string, DestMapping[]>();
+    for (const dm of mappings) {
+      const groupName = dm.coveredByGroupName || "Unknown Group";
+      const list = map.get(groupName) || [];
+      list.push(dm);
+      map.set(groupName, list);
+    }
+    return map;
+  }, [mappings]);
+
+  return (
+    <div className="bg-surface rounded-lg border border-cyan-500/20 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors bg-cyan-500/5"
+      >
+        <span className="w-2 h-2 rounded-full flex-shrink-0 bg-cyan-400" />
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-cyan-400">
+          COVERED BY GROUPS
+        </span>
+        <span className="text-[13px] font-bold text-foreground">
+          {mappings.length}
+        </span>
+        <svg
+          className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${isOpen ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="border-t border-border">
+          {Array.from(groups.entries()).map(([groupName, members]) => (
+            <div key={groupName}>
+              <div className="px-3 py-1.5 bg-surface-light flex items-center gap-1.5">
+                <svg className="w-3 h-3 text-cyan-400/60 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                </svg>
+                <span className="text-[11px] font-semibold text-cyan-400/80 truncate">
+                  {groupName}
+                </span>
+                <span className="text-[10px] text-foreground/30 ml-auto flex-shrink-0">
+                  {members.length} models
+                </span>
+              </div>
+              {members.map((dm) => (
+                <div
+                  key={dm.destModel.name}
+                  className="px-3 py-1.5 flex items-center justify-between border-b border-border/20 last:border-b-0"
+                >
+                  <span className="text-[12px] text-foreground/50 truncate pl-4">
+                    {dm.destModel.name}
+                  </span>
+                  <span className="text-[10px] text-cyan-400/50 flex-shrink-0">
+                    via group
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function HowItWorksCard({
   number,

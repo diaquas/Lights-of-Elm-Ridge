@@ -9,6 +9,7 @@ interface MappingProgressBarProps {
   highCount: number;
   mediumCount: number;
   lowCount: number;
+  coveredByGroupCount: number;
   percentage: number;
 }
 
@@ -19,6 +20,7 @@ export default memo(function MappingProgressBar({
   highCount,
   mediumCount,
   lowCount,
+  coveredByGroupCount,
 }: MappingProgressBarProps) {
   const effectiveTotal = totalCount - skippedCount;
   const unmappedCount = effectiveTotal - mappedCount;
@@ -27,6 +29,8 @@ export default memo(function MappingProgressBar({
   const medPct =
     effectiveTotal > 0 ? (mediumCount / effectiveTotal) * 100 : 0;
   const lowPct = effectiveTotal > 0 ? (lowCount / effectiveTotal) * 100 : 0;
+  const coveredPct =
+    effectiveTotal > 0 ? (coveredByGroupCount / effectiveTotal) * 100 : 0;
   const unmappedPct =
     effectiveTotal > 0 ? (unmappedCount / effectiveTotal) * 100 : 0;
 
@@ -61,6 +65,12 @@ export default memo(function MappingProgressBar({
           <div
             className="bg-red-500 transition-[width] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
             style={{ width: `${lowPct}%` }}
+          />
+        )}
+        {coveredPct > 0 && (
+          <div
+            className="bg-cyan-500 transition-[width] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+            style={{ width: `${coveredPct}%` }}
           />
         )}
         {unmappedPct > 0 && (
@@ -114,6 +124,21 @@ export default memo(function MappingProgressBar({
             {lowPct >= 8 && (
               <span className="text-[10px] text-foreground/30 uppercase tracking-wide">
                 low
+              </span>
+            )}
+          </div>
+        )}
+        {coveredByGroupCount > 0 && (
+          <div
+            className="flex items-center justify-center gap-1 transition-[width] duration-[400ms]"
+            style={{ width: `${coveredPct}%` }}
+          >
+            <span className="text-[13px] font-bold text-cyan-400 tabular-nums">
+              {coveredByGroupCount}
+            </span>
+            {coveredPct >= 10 && (
+              <span className="text-[10px] text-foreground/30 uppercase tracking-wide">
+                via groups
               </span>
             )}
           </div>
