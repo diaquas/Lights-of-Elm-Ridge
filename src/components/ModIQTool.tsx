@@ -21,6 +21,7 @@ import {
   computeDisplayCoverage,
   findBoostSuggestions,
   findSpinnerBoostSuggestions,
+  parseXsqModels,
 } from "@/lib/modiq";
 import type { ParsedLayout, MappingResult, DisplayType, EffectTree } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
@@ -102,6 +103,12 @@ export default function ModIQTool() {
   const sourceFileInputRef = useRef<HTMLInputElement>(null);
   const [sourceIsDragging, setSourceIsDragging] = useState(false);
 
+  // Vendor .xsq sequence file (required for other-vendor mode)
+  const [vendorXsqFile, setVendorXsqFile] = useState<File | null>(null);
+  const [vendorXsqModels, setVendorXsqModels] = useState<string[] | null>(null);
+  const vendorXsqInputRef = useRef<HTMLInputElement>(null);
+  const [vendorXsqIsDragging, setVendorXsqIsDragging] = useState(false);
+
   // User's target layout ("Map TO")
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [userLayout, setUserLayout] = useState<ParsedLayout | null>(null);
@@ -157,6 +164,33 @@ export default function ModIQTool() {
     reader.readAsText(file);
   }, []);
 
+  // ─── Vendor .xsq Sequence File Upload ─────────────────
+  const handleVendorXsqFile = useCallback((file: File) => {
+    setError("");
+    if (!file.name.endsWith(".xsq")) {
+      setError("Please upload an xLights sequence file (.xsq).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const models = parseXsqModels(content);
+        if (models.length === 0) {
+          setError("No model effects found in this sequence file.");
+          return;
+        }
+        setVendorXsqModels(models);
+        setVendorXsqFile(file);
+      } catch (err) {
+        setError(
+          `Failed to parse sequence file: ${err instanceof Error ? err.message : "Unknown error"}`,
+        );
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
   // ─── User Layout File Upload (Map TO) ─────────────────
   const handleFile = useCallback((file: File) => {
     setError("");
@@ -192,7 +226,7 @@ export default function ModIQTool() {
   const canRun =
     mapFromMode === "elm-ridge"
       ? !!selectedSequence && isAccessible && !!userLayout
-      : !!sourceLayout && !!userLayout;
+      : !!vendorXsqFile && !!sourceLayout && !!userLayout;
 
   // ─── Processing ─────────────────────────────────────────
   const runMapping = useCallback(async () => {
@@ -213,7 +247,7 @@ export default function ModIQTool() {
     const hasEffectData =
       mapFromMode === "elm-ridge" && selectedSequence
         ? !!getSequenceModelList(selectedSequence)
-        : false;
+        : mapFromMode === "other-vendor" && !!vendorXsqModels;
 
     const steps: ProcessingStep[] = [
       {
@@ -264,7 +298,9 @@ export default function ModIQTool() {
     const seqModelList =
       mapFromMode === "elm-ridge" && selectedSequence
         ? getSequenceModelList(selectedSequence)
-        : undefined;
+        : mapFromMode === "other-vendor" && vendorXsqModels
+          ? vendorXsqModels
+          : undefined;
 
     if (hasEffectData) {
       await advance(300); // "Building effect tree" → active
@@ -302,7 +338,7 @@ export default function ModIQTool() {
 
     setMappingResult(result);
     setStep("results");
-  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq]);
+  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq, vendorXsqModels]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -347,13 +383,13 @@ export default function ModIQTool() {
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
                   (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) ||
-                  (mapFromMode === "other-vendor" && sourceLayout)
+                  (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout)
                     ? "bg-green-500"
                     : "bg-accent"
                 }`}
               >
                 {(mapFromMode === "elm-ridge" && selectedSequence && isAccessible) ||
-                (mapFromMode === "other-vendor" && sourceLayout) ? (
+                (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout) ? (
                   <svg
                     width="14"
                     height="14"
@@ -517,34 +553,135 @@ export default function ModIQTool() {
             )}
 
             {/* Vendor upload zone — appears below when vendor selected */}
-            {mapFromMode === "other-vendor" && !sourceFile && (
-              <div className="mt-3 animate-[slideDown_0.25s_ease-out]" onClick={(e) => { e.stopPropagation(); sourceFileInputRef.current?.click(); }}>
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setSourceIsDragging(true);
-                  }}
-                  onDragLeave={() => setSourceIsDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setSourceIsDragging(false);
-                    const file = e.dataTransfer.files[0];
-                    if (file) handleSourceFile(file);
-                  }}
-                  className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
-                    sourceIsDragging
-                      ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
-                      : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
-                  }`}
-                >
-                  <p className="text-[13px] text-foreground/40">
-                    Drop{" "}
-                    <span className="text-foreground/60 font-semibold">
-                      xlights_rgbeffects.xml
-                    </span>{" "}
-                    here or click to browse
-                  </p>
-                </div>
+            {mapFromMode === "other-vendor" && (
+              <div className="mt-3 animate-[slideDown_0.25s_ease-out] space-y-3">
+                {/* Step A: .xsq file (required) */}
+                {!vendorXsqFile ? (
+                  <div onClick={(e) => { e.stopPropagation(); vendorXsqInputRef.current?.click(); }}>
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setVendorXsqIsDragging(true);
+                      }}
+                      onDragLeave={() => setVendorXsqIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setVendorXsqIsDragging(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleVendorXsqFile(file);
+                      }}
+                      className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
+                        vendorXsqIsDragging
+                          ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
+                          : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
+                      }`}
+                    >
+                      <p className="text-[13px] text-foreground/40">
+                        <span className="text-red-400 font-medium">Required:</span>{" "}
+                        Drop{" "}
+                        <span className="text-foreground/60 font-semibold">.xsq sequence file</span>{" "}
+                        here or click to browse
+                      </p>
+                      <p className="text-[11px] text-foreground/30 mt-1">
+                        Enables smart filtering to only map models with effects
+                      </p>
+                    </div>
+                    <input
+                      ref={vendorXsqInputRef}
+                      type="file"
+                      accept=".xsq"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleVendorXsqFile(file);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-xl p-3 bg-green-500/5 border border-green-500/20 flex items-center gap-3">
+                    <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-foreground truncate">{vendorXsqFile.name}</p>
+                      <p className="text-[11px] text-green-400/70">
+                        {vendorXsqModels?.length ?? 0} active layers detected
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVendorXsqFile(null);
+                        setVendorXsqModels(null);
+                      }}
+                      className="text-foreground/30 hover:text-red-400 text-sm"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                )}
+
+                {/* Step B: xlights_rgbeffects.xml (shows after .xsq uploaded) */}
+                {vendorXsqFile && !sourceFile && (
+                  <div onClick={(e) => { e.stopPropagation(); sourceFileInputRef.current?.click(); }}>
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setSourceIsDragging(true);
+                      }}
+                      onDragLeave={() => setSourceIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setSourceIsDragging(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleSourceFile(file);
+                      }}
+                      className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
+                        sourceIsDragging
+                          ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
+                          : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
+                      }`}
+                    >
+                      <p className="text-[13px] text-foreground/40">
+                        Drop{" "}
+                        <span className="text-foreground/60 font-semibold">
+                          xlights_rgbeffects.xml
+                        </span>{" "}
+                        here or click to browse
+                      </p>
+                      <p className="text-[11px] text-foreground/30 mt-1">
+                        From the vendor&apos;s sequence folder (contains model definitions)
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show uploaded layout file */}
+                {vendorXsqFile && sourceFile && sourceLayout && (
+                  <div className="rounded-xl p-3 bg-green-500/5 border border-green-500/20 flex items-center gap-3">
+                    <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-foreground truncate">{sourceFile.name}</p>
+                      <p className="text-[11px] text-foreground/40">
+                        {sourceLayout.models.length} models in layout
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSourceFile(null);
+                        setSourceLayout(null);
+                      }}
+                      className="text-foreground/30 hover:text-red-400 text-sm"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -555,7 +692,7 @@ export default function ModIQTool() {
             <div className="flex items-center gap-3 mb-4">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
-                  userLayout ? "bg-green-500" : (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) || (mapFromMode === "other-vendor" && sourceLayout) ? "bg-accent" : "bg-[#262626]"
+                  userLayout ? "bg-green-500" : (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) || (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout) ? "bg-accent" : "bg-[#262626]"
                 }`}
               >
                 {userLayout ? (
