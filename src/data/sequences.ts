@@ -291,7 +291,7 @@ This is a great sequence for newer displayers or anyone building up their Hallow
     r2Url: "https://downloads.lightsofelmridge.com/Paid/This%20Is%20Halloween.zip",
     amazonMusicUrl:
       "https://amazon.com/music/player/albums/B01LYCTBJO?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_XNIPH1cFYAB6AWN9QJSkR6bIz&trackAsin=B01LX23WKK",
-    youtubeId: "i5t1SF07ePQ",
+    youtubeId: "4FRYHIEyGoo",
     artworkUrl:
       "https://i.scdn.co/image/ab67616d0000b2737073748b25a091da2589a6df",
     models: [

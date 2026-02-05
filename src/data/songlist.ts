@@ -105,7 +105,7 @@ export const songlist: Song[] = [
     vendor: "Lights of Elm Ridge",
     isOriginal: true,
     yearAdded: 2022,
-    youtubeId: "i5t1SF07ePQ",
+    youtubeId: "4FRYHIEyGoo",
     imageUrl: "https://i.scdn.co/image/ab67616d0000b2737073748b25a091da2589a6df",
     sequenceSlug: "this-is-halloween",
     dominantColors: ["#f39c12", "#9b59b6", "#2ecc71"],
