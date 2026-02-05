@@ -295,100 +295,176 @@ export default memo(function SourceLayerRow({
   }
 
   // ─── Unmapped state (primary interactive row) ──────────────
+  // For groups: show expandable cascade preview
+  const hasGroupPreview = layer.isGroup && layer.memberNames.length > 0;
+  const coveredCount = layer.membersWithoutEffects.length;
+  const soloCount = layer.membersWithEffects.length;
+
   return (
     <div
       ref={rowRef}
       id={`source-layer-${name}`}
-      onClick={onFocus}
       onDragOver={handleDragOver}
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`group relative flex items-center gap-2 min-h-[44px] px-3 py-1.5 cursor-pointer border border-transparent rounded transition-all duration-150 ${
+      className={`group transition-all duration-150 ${
         isDropOver
-          ? "border-green-500 bg-green-500/5"
+          ? "bg-green-500/5 ring-1 ring-green-500/30 ring-inset rounded"
           : isFocused
-            ? "border-accent/40 bg-accent/5"
-            : "hover:border-foreground/10 hover:bg-surface-light"
+            ? "bg-accent/5"
+            : ""
       }`}
     >
-      {/* Status dot — hollow circle for unmapped */}
-      <span className="w-2 h-2 rounded-full border-[1.5px] border-foreground/30 flex-shrink-0" />
+      {/* Main row */}
+      <div
+        onClick={hasGroupPreview ? handleToggleExpand : onFocus}
+        className={`relative flex items-center gap-2 min-h-[44px] px-3 py-1.5 cursor-pointer border border-transparent rounded transition-all duration-150 ${
+          !isDropOver && !isFocused ? "hover:border-foreground/10 hover:bg-surface-light" : ""
+        }`}
+      >
+        {/* Status dot — hollow circle for unmapped */}
+        <span className="w-2 h-2 rounded-full border-[1.5px] border-foreground/30 flex-shrink-0" />
 
-      {/* Source layer name */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          {layer.isGroup && (
-            <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">
-              GRP
+        {/* Source layer name */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            {layer.isGroup && (
+              <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">
+                GRP
+              </span>
+            )}
+            <span className="text-[13px] font-semibold text-foreground truncate">
+              {name}
             </span>
-          )}
-          <span className="text-[13px] font-semibold text-foreground truncate">
-            {name}
+            {/* Expand chevron for groups */}
+            {hasGroupPreview && (
+              <svg
+                className={`w-3 h-3 text-foreground/30 transition-transform flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </div>
+
+          {/* Meta line: type/pixels + scenario */}
+          <div className="flex items-center gap-1.5 text-[11px] text-foreground/30">
+            {isDropOver ? (
+              <span className="text-green-400">Release to assign</span>
+            ) : (
+              <>
+                <span>{metaText}</span>
+                {scenarioLabel && (
+                  <>
+                    <span className="text-foreground/15">&middot;</span>
+                    <span className="text-foreground/20">{scenarioLabel}</span>
+                  </>
+                )}
+                {/* Brief cascade hint for groups */}
+                {hasGroupPreview && coveredCount > 0 && !isExpanded && (
+                  <>
+                    <span className="text-foreground/15">&middot;</span>
+                    <span className="text-green-400/60">
+                      resolves {coveredCount}
+                    </span>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Best match suggestion pill */}
+        {!isDropOver && bestSuggestion && bestSuggestion.score > 0 && (
+          <button
+            type="button"
+            data-action="suggestion"
+            onClick={handleAcceptBest}
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/25 text-green-400 hover:bg-green-500/[0.18] hover:text-green-300 transition-colors text-[12px] flex-shrink-0 max-w-[200px]"
+            title={`Apply best match: ${bestSuggestion.model.name}`}
+          >
+            <span className="truncate">{bestSuggestion.model.name}</span>
+            <span className="text-green-400/60 text-[11px] flex-shrink-0">
+              {(bestSuggestion.score * 100).toFixed(0)}%
+            </span>
+          </button>
+        )}
+
+        {/* No close matches */}
+        {!isDropOver && (!bestSuggestion || bestSuggestion.score === 0) && (
+          <span className="text-[11px] text-foreground/20 flex-shrink-0">
+            No close matches
           </span>
-        </div>
+        )}
 
-        {/* Meta line: type/pixels + scenario */}
-        <div className="flex items-center gap-1.5 text-[11px] text-foreground/30">
-          {isDropOver ? (
-            <span className="text-green-400">Release to assign</span>
-          ) : (
-            <>
-              <span>{metaText}</span>
-              {scenarioLabel && (
-                <>
-                  <span className="text-foreground/15">&middot;</span>
-                  <span className="text-foreground/20">{scenarioLabel}</span>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Best match suggestion pill */}
-      {!isDropOver && bestSuggestion && bestSuggestion.score > 0 && (
+        {/* Skip button — appears on hover */}
         <button
           type="button"
-          data-action="suggestion"
-          onClick={handleAcceptBest}
-          className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/25 text-green-400 hover:bg-green-500/[0.18] hover:text-green-300 transition-colors text-[12px] flex-shrink-0 max-w-[200px]"
-          title={`Apply best match: ${bestSuggestion.model.name}`}
+          data-action="skip"
+          onClick={handleSkip}
+          className="w-7 h-7 flex items-center justify-center rounded-md text-foreground/20 opacity-0 group-hover:opacity-100 hover:text-foreground/60 hover:bg-foreground/5 transition-all flex-shrink-0"
+          title="Skip this layer"
         >
-          <span className="truncate">{bestSuggestion.model.name}</span>
-          <span className="text-green-400/60 text-[11px] flex-shrink-0">
-            {(bestSuggestion.score * 100).toFixed(0)}%
-          </span>
+          <svg
+            className="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 4h4l10 8-10 8H5l10-8z" />
+          </svg>
         </button>
-      )}
+      </div>
 
-      {/* No close matches */}
-      {!isDropOver && (!bestSuggestion || bestSuggestion.score === 0) && (
-        <span className="text-[11px] text-foreground/20 flex-shrink-0">
-          No close matches
-        </span>
-      )}
+      {/* Expanded group cascade preview */}
+      {hasGroupPreview && isExpanded && (
+        <div className="px-3 pb-2.5 ml-6 animate-[slideDown_0.15s_ease-out]">
+          <div className="text-[11px] text-foreground/50 mb-1.5">
+            Mapping resolves {coveredCount} of {layer.memberNames.length} children:
+          </div>
 
-      {/* Skip button — appears on hover */}
-      <button
-        type="button"
-        data-action="skip"
-        onClick={handleSkip}
-        className="w-7 h-7 flex items-center justify-center rounded-md text-foreground/20 opacity-0 group-hover:opacity-100 hover:text-foreground/60 hover:bg-foreground/5 transition-all flex-shrink-0"
-        title="Skip this layer"
-      >
-        <svg
-          className="w-3.5 h-3.5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 4h4l10 8-10 8H5l10-8z" />
-        </svg>
-      </button>
+          {/* Children covered by group (no individual effects) */}
+          {layer.membersWithoutEffects.map((child) => (
+            <div
+              key={child}
+              className="flex items-center gap-2 py-0.5 text-[12px]"
+            >
+              <svg className="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-foreground/70 truncate">{child}</span>
+              <span className="text-foreground/30 text-[10px]">— covered by group</span>
+            </div>
+          ))}
+
+          {/* Children with individual effects (need own mapping) */}
+          {layer.membersWithEffects.map((child) => (
+            <div
+              key={child}
+              className="flex items-center gap-2 py-0.5 text-[12px]"
+            >
+              <svg className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <span className="text-foreground/70 truncate">{child}</span>
+              <span className="text-amber-400/60 text-[10px]">— has solo effects, needs own mapping</span>
+            </div>
+          ))}
+
+          {/* Summary */}
+          {soloCount > 0 && (
+            <div className="text-[10px] text-foreground/25 mt-1.5 italic">
+              {soloCount} member{soloCount > 1 ? "s" : ""} with individual effects will still need separate mapping.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 });
