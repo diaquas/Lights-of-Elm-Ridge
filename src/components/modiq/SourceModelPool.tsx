@@ -84,7 +84,7 @@ export default memo(function SourceModelPool({
   );
 
   return (
-    <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col">
+    <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-full">
       {/* Compact header */}
       <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
         <h3 className="font-display font-bold text-[15px]">Source Models</h3>
@@ -118,8 +118,8 @@ export default memo(function SourceModelPool({
         )}
       </div>
 
-      {/* Source model cards — min 10 rows, max 40 rows (44px each) */}
-      <div className="min-h-[440px] max-h-[1760px] overflow-y-auto">
+      {/* Source model cards — min 10 rows, fills remaining viewport height */}
+      <div className="flex-1 min-h-[440px] overflow-y-auto">
         {filteredUnmapped.length > 0 ? (
           <div>
             <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">

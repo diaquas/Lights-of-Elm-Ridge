@@ -18,6 +18,9 @@ import {
 } from "@/lib/modiq";
 import type { ParsedLayout, MappingResult, Confidence, DisplayType } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
+import { sequences } from "@/data/sequences";
+import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
+import { useCart } from "@/contexts/CartContext";
 import {
   useInteractiveMapping,
   type DestMapping,
@@ -27,6 +30,7 @@ import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useMappingTelemetry } from "@/hooks/useMappingTelemetry";
 import MappingProgressBar from "@/components/modiq/MappingProgressBar";
 import SourceModelPool from "@/components/modiq/SourceModelPool";
+import SequenceSelector from "@/components/SequenceSelector";
 import InteractiveMappingRow from "@/components/modiq/InteractiveMappingRow";
 import ExportDialog from "@/components/modiq/ExportDialog";
 import PostExportScreen from "@/components/modiq/PostExportScreen";
@@ -46,11 +50,41 @@ interface ProcessingStep {
 export default function ModIQTool() {
   // Read URL query param (kept for backwards compatibility)
   const searchParams = useSearchParams();
-  const _initialSequence = searchParams.get("sequence") ?? "";
+  const initialSequence = searchParams.get("sequence") ?? "";
 
   const [step, setStep] = useState<Step>("input");
   const [mapFromMode, setMapFromMode] = useState<MapFromMode>("elm-ridge");
   const [displayType, setDisplayType] = useState<DisplayType>("halloween");
+
+  // Sequence selection & ownership
+  const [selectedSequence, setSelectedSequence] = useState(initialSequence);
+  const { isLoggedIn, isLoading: purchasesLoading, hasPurchased } = usePurchasedSequences();
+  const { addItem, isInCart } = useCart();
+  const selectedSeq = sequences.find((s) => s.slug === selectedSequence);
+  const isAccessible = selectedSeq
+    ? selectedSeq.price === 0 || hasPurchased(selectedSeq.id)
+    : false;
+
+  const handleSequenceChange = useCallback((slug: string) => {
+    setSelectedSequence(slug);
+    const seq = sequences.find((s) => s.slug === slug);
+    if (seq) {
+      setDisplayType(seq.category === "Christmas" ? "christmas" : "halloween");
+    }
+  }, []);
+
+  const handleAddToCart = useCallback(() => {
+    if (!selectedSeq || selectedSeq.price === 0) return;
+    addItem({
+      id: selectedSeq.id,
+      slug: selectedSeq.slug,
+      title: selectedSeq.title,
+      artist: selectedSeq.artist,
+      price: selectedSeq.price,
+      category: selectedSeq.category,
+      thumbnailUrl: selectedSeq.thumbnailUrl ?? null,
+    });
+  }, [selectedSeq, addItem]);
 
   // Source layout from "other vendor" upload
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -137,7 +171,7 @@ export default function ModIQTool() {
   // ─── Can we run? ───────────────────────────────────────
   const canRun =
     mapFromMode === "elm-ridge"
-      ? !!userLayout
+      ? !!selectedSequence && isAccessible && !!userLayout
       : !!sourceLayout && !!userLayout;
 
   // ─── Processing ─────────────────────────────────────────
@@ -149,9 +183,11 @@ export default function ModIQTool() {
 
     const displayLabel = displayType === "halloween" ? "Halloween" : "Christmas";
     const seqTitle =
-      mapFromMode === "elm-ridge"
-        ? `${ELM_RIDGE_LAYOUT_TITLE} (${displayLabel})`
-        : sourceFile?.name || "Source Layout";
+      mapFromMode === "elm-ridge" && selectedSeq
+        ? `${selectedSeq.title} — ${displayLabel}`
+        : mapFromMode === "elm-ridge"
+          ? `${ELM_RIDGE_LAYOUT_TITLE} (${displayLabel})`
+          : sourceFile?.name || "Source Layout";
 
     const steps: ProcessingStep[] = [
       {
@@ -200,7 +236,7 @@ export default function ModIQTool() {
 
     setMappingResult(result);
     setStep("results");
-  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType]);
+  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -244,16 +280,13 @@ export default function ModIQTool() {
             <div className="flex items-center gap-3 mb-6">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
-                  mapFromMode === "elm-ridge"
-                    ? displayType
-                      ? "bg-green-500"
-                      : "bg-accent"
-                    : mapFromMode === "other-vendor" && sourceLayout
-                      ? "bg-green-500"
-                      : "bg-accent"
+                  (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) ||
+                  (mapFromMode === "other-vendor" && sourceLayout)
+                    ? "bg-green-500"
+                    : "bg-accent"
                 }`}
               >
-                {(mapFromMode === "elm-ridge" && displayType) ||
+                {(mapFromMode === "elm-ridge" && selectedSequence && isAccessible) ||
                 (mapFromMode === "other-vendor" && sourceLayout) ? (
                   <svg
                     width="14"
@@ -277,153 +310,54 @@ export default function ModIQTool() {
               </h2>
             </div>
 
-            {/* Card container: Elm Ridge group (2/3) + Vendor card (1/3) */}
-            <div className="flex gap-4">
-              {/* ═══ Lights of Elm Ridge grouped card ═══ */}
-              <div className="flex-[2] flex flex-col gap-0">
-                {/* Logo header band */}
-                <div className="flex items-center justify-center gap-2.5 py-2.5 rounded-t-xl bg-gradient-to-b from-accent/[0.06] to-accent/[0.02] border-t border-x border-accent/[0.15]">
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-accent/70"
-                  >
-                    <path d="M12 2L7 8h3l-4 6h3l-5 8h16l-5-8h3l-4-6h3L12 2z" />
-                  </svg>
-                  <span className="text-[12px] font-semibold text-accent/70 uppercase tracking-wider">
-                    Lights of Elm Ridge
-                  </span>
+            {/* Radio options */}
+            <div className="space-y-3">
+              {/* ═══ Lights of Elm Ridge ═══ */}
+              <label
+                className={`flex items-start gap-3 rounded-xl p-4 cursor-pointer transition-all ${
+                  mapFromMode === "elm-ridge"
+                    ? "bg-accent/[0.04] border border-accent/20"
+                    : "bg-surface border border-border hover:border-foreground/10"
+                }`}
+                onClick={() => setMapFromMode("elm-ridge")}
+              >
+                <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                  mapFromMode === "elm-ridge" ? "border-accent" : "border-foreground/20"
+                }`}>
+                  {mapFromMode === "elm-ridge" && (
+                    <div className="w-2 h-2 rounded-full bg-accent" />
+                  )}
                 </div>
-
-                {/* Two sub-cards side by side */}
-                <div className="flex gap-[2px]">
-                  {/* Halloween card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMapFromMode("elm-ridge");
-                      setDisplayType("halloween");
-                    }}
-                    className={`flex-1 relative overflow-hidden rounded-bl-xl py-8 px-5 text-center transition-all outline-none cursor-pointer ${
-                      mapFromMode === "elm-ridge" &&
-                      displayType === "halloween"
-                        ? "bg-gradient-to-b from-[#1a1a1a] via-[#1c1210] to-[#1a1008] border-2 border-orange-500 border-t-0"
-                        : "bg-[#131313] border-2 border-white/[0.04] border-t-0 hover:bg-gradient-to-b hover:from-[#1a1a1a] hover:to-[#1c1510] hover:border-orange-500/25"
-                    }`}
-                  >
-                    <div
-                      className={`text-[44px] mb-3.5 transition-all ${
-                        mapFromMode === "elm-ridge" &&
-                        displayType === "halloween"
-                          ? ""
-                          : "grayscale-[0.2] brightness-[0.9]"
-                      }`}
-                    >
-                      🎃
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px] font-semibold text-foreground">
+                    Lights of Elm Ridge Sequence
+                  </div>
+                  <div className="text-[12px] text-foreground/40 mt-0.5">
+                    Select from your purchased or free sequences
+                  </div>
+                  {mapFromMode === "elm-ridge" && (
+                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                      <SequenceSelector
+                        sequences={sequences}
+                        value={selectedSequence}
+                        onChange={handleSequenceChange}
+                        isLoggedIn={isLoggedIn}
+                        isLoading={purchasesLoading}
+                        hasPurchased={hasPurchased}
+                      />
                     </div>
-                    <div
-                      className={`text-[17px] font-bold mb-0.5 transition-colors ${
-                        mapFromMode === "elm-ridge" &&
-                        displayType === "halloween"
-                          ? "text-orange-400"
-                          : "text-foreground/80"
-                      }`}
-                    >
-                      Halloween
-                    </div>
-                    <div className="text-[11px] text-foreground/30 tracking-wide">
-                      Display Layout
-                    </div>
-                    {mapFromMode === "elm-ridge" &&
-                      displayType === "halloween" && (
-                        <div className="absolute top-2 right-2 w-[22px] h-[22px] rounded-full bg-orange-500 flex items-center justify-center animate-[popIn_0.2s_ease-out]">
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="white"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </div>
-                      )}
-                  </button>
-
-                  {/* Christmas card */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMapFromMode("elm-ridge");
-                      setDisplayType("christmas");
-                    }}
-                    className={`flex-1 relative overflow-hidden rounded-br-xl py-8 px-5 text-center transition-all outline-none cursor-pointer ${
-                      mapFromMode === "elm-ridge" &&
-                      displayType === "christmas"
-                        ? "bg-gradient-to-b from-[#1a1a1a] via-[#0f1a10] to-[#0a1a0a] border-2 border-green-500 border-t-0"
-                        : "bg-[#131313] border-2 border-white/[0.04] border-t-0 hover:bg-gradient-to-b hover:from-[#1a1a1a] hover:to-[#0f1a10] hover:border-green-500/25"
-                    }`}
-                  >
-                    <div
-                      className={`text-[44px] mb-3.5 transition-all ${
-                        mapFromMode === "elm-ridge" &&
-                        displayType === "christmas"
-                          ? ""
-                          : "grayscale-[0.2] brightness-[0.9]"
-                      }`}
-                    >
-                      🎄
-                    </div>
-                    <div
-                      className={`text-[17px] font-bold mb-0.5 transition-colors ${
-                        mapFromMode === "elm-ridge" &&
-                        displayType === "christmas"
-                          ? "text-green-400"
-                          : "text-foreground/80"
-                      }`}
-                    >
-                      Christmas
-                    </div>
-                    <div className="text-[11px] text-foreground/30 tracking-wide">
-                      Display Layout
-                    </div>
-                    {mapFromMode === "elm-ridge" &&
-                      displayType === "christmas" && (
-                        <div className="absolute top-2 right-2 w-[22px] h-[22px] rounded-full bg-green-500 flex items-center justify-center animate-[popIn_0.2s_ease-out]">
-                          <svg
-                            width="12"
-                            height="12"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="white"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="20 6 9 17 4 12" />
-                          </svg>
-                        </div>
-                      )}
-                  </button>
+                  )}
                 </div>
-              </div>
+              </label>
 
-              {/* ═══ Other Vendor card ═══ */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMapFromMode("other-vendor");
-                  if (!sourceFile) sourceFileInputRef.current?.click();
-                }}
+              {/* ═══ Other Vendor ═══ */}
+              <label
+                className={`flex items-start gap-3 rounded-xl p-4 cursor-pointer transition-all ${
+                  mapFromMode === "other-vendor"
+                    ? "bg-indigo-500/[0.04] border border-indigo-500/20"
+                    : "bg-surface border border-border hover:border-foreground/10"
+                }`}
+                onClick={() => setMapFromMode("other-vendor")}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setSourceIsDragging(true);
@@ -437,14 +371,22 @@ export default function ModIQTool() {
                   const file = e.dataTransfer.files[0];
                   if (file) handleSourceFile(file);
                 }}
-                className={`flex-1 relative rounded-xl py-8 px-5 text-center transition-all outline-none cursor-pointer flex flex-col items-center justify-center ${
-                  mapFromMode === "other-vendor"
-                    ? "bg-gradient-to-b from-[#1a1a1a] via-[#141420] to-[#12121e] border-2 border-indigo-500"
-                    : sourceIsDragging
-                      ? "bg-[#131313] border-2 border-dashed border-indigo-500"
-                      : "bg-[#131313] border-2 border-white/[0.04] hover:border-indigo-500/30"
-                }`}
               >
+                <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                  mapFromMode === "other-vendor" ? "border-indigo-500" : "border-foreground/20"
+                }`}>
+                  {mapFromMode === "other-vendor" && (
+                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[15px] font-semibold text-foreground">
+                    Other Vendor
+                  </div>
+                  <div className="text-[12px] text-foreground/40 mt-0.5">
+                    Upload their xlights_rgbeffects.xml
+                  </div>
+                </div>
                 <input
                   ref={sourceFileInputRef}
                   type="file"
@@ -455,67 +397,62 @@ export default function ModIQTool() {
                   }}
                   className="hidden"
                 />
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3.5 transition-colors ${
-                    mapFromMode === "other-vendor"
-                      ? "bg-indigo-500/10"
-                      : "bg-white/[0.03]"
-                  }`}
-                >
-                  <svg
-                    width="26"
-                    height="26"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className={`transition-colors ${
-                      mapFromMode === "other-vendor"
-                        ? "text-indigo-400"
-                        : "text-foreground/30"
-                    }`}
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                </div>
-                <div
-                  className={`text-[17px] font-bold mb-0.5 transition-colors ${
-                    mapFromMode === "other-vendor"
-                      ? "text-indigo-300"
-                      : "text-foreground/80"
-                  }`}
-                >
-                  Other Vendor
-                </div>
-                <div className="text-[11px] text-foreground/30 leading-relaxed tracking-wide">
-                  Upload their layout
-                </div>
-                {mapFromMode === "other-vendor" && sourceLayout && (
-                  <div className="absolute top-2 right-2 w-[22px] h-[22px] rounded-full bg-indigo-500 flex items-center justify-center animate-[popIn_0.2s_ease-out]">
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </div>
-                )}
-              </button>
+              </label>
             </div>
 
-            {/* Vendor upload zone — appears below cards when vendor selected */}
+            {/* Interstitial: sequence not owned */}
+            {mapFromMode === "elm-ridge" && selectedSeq && !isAccessible && (
+              <div className="mt-4 bg-surface rounded-xl border border-border p-6 animate-[slideDown_0.25s_ease-out]">
+                <div className="text-center">
+                  <p className="text-[15px] font-semibold text-foreground mb-1">
+                    {selectedSeq.title}
+                    <span className="text-foreground/40 font-normal"> — {selectedSeq.artist}</span>
+                  </p>
+                  <p className="text-[13px] text-foreground/50 mb-4">
+                    You don&apos;t own this sequence yet.
+                  </p>
+                  {isInCart(selectedSeq.id) ? (
+                    <Link
+                      href="/cart"
+                      className="inline-flex items-center gap-1.5 text-[13px] text-green-400 hover:text-green-300"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      In Cart — View Cart
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent/90 text-white text-[13px] font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Add to Cart — ${selectedSeq.price.toFixed(2)}
+                    </button>
+                  )}
+                  {!isLoggedIn && !purchasesLoading && (
+                    <p className="text-[11px] text-foreground/30 mt-3">
+                      <Link href="/login?redirect=/modiq" className="text-accent/60 hover:text-accent">
+                        Log in
+                      </Link>{" "}
+                      to see your purchases
+                    </p>
+                  )}
+                  <div className="mt-3">
+                    <Link
+                      href={`/sequences/${selectedSeq.slug}`}
+                      className="text-[12px] text-foreground/30 hover:text-foreground/50"
+                    >
+                      View Sequence &rarr;
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Vendor upload zone — appears below when vendor selected */}
             {mapFromMode === "other-vendor" && !sourceFile && (
-              <div className="mt-3 animate-[slideDown_0.25s_ease-out]">
+              <div className="mt-3 animate-[slideDown_0.25s_ease-out]" onClick={(e) => { e.stopPropagation(); sourceFileInputRef.current?.click(); }}>
                 <div
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -528,7 +465,6 @@ export default function ModIQTool() {
                     const file = e.dataTransfer.files[0];
                     if (file) handleSourceFile(file);
                   }}
-                  onClick={() => sourceFileInputRef.current?.click()}
                   className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
                     sourceIsDragging
                       ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
@@ -546,43 +482,6 @@ export default function ModIQTool() {
               </div>
             )}
 
-            {/* Vendor file confirmation */}
-            {mapFromMode === "other-vendor" && sourceFile && sourceLayout && (
-              <div className="mt-3 animate-[slideDown_0.25s_ease-out]">
-                <div className="bg-indigo-500/[0.06] border border-indigo-500/20 rounded-xl px-4 py-3 flex items-center gap-2.5">
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    className="text-indigo-500 flex-shrink-0"
-                  >
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                  </svg>
-                  <span className="text-[13px] text-indigo-300 flex-1 truncate">
-                    {sourceFile.name}
-                  </span>
-                  <span className="text-[11px] text-green-400">
-                    ✓ {sourceLayout.modelCount} models found
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSourceFile(null);
-                      setSourceLayout(null);
-                    }}
-                    className="text-foreground/30 hover:text-foreground/60 text-base px-1"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Step 2 — YOUR LAYOUT */}
@@ -590,7 +489,7 @@ export default function ModIQTool() {
             <div className="flex items-center gap-3 mb-4">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
-                  userLayout ? "bg-green-500" : canRun || mapFromMode === "elm-ridge" ? "bg-accent" : "bg-[#262626]"
+                  userLayout ? "bg-green-500" : (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) || (mapFromMode === "other-vendor" && sourceLayout) ? "bg-accent" : "bg-[#262626]"
                 }`}
               >
                 {userLayout ? (
@@ -794,7 +693,7 @@ export default function ModIQTool() {
             initialResult={mappingResult}
             sourceModels={sourceModels}
             destModels={userLayout.models}
-            selectedSequence={ELM_RIDGE_LAYOUT_ID}
+            selectedSequence={mapFromMode === "elm-ridge" ? selectedSequence || ELM_RIDGE_LAYOUT_ID : ELM_RIDGE_LAYOUT_ID}
             mapFromMode={mapFromMode}
             displayType={displayType}
             sourceFileName={sourceFile?.name}
@@ -810,9 +709,11 @@ export default function ModIQTool() {
       {step === "exported" && (
         <PostExportScreen
           sequenceTitle={
-            mapFromMode === "elm-ridge"
-              ? `${ELM_RIDGE_LAYOUT_TITLE} (${displayType === "halloween" ? "Halloween" : "Christmas"})`
-              : sourceFile?.name || "Source Layout"
+            mapFromMode === "elm-ridge" && selectedSeq
+              ? `${selectedSeq.title} — ${displayType === "halloween" ? "Halloween" : "Christmas"}`
+              : mapFromMode === "elm-ridge"
+                ? `${ELM_RIDGE_LAYOUT_TITLE} (${displayType === "halloween" ? "Halloween" : "Christmas"})`
+                : sourceFile?.name || "Source Layout"
           }
           fileName={exportFileName}
           onDownloadAgain={() => setStep("results")}
@@ -1243,10 +1144,10 @@ function InteractiveResults({
 
       {/* ── Two-Panel Layout ───────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-[1fr_340px] items-start">
-        {/* Left panel: YOUR LAYOUT */}
-        <div className="space-y-1.5 min-w-0">
+        {/* Left panel: YOUR LAYOUT — viewport-capped with internal scroll */}
+        <div className="min-w-0 flex flex-col lg:max-h-[calc(100vh-8.5rem)]">
           {/* Filter controls */}
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-shrink-0">
             <div className="relative flex-1">
               <svg
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30"
@@ -1285,6 +1186,8 @@ function InteractiveResults({
             )}
           </div>
 
+          {/* Scrollable confidence sections */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
           {/* Confidence tier sections — "Needs Mapping" first */}
           {CONFIDENCE_ORDER.map((tier) => {
             const tierMappings = filterMappings(tiers[tier]);
@@ -1444,10 +1347,11 @@ function InteractiveResults({
               </div>
             </div>
           )}
+          </div>{/* end scrollable confidence sections */}
         </div>
 
-        {/* Right panel: Source model pool — sticky, min 10 rows, capped at viewport */}
-        <div className="lg:sticky lg:top-24 self-start">
+        {/* Right panel: Source model pool — sticky, capped at viewport */}
+        <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-8.5rem)]">
           <SourceModelPool
             allSourceModels={interactive.allSourceModels}
             assignedSourceNames={interactive.assignedSourceNames}
