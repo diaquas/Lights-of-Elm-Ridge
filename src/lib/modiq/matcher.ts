@@ -1322,12 +1322,18 @@ export function matchModels(
             }
           }
 
-          if (bestIdx >= 0 && bestScore > 0.15) {
+          // After 0.7x penalty, finalScore must reach LOW (0.40) to be useful.
+          // Pre-penalty threshold: 0.40 / 0.7 ≈ 0.58
+          if (bestIdx >= 0 && bestScore > 0.57) {
             usedDestInClass.add(bestIdx);
             const destMatch = sortedDest[bestIdx];
             // Penalize cross-prop matches (cap at 0.7x original)
             const finalScore = bestScore * 0.7;
+            const confidence = scoreToConfidence(finalScore);
             const subMappings = mapSubmodels(src, destMatch);
+
+            // Only assign if the result reaches a real confidence tier
+            if (confidence === "unmapped") continue;
 
             // Update the existing unmapped entry in allMappings
             const mappingIdx = allMappings.findIndex(
@@ -1338,7 +1344,7 @@ export function matchModels(
                 sourceModel: src,
                 destModel: destMatch,
                 score: finalScore,
-                confidence: scoreToConfidence(finalScore),
+                confidence,
                 factors: {
                   name: scoreName(src, destMatch),
                   spatial: 0,
@@ -1426,11 +1432,15 @@ export function matchModels(
             }
           }
 
-          if (bestIdx >= 0 && bestScore > 0.15) {
+          // Same threshold as Phase 3: after 0.7x penalty, must reach LOW (0.40)
+          if (bestIdx >= 0 && bestScore > 0.57) {
             usedDestInClass.add(bestIdx);
             const destMatch = destPool[bestIdx];
             const finalScore = bestScore * 0.7;
+            const confidence = scoreToConfidence(finalScore);
             const subMappings = mapSubmodels(src, destMatch);
+
+            if (confidence === "unmapped") continue;
 
             const mappingIdx = allMappings.findIndex(
               (m) => m.sourceModel === src && m.destModel === null,
@@ -1440,7 +1450,7 @@ export function matchModels(
                 sourceModel: src,
                 destModel: destMatch,
                 score: finalScore,
-                confidence: scoreToConfidence(finalScore),
+                confidence,
                 factors: {
                   name: scoreName(src, destMatch),
                   spatial: 0,

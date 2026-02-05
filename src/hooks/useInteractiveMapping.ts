@@ -74,12 +74,15 @@ export function useInteractiveMapping(
   destModels: ParsedModel[],
 ): InteractiveMappingState {
   // Core state: dest model name → source model name (or null)
+  // Only include auto-mappings that reached a real confidence tier (HIGH/MED/LOW).
+  // "unmapped" confidence means the score was too low to be useful — these should
+  // start as truly unmapped so they show suggestions instead of a limbo state.
   const [assignments, setAssignments] = useState<Map<string, string | null>>(
     () => {
       if (!initialResult) return new Map();
       const map = new Map<string, string | null>();
       for (const m of initialResult.mappings) {
-        if (m.destModel) {
+        if (m.destModel && m.confidence !== "unmapped") {
           map.set(m.destModel.name, m.sourceModel.name);
         }
       }
@@ -144,9 +147,24 @@ export function useInteractiveMapping(
   // Build dest-centric mapping view
   const destMappings: DestMapping[] = useMemo(() => {
     return destModels.map((destModel) => {
+      const isSkippedModel = skipped.has(destModel.name);
+
+      // Skipped models always render as skipped, regardless of assignments
+      if (isSkippedModel) {
+        return {
+          destModel,
+          sourceModel: null,
+          confidence: "unmapped" as Confidence,
+          score: 0,
+          reason: "Skipped by user",
+          submodelMappings: [],
+          isSkipped: true,
+          isManualOverride: false,
+        };
+      }
+
       const srcName = assignments.get(destModel.name) ?? null;
       const srcModel = srcName ? (sourceByName.get(srcName) ?? null) : null;
-      const isSkippedModel = skipped.has(destModel.name);
       const isOverride = overrides.has(destModel.name);
 
       // Use original auto-mapping data if not overridden
@@ -183,9 +201,9 @@ export function useInteractiveMapping(
         sourceModel: null,
         confidence: "unmapped" as Confidence,
         score: 0,
-        reason: isSkippedModel ? "Skipped by user" : "No match assigned",
+        reason: "No match assigned",
         submodelMappings: [],
-        isSkipped: isSkippedModel,
+        isSkipped: false,
         isManualOverride: false,
       };
     });

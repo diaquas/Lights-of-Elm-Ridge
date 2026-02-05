@@ -84,9 +84,9 @@ export default memo(function SourceModelPool({
   );
 
   return (
-    <div className="bg-surface rounded-xl border border-border overflow-hidden">
+    <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-full">
       {/* Compact header */}
-      <div className="px-3 py-2.5 border-b border-border">
+      <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
         <h3 className="font-display font-bold text-[15px]">Source Models</h3>
         <p className="text-[11px] text-foreground/40 mt-0.5">
           {unmappedModels.length} available &middot; {mappedModels.length} mapped
@@ -94,7 +94,7 @@ export default memo(function SourceModelPool({
       </div>
 
       {/* Search + Type Filter — compact 32px inputs */}
-      <div className="px-3 py-2 border-b border-border space-y-1.5">
+      <div className="px-3 py-2 border-b border-border space-y-1.5 flex-shrink-0">
         <input
           type="text"
           placeholder="Search models..."
@@ -118,8 +118,8 @@ export default memo(function SourceModelPool({
         )}
       </div>
 
-      {/* Source model cards — compact spacing */}
-      <div className="max-h-[32rem] overflow-y-auto">
+      {/* Source model cards — fills remaining height */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {filteredUnmapped.length > 0 ? (
           <div>
             <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">

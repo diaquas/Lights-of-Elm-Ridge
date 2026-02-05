@@ -1260,8 +1260,8 @@ function InteractiveResults({
           )}
         </div>
 
-        {/* Right panel: Source model pool */}
-        <div className="lg:sticky lg:top-24 self-start">
+        {/* Right panel: Source model pool — sticky, fills viewport height */}
+        <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-7rem)]">
           <SourceModelPool
             allSourceModels={interactive.allSourceModels}
             assignedSourceNames={interactive.assignedSourceNames}
