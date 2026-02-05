@@ -1243,10 +1243,10 @@ function InteractiveResults({
 
       {/* ── Two-Panel Layout ───────────────────────────── */}
       <div className="grid gap-4 lg:grid-cols-[1fr_340px] items-start">
-        {/* Left panel: YOUR LAYOUT */}
-        <div className="space-y-1.5 min-w-0">
+        {/* Left panel: YOUR LAYOUT — viewport-capped with internal scroll */}
+        <div className="min-w-0 flex flex-col lg:max-h-[calc(100vh-8.5rem)]">
           {/* Filter controls */}
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-shrink-0">
             <div className="relative flex-1">
               <svg
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30"
@@ -1285,6 +1285,8 @@ function InteractiveResults({
             )}
           </div>
 
+          {/* Scrollable confidence sections */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
           {/* Confidence tier sections — "Needs Mapping" first */}
           {CONFIDENCE_ORDER.map((tier) => {
             const tierMappings = filterMappings(tiers[tier]);
@@ -1444,10 +1446,11 @@ function InteractiveResults({
               </div>
             </div>
           )}
+          </div>{/* end scrollable confidence sections */}
         </div>
 
-        {/* Right panel: Source model pool — sticky, min 10 rows, capped at viewport */}
-        <div className="lg:sticky lg:top-24 self-start">
+        {/* Right panel: Source model pool — sticky, capped at viewport */}
+        <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-8.5rem)]">
           <SourceModelPool
             allSourceModels={interactive.allSourceModels}
             assignedSourceNames={interactive.assignedSourceNames}
