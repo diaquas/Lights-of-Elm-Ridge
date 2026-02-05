@@ -1,0 +1,364 @@
+"use client";
+
+import {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+  memo,
+} from "react";
+import { createPortal } from "react-dom";
+import type { ParsedModel, Confidence, ModelMapping } from "@/lib/modiq";
+
+interface Suggestion {
+  model: ParsedModel;
+  score: number;
+  confidence: Confidence;
+  factors: ModelMapping["factors"];
+}
+
+interface PickMatchPopoverProps {
+  anchorRef: React.RefObject<HTMLElement | null>;
+  suggestions: Suggestion[];
+  availableSourceModels: ParsedModel[];
+  onSelect: (sourceModelName: string) => void;
+  onSkip: () => void;
+  onClose: () => void;
+}
+
+export default memo(function PickMatchPopover({
+  anchorRef,
+  suggestions,
+  availableSourceModels,
+  onSelect,
+  onSkip,
+  onClose,
+}: PickMatchPopoverProps) {
+  const [search, setSearch] = useState("");
+  const [highlightIdx, setHighlightIdx] = useState(0);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number }>({
+    top: 0,
+    left: 0,
+  });
+  const [mounted, setMounted] = useState(false);
+
+  // Calculate position on mount and anchor changes
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || !anchorRef.current || !popoverRef.current) return;
+
+    const rect = anchorRef.current.getBoundingClientRect();
+    const popoverHeight = popoverRef.current.offsetHeight;
+    const popoverWidth = 380;
+    const viewportHeight = window.innerHeight;
+
+    let top = rect.bottom + 4;
+    let left = rect.left;
+
+    // Flip above if not enough room below
+    if (top + popoverHeight > viewportHeight - 16) {
+      top = rect.top - popoverHeight - 4;
+    }
+
+    // Nudge left if overflowing right
+    if (left + popoverWidth > window.innerWidth - 16) {
+      left = window.innerWidth - popoverWidth - 16;
+    }
+
+    // Ensure not off-screen left
+    if (left < 16) left = 16;
+
+    setPosition({ top, left });
+  }, [mounted, anchorRef]);
+
+  // Close on click outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Tab") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  // Focus input on mount
+  useEffect(() => {
+    if (mounted) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [mounted]);
+
+  // Top 3 suggestions only
+  const topSuggestions = useMemo(
+    () => suggestions.filter((s) => s.score > 0).slice(0, 3),
+    [suggestions],
+  );
+
+  const suggestionNames = useMemo(
+    () => new Set(topSuggestions.map((s) => s.model.name)),
+    [topSuggestions],
+  );
+
+  // Filtered suggestions
+  const filteredSuggestions = useMemo(() => {
+    if (!search) return topSuggestions;
+    const q = search.toLowerCase();
+    return topSuggestions.filter(
+      (s) =>
+        s.model.name.toLowerCase().includes(q) ||
+        s.model.type.toLowerCase().includes(q),
+    );
+  }, [topSuggestions, search]);
+
+  // All available (excluding suggestions, excluding already-mapped)
+  const filteredAvailable = useMemo(() => {
+    const q = search.toLowerCase();
+    return availableSourceModels
+      .filter((m) => !suggestionNames.has(m.name))
+      .filter(
+        (m) =>
+          !q ||
+          m.name.toLowerCase().includes(q) ||
+          m.type.toLowerCase().includes(q),
+      );
+  }, [availableSourceModels, suggestionNames, search]);
+
+  // Combined flat list for keyboard navigation
+  const allItems = useMemo(() => {
+    const items: {
+      name: string;
+      score: number | null;
+      type: string;
+      pixels: number;
+      isGroup: boolean;
+      isSuggestion: boolean;
+    }[] = [];
+    for (const s of filteredSuggestions) {
+      items.push({
+        name: s.model.name,
+        score: s.score,
+        type: s.model.type,
+        pixels: s.model.pixelCount,
+        isGroup: s.model.isGroup,
+        isSuggestion: true,
+      });
+    }
+    for (const m of filteredAvailable) {
+      items.push({
+        name: m.name,
+        score: null,
+        type: m.type,
+        pixels: m.pixelCount,
+        isGroup: m.isGroup,
+        isSuggestion: false,
+      });
+    }
+    return items;
+  }, [filteredSuggestions, filteredAvailable]);
+
+  // Reset highlight when search changes
+  useEffect(() => {
+    setHighlightIdx(0);
+  }, [search]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightIdx((i) => Math.min(i + 1, allItems.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightIdx((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (allItems[highlightIdx]) {
+          onSelect(allItems[highlightIdx].name);
+          onClose();
+        }
+      }
+    },
+    [allItems, highlightIdx, onSelect, onClose],
+  );
+
+  const handleSelect = useCallback(
+    (name: string) => {
+      onSelect(name);
+      onClose();
+    },
+    [onSelect, onClose],
+  );
+
+  const handleSkip = useCallback(() => {
+    onSkip();
+    onClose();
+  }, [onSkip, onClose]);
+
+  if (!mounted) return null;
+
+  const popover = (
+    <div
+      ref={popoverRef}
+      role="listbox"
+      className="fixed flex flex-col overflow-hidden rounded-lg border border-border bg-zinc-900 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)]"
+      style={{
+        top: position.top,
+        left: position.left,
+        width: 380,
+        maxHeight: 400,
+        zIndex: 1000,
+      }}
+    >
+      {/* Search input */}
+      <div className="p-2 border-b border-zinc-800 flex-shrink-0">
+        <div className="relative">
+          <svg
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <input
+            ref={inputRef}
+            role="combobox"
+            aria-expanded="true"
+            aria-haspopup="listbox"
+            type="text"
+            placeholder="Search source models..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full h-8 pl-8 pr-3 text-[13px] bg-zinc-800 border border-zinc-700 rounded text-zinc-200 outline-none focus:border-zinc-500 placeholder:text-zinc-500"
+          />
+        </div>
+      </div>
+
+      {/* Scrollable results */}
+      <div className="flex-1 overflow-y-auto overscroll-contain">
+        {/* Suggestions section */}
+        {filteredSuggestions.length > 0 && (
+          <>
+            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400 sticky top-0 bg-zinc-900">
+              Suggestions
+            </div>
+            {filteredSuggestions.map((s, i) => {
+              const globalIdx = i;
+              return (
+                <button
+                  key={s.model.name}
+                  role="option"
+                  aria-selected={highlightIdx === globalIdx}
+                  type="button"
+                  onClick={() => handleSelect(s.model.name)}
+                  onMouseEnter={() => setHighlightIdx(globalIdx)}
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${
+                    highlightIdx === globalIdx
+                      ? "bg-zinc-800"
+                      : "hover:bg-zinc-800/50"
+                  }`}
+                >
+                  <span className="text-[13px] font-medium text-zinc-200 truncate flex-1">
+                    {s.model.name}
+                  </span>
+                  <span className="text-[11px] text-zinc-500 flex-shrink-0 min-w-[48px] text-right tabular-nums">
+                    {s.model.pixelCount}px
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 uppercase tracking-wide flex-shrink-0">
+                    {s.model.isGroup ? "GRP" : s.model.type}
+                  </span>
+                  <span className="text-[11px] text-amber-400 flex-shrink-0 min-w-[32px] text-right tabular-nums">
+                    {(s.score * 100).toFixed(0)}%
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        )}
+
+        {/* All available section */}
+        {filteredAvailable.length > 0 && (
+          <>
+            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 sticky top-0 bg-zinc-900">
+              All Available
+            </div>
+            {filteredAvailable.map((m, i) => {
+              const globalIdx = filteredSuggestions.length + i;
+              return (
+                <button
+                  key={m.name}
+                  role="option"
+                  aria-selected={highlightIdx === globalIdx}
+                  type="button"
+                  onClick={() => handleSelect(m.name)}
+                  onMouseEnter={() => setHighlightIdx(globalIdx)}
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 cursor-pointer transition-colors ${
+                    highlightIdx === globalIdx
+                      ? "bg-zinc-800"
+                      : "hover:bg-zinc-800/50"
+                  }`}
+                >
+                  <span className="text-[13px] font-medium text-zinc-200 truncate flex-1">
+                    {m.name}
+                  </span>
+                  <span className="text-[11px] text-zinc-500 flex-shrink-0 min-w-[48px] text-right tabular-nums">
+                    {m.pixelCount}px
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 uppercase tracking-wide flex-shrink-0">
+                    {m.isGroup ? "GRP" : m.type}
+                  </span>
+                </button>
+              );
+            })}
+          </>
+        )}
+
+        {allItems.length === 0 && (
+          <div className="px-3 py-6 text-center text-[13px] text-zinc-500">
+            No available models
+          </div>
+        )}
+      </div>
+
+      {/* Skip action */}
+      <button
+        type="button"
+        onClick={handleSkip}
+        className="flex items-center gap-1.5 px-3 py-2 border-t border-zinc-800 text-[12px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 transition-colors flex-shrink-0"
+      >
+        <span>&#8856;</span>
+        Skip this model
+      </button>
+    </div>
+  );
+
+  return createPortal(popover, document.body);
+});
