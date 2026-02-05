@@ -7,13 +7,13 @@ export { parseRgbEffectsXml, normalizeType } from "./parser";
 export type { ParsedModel, ParsedLayout, SubModel } from "./parser";
 
 export {
-  SOURCE_MODELS,
-  SOURCE_GROUPS,
-  getAllSourceModels,
+  HALLOWEEN_MODELS,
+  CHRISTMAS_MODELS,
+  getModelsForDisplay,
   getSourceModelsForSequence,
   sourceModelToParsedModel,
 } from "./source-layout";
-export type { SourceModel } from "./source-layout";
+export type { SourceModel, DisplayType } from "./source-layout";
 
 export {
   matchModels,
