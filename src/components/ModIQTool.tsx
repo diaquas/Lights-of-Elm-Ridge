@@ -43,6 +43,7 @@ import SequenceSelector from "@/components/SequenceSelector";
 import ExportDialog from "@/components/modiq/ExportDialog";
 import CoverageBoostPrompt from "@/components/modiq/CoverageBoostPrompt";
 import PostExportScreen from "@/components/modiq/PostExportScreen";
+import CascadeToastContainer, { useCascadeToasts } from "@/components/modiq/CascadeToast";
 
 type Step = "input" | "processing" | "results" | "exported";
 type MapFromMode = "elm-ridge" | "other-vendor";
@@ -877,9 +878,30 @@ function InteractiveResults({
 
   const dnd = useDragAndDrop();
   const telemetry = useMappingTelemetry(selectedSequence);
+  const { toasts, showCascadeToast, dismissToast } = useCascadeToasts();
 
   // V3 mode: use source-first layout when effect tree is available
   const isV3 = interactive.sourceLayerMappings.length > 0;
+
+  // Wrapper to show cascade toast when mapping a group with resolved children
+  const assignWithCascadeFeedback = useCallback(
+    (sourceName: string, destName: string) => {
+      // Check if this source is a group that will resolve children
+      const layer = interactive.sourceLayerMappings.find(
+        (sl) => sl.sourceModel.name === sourceName,
+      );
+      const willResolve = layer?.isGroup && layer.coveredChildCount > 0 && !layer.isMapped;
+
+      // Do the assignment
+      interactive.assignUserModelToLayer(sourceName, destName);
+
+      // Show toast if this was a first mapping that resolved children
+      if (willResolve && layer) {
+        showCascadeToast(sourceName, layer.coveredChildCount);
+      }
+    },
+    [interactive, showCascadeToast],
+  );
 
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showBoostPrompt, setShowBoostPrompt] = useState(false);
@@ -989,7 +1011,7 @@ function InteractiveResults({
     onEnter: () => {
       // Accept best match for focused layer
       if (focusedSourceLayer && bestMatchesForFocused.length > 0) {
-        interactive.assignUserModelToLayer(
+        assignWithCascadeFeedback(
           focusedSourceLayer,
           bestMatchesForFocused[0].model.name,
         );
@@ -1015,18 +1037,18 @@ function InteractiveResults({
       const dragItem = dnd.parseDragDataTransfer(data);
       if (!dragItem) return;
       // In V3, the dragged item is a USER model being dropped onto a source layer
-      interactive.assignUserModelToLayer(sourceLayerName, dragItem.sourceModelName);
+      assignWithCascadeFeedback(sourceLayerName, dragItem.sourceModelName);
       dnd.handleDragEnd();
     },
-    [dnd, interactive],
+    [dnd, assignWithCascadeFeedback],
   );
 
   // Handle clicking the suggestion pill to accept best match
   const handleAcceptSuggestion = useCallback(
     (sourceLayerName: string, userModelName: string) => {
-      interactive.assignUserModelToLayer(sourceLayerName, userModelName);
+      assignWithCascadeFeedback(sourceLayerName, userModelName);
     },
-    [interactive],
+    [assignWithCascadeFeedback],
   );
 
   // Export handlers
@@ -1508,7 +1530,7 @@ function InteractiveResults({
                         onRemoveLink={interactive.removeLinkFromLayer}
                         onClickAssign={() => {
                           if (focusedSourceLayer) {
-                            interactive.assignUserModelToLayer(focusedSourceLayer, match.model.name);
+                            assignWithCascadeFeedback(focusedSourceLayer, match.model.name);
                           }
                         }}
                       />
@@ -1636,6 +1658,9 @@ function InteractiveResults({
           onKeepMapping={handleKeepMapping}
         />
       )}
+
+      {/* Cascade feedback toasts */}
+      <CascadeToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
