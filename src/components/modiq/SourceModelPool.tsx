@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import type { ParsedModel } from "@/lib/modiq";
 import DraggableSourceCard from "./DraggableSourceCard";
 import type { DragItem } from "@/hooks/useDragAndDrop";
@@ -18,7 +18,7 @@ interface SourceModelPoolProps {
   onTapSelect: (modelName: string) => void;
 }
 
-export default function SourceModelPool({
+export default memo(function SourceModelPool({
   allSourceModels,
   assignedSourceNames,
   assignmentMap,
@@ -51,60 +51,62 @@ export default function SourceModelPool({
     return Array.from(types).sort();
   }, [allSourceModels]);
 
-  const applyFilters = (models: ParsedModel[]) => {
-    let filtered = models;
-    if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(
-        (m) =>
-          m.name.toLowerCase().includes(q) ||
-          m.type.toLowerCase().includes(q) ||
-          String(m.pixelCount).includes(q),
-      );
-    }
-    if (typeFilter !== "all") {
-      filtered = filtered.filter(
-        (m) => m.type === typeFilter || (m.isGroup && typeFilter === "Group"),
-      );
-    }
-    return filtered;
-  };
+  const applyFilters = useCallback(
+    (models: ParsedModel[]) => {
+      let filtered = models;
+      if (search) {
+        const q = search.toLowerCase();
+        filtered = filtered.filter(
+          (m) =>
+            m.name.toLowerCase().includes(q) ||
+            m.type.toLowerCase().includes(q) ||
+            String(m.pixelCount).includes(q),
+        );
+      }
+      if (typeFilter !== "all") {
+        filtered = filtered.filter(
+          (m) => m.type === typeFilter || (m.isGroup && typeFilter === "Group"),
+        );
+      }
+      return filtered;
+    },
+    [search, typeFilter],
+  );
 
   const filteredUnmapped = useMemo(
     () => applyFilters(unmappedModels),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [unmappedModels, search, typeFilter],
+    [applyFilters, unmappedModels],
   );
 
   const filteredMapped = useMemo(
     () => applyFilters(mappedModels),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mappedModels, search, typeFilter],
+    [applyFilters, mappedModels],
   );
 
   return (
     <div className="bg-surface rounded-xl border border-border overflow-hidden">
-      <div className="px-4 py-3 border-b border-border">
-        <h3 className="font-display font-semibold text-sm">Source Models</h3>
-        <p className="text-xs text-foreground/40 mt-0.5">
+      {/* Compact header */}
+      <div className="px-3 py-2.5 border-b border-border">
+        <h3 className="font-display font-bold text-[15px]">Source Models</h3>
+        <p className="text-[11px] text-foreground/40 mt-0.5">
           {unmappedModels.length} available &middot; {mappedModels.length} mapped
         </p>
       </div>
 
-      {/* Search + Type Filter */}
-      <div className="px-4 py-2 border-b border-border space-y-2">
+      {/* Search + Type Filter — compact 32px inputs */}
+      <div className="px-3 py-2 border-b border-border space-y-1.5">
         <input
           type="text"
           placeholder="Search models..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full text-sm px-3 py-1.5 rounded-lg bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+          className="w-full text-[12px] px-2.5 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
         />
         {modelTypes.length > 1 && (
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="w-full text-xs px-3 py-1.5 rounded-lg bg-background border border-border focus:border-accent focus:outline-none text-foreground/60"
+            className="w-full text-[12px] px-2.5 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none text-foreground/60"
           >
             <option value="all">All Types</option>
             {modelTypes.map((t) => (
@@ -116,14 +118,14 @@ export default function SourceModelPool({
         )}
       </div>
 
-      {/* Unmapped source models (draggable cards) */}
+      {/* Source model cards — compact spacing */}
       <div className="max-h-[32rem] overflow-y-auto">
         {filteredUnmapped.length > 0 ? (
           <div>
-            <div className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
               Unmapped ({filteredUnmapped.length})
             </div>
-            <div className="px-3 py-2 space-y-1.5">
+            <div className="px-2 py-1.5">
               {filteredUnmapped.map((m) => (
                 <DraggableSourceCard
                   key={m.name}
@@ -139,24 +141,24 @@ export default function SourceModelPool({
             </div>
           </div>
         ) : unmappedModels.length === 0 ? (
-          <div className="px-4 py-6 text-center text-sm text-green-400/60">
+          <div className="px-3 py-4 text-center text-[13px] text-green-400/60">
             All source models mapped!
           </div>
         ) : (
-          <div className="px-4 py-6 text-center text-sm text-foreground/30">
+          <div className="px-3 py-4 text-center text-[13px] text-foreground/30">
             No models match your search
           </div>
         )}
 
-        {/* All Source Models (mapped, grayed) */}
+        {/* Mapped models section */}
         {mappedModels.length > 0 && (
           <div>
             <button
               type="button"
               onClick={() => setShowMapped(!showMapped)}
-              className="w-full px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground/30 bg-surface-light hover:bg-surface-light/80 sticky top-0 z-10 flex items-center justify-between"
+              className="w-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/30 bg-surface-light hover:bg-surface-light/80 sticky top-0 z-10 flex items-center justify-between"
             >
-              <span>All Source Models ({filteredMapped.length})</span>
+              <span>Mapped ({filteredMapped.length})</span>
               <svg
                 className={`w-3 h-3 transition-transform ${showMapped ? "rotate-180" : ""}`}
                 fill="none"
@@ -172,7 +174,7 @@ export default function SourceModelPool({
               </svg>
             </button>
             {showMapped && (
-              <div className="px-3 py-2 space-y-1.5">
+              <div className="px-2 py-1.5">
                 {filteredMapped.map((m) => (
                   <DraggableSourceCard
                     key={m.name}
@@ -193,4 +195,4 @@ export default function SourceModelPool({
       </div>
     </div>
   );
-}
+});
