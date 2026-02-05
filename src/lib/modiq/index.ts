@@ -48,3 +48,15 @@ export type {
   GroupScenario,
   EffectSummary,
 } from "./effect-tree";
+
+export {
+  computeDisplayCoverage,
+  findBoostSuggestions,
+  findSpinnerBoostSuggestions,
+  projectDisplayCoverage,
+} from "./boost-matcher";
+export type {
+  BoostSuggestion,
+  SpinnerBoostSuggestion,
+  DisplayCoverage,
+} from "./boost-matcher";

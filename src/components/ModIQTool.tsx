@@ -18,9 +18,13 @@ import {
   getSequenceModelList,
   buildEffectTree,
   getActiveSourceModels,
+  computeDisplayCoverage,
+  findBoostSuggestions,
+  findSpinnerBoostSuggestions,
 } from "@/lib/modiq";
 import type { ParsedLayout, MappingResult, DisplayType, EffectTree } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
+import type { BoostSuggestion, SpinnerBoostSuggestion, DisplayCoverage } from "@/lib/modiq";
 import { isDmxModel } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
 import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
@@ -35,9 +39,9 @@ import { useMappingTelemetry } from "@/hooks/useMappingTelemetry";
 import MappingProgressBar from "@/components/modiq/MappingProgressBar";
 import SourceLayerRow from "@/components/modiq/SourceLayerRow";
 import DraggableUserCard from "@/components/modiq/DraggableUserCard";
-import AssignedUsersSection from "@/components/modiq/AssignedUsersSection";
 import SequenceSelector from "@/components/SequenceSelector";
 import ExportDialog from "@/components/modiq/ExportDialog";
+import CoverageBoostPrompt from "@/components/modiq/CoverageBoostPrompt";
 import PostExportScreen from "@/components/modiq/PostExportScreen";
 
 type Step = "input" | "processing" | "results" | "exported";
@@ -117,6 +121,13 @@ export default function ModIQTool() {
 
   // Export state
   const [exportFileName, setExportFileName] = useState("");
+  // Boost state (passed from InteractiveResults to PostExportScreen)
+  const [exportDisplayCoverage, setExportDisplayCoverage] = useState<number | undefined>(undefined);
+  const [exportSequenceCoverage, setExportSequenceCoverage] = useState<{ mapped: number; total: number } | undefined>(undefined);
+  const [exportBoostLines, setExportBoostLines] = useState<{ userGroupName: string; sourceGroupName: string }[]>([]);
+  const [exportGroupsMapped, setExportGroupsMapped] = useState<number>(0);
+  const [exportGroupsCoveredChildren, setExportGroupsCoveredChildren] = useState<number>(0);
+  const [exportDirectMapped, setExportDirectMapped] = useState<number>(0);
 
   // ─── Source File Upload (Other Vendor) ─────────────────
   const handleSourceFile = useCallback((file: File) => {
@@ -753,8 +764,14 @@ export default function ModIQTool() {
             sourceFileName={sourceFile?.name}
             effectTree={effectTree}
             onReset={handleReset}
-            onExported={(fileName) => {
+            onExported={(fileName, meta) => {
               setExportFileName(fileName);
+              setExportDisplayCoverage(meta?.displayCoverage);
+              setExportSequenceCoverage(meta?.sequenceCoverage);
+              setExportBoostLines(meta?.boostLines ?? []);
+              setExportGroupsMapped(meta?.groupsMappedCount ?? 0);
+              setExportGroupsCoveredChildren(meta?.groupsCoveredChildCount ?? 0);
+              setExportDirectMapped(meta?.directMappedCount ?? 0);
               setStep("exported");
             }}
           />
@@ -774,6 +791,12 @@ export default function ModIQTool() {
           onDownloadAgain={() => setStep("results")}
           onMapAnother={handleReset}
           skippedCount={0}
+          displayCoverage={exportDisplayCoverage}
+          sequenceCoverage={exportSequenceCoverage}
+          boostLines={exportBoostLines}
+          groupsMappedCount={exportGroupsMapped}
+          groupsCoveredChildCount={exportGroupsCoveredChildren}
+          directMappedCount={exportDirectMapped}
         />
       )}
 
@@ -836,7 +859,14 @@ function InteractiveResults({
   sourceFileName?: string;
   effectTree: EffectTree | null;
   onReset: () => void;
-  onExported: (fileName: string) => void;
+  onExported: (fileName: string, meta?: {
+    displayCoverage?: number;
+    sequenceCoverage?: { mapped: number; total: number };
+    boostLines?: { userGroupName: string; sourceGroupName: string }[];
+    groupsMappedCount?: number;
+    groupsCoveredChildCount?: number;
+    directMappedCount?: number;
+  }) => void;
 }) {
   const interactive = useInteractiveMapping(
     initialResult,
@@ -852,6 +882,10 @@ function InteractiveResults({
   const isV3 = interactive.sourceLayerMappings.length > 0;
 
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showBoostPrompt, setShowBoostPrompt] = useState(false);
+  const [boostDisplayCoverage, setBoostDisplayCoverage] = useState<DisplayCoverage | null>(null);
+  const [boostGroupSuggestions, setBoostGroupSuggestions] = useState<BoostSuggestion[]>([]);
+  const [boostSpinnerSuggestions, setBoostSpinnerSuggestions] = useState<SpinnerBoostSuggestion[]>([]);
   const [focusedSourceLayer, setFocusedSourceLayer] = useState<string | null>(null);
 
   // Left panel sections open state
@@ -908,7 +942,7 @@ function InteractiveResults({
       return layers.filter(
         (sl) =>
           sl.sourceModel.name.toLowerCase().includes(q) ||
-          (sl.assignedUserModel?.name.toLowerCase().includes(q) ?? false),
+          sl.assignedUserModels.some((m) => m.name.toLowerCase().includes(q)),
       );
     },
     [leftSearch],
@@ -924,25 +958,22 @@ function InteractiveResults({
     return interactive.getSuggestionsForLayer(sl.sourceModel).slice(0, 5);
   }, [focusedSourceLayer, interactive]);
 
-  // Right panel: user models categorized
-  const { userGroups, userModels, assignedUsers } = useMemo(() => {
+  // Right panel: user models categorized (all models always visible, never hidden by assignment)
+  const { userGroups, userModels } = useMemo(() => {
     const groups: ParsedModel[] = [];
     const models: ParsedModel[] = [];
-    const assigned: ParsedModel[] = [];
     const q = rightSearch.toLowerCase();
     for (const m of destModels) {
       if (isDmxModel(m)) continue;
       if (q && !m.name.toLowerCase().includes(q) && !m.type.toLowerCase().includes(q)) continue;
-      if (interactive.assignedUserModelNames.has(m.name)) {
-        assigned.push(m);
-      } else if (m.isGroup) {
+      if (m.isGroup) {
         groups.push(m);
       } else {
         models.push(m);
       }
     }
-    return { userGroups: groups, userModels: models, assignedUsers: assigned };
-  }, [destModels, interactive.assignedUserModelNames, rightSearch]);
+    return { userGroups: groups, userModels: models };
+  }, [destModels, rightSearch]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -999,7 +1030,7 @@ function InteractiveResults({
   );
 
   // Export handlers
-  const doExport = useCallback(() => {
+  const doExport = useCallback((boostLines?: { userGroupName: string; sourceGroupName: string }[]) => {
     const result = interactive.toMappingResult();
     const xmapContent = generateXmap(result, seqTitle);
     downloadXmap(xmapContent, seqTitle);
@@ -1012,19 +1043,70 @@ function InteractiveResults({
       aiSuggested: null,
       method: "dropdown_pick",
     });
-    onExported(fileName);
-  }, [interactive, seqTitle, selectedSequence, telemetry, onExported]);
+    // Compute final display coverage for post-export screen
+    const finalCoverage = computeDisplayCoverage(destModels, interactive.destToSourcesMap, isDmxModel);
+    onExported(fileName, {
+      displayCoverage: finalCoverage.percentage,
+      sequenceCoverage: {
+        mapped: interactive.mappedLayerCount,
+        total: interactive.totalSourceLayers,
+      },
+      boostLines: boostLines ?? [],
+      groupsMappedCount: interactive.groupsMappedCount,
+      groupsCoveredChildCount: interactive.groupsCoveredChildCount,
+      directMappedCount: interactive.directMappedCount,
+    });
+  }, [interactive, seqTitle, selectedSequence, telemetry, onExported, destModels]);
 
   const handleExport = useCallback(() => {
     if (interactive.unmappedLayerCount > 0) {
       setShowExportDialog(true);
       return;
     }
+    // Check for boost opportunities (display coverage gaps)
+    const coverage = computeDisplayCoverage(destModels, interactive.destToSourcesMap, isDmxModel);
+    if (coverage.unmappedUserGroups.length > 0) {
+      // Build source->dests map from dest->sources (invert the map)
+      const sourceDestLinks = new Map<string, Set<string>>();
+      for (const [destName, srcs] of interactive.destToSourcesMap) {
+        for (const srcName of srcs) {
+          const s = sourceDestLinks.get(srcName) ?? new Set();
+          s.add(destName);
+          sourceDestLinks.set(srcName, s);
+        }
+      }
+
+      // Find mapped source groups for suggestions
+      const mappedSourceGroups = interactive.sourceLayerMappings
+        .filter((sl) => sl.isMapped && sl.isGroup)
+        .map((sl) => sl.sourceModel);
+      const groupSuggestions = findBoostSuggestions(
+        coverage.unmappedUserGroups,
+        mappedSourceGroups,
+        interactive.allSourceModels,
+        destModels,
+        sourceDestLinks,
+      );
+      const spinnerSuggestions = findSpinnerBoostSuggestions(
+        destModels,
+        sourceDestLinks,
+        isDmxModel,
+      );
+
+      if (groupSuggestions.length > 0 || spinnerSuggestions.length > 0) {
+        setBoostDisplayCoverage(coverage);
+        setBoostGroupSuggestions(groupSuggestions);
+        setBoostSpinnerSuggestions(spinnerSuggestions);
+        setShowBoostPrompt(true);
+        return;
+      }
+    }
     doExport();
-  }, [interactive.unmappedLayerCount, doExport]);
+  }, [interactive, doExport, destModels]);
 
   const handleExportAnyway = useCallback(() => {
     setShowExportDialog(false);
+    setShowBoostPrompt(false);
     doExport();
   }, [doExport]);
 
@@ -1044,7 +1126,43 @@ function InteractiveResults({
 
   const handleKeepMapping = useCallback(() => {
     setShowExportDialog(false);
+    setShowBoostPrompt(false);
   }, []);
+
+  // Boost prompt: accept selected suggestions, apply mappings, then export
+  const handleBoostAcceptAndExport = useCallback(
+    (acceptedGroups: BoostSuggestion[], acceptedSpinners: SpinnerBoostSuggestion[]) => {
+      const boostLines: { userGroupName: string; sourceGroupName: string }[] = [];
+
+      // Apply group boost: create many-to-one links
+      for (const s of acceptedGroups) {
+        interactive.assignUserModelToLayer(s.sourceGroup.name, s.userGroup.name);
+        boostLines.push({
+          userGroupName: s.userGroup.name,
+          sourceGroupName: s.sourceGroup.name,
+        });
+      }
+
+      // Apply spinner boost: create many-to-one links
+      for (const s of acceptedSpinners) {
+        interactive.assignUserModelToLayer(s.sourceModel.name, s.userModel.name);
+        boostLines.push({
+          userGroupName: s.userModel.name,
+          sourceGroupName: s.sourceModel.name,
+        });
+      }
+
+      setShowBoostPrompt(false);
+      // Small delay to let state settle before export
+      setTimeout(() => doExport(boostLines), 50);
+    },
+    [interactive, doExport],
+  );
+
+  const handleBoostSkipAndExport = useCallback(() => {
+    setShowBoostPrompt(false);
+    doExport();
+  }, [doExport]);
 
   return (
     <div className="space-y-0">
@@ -1177,6 +1295,7 @@ function InteractiveResults({
                             onAcceptSuggestion={handleAcceptSuggestion}
                             onSkip={() => interactive.skipSourceLayer(sl.sourceModel.name)}
                             onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
+                            onRemoveLink={interactive.removeLinkFromLayer}
                             getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
                             isDragActive={dnd.state.isDragging}
                             onDragEnter={dnd.handleDragEnter}
@@ -1204,6 +1323,7 @@ function InteractiveResults({
                             onAcceptSuggestion={handleAcceptSuggestion}
                             onSkip={() => interactive.skipSourceLayer(sl.sourceModel.name)}
                             onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
+                            onRemoveLink={interactive.removeLinkFromLayer}
                             getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
                             isDragActive={dnd.state.isDragging}
                             onDragEnter={dnd.handleDragEnter}
@@ -1259,7 +1379,10 @@ function InteractiveResults({
                             <span className="text-[13px] text-foreground truncate">{sl.sourceModel.name}</span>
                           </div>
                           <div className="text-[11px] text-foreground/40 truncate">
-                            &rarr; Your &quot;{sl.assignedUserModel?.name}&quot;
+                            &rarr; Your &quot;{sl.assignedUserModels[0]?.name}&quot;
+                            {sl.assignedUserModels.length > 1 && (
+                              <span className="text-teal-400/60 ml-1">+{sl.assignedUserModels.length - 1}</span>
+                            )}
                             {sl.coveredChildCount > 0 && (
                               <span className="text-teal-400/60 ml-1">
                                 ({sl.coveredChildCount} resolved)
@@ -1349,7 +1472,7 @@ function InteractiveResults({
             <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
               <h3 className="font-display font-bold text-[15px]">Your Models</h3>
               <p className="text-[11px] text-foreground/40 mt-0.5">
-                {destModels.length} models &middot; {userGroups.length + userModels.length} available
+                {userGroups.length + userModels.length} models &middot; Drag or click to link
               </p>
             </div>
 
@@ -1378,10 +1501,11 @@ function InteractiveResults({
                         key={match.model.name}
                         model={match.model}
                         score={match.score}
-                        isAssigned={interactive.assignedUserModelNames.has(match.model.name)}
                         onDragStart={dnd.handleDragStart}
                         onDragEnd={dnd.handleDragEnd}
                         getDragDataTransfer={dnd.getDragDataTransfer}
+                        assignedSources={interactive.destToSourcesMap.get(match.model.name)}
+                        onRemoveLink={interactive.removeLinkFromLayer}
                         onClickAssign={() => {
                           if (focusedSourceLayer) {
                             interactive.assignUserModelToLayer(focusedSourceLayer, match.model.name);
@@ -1410,10 +1534,11 @@ function InteractiveResults({
                       <DraggableUserCard
                         key={m.name}
                         model={m}
-                        isAssigned={false}
                         onDragStart={dnd.handleDragStart}
                         onDragEnd={dnd.handleDragEnd}
                         getDragDataTransfer={dnd.getDragDataTransfer}
+                        assignedSources={interactive.destToSourcesMap.get(m.name)}
+                        onRemoveLink={interactive.removeLinkFromLayer}
                       />
                     ))}
                   </div>
@@ -1431,24 +1556,22 @@ function InteractiveResults({
                       <DraggableUserCard
                         key={m.name}
                         model={m}
-                        isAssigned={false}
                         onDragStart={dnd.handleDragStart}
                         onDragEnd={dnd.handleDragEnd}
                         getDragDataTransfer={dnd.getDragDataTransfer}
+                        assignedSources={interactive.destToSourcesMap.get(m.name)}
+                        onRemoveLink={interactive.removeLinkFromLayer}
                       />
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Already Assigned */}
-              {assignedUsers.length > 0 && (
-                <AssignedUsersSection
-                  users={assignedUsers}
-                  onDragStart={dnd.handleDragStart}
-                  onDragEnd={dnd.handleDragEnd}
-                  getDragDataTransfer={dnd.getDragDataTransfer}
-                />
+              {/* Summary */}
+              {interactive.assignedUserModelNames.size > 0 && (
+                <div className="px-3 py-1.5 text-[10px] text-foreground/25 text-center border-t border-border/50">
+                  {interactive.assignedUserModelNames.size} of {userGroups.length + userModels.length} models linked
+                </div>
               )}
             </div>
           </div>
@@ -1494,6 +1617,22 @@ function InteractiveResults({
           unmappedNames={unmappedLayers.map((sl) => sl.sourceModel.name)}
           onExportAnyway={handleExportAnyway}
           onSkipAllAndExport={handleSkipAllAndExport}
+          onKeepMapping={handleKeepMapping}
+        />
+      )}
+
+      {showBoostPrompt && boostDisplayCoverage && (
+        <CoverageBoostPrompt
+          displayCoverage={boostDisplayCoverage}
+          sequenceCoverage={{
+            mapped: interactive.mappedLayerCount,
+            total: interactive.totalSourceLayers,
+          }}
+          groupSuggestions={boostGroupSuggestions}
+          spinnerSuggestions={boostSpinnerSuggestions}
+          destModels={destModels}
+          onAcceptAndExport={handleBoostAcceptAndExport}
+          onSkipAndExport={handleBoostSkipAndExport}
           onKeepMapping={handleKeepMapping}
         />
       )}
