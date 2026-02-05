@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 interface MappingProgressBarProps {
   mappedCount: number;
   totalCount: number;
@@ -10,7 +12,7 @@ interface MappingProgressBarProps {
   percentage: number;
 }
 
-export default function MappingProgressBar({
+export default memo(function MappingProgressBar({
   mappedCount,
   totalCount,
   skippedCount,
@@ -25,43 +27,43 @@ export default function MappingProgressBar({
   const lowPct = effectiveTotal > 0 ? (lowCount / effectiveTotal) * 100 : 0;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-1">
       <div className="flex items-baseline justify-between">
         <div className="flex items-baseline gap-2">
-          <span className="text-2xl font-bold">
+          <span className="text-xl font-extrabold leading-none">
             {mappedCount}
-            <span className="text-lg text-foreground/40">
+            <span className="text-base text-foreground/40">
               /{effectiveTotal}
             </span>
           </span>
-          <span className="text-sm text-foreground/50">
-            of their models mapped ({percentage}%)
+          <span className="text-[11px] text-foreground/50">
+            mapped ({percentage}%)
           </span>
         </div>
-        <div className="flex items-center gap-3 text-xs text-foreground/50">
+        <div className="flex items-center gap-2.5 text-[10px] text-foreground/50">
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-green-400" />
-            {highCount} high
+            <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
+            {highCount}
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            {mediumCount} med
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+            {mediumCount}
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-red-400" />
-            {lowCount} low
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+            {lowCount}
           </span>
           {skippedCount > 0 && (
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-foreground/20" />
-              {skippedCount} skipped
+              <span className="w-1.5 h-1.5 rounded-full bg-foreground/20" />
+              {skippedCount}
             </span>
           )}
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-2.5 bg-foreground/5 rounded-full overflow-hidden flex">
+      {/* Progress bar — 4px height */}
+      <div className="h-1 bg-foreground/5 rounded-full overflow-hidden flex">
         {highPct > 0 && (
           <div
             className="bg-green-400 transition-all duration-300"
@@ -83,4 +85,4 @@ export default function MappingProgressBar({
       </div>
     </div>
   );
-}
+});

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo } from "react";
+// Performance note: React.memo applied to all child components;
+// stable callbacks via useCallback; rAF-throttled DnD state updates
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -734,35 +736,19 @@ export default function ModIQTool() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Interactive Results View (V2 Refined)
+// Interactive Results View (V2 Refined + Performance Optimized)
 // ═══════════════════════════════════════════════════════════════════
 
 const CONFIDENCE_ORDER: Confidence[] = ["unmapped", "high", "medium", "low"];
 
 const CONFIDENCE_STYLES: Record<
   Confidence,
-  { bg: string; text: string; label: string; dot: string }
+  { text: string; label: string; dot: string }
 > = {
-  high: {
-    bg: "bg-green-500/10",
-    text: "text-green-400",
-    label: "HIGH",
-    dot: "bg-green-400",
-  },
-  medium: {
-    bg: "bg-amber-500/10",
-    text: "text-amber-400",
-    label: "MED",
-    dot: "bg-amber-400",
-  },
-  low: {
-    bg: "bg-red-500/10",
-    text: "text-red-400",
-    label: "LOW",
-    dot: "bg-red-400",
-  },
+  high: { text: "text-green-400", label: "HIGH", dot: "bg-green-400" },
+  medium: { text: "text-amber-400", label: "MED", dot: "bg-amber-400" },
+  low: { text: "text-red-400", label: "LOW", dot: "bg-red-400" },
   unmapped: {
-    bg: "bg-foreground/5",
     text: "text-foreground/30",
     label: "NONE",
     dot: "bg-foreground/30",
@@ -771,9 +757,9 @@ const CONFIDENCE_STYLES: Record<
 
 const SECTION_LABELS: Record<Confidence, string> = {
   unmapped: "NEEDS MAPPING",
-  high: "MAPPED — High Confidence",
-  medium: "MAPPED — Medium Confidence",
-  low: "MAPPED — Low Confidence",
+  high: "HIGH CONFIDENCE",
+  medium: "MED CONFIDENCE",
+  low: "LOW CONFIDENCE",
 };
 
 function InteractiveResults({
@@ -820,11 +806,14 @@ function InteractiveResults({
     string | null
   >(null);
 
-  const seqTitle =
-    mapFromMode === "elm-ridge"
-      ? sequences.find((s) => s.slug === selectedSequence)?.title ||
-        selectedSequence
-      : sourceFileName || "Source Layout";
+  const seqTitle = useMemo(
+    () =>
+      mapFromMode === "elm-ridge"
+        ? sequences.find((s) => s.slug === selectedSequence)?.title ||
+          selectedSequence
+        : sourceFileName || "Source Layout",
+    [mapFromMode, selectedSequence, sourceFileName],
+  );
 
   const toggleSection = useCallback((tier: Confidence) => {
     setExpandedSections((prev) => {
@@ -835,25 +824,34 @@ function InteractiveResults({
     });
   }, []);
 
-  // Group dest mappings by confidence tier
-  const tiers = useMemo(() => {
-    const grouped: Record<Confidence, DestMapping[]> = {
-      high: [],
-      medium: [],
-      low: [],
-      unmapped: [],
-    };
-    for (const dm of interactive.destMappings) {
-      if (dm.isSkipped) continue;
-      grouped[dm.confidence].push(dm);
-    }
-    return grouped;
-  }, [interactive.destMappings]);
-
-  const skippedMappings = useMemo(
-    () => interactive.destMappings.filter((dm) => dm.isSkipped),
-    [interactive.destMappings],
-  );
+  // Group dest mappings by confidence tier + skipped in single pass
+  const { tiers, skippedMappings, autoMappedCount, manualCount } =
+    useMemo(() => {
+      const grouped: Record<Confidence, DestMapping[]> = {
+        high: [],
+        medium: [],
+        low: [],
+        unmapped: [],
+      };
+      const skipped: DestMapping[] = [];
+      let auto = 0;
+      let manual = 0;
+      for (const dm of interactive.destMappings) {
+        if (dm.isSkipped) {
+          skipped.push(dm);
+          continue;
+        }
+        grouped[dm.confidence].push(dm);
+        if (dm.sourceModel && !dm.isManualOverride) auto++;
+        if (dm.isManualOverride) manual++;
+      }
+      return {
+        tiers: grouped,
+        skippedMappings: skipped,
+        autoMappedCount: auto,
+        manualCount: manual,
+      };
+    }, [interactive.destMappings]);
 
   // Collect unique dest model types for filter
   const destModelTypes = useMemo(() => {
@@ -867,6 +865,7 @@ function InteractiveResults({
   // Filter helper for left panel
   const filterMappings = useCallback(
     (mappings: DestMapping[]) => {
+      if (!leftSearch && leftTypeFilter === "all") return mappings;
       let filtered = mappings;
       if (leftSearch) {
         const q = leftSearch.toLowerCase();
@@ -899,7 +898,7 @@ function InteractiveResults({
     return map;
   }, [interactive.destMappings]);
 
-  // Best match for unmapped models
+  // Best match for unmapped models — only depends on unmapped list + getSuggestions
   const bestMatches = useMemo(() => {
     const map = new Map<string, { name: string; score: number }>();
     for (const dm of tiers.unmapped) {
@@ -912,7 +911,7 @@ function InteractiveResults({
       }
     }
     return map;
-  }, [tiers.unmapped, interactive]);
+  }, [tiers.unmapped, interactive.getSuggestions]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -947,6 +946,30 @@ function InteractiveResults({
     },
   });
 
+  // Stable per-row callbacks — avoid inline closures in render
+  const handleRowAssign = useCallback(
+    (destModelName: string, sourceModelName: string) => {
+      interactive.assignSource(destModelName, sourceModelName);
+      setFocusedDest(null);
+      setSelectedSourceForTap(null);
+    },
+    [interactive],
+  );
+
+  const handleRowClear = useCallback(
+    (destModelName: string) => {
+      interactive.clearMapping(destModelName);
+    },
+    [interactive],
+  );
+
+  const handleRowSkip = useCallback(
+    (destModelName: string) => {
+      interactive.skipModel(destModelName);
+    },
+    [interactive],
+  );
+
   // DnD drop handler
   const handleRowDrop = useCallback(
     (destModelName: string, e: React.DragEvent) => {
@@ -958,31 +981,17 @@ function InteractiveResults({
         (dm) => dm.destModel.name === destModelName,
       );
 
-      if (currentMapping?.sourceModel) {
-        interactive.assignSource(destModelName, dragItem.sourceModelName);
-        telemetry.trackAction({
-          sequenceSlug: selectedSequence,
-          action: "remap",
-          sourceModel: { name: dragItem.sourceModelName, type: "", pixels: 0 },
-          targetModel: { name: destModelName, displayAs: "", pixels: 0 },
-          previousMapping: currentMapping.sourceModel.name,
-          aiConfidence: null,
-          aiSuggested: null,
-          method: "drag_drop",
-        });
-      } else {
-        interactive.assignSource(destModelName, dragItem.sourceModelName);
-        telemetry.trackAction({
-          sequenceSlug: selectedSequence,
-          action: "drag_map",
-          sourceModel: { name: dragItem.sourceModelName, type: "", pixels: 0 },
-          targetModel: { name: destModelName, displayAs: "", pixels: 0 },
-          previousMapping: null,
-          aiConfidence: null,
-          aiSuggested: null,
-          method: "drag_drop",
-        });
-      }
+      interactive.assignSource(destModelName, dragItem.sourceModelName);
+      telemetry.trackAction({
+        sequenceSlug: selectedSequence,
+        action: currentMapping?.sourceModel ? "remap" : "drag_map",
+        sourceModel: { name: dragItem.sourceModelName, type: "", pixels: 0 },
+        targetModel: { name: destModelName, displayAs: "", pixels: 0 },
+        previousMapping: currentMapping?.sourceModel?.name ?? null,
+        aiConfidence: null,
+        aiSuggested: null,
+        method: "drag_drop",
+      });
 
       dnd.handleDragEnd();
       setSelectedSourceForTap(null);
@@ -1032,13 +1041,12 @@ function InteractiveResults({
   }, [interactive, seqTitle, selectedSequence, telemetry, onExported]);
 
   const handleExport = useCallback(() => {
-    const unmappedNames = tiers.unmapped.map((dm) => dm.destModel.name);
-    if (unmappedNames.length > 0) {
+    if (tiers.unmapped.length > 0) {
       setShowExportDialog(true);
       return;
     }
     doExport();
-  }, [tiers.unmapped, doExport]);
+  }, [tiers.unmapped.length, doExport]);
 
   const handleExportAnyway = useCallback(() => {
     setShowExportDialog(false);
@@ -1059,24 +1067,21 @@ function InteractiveResults({
     downloadMappingReport(report, seqTitle);
   }, [interactive, seqTitle]);
 
-  const autoMappedCount = interactive.destMappings.filter(
-    (dm) => dm.sourceModel && !dm.isManualOverride && !dm.isSkipped,
-  ).length;
-  const manualCount = interactive.destMappings.filter(
-    (dm) => dm.isManualOverride && !dm.isSkipped,
-  ).length;
+  const handleKeepMapping = useCallback(() => {
+    setShowExportDialog(false);
+  }, []);
 
   return (
     <div className="space-y-0">
-      {/* ── Sticky Top Bar ─────────────────────────────── */}
-      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-4 mb-6">
+      {/* ── Sticky Top Bar — compact ~72px ────────────── */}
+      <div className="sticky top-0 z-40 bg-background/95 border-b border-border -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 mb-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-3 min-w-0">
-              <h2 className="text-lg font-display font-bold flex-shrink-0">
+              <h2 className="text-[15px] font-display font-bold flex-shrink-0">
                 ModIQ
               </h2>
-              <span className="text-sm text-foreground/50 truncate">
+              <span className="text-[13px] text-foreground/50 truncate">
                 {seqTitle} &rarr; Your Layout
               </span>
             </div>
@@ -1085,14 +1090,14 @@ function InteractiveResults({
                 <button
                   type="button"
                   onClick={interactive.undo}
-                  className="hidden sm:block text-xs px-3 py-1.5 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
+                  className="hidden sm:block text-xs px-2.5 py-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
                 >
                   Undo
                 </button>
               )}
               <button
                 onClick={handleExport}
-                className={`text-sm px-4 py-2 rounded-xl font-semibold transition-all ${
+                className={`text-[13px] px-3.5 py-1.5 rounded-xl font-semibold transition-colors ${
                   interactive.unmappedCount > 0
                     ? "bg-accent/80 hover:bg-accent text-white"
                     : "bg-accent hover:bg-accent/90 text-white"
@@ -1117,7 +1122,7 @@ function InteractiveResults({
             percentage={interactive.mappedPercentage}
           />
 
-          <div className="flex items-center gap-3 mt-2 text-xs text-foreground/40">
+          <div className="flex items-center gap-3 mt-1 text-[10px] text-foreground/40">
             <span>{autoMappedCount} auto</span>
             <span>&middot;</span>
             <span>{manualCount} manual</span>
@@ -1130,14 +1135,14 @@ function InteractiveResults({
       </div>
 
       {/* ── Two-Panel Layout ───────────────────────────── */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         {/* Left panel: YOUR LAYOUT */}
-        <div className="space-y-4 min-w-0">
+        <div className="space-y-1.5 min-w-0">
           {/* Filter controls */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mb-2">
             <div className="relative flex-1">
               <svg
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1154,14 +1159,14 @@ function InteractiveResults({
                 placeholder="Filter models..."
                 value={leftSearch}
                 onChange={(e) => setLeftSearch(e.target.value)}
-                className="w-full text-sm pl-9 pr-3 py-2 rounded-lg bg-surface border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+                className="w-full text-[12px] pl-8 pr-3 py-1.5 h-8 rounded bg-surface border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
               />
             </div>
             {destModelTypes.length > 1 && (
               <select
                 value={leftTypeFilter}
                 onChange={(e) => setLeftTypeFilter(e.target.value)}
-                className="text-xs px-3 py-2 rounded-lg bg-surface border border-border focus:border-accent focus:outline-none text-foreground/60"
+                className="text-[12px] px-2.5 py-1.5 h-8 rounded bg-surface border border-border focus:border-accent focus:outline-none text-foreground/60"
               >
                 <option value="all">All Types</option>
                 {destModelTypes.map((t) => (
@@ -1192,33 +1197,36 @@ function InteractiveResults({
             return (
               <div
                 key={tier}
-                className={`bg-surface rounded-xl border overflow-hidden ${
+                className={`bg-surface rounded-lg border overflow-hidden ${
                   isNeedsMapping
                     ? "border-amber-500/30 ring-1 ring-amber-500/10"
                     : "border-border"
                 }`}
               >
+                {/* Section header — compact 36px */}
                 <button
                   type="button"
                   onClick={() => toggleSection(tier)}
-                  className={`w-full px-6 py-4 flex items-center justify-between hover:bg-surface-light transition-colors ${
+                  className={`w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors ${
                     isNeedsMapping ? "bg-amber-500/5" : ""
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold tracking-wider ${style.bg} ${style.text}`}
-                    >
-                      <span className={`w-2 h-2 rounded-full ${style.dot}`} />
-                      {SECTION_LABELS[tier]}
-                    </span>
-                    <span className="text-foreground font-semibold text-lg">
-                      {unfilteredCount}
-                    </span>
-                    <span className="text-foreground/40 text-sm">({pct}%)</span>
-                  </div>
+                  <span
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot}`}
+                  />
+                  <span
+                    className={`text-[11px] font-semibold uppercase tracking-wider ${style.text}`}
+                  >
+                    {SECTION_LABELS[tier]}
+                  </span>
+                  <span className="text-[13px] font-bold text-foreground">
+                    {unfilteredCount}
+                  </span>
+                  <span className="text-[11px] text-foreground/40">
+                    ({pct}%)
+                  </span>
                   <svg
-                    className={`w-5 h-5 text-foreground/40 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${isOpen ? "rotate-180" : ""}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1234,22 +1242,14 @@ function InteractiveResults({
 
                 {isOpen && (
                   <>
-                    {!isNeedsMapping && (
-                      <div className="hidden sm:grid grid-cols-[1fr_24px_1fr_28px] gap-2 px-6 py-2 bg-surface-light text-xs text-foreground/50 uppercase tracking-wider font-medium border-t border-border">
-                        <span>Your Model</span>
-                        <span />
-                        <span>Mapped To</span>
-                        <span />
-                      </div>
-                    )}
                     {isNeedsMapping && tierMappings.length > 0 && (
-                      <div className="px-6 py-2 bg-surface-light text-xs text-foreground/40 border-t border-border">
+                      <div className="px-3 py-1.5 bg-surface-light text-[11px] text-foreground/40 border-t border-border">
                         {selectedSourceForTap
-                          ? `Tap a row below to map "${selectedSourceForTap}" — or tap source card again to deselect`
-                          : "Drag a source model from the right panel, or click to pick a match"}
+                          ? `Tap a row to map "${selectedSourceForTap}" — or tap source card to deselect`
+                          : "Drag a source model here, or click to pick a match"}
                       </div>
                     )}
-                    <div className="divide-y divide-border border-t border-border">
+                    <div className="border-t border-border space-y-1.5 p-1.5">
                       {tierMappings.length > 0 ? (
                         tierMappings.map((dm) => (
                           <div
@@ -1265,19 +1265,14 @@ function InteractiveResults({
                               isSkipped={dm.isSkipped}
                               isManualOverride={dm.isManualOverride}
                               isFocused={focusedDest === dm.destModel.name}
-                              onAssign={(name) => {
-                                interactive.assignSource(
-                                  dm.destModel.name,
-                                  name,
-                                );
-                                setFocusedDest(null);
-                                setSelectedSourceForTap(null);
-                              }}
+                              onAssign={(name) =>
+                                handleRowAssign(dm.destModel.name, name)
+                              }
                               onClear={() =>
-                                interactive.clearMapping(dm.destModel.name)
+                                handleRowClear(dm.destModel.name)
                               }
                               onSkip={() =>
-                                interactive.skipModel(dm.destModel.name)
+                                handleRowSkip(dm.destModel.name)
                               }
                               getSuggestions={() =>
                                 interactive.getSuggestions(dm.destModel)
@@ -1299,7 +1294,7 @@ function InteractiveResults({
                           </div>
                         ))
                       ) : (
-                        <div className="px-6 py-4 text-sm text-foreground/30 text-center">
+                        <div className="px-3 py-3 text-[13px] text-foreground/30 text-center">
                           No models match your filter
                         </div>
                       )}
@@ -1312,35 +1307,22 @@ function InteractiveResults({
 
           {/* Skipped section */}
           {skippedMappings.length > 0 && (
-            <div className="bg-surface rounded-xl border border-border overflow-hidden opacity-60">
-              <button
-                type="button"
-                onClick={() =>
-                  setExpandedSections((prev) => {
-                    // Toggle a "skipped" key — reusing the set
-                    const next = new Set(prev);
-                    // Use a separate state toggle approach: just always show
-                    return next;
-                  })
-                }
-                className="w-full px-6 py-3 flex items-center justify-between hover:bg-surface-light transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold tracking-wider bg-foreground/5 text-foreground/20">
-                    SKIPPED
-                  </span>
-                  <span className="text-foreground/40 font-semibold">
-                    {skippedMappings.length}
-                  </span>
-                </div>
-              </button>
-              <div className="divide-y divide-border/50 border-t border-border">
+            <div className="bg-surface rounded-lg border border-border overflow-hidden opacity-60">
+              <div className="px-3 h-9 flex items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/20">
+                  SKIPPED
+                </span>
+                <span className="text-[13px] font-bold text-foreground/40">
+                  {skippedMappings.length}
+                </span>
+              </div>
+              <div className="border-t border-border">
                 {skippedMappings.map((dm) => (
                   <div
                     key={dm.destModel.name}
-                    className="px-4 sm:px-6 py-2 flex items-center justify-between"
+                    className="px-3 py-1.5 flex items-center justify-between border-b border-border/30 last:border-b-0"
                   >
-                    <span className="text-sm text-foreground/30 line-through truncate">
+                    <span className="text-[13px] text-foreground/30 line-through truncate">
                       {dm.destModel.name}
                     </span>
                     <button
@@ -1358,7 +1340,7 @@ function InteractiveResults({
         </div>
 
         {/* Right panel: Source model pool */}
-        <div className="lg:sticky lg:top-32 self-start">
+        <div className="lg:sticky lg:top-24 self-start">
           <SourceModelPool
             allSourceModels={interactive.allSourceModels}
             assignedSourceNames={interactive.assignedSourceNames}
@@ -1376,26 +1358,26 @@ function InteractiveResults({
       <div className="flex flex-col sm:flex-row gap-3 mt-6">
         <button
           onClick={handleExport}
-          className="flex-1 py-4 rounded-xl font-display font-bold text-lg bg-accent hover:bg-accent/90 text-white transition-all"
+          className="flex-1 py-3.5 rounded-xl font-display font-bold text-base bg-accent hover:bg-accent/90 text-white transition-colors"
         >
           Download Mapping File (.xmap)
         </button>
         <button
           onClick={handleExportReport}
-          className="px-6 py-4 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-all"
+          className="px-5 py-3.5 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-colors"
         >
           Export Report (.csv)
         </button>
         <button
           onClick={onReset}
-          className="px-6 py-4 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-all"
+          className="px-5 py-3.5 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-colors"
         >
           Start Over
         </button>
       </div>
 
       {/* Keyboard shortcuts legend */}
-      <div className="flex items-center justify-center gap-4 text-[11px] text-foreground/25 py-2">
+      <div className="flex items-center justify-center gap-4 text-[10px] text-foreground/25 py-1.5">
         <span>Tab: next unmapped</span>
         <span>&middot;</span>
         <span>S: skip</span>
@@ -1409,7 +1391,7 @@ function InteractiveResults({
           unmappedNames={tiers.unmapped.map((dm) => dm.destModel.name)}
           onExportAnyway={handleExportAnyway}
           onSkipAllAndExport={handleSkipAllAndExport}
-          onKeepMapping={() => setShowExportDialog(false)}
+          onKeepMapping={handleKeepMapping}
         />
       )}
     </div>

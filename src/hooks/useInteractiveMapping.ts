@@ -187,40 +187,38 @@ export function useInteractiveMapping(
     autoMappingByDest,
   ]);
 
-  // Stats
-  const mappedCount = useMemo(
-    () => destMappings.filter((m) => m.sourceModel !== null).length,
-    [destMappings],
-  );
-  const skippedCount = useMemo(() => skipped.size, [skipped]);
-  const totalDest = destModels.length;
-  const effectiveTotal = totalDest - skippedCount;
-  const mappedPercentage =
-    effectiveTotal > 0
-      ? Math.round((mappedCount / effectiveTotal) * 1000) / 10
-      : 0;
-  const highCount = useMemo(
-    () =>
-      destMappings.filter((m) => m.sourceModel && m.confidence === "high")
-        .length,
-    [destMappings],
-  );
-  const mediumCount = useMemo(
-    () =>
-      destMappings.filter((m) => m.sourceModel && m.confidence === "medium")
-        .length,
-    [destMappings],
-  );
-  const lowCount = useMemo(
-    () =>
-      destMappings.filter((m) => m.sourceModel && m.confidence === "low")
-        .length,
-    [destMappings],
-  );
-  const unmappedCount = useMemo(
-    () => destMappings.filter((m) => !m.sourceModel && !m.isSkipped).length,
-    [destMappings],
-  );
+  // Stats — single pass
+  const stats = useMemo(() => {
+    let mapped = 0;
+    let high = 0;
+    let medium = 0;
+    let low = 0;
+    let unmapped = 0;
+    for (const dm of destMappings) {
+      if (dm.sourceModel) {
+        mapped++;
+        if (dm.confidence === "high") high++;
+        else if (dm.confidence === "medium") medium++;
+        else if (dm.confidence === "low") low++;
+      } else if (!dm.isSkipped) {
+        unmapped++;
+      }
+    }
+    const skippedSize = skipped.size;
+    const total = destModels.length;
+    const effective = total - skippedSize;
+    const pct = effective > 0 ? Math.round((mapped / effective) * 1000) / 10 : 0;
+    return { mapped, high, medium, low, unmapped, skippedSize, total, pct };
+  }, [destMappings, skipped, destModels.length]);
+
+  const mappedCount = stats.mapped;
+  const skippedCount = stats.skippedSize;
+  const totalDest = stats.total;
+  const mappedPercentage = stats.pct;
+  const highCount = stats.high;
+  const mediumCount = stats.medium;
+  const lowCount = stats.low;
+  const unmappedCount = stats.unmapped;
 
   // Actions
   const assignSource = useCallback(
