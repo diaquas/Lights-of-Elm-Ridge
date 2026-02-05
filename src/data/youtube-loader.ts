@@ -53,9 +53,14 @@ export function getLastUpdated(): string | null {
  *
  * Matching strategy:
  * 1. Exact slug match in video title
- * 2. Normalized title match
- * 3. Artist + title combination match
+ * 2. Normalized title match (with minimum length requirement)
+ * 3. Artist + title combination match (with minimum length requirement)
+ *
+ * Note: We require a minimum match length of 5 chars to avoid false positives
+ * like "e t" (E.T.) matching inside "save tonight" as a substring.
  */
+const MIN_MATCH_LENGTH = 5;
+
 export function findMockupForSequence(
   sequenceSlug: string,
 ): YouTubeVideo | null {
@@ -77,11 +82,15 @@ export function findMockupForSequence(
   const normalizedSequenceTitle = normalizeTitle(sequence.title);
   for (const video of mockups) {
     const normalizedVideoTitle = normalizeTitle(video.title);
-    if (
-      normalizedVideoTitle.includes(normalizedSequenceTitle) ||
-      normalizedSequenceTitle.includes(normalizedVideoTitle)
-    ) {
-      return video;
+    // Only match if the shorter string is at least MIN_MATCH_LENGTH chars
+    const shorterLength = Math.min(normalizedVideoTitle.length, normalizedSequenceTitle.length);
+    if (shorterLength >= MIN_MATCH_LENGTH) {
+      if (
+        normalizedVideoTitle.includes(normalizedSequenceTitle) ||
+        normalizedSequenceTitle.includes(normalizedVideoTitle)
+      ) {
+        return video;
+      }
     }
   }
 
@@ -90,13 +99,16 @@ export function findMockupForSequence(
   const titleArtist = normalizeTitle(`${sequence.artist} ${sequence.title}`);
   for (const video of mockups) {
     const normalizedVideoTitle = normalizeTitle(video.title);
-    if (
-      normalizedVideoTitle.includes(artistTitle) ||
-      artistTitle.includes(normalizedVideoTitle) ||
-      normalizedVideoTitle.includes(titleArtist) ||
-      titleArtist.includes(normalizedVideoTitle)
-    ) {
-      return video;
+    // Only match if the video title is at least MIN_MATCH_LENGTH chars
+    if (normalizedVideoTitle.length >= MIN_MATCH_LENGTH) {
+      if (
+        normalizedVideoTitle.includes(artistTitle) ||
+        artistTitle.includes(normalizedVideoTitle) ||
+        normalizedVideoTitle.includes(titleArtist) ||
+        titleArtist.includes(normalizedVideoTitle)
+      ) {
+        return video;
+      }
     }
   }
 

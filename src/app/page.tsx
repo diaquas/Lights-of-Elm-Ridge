@@ -109,6 +109,7 @@ export default function Home() {
         </div>
 
         <div className="latest-grid">
+          {/* I Think We're Alone Now - has mockup video and r2Url */}
           <Link
             href="/sequences/i-think-were-alone-now"
             className="latest-card"
@@ -133,10 +134,11 @@ export default function Home() {
             </div>
           </Link>
 
-          <Link href="/sequences/wellerman-sea-shanty" className="latest-card">
+          {/* Abracadabra - has mockup video and r2Url */}
+          <Link href="/sequences/abracadabra" className="latest-card">
             <div className="latest-card-thumb">
               <Image
-                src="/wellermanmain.png"
+                src="https://dm3v96wjcnps9.cloudfront.net/icpn/00602475886266/00602475886266-cover-zoom.jpg"
                 alt=""
                 width={300}
                 height={300}
@@ -146,31 +148,32 @@ export default function Home() {
               <span className="latest-card-badge badge-new">New</span>
             </div>
             <div className="latest-card-body">
-              <div className="latest-card-title">Wellerman Sea Shanty</div>
-              <div className="latest-card-artist">2WEI</div>
+              <div className="latest-card-title">Abracadabra</div>
+              <div className="latest-card-artist">Lady Gaga</div>
               <div className="latest-card-price">$20</div>
             </div>
           </Link>
 
-          <Link href="/sequences/in-the-air-tonight" className="latest-card">
+          {/* This Is Halloween - has youtubeId and r2Url */}
+          <Link href="/sequences/this-is-halloween" className="latest-card">
             <div className="latest-card-thumb">
               <Image
-                src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjSf3UrSAQfwnaylGcVjyRvdMXp5-qn72SG0GHTvv6kOUzIOhPAastqwB_FaoQlXZLuu_kRc1rfg2yhVF2msc20MaSYqs14Wvc9ibY4tT2e8_AYtZeKvfBVUPhX0ZbDz7lt9rsQ2WynFAM/s633/phil+collins+in+the+air+tonight+deer+main.jpg"
+                src="https://i.scdn.co/image/ab67616d0000b2737073748b25a091da2589a6df"
                 alt=""
                 width={300}
                 height={300}
                 className="latest-card-img"
                 unoptimized
               />
-              <span className="latest-card-badge badge-new">New</span>
             </div>
             <div className="latest-card-body">
-              <div className="latest-card-title">In the Air Tonight</div>
-              <div className="latest-card-artist">Phil Collins</div>
-              <div className="latest-card-price">$20</div>
+              <div className="latest-card-title">This Is Halloween</div>
+              <div className="latest-card-artist">Danny Elfman</div>
+              <div className="latest-card-price">$10</div>
             </div>
           </Link>
 
+          {/* Spooky Scary Skeletons - has mockup video and r2Url (FREE) */}
           <Link
             href="/sequences/spooky-scary-skeletons"
             className="latest-card"
