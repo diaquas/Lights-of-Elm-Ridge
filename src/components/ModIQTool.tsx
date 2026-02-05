@@ -1445,40 +1445,12 @@ function InteractiveResults({
                 {showMappedSection && (
                   <div className="border-t border-border divide-y divide-border/30">
                     {mappedLayers.map((sl) => (
-                      <div
+                      <MappedItemRow
                         key={sl.sourceModel.name}
-                        className="px-3 py-2 flex items-center gap-2"
-                      >
-                        <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            {sl.isGroup && (
-                              <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">GRP</span>
-                            )}
-                            <span className="text-[13px] text-foreground truncate">{sl.sourceModel.name}</span>
-                          </div>
-                          <div className="text-[11px] text-foreground/40 truncate">
-                            &rarr; Your &quot;{sl.assignedUserModels[0]?.name}&quot;
-                            {sl.assignedUserModels.length > 1 && (
-                              <span className="text-teal-400/60 ml-1">+{sl.assignedUserModels.length - 1}</span>
-                            )}
-                            {sl.coveredChildCount > 0 && (
-                              <span className="text-teal-400/60 ml-1">
-                                ({sl.coveredChildCount} resolved)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => interactive.clearLayerMapping(sl.sourceModel.name)}
-                          className="text-[10px] text-foreground/30 hover:text-foreground/60 px-1"
-                        >
-                          &times;
-                        </button>
-                      </div>
+                        layer={sl}
+                        onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
+                        onRemoveLink={interactive.removeLinkFromLayer}
+                      />
                     ))}
                   </div>
                 )}
@@ -1790,6 +1762,133 @@ function InteractiveResults({
 }
 
 // ─── Sub-components ───────────────────────────────────────────────
+
+/** Expandable row for mapped items in the MAPPED section */
+function MappedItemRow({
+  layer,
+  onClear,
+  onRemoveLink,
+}: {
+  layer: SourceLayerMapping;
+  onClear: () => void;
+  onRemoveLink: (sourceName: string, destName: string) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hasMultipleDests = layer.assignedUserModels.length > 1;
+  const hasResolvedChildren = layer.coveredChildCount > 0;
+  const isExpandable = hasMultipleDests || hasResolvedChildren;
+
+  return (
+    <div>
+      {/* Main row */}
+      <div
+        className={`px-3 py-2 flex items-center gap-2 ${isExpandable ? "cursor-pointer hover:bg-surface-light" : ""}`}
+        onClick={isExpandable ? () => setIsExpanded(!isExpanded) : undefined}
+      >
+        <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            {layer.isGroup && (
+              <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">GRP</span>
+            )}
+            <span className="text-[13px] text-foreground truncate">{layer.sourceModel.name}</span>
+            {isExpandable && (
+              <svg
+                className={`w-3 h-3 text-foreground/30 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </div>
+          <div className="text-[11px] text-foreground/40 truncate">
+            &rarr; Your &quot;{layer.assignedUserModels[0]?.name}&quot;
+            {hasMultipleDests && (
+              <span className="text-teal-400/60 ml-1">+{layer.assignedUserModels.length - 1}</span>
+            )}
+            {hasResolvedChildren && (
+              <span className="text-teal-400/60 ml-1">
+                ({layer.coveredChildCount} resolved)
+              </span>
+            )}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClear();
+          }}
+          className="text-[10px] text-foreground/30 hover:text-red-400 px-1"
+          title="Remove all mappings"
+        >
+          &times;
+        </button>
+      </div>
+
+      {/* Expanded details */}
+      {isExpanded && (
+        <div className="px-3 pb-2 ml-6 text-[11px] space-y-1.5">
+          {/* Multiple destinations */}
+          {hasMultipleDests && (
+            <div>
+              <div className="text-foreground/40 mb-1">Mapped to {layer.assignedUserModels.length} models:</div>
+              {layer.assignedUserModels.map((m, i) => (
+                <div key={m.name} className="flex items-center gap-2 py-0.5 pl-2 border-l-2 border-foreground/10">
+                  <span className="text-foreground/30 w-4 tabular-nums">{i + 1}.</span>
+                  <span className="text-foreground/60 truncate flex-1">{m.name}</span>
+                  <span className="text-foreground/30">{m.pixelCount}px</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveLink(layer.sourceModel.name, m.name)}
+                    className="text-foreground/20 hover:text-red-400"
+                    title={`Remove ${m.name}`}
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Resolved children for groups */}
+          {hasResolvedChildren && layer.membersWithoutEffects.length > 0 && (
+            <div>
+              <div className="text-foreground/40 mb-1">Children auto-resolved:</div>
+              {layer.membersWithoutEffects.map((child) => (
+                <div key={child} className="flex items-center gap-2 py-0.5 text-green-400/70">
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="truncate">{child}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Children with individual effects (if any) */}
+          {layer.membersWithEffects.length > 0 && (
+            <div>
+              <div className="text-amber-400/60 mb-1">Children needing separate mapping:</div>
+              {layer.membersWithEffects.map((child) => (
+                <div key={child} className="flex items-center gap-2 py-0.5 text-amber-400/60">
+                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="truncate">{child}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function HowItWorksCard({
   number,
