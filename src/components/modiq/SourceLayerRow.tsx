@@ -377,20 +377,56 @@ export default memo(function SourceLayerRow({
           </div>
         </div>
 
-        {/* Best match suggestion pill */}
+        {/* Best match suggestion pill with hover tooltip */}
         {!isDropOver && bestSuggestion && bestSuggestion.score > 0 && (
-          <button
-            type="button"
-            data-action="suggestion"
-            onClick={handleAcceptBest}
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/25 text-green-400 hover:bg-green-500/[0.18] hover:text-green-300 transition-colors text-[12px] flex-shrink-0 max-w-[200px]"
-            title={`Apply best match: ${bestSuggestion.model.name}`}
-          >
-            <span className="truncate">{bestSuggestion.model.name}</span>
-            <span className="text-green-400/60 text-[11px] flex-shrink-0">
-              {(bestSuggestion.score * 100).toFixed(0)}%
-            </span>
-          </button>
+          <div className="relative flex-shrink-0 max-w-[200px] group/tooltip">
+            <button
+              type="button"
+              data-action="suggestion"
+              onClick={handleAcceptBest}
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/25 text-green-400 hover:bg-green-500/[0.18] hover:text-green-300 transition-colors text-[12px]"
+            >
+              <span className="truncate">{bestSuggestion.model.name}</span>
+              <span className="text-green-400/60 text-[11px] flex-shrink-0">
+                {(bestSuggestion.score * 100).toFixed(0)}%
+              </span>
+            </button>
+            {/* Match reasoning tooltip */}
+            <div className="absolute right-0 top-full mt-1 z-50 hidden group-hover/tooltip:block">
+              <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2.5 text-[11px] w-52 animate-[fadeIn_0.1s_ease-out]">
+                <div className="text-foreground/60 font-medium mb-2">Match factors:</div>
+                <div className="space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-foreground/40">Name</span>
+                    <span className={`tabular-nums ${bestSuggestion.factors.name >= 0.7 ? "text-green-400" : bestSuggestion.factors.name >= 0.3 ? "text-amber-400" : "text-foreground/50"}`}>
+                      {(bestSuggestion.factors.name * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-foreground/40">Pixels</span>
+                    <span className="text-foreground/60 tabular-nums">
+                      {layer.sourceModel.pixelCount} vs {bestSuggestion.model.pixelCount}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-foreground/40">Type</span>
+                    <span className={`tabular-nums ${bestSuggestion.factors.type >= 0.7 ? "text-green-400" : bestSuggestion.factors.type >= 0.3 ? "text-amber-400" : "text-foreground/50"}`}>
+                      {(bestSuggestion.factors.type * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-foreground/40">Shape</span>
+                    <span className={`tabular-nums ${bestSuggestion.factors.shape >= 0.7 ? "text-green-400" : bestSuggestion.factors.shape >= 0.3 ? "text-amber-400" : "text-foreground/50"}`}>
+                      {(bestSuggestion.factors.shape * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-zinc-700/50 text-[10px] text-foreground/30">
+                  Click to apply this match
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* No close matches */}
