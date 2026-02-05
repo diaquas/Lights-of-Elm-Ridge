@@ -18,10 +18,6 @@ import {
 } from "@/lib/modiq";
 import type { ParsedLayout, MappingResult, Confidence } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
-import { sequences } from "@/data/sequences";
-import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
-import { useCart } from "@/contexts/CartContext";
-import SequenceSelector from "@/components/SequenceSelector";
 import {
   useInteractiveMapping,
   type DestMapping,
@@ -38,22 +34,21 @@ import PostExportScreen from "@/components/modiq/PostExportScreen";
 type Step = "input" | "processing" | "results" | "exported";
 type MapFromMode = "elm-ridge" | "other-vendor";
 
+// Default identifier for Elm Ridge layout (same models for all sequences)
+const ELM_RIDGE_LAYOUT_ID = "elm-ridge";
+const ELM_RIDGE_LAYOUT_TITLE = "Lights of Elm Ridge";
+
 interface ProcessingStep {
   label: string;
   status: "pending" | "active" | "done";
 }
 
 export default function ModIQTool() {
-  // Read URL query param for pre-selection (e.g. /modiq?sequence=abracadabra)
+  // Read URL query param (kept for backwards compatibility)
   const searchParams = useSearchParams();
-  const initialSequence = searchParams.get("sequence") ?? "";
-  const validInitial =
-    initialSequence && sequences.some((s) => s.slug === initialSequence)
-      ? initialSequence
-      : "";
+  const _initialSequence = searchParams.get("sequence") ?? "";
 
   const [step, setStep] = useState<Step>("input");
-  const [selectedSequence, setSelectedSequence] = useState(validInitial);
   const [mapFromMode, setMapFromMode] = useState<MapFromMode>("elm-ridge");
 
   // Source layout from "other vendor" upload
@@ -79,33 +74,6 @@ export default function ModIQTool() {
 
   // Export state
   const [exportFileName, setExportFileName] = useState("");
-
-  // ─── Ownership & Cart ─────────────────────────────────
-  const {
-    isLoggedIn,
-    isLoading: purchasesLoading,
-    hasPurchased,
-  } = usePurchasedSequences();
-  const { addItem, isInCart } = useCart();
-
-  // Derive whether the selected sequence is accessible (free or owned)
-  const selectedSeq = sequences.find((s) => s.slug === selectedSequence);
-  const isAccessible = selectedSeq
-    ? selectedSeq.price === 0 || hasPurchased(selectedSeq.id)
-    : false;
-
-  const handleAddToCart = useCallback(() => {
-    if (!selectedSeq || selectedSeq.price === 0) return;
-    addItem({
-      id: selectedSeq.id,
-      slug: selectedSeq.slug,
-      title: selectedSeq.title,
-      artist: selectedSeq.artist,
-      price: selectedSeq.price,
-      category: selectedSeq.category,
-      thumbnailUrl: selectedSeq.thumbnailUrl ?? null,
-    });
-  }, [selectedSeq, addItem]);
 
   // ─── Source File Upload (Other Vendor) ─────────────────
   const handleSourceFile = useCallback((file: File) => {
@@ -168,7 +136,7 @@ export default function ModIQTool() {
   // ─── Can we run? ───────────────────────────────────────
   const canRun =
     mapFromMode === "elm-ridge"
-      ? !!selectedSequence && isAccessible && !!userLayout
+      ? !!userLayout
       : !!sourceLayout && !!userLayout;
 
   // ─── Processing ─────────────────────────────────────────
@@ -180,8 +148,7 @@ export default function ModIQTool() {
 
     const seqTitle =
       mapFromMode === "elm-ridge"
-        ? sequences.find((s) => s.slug === selectedSequence)?.title ||
-          selectedSequence
+        ? ELM_RIDGE_LAYOUT_TITLE
         : sourceFile?.name || "Source Layout";
 
     const steps: ProcessingStep[] = [
@@ -206,7 +173,7 @@ export default function ModIQTool() {
     // Build source models
     let srcModels: ParsedModel[];
     if (mapFromMode === "elm-ridge") {
-      srcModels = getSourceModelsForSequence(selectedSequence).map(
+      srcModels = getSourceModelsForSequence(ELM_RIDGE_LAYOUT_ID).map(
         sourceModelToParsedModel,
       );
     } else {
@@ -231,7 +198,7 @@ export default function ModIQTool() {
 
     setMappingResult(result);
     setStep("results");
-  }, [userLayout, selectedSequence, mapFromMode, sourceLayout, sourceFile]);
+  }, [userLayout, mapFromMode, sourceLayout, sourceFile]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -293,27 +260,13 @@ export default function ModIQTool() {
                 />
                 <div className="flex-1">
                   <span className="font-medium text-foreground group-hover:text-accent transition-colors">
-                    Lights of Elm Ridge Sequence
+                    Lights of Elm Ridge Layout
                   </span>
                   <p className="text-xs text-foreground/40 mt-0.5">
-                    Select from your purchased or free sequences
+                    Map to our display&apos;s model structure
                   </p>
                 </div>
               </label>
-
-              {/* Elm Ridge sequence selector */}
-              {mapFromMode === "elm-ridge" && (
-                <div className="ml-7">
-                  <SequenceSelector
-                    sequences={sequences}
-                    value={selectedSequence}
-                    onChange={setSelectedSequence}
-                    isLoggedIn={isLoggedIn}
-                    isLoading={purchasesLoading}
-                    hasPurchased={hasPurchased}
-                  />
-                </div>
-              )}
 
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input
@@ -425,73 +378,8 @@ export default function ModIQTool() {
             </div>
           </div>
 
-          {/* Interstitial: unowned paid sequence selected */}
-          {mapFromMode === "elm-ridge" && selectedSeq && !isAccessible && (
-            <div className="bg-surface rounded-xl border border-border p-6">
-              <h3 className="text-lg font-display font-semibold mb-1">
-                {selectedSeq.title}{" "}
-                <span className="text-foreground/50 font-normal">
-                  — {selectedSeq.artist}
-                </span>
-              </h3>
-              <p className="text-sm text-foreground/60 mt-2 mb-5">
-                You don&apos;t own this sequence yet.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                {isInCart(selectedSeq.id) ? (
-                  <Link
-                    href="/cart"
-                    className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-semibold text-sm bg-green-600 hover:bg-green-700 text-white transition-all"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                    In Cart — View Cart
-                  </Link>
-                ) : (
-                  <button
-                    onClick={handleAddToCart}
-                    className="flex-1 py-3 px-5 rounded-xl font-semibold text-sm bg-accent hover:bg-accent/90 text-white transition-all"
-                  >
-                    Add to Cart — ${selectedSeq.price.toFixed(2)}
-                  </button>
-                )}
-                <Link
-                  href={`/sequences/${selectedSeq.slug}`}
-                  className="inline-flex items-center justify-center gap-1 py-3 px-5 rounded-xl font-medium text-sm text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-all"
-                >
-                  View Sequence &rarr;
-                </Link>
-              </div>
-              {!isLoggedIn && (
-                <p className="text-xs text-zinc-500 mt-4">
-                  Already purchased?{" "}
-                  <Link
-                    href="/login?redirect=/modiq"
-                    className="text-zinc-400 hover:text-zinc-300 underline"
-                  >
-                    Log in to access it.
-                  </Link>
-                </p>
-              )}
-            </div>
-          )}
-
           {/* MAP TO Section */}
-          {(mapFromMode === "other-vendor" ||
-            !selectedSeq ||
-            isAccessible) && (
-            <div className="bg-surface rounded-xl border border-border p-6">
+          <div className="bg-surface rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-4">
                 <span className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">
                   2
@@ -596,7 +484,6 @@ export default function ModIQTool() {
                 server.
               </p>
             </div>
-          )}
 
           {/* Error */}
           {error && (
@@ -674,7 +561,7 @@ export default function ModIQTool() {
             initialResult={mappingResult}
             sourceModels={sourceModels}
             destModels={userLayout.models}
-            selectedSequence={selectedSequence}
+            selectedSequence={ELM_RIDGE_LAYOUT_ID}
             mapFromMode={mapFromMode}
             sourceFileName={sourceFile?.name}
             onReset={handleReset}
@@ -690,8 +577,7 @@ export default function ModIQTool() {
         <PostExportScreen
           sequenceTitle={
             mapFromMode === "elm-ridge"
-              ? sequences.find((s) => s.slug === selectedSequence)?.title ||
-                selectedSequence
+              ? ELM_RIDGE_LAYOUT_TITLE
               : sourceFile?.name || "Source Layout"
           }
           fileName={exportFileName}
@@ -809,10 +695,9 @@ function InteractiveResults({
   const seqTitle = useMemo(
     () =>
       mapFromMode === "elm-ridge"
-        ? sequences.find((s) => s.slug === selectedSequence)?.title ||
-          selectedSequence
+        ? ELM_RIDGE_LAYOUT_TITLE
         : sourceFileName || "Source Layout",
-    [mapFromMode, selectedSequence, sourceFileName],
+    [mapFromMode, sourceFileName],
   );
 
   const toggleSection = useCallback((tier: Confidence) => {
