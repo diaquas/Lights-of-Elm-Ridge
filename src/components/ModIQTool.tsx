@@ -928,6 +928,36 @@ function InteractiveResults({
     return sourceFileName || "Source Layout";
   }, [mapFromMode, sourceFileName, displayType]);
 
+  // Calculate coverage percentage for export button styling
+  const coveragePercent = useMemo(() => {
+    const effective = interactive.totalSourceLayers - interactive.skippedLayerCount;
+    if (effective === 0) return 100;
+    return (interactive.mappedLayerCount / effective) * 100;
+  }, [interactive.totalSourceLayers, interactive.skippedLayerCount, interactive.mappedLayerCount]);
+
+  // Export button style based on coverage
+  const exportButtonStyle = useMemo(() => {
+    if (coveragePercent >= 100) {
+      return {
+        className: "bg-green-500 text-white hover:bg-green-600",
+        label: "Export",
+        icon: true,
+      };
+    } else if (coveragePercent >= 50) {
+      return {
+        className: "bg-amber-500 text-white hover:bg-amber-600",
+        label: `Export (${interactive.unmappedLayerCount} remaining)`,
+        icon: false,
+      };
+    } else {
+      return {
+        className: "bg-zinc-600 text-zinc-300 hover:bg-zinc-500",
+        label: `Export Partial (${interactive.unmappedLayerCount} remaining)`,
+        icon: false,
+      };
+    }
+  }, [coveragePercent, interactive.unmappedLayerCount]);
+
   // Group source layers by status
   const { unmappedLayers, mappedLayers, skippedLayers, unmappedGroups, unmappedIndividuals } =
     useMemo(() => {
@@ -1212,13 +1242,14 @@ function InteractiveResults({
               )}
               <button
                 onClick={handleExport}
-                className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all ${
-                  interactive.unmappedLayerCount === 0
-                    ? "bg-green-500 text-white hover:bg-green-600"
-                    : "border border-accent text-accent hover:bg-accent/10"
-                }`}
+                className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${exportButtonStyle.className}`}
               >
-                Export {interactive.unmappedLayerCount > 0 && `(${interactive.unmappedLayerCount} unmapped)`}
+                {exportButtonStyle.icon && (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+                {exportButtonStyle.label}
               </button>
             </div>
           </div>
@@ -1604,9 +1635,22 @@ function InteractiveResults({
       <div className="flex flex-col sm:flex-row gap-3 mt-6">
         <button
           onClick={handleExport}
-          className="flex-1 py-3.5 rounded-xl font-display font-bold text-base bg-accent hover:bg-accent/90 text-white transition-colors"
+          className={`flex-1 py-3.5 rounded-xl font-display font-bold text-base transition-colors flex items-center justify-center gap-2 ${
+            coveragePercent >= 100
+              ? "bg-green-500 hover:bg-green-600 text-white"
+              : coveragePercent >= 50
+                ? "bg-amber-500 hover:bg-amber-600 text-white"
+                : "bg-zinc-600 hover:bg-zinc-500 text-zinc-300"
+          }`}
         >
-          Download Mapping File (.xmap)
+          {coveragePercent >= 100 && (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+          {coveragePercent >= 100
+            ? "Download Mapping File (.xmap)"
+            : `Download Mapping File (${interactive.unmappedLayerCount} remaining)`}
         </button>
         <button
           onClick={handleExportReport}
