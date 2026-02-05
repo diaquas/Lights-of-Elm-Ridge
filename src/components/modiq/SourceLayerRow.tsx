@@ -22,6 +22,8 @@ interface SourceLayerRowProps {
   onRemoveLink: (sourceName: string, destName: string) => void;
   getSuggestions: () => Suggestion[];
   isDragActive: boolean;
+  /** Currently dragged model name (for drop preview text) */
+  draggedModelName?: string;
   onDragEnter: (destModelName: string) => void;
   onDragLeave: (destModelName: string) => void;
 }
@@ -53,11 +55,13 @@ export default memo(function SourceLayerRow({
   onRemoveLink,
   getSuggestions,
   isDragActive,
+  draggedModelName,
   onDragEnter,
   onDragLeave,
 }: SourceLayerRowProps) {
   const [isDropOver, setIsDropOver] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showDropSuccess, setShowDropSuccess] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
   const name = layer.sourceModel.name;
   const destCount = layer.assignedUserModels.length;
@@ -109,6 +113,9 @@ export default memo(function SourceLayerRow({
       e.preventDefault();
       setIsDropOver(false);
       onDrop(name, e);
+      // Show success flash briefly
+      setShowDropSuccess(true);
+      setTimeout(() => setShowDropSuccess(false), 400);
     },
     [name, onDrop],
   );
@@ -309,11 +316,13 @@ export default memo(function SourceLayerRow({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={`group transition-all duration-150 ${
-        isDropOver
-          ? "bg-green-500/5 ring-1 ring-green-500/30 ring-inset rounded"
-          : isFocused
-            ? "bg-accent/5"
-            : ""
+        showDropSuccess
+          ? "bg-green-500/20 ring-2 ring-green-500/50 ring-inset rounded"
+          : isDropOver
+            ? "bg-green-500/5 ring-1 ring-green-500/30 ring-inset rounded"
+            : isFocused
+              ? "bg-accent/5"
+              : ""
       }`}
     >
       {/* Main row */}
@@ -353,7 +362,9 @@ export default memo(function SourceLayerRow({
           {/* Meta line: type/pixels + scenario */}
           <div className="flex items-center gap-1.5 text-[11px] text-foreground/30">
             {isDropOver ? (
-              <span className="text-green-400">Release to assign</span>
+              <span className="text-green-400">
+                Drop to map &rarr; {draggedModelName || "your model"}
+              </span>
             ) : (
               <>
                 <span>{metaText}</span>

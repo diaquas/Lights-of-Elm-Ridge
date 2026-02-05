@@ -1379,6 +1379,7 @@ function InteractiveResults({
                             onRemoveLink={interactive.removeLinkFromLayer}
                             getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
                             isDragActive={dnd.state.isDragging}
+                            draggedModelName={dnd.state.dragItem?.sourceModelName}
                             onDragEnter={dnd.handleDragEnter}
                             onDragLeave={dnd.handleDragLeave}
                           />
@@ -1407,6 +1408,7 @@ function InteractiveResults({
                             onRemoveLink={interactive.removeLinkFromLayer}
                             getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
                             isDragActive={dnd.state.isDragging}
+                            draggedModelName={dnd.state.dragItem?.sourceModelName}
                             onDragEnter={dnd.handleDragEnter}
                             onDragLeave={dnd.handleDragLeave}
                           />
