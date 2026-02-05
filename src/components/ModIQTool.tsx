@@ -25,11 +25,16 @@ import {
   type DestMapping,
 } from "@/hooks/useInteractiveMapping";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useDragAndDrop } from "@/hooks/useDragAndDrop";
+import { useMappingTelemetry } from "@/hooks/useMappingTelemetry";
 import MappingProgressBar from "@/components/modiq/MappingProgressBar";
 import SourceModelPool from "@/components/modiq/SourceModelPool";
 import InteractiveMappingRow from "@/components/modiq/InteractiveMappingRow";
+import ExportDialog from "@/components/modiq/ExportDialog";
+import PostExportScreen from "@/components/modiq/PostExportScreen";
 
-type Step = "input" | "processing" | "results";
+type Step = "input" | "processing" | "results" | "exported";
+type MapFromMode = "elm-ridge" | "other-vendor";
 
 interface ProcessingStep {
   label: string;
@@ -47,18 +52,31 @@ export default function ModIQTool() {
 
   const [step, setStep] = useState<Step>("input");
   const [selectedSequence, setSelectedSequence] = useState(validInitial);
+  const [mapFromMode, setMapFromMode] = useState<MapFromMode>("elm-ridge");
+
+  // Source layout from "other vendor" upload
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [sourceLayout, setSourceLayout] = useState<ParsedLayout | null>(null);
+  const sourceFileInputRef = useRef<HTMLInputElement>(null);
+  const [sourceIsDragging, setSourceIsDragging] = useState(false);
+
+  // User's target layout ("Map TO")
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [userLayout, setUserLayout] = useState<ParsedLayout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+
   const [mappingResult, setMappingResult] = useState<MappingResult | null>(
     null,
   );
   const [error, setError] = useState<string>("");
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
 
   // Store source models for the interactive mapping hook
   const [sourceModels, setSourceModels] = useState<ParsedModel[]>([]);
+
+  // Export state
+  const [exportFileName, setExportFileName] = useState("");
 
   // ─── Ownership & Cart ─────────────────────────────────
   const {
@@ -87,17 +105,42 @@ export default function ModIQTool() {
     });
   }, [selectedSeq, addItem]);
 
-  // ─── File Upload ────────────────────────────────────────
+  // ─── Source File Upload (Other Vendor) ─────────────────
+  const handleSourceFile = useCallback((file: File) => {
+    setError("");
+    if (!file.name.endsWith(".xml")) {
+      setError("Please upload an XML file (xlights_rgbeffects.xml).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const layout = parseRgbEffectsXml(content, file.name);
+        if (layout.models.length === 0) {
+          setError("No models found in this source file.");
+          return;
+        }
+        setSourceLayout(layout);
+        setSourceFile(file);
+      } catch (err) {
+        setError(
+          `Failed to parse source file: ${err instanceof Error ? err.message : "Unknown error"}`,
+        );
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
+  // ─── User Layout File Upload (Map TO) ─────────────────
   const handleFile = useCallback((file: File) => {
     setError("");
-
     if (!file.name.endsWith(".xml")) {
       setError(
         "Please upload an XML file (xlights_rgbeffects.xml from your xLights show folder).",
       );
       return;
     }
-
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
@@ -120,32 +163,24 @@ export default function ModIQTool() {
     reader.readAsText(file);
   }, []);
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    },
-    [handleFile],
-  );
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  }, []);
+  // ─── Can we run? ───────────────────────────────────────
+  const canRun =
+    mapFromMode === "elm-ridge"
+      ? !!selectedSequence && isAccessible && !!userLayout
+      : !!sourceLayout && !!userLayout;
 
   // ─── Processing ─────────────────────────────────────────
   const runMapping = useCallback(async () => {
-    if (!userLayout || !selectedSequence) return;
+    if (!userLayout) return;
 
     setStep("processing");
     setError("");
+
+    const seqTitle =
+      mapFromMode === "elm-ridge"
+        ? sequences.find((s) => s.slug === selectedSequence)?.title ||
+          selectedSequence
+        : sourceFile?.name || "Source Layout";
 
     const steps: ProcessingStep[] = [
       {
@@ -153,16 +188,12 @@ export default function ModIQTool() {
         status: "done",
       },
       { label: "Analyzing model types and positions", status: "active" },
-      {
-        label: `Matching against ${sequences.find((s) => s.slug === selectedSequence)?.title || selectedSequence}`,
-        status: "pending",
-      },
+      { label: `Matching against ${seqTitle}`, status: "pending" },
       { label: "Resolving submodel structures", status: "pending" },
       { label: "Generating optimal mapping", status: "pending" },
     ];
     setProcessingSteps([...steps]);
 
-    // Simulate step progression with delays for UX
     await delay(400);
 
     steps[1].status = "done";
@@ -170,10 +201,15 @@ export default function ModIQTool() {
     setProcessingSteps([...steps]);
     await delay(500);
 
-    // Actually run the matching
-    const srcModels = getSourceModelsForSequence(selectedSequence).map(
-      sourceModelToParsedModel,
-    );
+    // Build source models
+    let srcModels: ParsedModel[];
+    if (mapFromMode === "elm-ridge") {
+      srcModels = getSourceModelsForSequence(selectedSequence).map(
+        sourceModelToParsedModel,
+      );
+    } else {
+      srcModels = sourceLayout!.models;
+    }
     setSourceModels(srcModels);
     const result = matchModels(srcModels, userLayout.models);
 
@@ -193,7 +229,7 @@ export default function ModIQTool() {
 
     setMappingResult(result);
     setStep("results");
-  }, [userLayout, selectedSequence]);
+  }, [userLayout, selectedSequence, mapFromMode, sourceLayout, sourceFile]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -201,56 +237,194 @@ export default function ModIQTool() {
     setMappingResult(null);
     setProcessingSteps([]);
     setSourceModels([]);
+    setExportFileName("");
   }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* ── Hero ───────────────────────────────────────── */}
-      <div className="text-center mb-12">
-        <div className="mb-6">
-          <Image
-            src="/modiq-wordmark-v3-full.png"
-            alt="ModIQ"
-            width={280}
-            height={80}
-            className="mx-auto"
-            priority
-          />
+      {(step === "input" || step === "processing") && (
+        <div className="text-center mb-12">
+          <div className="mb-6">
+            <Image
+              src="/modiq-wordmark-v3-full.png"
+              alt="ModIQ"
+              width={280}
+              height={80}
+              className="mx-auto"
+              priority
+            />
+          </div>
+          <p className="text-lg text-foreground/60 max-w-2xl mx-auto">
+            Upload your xLights layout, pick a sequence, and get a mapping file
+            in seconds — not hours.
+          </p>
+          <p className="text-sm text-foreground/40 mt-2">
+            by Lights of Elm Ridge
+          </p>
         </div>
-        <p className="text-lg text-foreground/60 max-w-2xl mx-auto">
-          Upload your xLights layout, pick a sequence, and get a mapping file in
-          seconds — not hours.
-        </p>
-        <p className="text-sm text-foreground/40 mt-2">
-          by Lights of Elm Ridge
-        </p>
-      </div>
+      )}
 
       {/* ── Input Step ─────────────────────────────────── */}
       {step === "input" && (
         <div className="space-y-8 max-w-5xl mx-auto">
-          {/* Step 1: Select Sequence */}
+          {/* MAP FROM Section */}
           <div className="bg-surface rounded-xl border border-border p-6">
             <div className="flex items-center gap-3 mb-4">
               <span className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">
                 1
               </span>
               <h2 className="text-lg font-semibold font-display">
-                Select Your Sequence
+                What are you mapping FROM?
               </h2>
             </div>
-            <SequenceSelector
-              sequences={sequences}
-              value={selectedSequence}
-              onChange={setSelectedSequence}
-              isLoggedIn={isLoggedIn}
-              isLoading={purchasesLoading}
-              hasPurchased={hasPurchased}
-            />
+
+            {/* Radio buttons */}
+            <div className="space-y-4">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="mapFrom"
+                  checked={mapFromMode === "elm-ridge"}
+                  onChange={() => setMapFromMode("elm-ridge")}
+                  className="mt-1 accent-accent"
+                />
+                <div className="flex-1">
+                  <span className="font-medium text-foreground group-hover:text-accent transition-colors">
+                    Lights of Elm Ridge Sequence
+                  </span>
+                  <p className="text-xs text-foreground/40 mt-0.5">
+                    Select from your purchased or free sequences
+                  </p>
+                </div>
+              </label>
+
+              {/* Elm Ridge sequence selector */}
+              {mapFromMode === "elm-ridge" && (
+                <div className="ml-7">
+                  <SequenceSelector
+                    sequences={sequences}
+                    value={selectedSequence}
+                    onChange={setSelectedSequence}
+                    isLoggedIn={isLoggedIn}
+                    isLoading={purchasesLoading}
+                    hasPurchased={hasPurchased}
+                  />
+                </div>
+              )}
+
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="mapFrom"
+                  checked={mapFromMode === "other-vendor"}
+                  onChange={() => setMapFromMode("other-vendor")}
+                  className="mt-1 accent-accent"
+                />
+                <div className="flex-1">
+                  <span className="font-medium text-foreground group-hover:text-accent transition-colors">
+                    Another Vendor&apos;s Sequence
+                  </span>
+                  <p className="text-xs text-foreground/40 mt-0.5">
+                    Upload the vendor&apos;s xlights_rgbeffects.xml
+                  </p>
+                </div>
+              </label>
+
+              {/* Other vendor source upload */}
+              {mapFromMode === "other-vendor" && (
+                <div className="ml-7">
+                  <div
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setSourceIsDragging(false);
+                      const file = e.dataTransfer.files[0];
+                      if (file) handleSourceFile(file);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setSourceIsDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      setSourceIsDragging(false);
+                    }}
+                    onClick={() => sourceFileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                      sourceIsDragging
+                        ? "border-accent bg-accent/10"
+                        : sourceFile
+                          ? "border-green-500/50 bg-green-500/5"
+                          : "border-border hover:border-foreground/30 hover:bg-surface-light"
+                    }`}
+                  >
+                    <input
+                      ref={sourceFileInputRef}
+                      type="file"
+                      accept=".xml"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleSourceFile(file);
+                      }}
+                      className="hidden"
+                    />
+                    {sourceFile && sourceLayout ? (
+                      <div>
+                        <svg
+                          className="w-8 h-8 mx-auto mb-2 text-green-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <p className="text-foreground font-medium text-sm">
+                          {sourceFile.name}
+                        </p>
+                        <p className="text-xs text-foreground/60 mt-1">
+                          Found {sourceLayout.modelCount} models in source
+                          layout
+                        </p>
+                        <p className="text-xs text-foreground/40 mt-1">
+                          Click to replace
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <svg
+                          className="w-8 h-8 mx-auto mb-2 text-foreground/30"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                          />
+                        </svg>
+                        <p className="text-foreground/70 font-medium text-sm">
+                          Drag & drop the vendor&apos;s xlights_rgbeffects.xml
+                        </p>
+                        <p className="text-xs text-foreground/40 mt-1">
+                          or click to browse
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Interstitial: unowned paid sequence selected */}
-          {selectedSeq && !isAccessible && (
+          {mapFromMode === "elm-ridge" && selectedSeq && !isAccessible && (
             <div className="bg-surface rounded-xl border border-border p-6">
               <h3 className="text-lg font-display font-semibold mb-1">
                 {selectedSeq.title}{" "}
@@ -311,22 +485,39 @@ export default function ModIQTool() {
             </div>
           )}
 
-          {/* Step 2: Upload Layout (only when sequence is accessible) */}
-          {(!selectedSeq || isAccessible) && (
+          {/* MAP TO Section */}
+          {(mapFromMode === "other-vendor" ||
+            !selectedSeq ||
+            isAccessible) && (
             <div className="bg-surface rounded-xl border border-border p-6">
               <div className="flex items-center gap-3 mb-4">
                 <span className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">
                   2
                 </span>
                 <h2 className="text-lg font-semibold font-display">
-                  Upload Your Layout
+                  What are you mapping TO?
                 </h2>
               </div>
 
+              <p className="text-sm text-foreground/50 mb-3">
+                Upload your own xLights layout file
+              </p>
+
               <div
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleFile(file);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                }}
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
                   isDragging
@@ -366,8 +557,7 @@ export default function ModIQTool() {
                       {uploadedFile.name}
                     </p>
                     <p className="text-sm text-foreground/60 mt-1">
-                      {userLayout.modelCount} models detected &middot;{" "}
-                      {(uploadedFile.size / 1024).toFixed(1)} KB
+                      Found {userLayout.modelCount} models in your layout
                     </p>
                     <p className="text-xs text-foreground/40 mt-2">
                       Click to replace
@@ -416,7 +606,7 @@ export default function ModIQTool() {
           {/* Run Button */}
           <button
             onClick={runMapping}
-            disabled={!selectedSequence || !isAccessible || !userLayout}
+            disabled={!canRun}
             className="w-full py-4 rounded-xl font-display font-bold text-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-accent hover:bg-accent/90 text-white"
           >
             ModIQ It
@@ -473,7 +663,7 @@ export default function ModIQTool() {
         </div>
       )}
 
-      {/* ── Results Step (V2 Interactive Mapping) ─────── */}
+      {/* ── Results Step (V2 Refined Interactive Mapping) ── */}
       {step === "results" &&
         mappingResult &&
         sourceModels.length > 0 &&
@@ -483,9 +673,31 @@ export default function ModIQTool() {
             sourceModels={sourceModels}
             destModels={userLayout.models}
             selectedSequence={selectedSequence}
+            mapFromMode={mapFromMode}
+            sourceFileName={sourceFile?.name}
             onReset={handleReset}
+            onExported={(fileName) => {
+              setExportFileName(fileName);
+              setStep("exported");
+            }}
           />
         )}
+
+      {/* ── Post-Export Screen ───────────────────────────── */}
+      {step === "exported" && (
+        <PostExportScreen
+          sequenceTitle={
+            mapFromMode === "elm-ridge"
+              ? sequences.find((s) => s.slug === selectedSequence)?.title ||
+                selectedSequence
+              : sourceFile?.name || "Source Layout"
+          }
+          fileName={exportFileName}
+          onDownloadAgain={() => setStep("results")}
+          onMapAnother={handleReset}
+          skippedCount={0}
+        />
+      )}
 
       {/* ── How It Works (visible on input step) ───────── */}
       {step === "input" && (
@@ -522,8 +734,10 @@ export default function ModIQTool() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Interactive Results View (V2)
+// Interactive Results View (V2 Refined)
 // ═══════════════════════════════════════════════════════════════════
+
+const CONFIDENCE_ORDER: Confidence[] = ["unmapped", "high", "medium", "low"];
 
 const CONFIDENCE_STYLES: Record<
   Confidence,
@@ -555,18 +769,31 @@ const CONFIDENCE_STYLES: Record<
   },
 };
 
+const SECTION_LABELS: Record<Confidence, string> = {
+  unmapped: "NEEDS MAPPING",
+  high: "MAPPED — High Confidence",
+  medium: "MAPPED — Medium Confidence",
+  low: "MAPPED — Low Confidence",
+};
+
 function InteractiveResults({
   initialResult,
   sourceModels,
   destModels,
   selectedSequence,
+  mapFromMode,
+  sourceFileName,
   onReset,
+  onExported,
 }: {
   initialResult: MappingResult;
   sourceModels: ParsedModel[];
   destModels: ParsedModel[];
   selectedSequence: string;
+  mapFromMode: MapFromMode;
+  sourceFileName?: string;
   onReset: () => void;
+  onExported: (fileName: string) => void;
 }) {
   const interactive = useInteractiveMapping(
     initialResult,
@@ -574,10 +801,30 @@ function InteractiveResults({
     destModels,
   );
 
+  const dnd = useDragAndDrop();
+  const telemetry = useMappingTelemetry(selectedSequence);
+
+  // Sections: unmapped always expanded, others collapsed by default
   const [expandedSections, setExpandedSections] = useState<Set<Confidence>>(
-    new Set(["high", "medium", "low", "unmapped"]),
+    new Set(["unmapped"]),
   );
   const [focusedDest, setFocusedDest] = useState<string | null>(null);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+
+  // Left panel filter state
+  const [leftSearch, setLeftSearch] = useState("");
+  const [leftTypeFilter, setLeftTypeFilter] = useState<string>("all");
+
+  // Mobile tap-to-select state
+  const [selectedSourceForTap, setSelectedSourceForTap] = useState<
+    string | null
+  >(null);
+
+  const seqTitle =
+    mapFromMode === "elm-ridge"
+      ? sequences.find((s) => s.slug === selectedSequence)?.title ||
+        selectedSequence
+      : sourceFileName || "Source Layout";
 
   const toggleSection = useCallback((tier: Confidence) => {
     setExpandedSections((prev) => {
@@ -608,6 +855,65 @@ function InteractiveResults({
     [interactive.destMappings],
   );
 
+  // Collect unique dest model types for filter
+  const destModelTypes = useMemo(() => {
+    const types = new Set<string>();
+    for (const m of destModels) {
+      if (!m.isGroup) types.add(m.type);
+    }
+    return Array.from(types).sort();
+  }, [destModels]);
+
+  // Filter helper for left panel
+  const filterMappings = useCallback(
+    (mappings: DestMapping[]) => {
+      let filtered = mappings;
+      if (leftSearch) {
+        const q = leftSearch.toLowerCase();
+        filtered = filtered.filter(
+          (dm) =>
+            dm.destModel.name.toLowerCase().includes(q) ||
+            (dm.sourceModel?.name.toLowerCase().includes(q) ?? false),
+        );
+      }
+      if (leftTypeFilter !== "all") {
+        filtered = filtered.filter(
+          (dm) =>
+            dm.destModel.type === leftTypeFilter ||
+            (dm.destModel.isGroup && leftTypeFilter === "Group"),
+        );
+      }
+      return filtered;
+    },
+    [leftSearch, leftTypeFilter],
+  );
+
+  // Reverse assignment map for source pool: source name -> dest name
+  const reverseAssignmentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const dm of interactive.destMappings) {
+      if (dm.sourceModel) {
+        map.set(dm.sourceModel.name, dm.destModel.name);
+      }
+    }
+    return map;
+  }, [interactive.destMappings]);
+
+  // Best match for unmapped models
+  const bestMatches = useMemo(() => {
+    const map = new Map<string, { name: string; score: number }>();
+    for (const dm of tiers.unmapped) {
+      const suggestions = interactive.getSuggestions(dm.destModel);
+      if (suggestions.length > 0) {
+        map.set(dm.destModel.name, {
+          name: suggestions[0].model.name,
+          score: suggestions[0].score,
+        });
+      }
+    }
+    return map;
+  }, [tiers.unmapped, interactive]);
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
     enabled: true,
@@ -615,19 +921,24 @@ function InteractiveResults({
       const next = interactive.nextUnmappedDest();
       if (next) {
         setFocusedDest(next);
-        // Expand unmapped section if collapsed
         setExpandedSections((prev) => new Set(prev).add("unmapped"));
-        // Scroll into view
         const el = document.getElementById(`dest-row-${next}`);
         el?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     },
-    onEnter: () => {
-      // Handled by individual rows
-    },
+    onEnter: () => {},
     onSkip: () => {
       if (focusedDest) {
         interactive.skipModel(focusedDest);
+        telemetry.trackAction({
+          sequenceSlug: selectedSequence,
+          action: "skip",
+          targetModel: { name: focusedDest, displayAs: "", pixels: 0 },
+          previousMapping: null,
+          aiConfidence: null,
+          aiSuggested: null,
+          method: "dropdown_pick",
+        });
         setFocusedDest(null);
       }
     },
@@ -636,128 +947,311 @@ function InteractiveResults({
     },
   });
 
-  // Export handlers using interactive state
-  const handleExport = useCallback(() => {
+  // DnD drop handler
+  const handleRowDrop = useCallback(
+    (destModelName: string, e: React.DragEvent) => {
+      const data = e.dataTransfer.getData("text/plain");
+      const dragItem = dnd.parseDragDataTransfer(data);
+      if (!dragItem) return;
+
+      const currentMapping = interactive.destMappings.find(
+        (dm) => dm.destModel.name === destModelName,
+      );
+
+      if (currentMapping?.sourceModel) {
+        interactive.assignSource(destModelName, dragItem.sourceModelName);
+        telemetry.trackAction({
+          sequenceSlug: selectedSequence,
+          action: "remap",
+          sourceModel: { name: dragItem.sourceModelName, type: "", pixels: 0 },
+          targetModel: { name: destModelName, displayAs: "", pixels: 0 },
+          previousMapping: currentMapping.sourceModel.name,
+          aiConfidence: null,
+          aiSuggested: null,
+          method: "drag_drop",
+        });
+      } else {
+        interactive.assignSource(destModelName, dragItem.sourceModelName);
+        telemetry.trackAction({
+          sequenceSlug: selectedSequence,
+          action: "drag_map",
+          sourceModel: { name: dragItem.sourceModelName, type: "", pixels: 0 },
+          targetModel: { name: destModelName, displayAs: "", pixels: 0 },
+          previousMapping: null,
+          aiConfidence: null,
+          aiSuggested: null,
+          method: "drag_drop",
+        });
+      }
+
+      dnd.handleDragEnd();
+      setSelectedSourceForTap(null);
+    },
+    [dnd, interactive, selectedSequence, telemetry],
+  );
+
+  // Mobile tap-to-map
+  const handleTapMap = useCallback(
+    (destModelName: string) => {
+      if (!selectedSourceForTap) return;
+      interactive.assignSource(destModelName, selectedSourceForTap);
+      telemetry.trackAction({
+        sequenceSlug: selectedSequence,
+        action: "click_map",
+        sourceModel: { name: selectedSourceForTap, type: "", pixels: 0 },
+        targetModel: { name: destModelName, displayAs: "", pixels: 0 },
+        previousMapping: null,
+        aiConfidence: null,
+        aiSuggested: null,
+        method: "dropdown_pick",
+      });
+      setSelectedSourceForTap(null);
+    },
+    [selectedSourceForTap, interactive, selectedSequence, telemetry],
+  );
+
+  const handleTapSelectSource = useCallback((modelName: string) => {
+    setSelectedSourceForTap((prev) => (prev === modelName ? null : modelName));
+  }, []);
+
+  // Export handlers
+  const doExport = useCallback(() => {
     const result = interactive.toMappingResult();
-    const seqName =
-      sequences.find((s) => s.slug === selectedSequence)?.title ||
-      selectedSequence;
-    const xmapContent = generateXmap(result, seqName);
-    downloadXmap(xmapContent, seqName);
-  }, [interactive, selectedSequence]);
+    const xmapContent = generateXmap(result, seqTitle);
+    downloadXmap(xmapContent, seqTitle);
+    const fileName = `modiq-${seqTitle.toLowerCase().replace(/\s+/g, "-")}-mapping.xmap`;
+    telemetry.trackAction({
+      sequenceSlug: selectedSequence,
+      action: "export",
+      previousMapping: null,
+      aiConfidence: null,
+      aiSuggested: null,
+      method: "dropdown_pick",
+    });
+    onExported(fileName);
+  }, [interactive, seqTitle, selectedSequence, telemetry, onExported]);
+
+  const handleExport = useCallback(() => {
+    const unmappedNames = tiers.unmapped.map((dm) => dm.destModel.name);
+    if (unmappedNames.length > 0) {
+      setShowExportDialog(true);
+      return;
+    }
+    doExport();
+  }, [tiers.unmapped, doExport]);
+
+  const handleExportAnyway = useCallback(() => {
+    setShowExportDialog(false);
+    doExport();
+  }, [doExport]);
+
+  const handleSkipAllAndExport = useCallback(() => {
+    for (const dm of tiers.unmapped) {
+      interactive.skipModel(dm.destModel.name);
+    }
+    setShowExportDialog(false);
+    setTimeout(() => doExport(), 50);
+  }, [tiers.unmapped, interactive, doExport]);
 
   const handleExportReport = useCallback(() => {
     const result = interactive.toMappingResult();
-    const seqName =
-      sequences.find((s) => s.slug === selectedSequence)?.title ||
-      selectedSequence;
-    const report = generateMappingReport(result, seqName);
-    downloadMappingReport(report, seqName);
-  }, [interactive, selectedSequence]);
+    const report = generateMappingReport(result, seqTitle);
+    downloadMappingReport(report, seqTitle);
+  }, [interactive, seqTitle]);
+
+  const autoMappedCount = interactive.destMappings.filter(
+    (dm) => dm.sourceModel && !dm.isManualOverride && !dm.isSkipped,
+  ).length;
+  const manualCount = interactive.destMappings.filter(
+    (dm) => dm.isManualOverride && !dm.isSkipped,
+  ).length;
 
   return (
-    <div className="space-y-6">
-      {/* Summary + Progress Bar */}
-      <div className="bg-surface rounded-xl border border-border p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-display font-bold mb-1">
-              Mapping Results
-            </h2>
-            <p className="text-sm text-foreground/60">
-              {sequences.find((s) => s.slug === selectedSequence)?.title} → Your
-              Layout
-            </p>
+    <div className="space-y-0">
+      {/* ── Sticky Top Bar ─────────────────────────────── */}
+      <div className="sticky top-0 z-40 bg-background/95 backdrop-blur-sm border-b border-border -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-4 mb-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <h2 className="text-lg font-display font-bold flex-shrink-0">
+                ModIQ
+              </h2>
+              <span className="text-sm text-foreground/50 truncate">
+                {seqTitle} &rarr; Your Layout
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {interactive.canUndo && (
+                <button
+                  type="button"
+                  onClick={interactive.undo}
+                  className="hidden sm:block text-xs px-3 py-1.5 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
+                >
+                  Undo
+                </button>
+              )}
+              <button
+                onClick={handleExport}
+                className={`text-sm px-4 py-2 rounded-xl font-semibold transition-all ${
+                  interactive.unmappedCount > 0
+                    ? "bg-accent/80 hover:bg-accent text-white"
+                    : "bg-accent hover:bg-accent/90 text-white"
+                }`}
+              >
+                {interactive.unmappedCount > 0
+                  ? `Export (${interactive.unmappedCount} unmapped)`
+                  : skippedMappings.length > 0
+                    ? `Export .xmap (${skippedMappings.length} skipped)`
+                    : "Export .xmap"}
+              </button>
+            </div>
           </div>
-          {interactive.canUndo && (
-            <button
-              type="button"
-              onClick={interactive.undo}
-              className="text-xs px-3 py-1.5 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
-            >
-              Undo (Ctrl+Z)
-            </button>
-          )}
+
+          <MappingProgressBar
+            mappedCount={interactive.mappedCount}
+            totalCount={interactive.totalDest}
+            skippedCount={interactive.skippedCount}
+            highCount={interactive.highCount}
+            mediumCount={interactive.mediumCount}
+            lowCount={interactive.lowCount}
+            percentage={interactive.mappedPercentage}
+          />
+
+          <div className="flex items-center gap-3 mt-2 text-xs text-foreground/40">
+            <span>{autoMappedCount} auto</span>
+            <span>&middot;</span>
+            <span>{manualCount} manual</span>
+            <span>&middot;</span>
+            <span>{interactive.skippedCount} skipped</span>
+            <span>&middot;</span>
+            <span>{interactive.unmappedCount} remaining</span>
+          </div>
         </div>
-        <MappingProgressBar
-          mappedCount={interactive.mappedCount}
-          totalCount={interactive.totalDest}
-          skippedCount={interactive.skippedCount}
-          highCount={interactive.highCount}
-          mediumCount={interactive.mediumCount}
-          lowCount={interactive.lowCount}
-          percentage={interactive.mappedPercentage}
-        />
       </div>
 
-      {/* Two-column: Left = dest mappings, Right = source pool */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        {/* Left panel: User's models by confidence tier */}
+      {/* ── Two-Panel Layout ───────────────────────────── */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        {/* Left panel: YOUR LAYOUT */}
         <div className="space-y-4 min-w-0">
-          {(["high", "medium", "low", "unmapped"] as Confidence[]).map(
-            (tier) => {
-              const tierMappings = tiers[tier];
-              if (tierMappings.length === 0) return null;
-              const style = CONFIDENCE_STYLES[tier];
-              const effectiveTotal =
-                interactive.totalDest - interactive.skippedCount;
-              const pct =
-                effectiveTotal > 0
-                  ? ((tierMappings.length / effectiveTotal) * 100).toFixed(1)
-                  : "0.0";
-              const isOpen = expandedSections.has(tier);
+          {/* Filter controls */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <input
+                type="text"
+                placeholder="Filter models..."
+                value={leftSearch}
+                onChange={(e) => setLeftSearch(e.target.value)}
+                className="w-full text-sm pl-9 pr-3 py-2 rounded-lg bg-surface border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+              />
+            </div>
+            {destModelTypes.length > 1 && (
+              <select
+                value={leftTypeFilter}
+                onChange={(e) => setLeftTypeFilter(e.target.value)}
+                className="text-xs px-3 py-2 rounded-lg bg-surface border border-border focus:border-accent focus:outline-none text-foreground/60"
+              >
+                <option value="all">All Types</option>
+                {destModelTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
 
-              return (
-                <div
-                  key={tier}
-                  className="bg-surface rounded-xl border border-border overflow-hidden"
+          {/* Confidence tier sections — "Needs Mapping" first */}
+          {CONFIDENCE_ORDER.map((tier) => {
+            const tierMappings = filterMappings(tiers[tier]);
+            const unfilteredCount = tiers[tier].length;
+            if (unfilteredCount === 0) return null;
+
+            const style = CONFIDENCE_STYLES[tier];
+            const effectiveTotal =
+              interactive.totalDest - interactive.skippedCount;
+            const pct =
+              effectiveTotal > 0
+                ? ((unfilteredCount / effectiveTotal) * 100).toFixed(1)
+                : "0.0";
+            const isOpen = expandedSections.has(tier);
+            const isNeedsMapping = tier === "unmapped";
+
+            return (
+              <div
+                key={tier}
+                className={`bg-surface rounded-xl border overflow-hidden ${
+                  isNeedsMapping
+                    ? "border-amber-500/30 ring-1 ring-amber-500/10"
+                    : "border-border"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleSection(tier)}
+                  className={`w-full px-6 py-4 flex items-center justify-between hover:bg-surface-light transition-colors ${
+                    isNeedsMapping ? "bg-amber-500/5" : ""
+                  }`}
                 >
-                  {/* Accordion header */}
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(tier)}
-                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-surface-light transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold tracking-wider ${style.bg} ${style.text}`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${style.dot}`} />
-                        {style.label}
-                      </span>
-                      <span className="text-foreground font-semibold text-lg">
-                        {tierMappings.length}
-                      </span>
-                      <span className="text-foreground/40 text-sm">
-                        ({pct}%)
-                      </span>
-                    </div>
-                    <svg
-                      className={`w-5 h-5 text-foreground/40 transition-transform ${isOpen ? "rotate-180" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold tracking-wider ${style.bg} ${style.text}`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
+                      <span className={`w-2 h-2 rounded-full ${style.dot}`} />
+                      {SECTION_LABELS[tier]}
+                    </span>
+                    <span className="text-foreground font-semibold text-lg">
+                      {unfilteredCount}
+                    </span>
+                    <span className="text-foreground/40 text-sm">({pct}%)</span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-foreground/40 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
 
-                  {/* Accordion content */}
-                  {isOpen && (
-                    <>
+                {isOpen && (
+                  <>
+                    {!isNeedsMapping && (
                       <div className="hidden sm:grid grid-cols-[1fr_24px_1fr_28px] gap-2 px-6 py-2 bg-surface-light text-xs text-foreground/50 uppercase tracking-wider font-medium border-t border-border">
                         <span>Your Model</span>
                         <span />
                         <span>Mapped To</span>
                         <span />
                       </div>
-                      <div className="divide-y divide-border border-t border-border">
-                        {tierMappings.map((dm) => (
+                    )}
+                    {isNeedsMapping && tierMappings.length > 0 && (
+                      <div className="px-6 py-2 bg-surface-light text-xs text-foreground/40 border-t border-border">
+                        {selectedSourceForTap
+                          ? `Tap a row below to map "${selectedSourceForTap}" — or tap source card again to deselect`
+                          : "Drag a source model from the right panel, or click to pick a match"}
+                      </div>
+                    )}
+                    <div className="divide-y divide-border border-t border-border">
+                      {tierMappings.length > 0 ? (
+                        tierMappings.map((dm) => (
                           <div
                             key={dm.destModel.name}
                             id={`dest-row-${dm.destModel.name}`}
@@ -777,6 +1271,7 @@ function InteractiveResults({
                                   name,
                                 );
                                 setFocusedDest(null);
+                                setSelectedSourceForTap(null);
                               }}
                               onClear={() =>
                                 interactive.clearMapping(dm.destModel.name)
@@ -790,23 +1285,44 @@ function InteractiveResults({
                               availableSourceModels={
                                 interactive.availableSourceModels
                               }
+                              isDragActive={dnd.state.isDragging}
+                              isDropTarget={
+                                dnd.state.activeDropTarget === dm.destModel.name
+                              }
+                              onDragEnter={dnd.handleDragEnter}
+                              onDragLeave={dnd.handleDragLeave}
+                              onDrop={handleRowDrop}
+                              selectedSourceModel={selectedSourceForTap}
+                              onTapMap={handleTapMap}
+                              bestMatch={bestMatches.get(dm.destModel.name)}
                             />
                           </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            },
-          )}
+                        ))
+                      ) : (
+                        <div className="px-6 py-4 text-sm text-foreground/30 text-center">
+                          No models match your filter
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
 
           {/* Skipped section */}
           {skippedMappings.length > 0 && (
             <div className="bg-surface rounded-xl border border-border overflow-hidden opacity-60">
               <button
                 type="button"
-                onClick={() => toggleSection("unmapped")}
+                onClick={() =>
+                  setExpandedSections((prev) => {
+                    // Toggle a "skipped" key — reusing the set
+                    const next = new Set(prev);
+                    // Use a separate state toggle approach: just always show
+                    return next;
+                  })
+                }
                 className="w-full px-6 py-3 flex items-center justify-between hover:bg-surface-light transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -842,16 +1358,22 @@ function InteractiveResults({
         </div>
 
         {/* Right panel: Source model pool */}
-        <div className="lg:sticky lg:top-6 self-start">
+        <div className="lg:sticky lg:top-32 self-start">
           <SourceModelPool
             allSourceModels={interactive.allSourceModels}
             assignedSourceNames={interactive.assignedSourceNames}
+            assignmentMap={reverseAssignmentMap}
+            onDragStart={dnd.handleDragStart}
+            onDragEnd={dnd.handleDragEnd}
+            getDragDataTransfer={dnd.getDragDataTransfer}
+            selectedSourceModel={selectedSourceForTap}
+            onTapSelect={handleTapSelectSource}
           />
         </div>
       </div>
 
       {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-3 mt-6">
         <button
           onClick={handleExport}
           className="flex-1 py-4 rounded-xl font-display font-bold text-lg bg-accent hover:bg-accent/90 text-white transition-all"
@@ -881,25 +1403,15 @@ function InteractiveResults({
         <span>Ctrl+Z: undo</span>
       </div>
 
-      {/* How to import */}
-      <div className="bg-surface rounded-xl border border-border p-6">
-        <h3 className="text-sm font-semibold text-foreground/60 mb-2">
-          How to import into xLights
-        </h3>
-        <ol className="text-sm text-foreground/50 space-y-1 list-decimal list-inside">
-          <li>Open your sequence in xLights</li>
-          <li>
-            Go to <strong>Import</strong> tab and select the purchased sequence
-            file
-          </li>
-          <li>
-            In the mapping dialog, click <strong>Load Mapping</strong>
-          </li>
-          <li>Select the .xmap file you just downloaded</li>
-          <li>Review and tweak any low-confidence mappings</li>
-          <li>Click OK to apply</li>
-        </ol>
-      </div>
+      {/* Export Warning Dialog */}
+      {showExportDialog && (
+        <ExportDialog
+          unmappedNames={tiers.unmapped.map((dm) => dm.destModel.name)}
+          onExportAnyway={handleExportAnyway}
+          onSkipAllAndExport={handleSkipAllAndExport}
+          onKeepMapping={() => setShowExportDialog(false)}
+        />
+      )}
     </div>
   );
 }
