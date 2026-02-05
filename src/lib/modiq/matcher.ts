@@ -713,6 +713,32 @@ export function isDmxModel(model: ParsedModel): boolean {
   );
 }
 
+/**
+ * Detect a pole/pixel-pole synonym pair.
+ * "Pole N" ↔ "Pixel Pole N" are always the same physical prop regardless
+ * of how xLights classifies them (Horiz Matrix, Tree 180, Custom, etc.).
+ * When true, all hard exclusions (type-lock, pixel drift) are bypassed
+ * and the name score is forced to 1.0.
+ */
+function isPolePair(a: ParsedModel, b: ParsedModel): boolean {
+  const aBase = baseName(a.name); // e.g. "pole" or "pixel pole"
+  const bBase = baseName(b.name);
+  // Strip "pixel " prefix to normalize
+  const aNorm = aBase.replace(/^pixel\s+/, "");
+  const bNorm = bBase.replace(/^pixel\s+/, "");
+  if (aNorm !== bNorm || aNorm.length === 0) return false;
+  // At least one must have the "pixel" prefix (otherwise they're just the same name)
+  if (!aBase.startsWith("pixel ") && !bBase.startsWith("pixel ")) return false;
+  // Must be pole-type names specifically
+  if (!/\bpole\b/i.test(aNorm)) return false;
+  // Indices must match (if both have indices)
+  const aIdx = extractIndex(a.name);
+  const bIdx = extractIndex(b.name);
+  if (aIdx !== -1 && bIdx !== -1) return aIdx === bIdx;
+  // If one or neither has an index, still allow (e.g. single "Pole" ↔ "Pixel Pole")
+  return true;
+}
+
 /** Check if a model is a Matrix type. */
 function isMatrixType(model: ParsedModel): boolean {
   const da = model.displayAs.toLowerCase();
@@ -885,6 +911,17 @@ function computeScore(
   // Never match against Moving Head / MH models
   if (isMovingHead(dest) || isMovingHead(source)) {
     return { score: 0, factors: zeroFactors };
+  }
+
+  // Pole / Pixel Pole synonym: these are always the same physical prop
+  // regardless of xLights type classification or pixel count differences.
+  // Bypass all remaining hard exclusions and force a 1.0 match.
+  const polePair = isPolePair(source, dest);
+  if (polePair) {
+    return {
+      score: 1.0,
+      factors: { name: 1.0, spatial: 0.5, shape: 0.5, type: 1.0, pixels: 1.0 },
+    };
   }
 
   // Extreme pixel count difference: if drift >= 1000 and neither is a group,
