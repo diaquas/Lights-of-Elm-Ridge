@@ -986,6 +986,56 @@ function InteractiveResults({
       };
     }, [interactive.sourceLayerMappings]);
 
+  // Group mapped layers by confidence tier for TICKET-000
+  type ConfidenceTier = "high" | "medium" | "low" | "manual";
+  interface MappedLayerWithConfidence {
+    layer: SourceLayerMapping;
+    confidence: number; // 0-1 score, -1 for manual
+    tier: ConfidenceTier;
+  }
+
+  const mappedByConfidence = useMemo(() => {
+    const result: Record<ConfidenceTier, MappedLayerWithConfidence[]> = {
+      high: [],
+      medium: [],
+      low: [],
+      manual: [],
+    };
+
+    for (const layer of mappedLayers) {
+      // Get the score for the first assigned user model
+      const suggestions = interactive.getSuggestionsForLayer(layer.sourceModel);
+      const firstAssigned = layer.assignedUserModels[0];
+      let confidence = -1;
+      let tier: ConfidenceTier = "manual";
+
+      if (firstAssigned) {
+        const match = suggestions.find((s) => s.model.name === firstAssigned.name);
+        if (match) {
+          confidence = match.score;
+          if (confidence >= 0.7) tier = "high";
+          else if (confidence >= 0.4) tier = "medium";
+          else tier = "low";
+        }
+      }
+
+      result[tier].push({ layer, confidence, tier });
+    }
+
+    // Sort each tier by confidence descending (manual stays as-is)
+    result.high.sort((a, b) => b.confidence - a.confidence);
+    result.medium.sort((a, b) => b.confidence - a.confidence);
+    result.low.sort((a, b) => b.confidence - a.confidence);
+
+    return result;
+  }, [mappedLayers, interactive]);
+
+  // State for confidence tier collapse
+  const [showHighTier, setShowHighTier] = useState(true);
+  const [showMediumTier, setShowMediumTier] = useState(true);
+  const [showLowTier, setShowLowTier] = useState(false); // collapsed by default
+  const [showManualTier, setShowManualTier] = useState(true);
+
   // Filter layers by search
   const filterLayers = useCallback(
     (layers: SourceLayerMapping[]) => {
@@ -1420,7 +1470,7 @@ function InteractiveResults({
               </div>
             )}
 
-            {/* ─── MAPPED ────────────────────────────────── */}
+            {/* ─── MAPPED with confidence tiers ────────────────────────────────── */}
             {mappedLayers.length > 0 && (
               <div className="bg-surface rounded-lg border border-border overflow-hidden">
                 <button
@@ -1445,15 +1495,166 @@ function InteractiveResults({
                   </svg>
                 </button>
                 {showMappedSection && (
-                  <div className="border-t border-border divide-y divide-border/30">
-                    {mappedLayers.map((sl) => (
-                      <MappedItemRow
-                        key={sl.sourceModel.name}
-                        layer={sl}
-                        onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
-                        onRemoveLink={interactive.removeLinkFromLayer}
-                      />
-                    ))}
+                  <div className="border-t border-border">
+                    {/* HIGH CONFIDENCE (≥70%) */}
+                    {mappedByConfidence.high.length > 0 && (
+                      <div className="border-b border-border/30">
+                        <button
+                          type="button"
+                          onClick={() => setShowHighTier(!showHighTier)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-green-500"
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-green-400">
+                            High Confidence
+                          </span>
+                          <span className="text-[11px] text-foreground/50">≥70%</span>
+                          <span className="text-[12px] font-bold text-foreground/70">
+                            {mappedByConfidence.high.length}
+                          </span>
+                          <svg
+                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showHighTier ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showHighTier && (
+                          <div className="divide-y divide-border/20">
+                            {mappedByConfidence.high.map(({ layer, confidence }) => (
+                              <MappedItemRow
+                                key={layer.sourceModel.name}
+                                layer={layer}
+                                confidence={confidence}
+                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
+                                onRemoveLink={interactive.removeLinkFromLayer}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* MEDIUM CONFIDENCE (40-69%) */}
+                    {mappedByConfidence.medium.length > 0 && (
+                      <div className="border-b border-border/30">
+                        <button
+                          type="button"
+                          onClick={() => setShowMediumTier(!showMediumTier)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-amber-500"
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                            Medium Confidence
+                          </span>
+                          <span className="text-[11px] text-foreground/50">40-69%</span>
+                          <span className="text-[12px] font-bold text-foreground/70">
+                            {mappedByConfidence.medium.length}
+                          </span>
+                          <svg
+                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showMediumTier ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showMediumTier && (
+                          <div className="divide-y divide-border/20">
+                            {mappedByConfidence.medium.map(({ layer, confidence }) => (
+                              <MappedItemRow
+                                key={layer.sourceModel.name}
+                                layer={layer}
+                                confidence={confidence}
+                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
+                                onRemoveLink={interactive.removeLinkFromLayer}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* LOW CONFIDENCE (<40%) */}
+                    {mappedByConfidence.low.length > 0 && (
+                      <div className="border-b border-border/30">
+                        <button
+                          type="button"
+                          onClick={() => setShowLowTier(!showLowTier)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-zinc-500"
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                            Low Confidence
+                          </span>
+                          <span className="text-[11px] text-foreground/50">&lt;40%</span>
+                          <span className="text-[12px] font-bold text-foreground/70">
+                            {mappedByConfidence.low.length}
+                          </span>
+                          <svg
+                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showLowTier ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showLowTier && (
+                          <div className="divide-y divide-border/20">
+                            {mappedByConfidence.low.map(({ layer, confidence }) => (
+                              <MappedItemRow
+                                key={layer.sourceModel.name}
+                                layer={layer}
+                                confidence={confidence}
+                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
+                                onRemoveLink={interactive.removeLinkFromLayer}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* MANUAL (user-dragged with no algorithmic match) */}
+                    {mappedByConfidence.manual.length > 0 && (
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setShowManualTier(!showManualTier)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-teal-500"
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-teal-400">
+                            Manual
+                          </span>
+                          <span className="text-[11px] text-foreground/50">user mapped</span>
+                          <span className="text-[12px] font-bold text-foreground/70">
+                            {mappedByConfidence.manual.length}
+                          </span>
+                          <svg
+                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showManualTier ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showManualTier && (
+                          <div className="divide-y divide-border/20">
+                            {mappedByConfidence.manual.map(({ layer }) => (
+                              <MappedItemRow
+                                key={layer.sourceModel.name}
+                                layer={layer}
+                                confidence={-1}
+                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
+                                onRemoveLink={interactive.removeLinkFromLayer}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1768,10 +1969,12 @@ function InteractiveResults({
 /** Expandable row for mapped items in the MAPPED section */
 function MappedItemRow({
   layer,
+  confidence,
   onClear,
   onRemoveLink,
 }: {
   layer: SourceLayerMapping;
+  confidence: number; // 0-1 score, -1 for manual
   onClear: () => void;
   onRemoveLink: (sourceName: string, destName: string) => void;
 }) {
@@ -1779,6 +1982,17 @@ function MappedItemRow({
   const hasMultipleDests = layer.assignedUserModels.length > 1;
   const hasResolvedChildren = layer.coveredChildCount > 0;
   const isExpandable = hasMultipleDests || hasResolvedChildren;
+
+  // Confidence badge styling
+  const confidencePercent = confidence >= 0 ? Math.round(confidence * 100) : null;
+  const confidenceColor =
+    confidence >= 0.7
+      ? "text-green-400"
+      : confidence >= 0.4
+        ? "text-amber-400"
+        : confidence >= 0
+          ? "text-zinc-400"
+          : "text-teal-400";
 
   return (
     <div>
@@ -1796,6 +2010,9 @@ function MappedItemRow({
               <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">GRP</span>
             )}
             <span className="text-[13px] text-foreground truncate">{layer.sourceModel.name}</span>
+            {confidencePercent !== null && (
+              <span className={`text-[10px] ${confidenceColor} opacity-70`}>{confidencePercent}%</span>
+            )}
             {isExpandable && (
               <svg
                 className={`w-3 h-3 text-foreground/30 transition-transform ${isExpanded ? "rotate-180" : ""}`}
