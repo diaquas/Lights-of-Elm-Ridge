@@ -39,6 +39,10 @@
  *   - Enhanced singing face detection via submodel names (mouth/eyes/phoneme)
  *   - Vendor abbreviation synonyms (MOAW, BOAW, spin, etc.)
  *   - Phase 3b: Group-level interchangeability-class matching
+ *
+ * Hard exclusion rules (V2.4):
+ *   - DMX models excluded entirely (Pixel2DMX, Fog Machine, DMX Head, DmxGeneral)
+ *   - Extreme pixel count drift (≥1000) is a hard zero for non-group models
  */
 
 import type { ParsedModel } from "./parser";
@@ -694,6 +698,21 @@ function isMovingHead(model: ParsedModel): boolean {
   return /\bm\.?h\b|moving\s*head/i.test(n);
 }
 
+/**
+ * DMX model detection. DMX fixtures (DMX Head, Pixel2DMX, Fog Machines, etc.)
+ * are non-pixel devices and should never participate in mapping.
+ */
+export function isDmxModel(model: ParsedModel): boolean {
+  if (model.type === "DMX") return true;
+  if (/dmx/i.test(model.displayAs)) return true;
+  const n = model.name.toLowerCase();
+  return (
+    /\bpixel2dmx\b/i.test(n) ||
+    /\bdmx\s*head\b/i.test(n) ||
+    /\bfog\s*machine/i.test(n)
+  );
+}
+
 /** Check if a model is a Matrix type. */
 function isMatrixType(model: ParsedModel): boolean {
   const da = model.displayAs.toLowerCase();
@@ -858,9 +877,24 @@ function computeScore(
 
   // ── Hard exclusions (return 0 immediately) ─────────────
 
+  // Never match against DMX fixtures (Pixel2DMX, Fog Machine, DMX Head, etc.)
+  if (isDmxModel(dest) || isDmxModel(source)) {
+    return { score: 0, factors: zeroFactors };
+  }
+
   // Never match against Moving Head / MH models
   if (isMovingHead(dest) || isMovingHead(source)) {
     return { score: 0, factors: zeroFactors };
+  }
+
+  // Extreme pixel count difference: if drift >= 1000 and neither is a group,
+  // these models are fundamentally different (e.g. 100px spider vs 12000px matrix)
+  if (!source.isGroup && !dest.isGroup) {
+    const srcPx = source.pixelCount;
+    const destPx = dest.pixelCount;
+    if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
+      return { score: 0, factors: zeroFactors };
+    }
   }
 
   // Matrix type-lock: matrix only matches matrix
