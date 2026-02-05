@@ -16,7 +16,7 @@ import {
   generateMappingReport,
   downloadMappingReport,
 } from "@/lib/modiq";
-import type { ParsedLayout, MappingResult, Confidence } from "@/lib/modiq";
+import type { ParsedLayout, MappingResult, Confidence, DisplayType } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
 import {
   useInteractiveMapping,
@@ -50,6 +50,7 @@ export default function ModIQTool() {
 
   const [step, setStep] = useState<Step>("input");
   const [mapFromMode, setMapFromMode] = useState<MapFromMode>("elm-ridge");
+  const [displayType, setDisplayType] = useState<DisplayType>("halloween");
 
   // Source layout from "other vendor" upload
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -146,9 +147,10 @@ export default function ModIQTool() {
     setStep("processing");
     setError("");
 
+    const displayLabel = displayType === "halloween" ? "Halloween" : "Christmas";
     const seqTitle =
       mapFromMode === "elm-ridge"
-        ? ELM_RIDGE_LAYOUT_TITLE
+        ? `${ELM_RIDGE_LAYOUT_TITLE} (${displayLabel})`
         : sourceFile?.name || "Source Layout";
 
     const steps: ProcessingStep[] = [
@@ -173,7 +175,7 @@ export default function ModIQTool() {
     // Build source models
     let srcModels: ParsedModel[];
     if (mapFromMode === "elm-ridge") {
-      srcModels = getSourceModelsForSequence(ELM_RIDGE_LAYOUT_ID).map(
+      srcModels = getSourceModelsForSequence(displayType).map(
         sourceModelToParsedModel,
       );
     } else {
@@ -198,7 +200,7 @@ export default function ModIQTool() {
 
     setMappingResult(result);
     setStep("results");
-  }, [userLayout, mapFromMode, sourceLayout, sourceFile]);
+  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -267,6 +269,37 @@ export default function ModIQTool() {
                   </p>
                 </div>
               </label>
+
+              {/* Display type selector (Halloween/Christmas) */}
+              {mapFromMode === "elm-ridge" && (
+                <div className="ml-7 flex items-center gap-3">
+                  <span className="text-xs text-foreground/50">Display:</span>
+                  <div className="flex rounded-lg border border-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setDisplayType("halloween")}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                        displayType === "halloween"
+                          ? "bg-accent text-white"
+                          : "bg-surface hover:bg-surface-light text-foreground/60"
+                      }`}
+                    >
+                      Halloween
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDisplayType("christmas")}
+                      className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border ${
+                        displayType === "christmas"
+                          ? "bg-accent text-white"
+                          : "bg-surface hover:bg-surface-light text-foreground/60"
+                      }`}
+                    >
+                      Christmas
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input
@@ -563,6 +596,7 @@ export default function ModIQTool() {
             destModels={userLayout.models}
             selectedSequence={ELM_RIDGE_LAYOUT_ID}
             mapFromMode={mapFromMode}
+            displayType={displayType}
             sourceFileName={sourceFile?.name}
             onReset={handleReset}
             onExported={(fileName) => {
@@ -577,7 +611,7 @@ export default function ModIQTool() {
         <PostExportScreen
           sequenceTitle={
             mapFromMode === "elm-ridge"
-              ? ELM_RIDGE_LAYOUT_TITLE
+              ? `${ELM_RIDGE_LAYOUT_TITLE} (${displayType === "halloween" ? "Halloween" : "Christmas"})`
               : sourceFile?.name || "Source Layout"
           }
           fileName={exportFileName}
@@ -654,6 +688,7 @@ function InteractiveResults({
   destModels,
   selectedSequence,
   mapFromMode,
+  displayType,
   sourceFileName,
   onReset,
   onExported,
@@ -663,6 +698,7 @@ function InteractiveResults({
   destModels: ParsedModel[];
   selectedSequence: string;
   mapFromMode: MapFromMode;
+  displayType: DisplayType;
   sourceFileName?: string;
   onReset: () => void;
   onExported: (fileName: string) => void;
@@ -692,13 +728,13 @@ function InteractiveResults({
     string | null
   >(null);
 
-  const seqTitle = useMemo(
-    () =>
-      mapFromMode === "elm-ridge"
-        ? ELM_RIDGE_LAYOUT_TITLE
-        : sourceFileName || "Source Layout",
-    [mapFromMode, sourceFileName],
-  );
+  const seqTitle = useMemo(() => {
+    if (mapFromMode === "elm-ridge") {
+      const displayLabel = displayType === "halloween" ? "Halloween" : "Christmas";
+      return `${ELM_RIDGE_LAYOUT_TITLE} (${displayLabel})`;
+    }
+    return sourceFileName || "Source Layout";
+  }, [mapFromMode, sourceFileName, displayType]);
 
   const toggleSection = useCallback((tier: Confidence) => {
     setExpandedSections((prev) => {
