@@ -7,9 +7,15 @@ import type {
   Confidence,
   SubmodelMapping,
   EffectTree,
+  GroupScenario,
 } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
-import { suggestMatches, mapSubmodels, isDmxModel } from "@/lib/modiq";
+import {
+  suggestMatches,
+  suggestMatchesForSource,
+  mapSubmodels,
+  isDmxModel,
+} from "@/lib/modiq";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -45,7 +51,24 @@ type UndoAction =
       prevSourceB: string;
     };
 
+/** V3 source-first: one entry per source layer that needs mapping */
+export interface SourceLayerMapping {
+  sourceModel: ParsedModel;
+  assignedUserModel: ParsedModel | null;
+  isGroup: boolean;
+  scenario: GroupScenario | null;
+  memberNames: string[];
+  membersWithEffects: string[];
+  membersWithoutEffects: string[];
+  isAllEncompassing: boolean;
+  /** How many children are auto-resolved by mapping this group */
+  coveredChildCount: number;
+  isSkipped: boolean;
+  isMapped: boolean;
+}
+
 export interface InteractiveMappingState {
+  // ── V2 dest-centric (kept for xmap export) ──
   destMappings: DestMapping[];
   availableSourceModels: ParsedModel[];
   allSourceModels: ParsedModel[];
@@ -71,6 +94,32 @@ export interface InteractiveMappingState {
   toMappingResult: () => MappingResult;
   nextUnmappedDest: () => string | null;
   getSuggestions: (destModel: ParsedModel) => ReturnType<typeof suggestMatches>;
+
+  // ── V3 source-first (the primary UI view) ──
+  sourceLayerMappings: SourceLayerMapping[];
+  /** Assign a user model to a source layer (replacing any previous assignment) */
+  assignUserModelToLayer: (sourceLayerName: string, userModelName: string) => void;
+  /** Clear a source layer's user model assignment */
+  clearLayerMapping: (sourceLayerName: string) => void;
+  /** Skip a source layer (remove from task list) */
+  skipSourceLayer: (sourceLayerName: string) => void;
+  /** Unskip a source layer */
+  unskipSourceLayer: (sourceLayerName: string) => void;
+  /** Get ranked user model suggestions for a source layer */
+  getSuggestionsForLayer: (sourceModel: ParsedModel) => ReturnType<typeof suggestMatchesForSource>;
+  /** Set of user model names currently assigned to source layers */
+  assignedUserModelNames: Set<string>;
+  /** Source-centric stats */
+  totalSourceLayers: number;
+  mappedLayerCount: number;
+  skippedLayerCount: number;
+  groupsMappedCount: number;
+  groupsCoveredChildCount: number;
+  directMappedCount: number;
+  unmappedLayerCount: number;
+  coveragePercentage: number;
+  /** Find next unmapped source layer */
+  nextUnmappedLayer: () => string | null;
 }
 
 // ─── Hook ───────────────────────────────────────────────
@@ -571,7 +620,7 @@ export function useInteractiveMapping(
     return null;
   }, [destModels, assignments, skipped, groupCovered]);
 
-  // Suggestions helper
+  // Suggestions helper (V2 — dest-centric)
   const getSuggestions = useCallback(
     (destModel: ParsedModel) => {
       return suggestMatches(
@@ -584,7 +633,222 @@ export function useInteractiveMapping(
     [availableSourceModels, sourceModels, destModels],
   );
 
+  // ═══════════════════════════════════════════════════════════════
+  // V3 Source-First View
+  // ═══════════════════════════════════════════════════════════════
+
+  // Skipped source layers (separate from dest skips)
+  const [skippedSourceLayers, setSkippedSourceLayers] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // Inverse map: source name → user (dest) model name
+  const sourceToUserMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const [destName, srcName] of assignments) {
+      if (srcName) map.set(srcName, destName);
+    }
+    return map;
+  }, [assignments]);
+
+  // Set of user model names currently assigned to any source layer
+  const assignedUserModelNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const [destName, srcName] of assignments) {
+      if (srcName) set.add(destName);
+    }
+    return set;
+  }, [assignments]);
+
+  // Build source-layer mappings from effect tree
+  const sourceLayerMappings: SourceLayerMapping[] = useMemo(() => {
+    if (!effectTree) return [];
+
+    const layers: SourceLayerMapping[] = [];
+
+    // Groups with effects (Scenario A and B — C are individual-only)
+    for (const gInfo of effectTree.groupsWithEffects) {
+      if (gInfo.scenario === "C") continue;
+      const userModelName = sourceToUserMap.get(gInfo.model.name);
+      const userModel = userModelName
+        ? destByName.get(userModelName) ?? null
+        : null;
+
+      // Count children resolved by mapping this group
+      // For non-all-encompassing groups: members without individual effects
+      let coveredChildCount = 0;
+      if (userModel && !gInfo.isAllEncompassing) {
+        coveredChildCount = gInfo.membersWithoutEffects.length;
+      }
+
+      layers.push({
+        sourceModel: gInfo.model,
+        assignedUserModel: userModel,
+        isGroup: true,
+        scenario: gInfo.scenario,
+        memberNames: gInfo.model.memberModels,
+        membersWithEffects: gInfo.membersWithEffects,
+        membersWithoutEffects: gInfo.membersWithoutEffects,
+        isAllEncompassing: gInfo.isAllEncompassing,
+        coveredChildCount,
+        isSkipped: skippedSourceLayers.has(gInfo.model.name),
+        isMapped: !!userModel,
+      });
+    }
+
+    // Individual models needing mapping
+    for (const mInfo of effectTree.modelsWithEffects) {
+      if (!mInfo.needsIndividualMapping) continue;
+      const userModelName = sourceToUserMap.get(mInfo.model.name);
+      const userModel = userModelName
+        ? destByName.get(userModelName) ?? null
+        : null;
+
+      layers.push({
+        sourceModel: mInfo.model,
+        assignedUserModel: userModel,
+        isGroup: false,
+        scenario: null,
+        memberNames: [],
+        membersWithEffects: [],
+        membersWithoutEffects: [],
+        isAllEncompassing: false,
+        coveredChildCount: 0,
+        isSkipped: skippedSourceLayers.has(mInfo.model.name),
+        isMapped: !!userModel,
+      });
+    }
+
+    return layers;
+  }, [effectTree, sourceToUserMap, destByName, skippedSourceLayers]);
+
+  // V3 source-centric stats
+  const sourceStats = useMemo(() => {
+    let mapped = 0;
+    let groupsMapped = 0;
+    let coveredChildren = 0;
+    let direct = 0;
+    let unmapped = 0;
+    let skippedLayers = 0;
+    const total = sourceLayerMappings.length;
+
+    for (const sl of sourceLayerMappings) {
+      if (sl.isSkipped) {
+        skippedLayers++;
+        continue;
+      }
+      if (sl.isMapped) {
+        mapped++;
+        if (sl.isGroup) {
+          groupsMapped++;
+          coveredChildren += sl.coveredChildCount;
+        } else {
+          direct++;
+        }
+      } else {
+        unmapped++;
+      }
+    }
+
+    const effective = total - skippedLayers;
+    const pct =
+      effective > 0 ? Math.round((mapped / effective) * 1000) / 10 : 0;
+
+    return {
+      total,
+      mapped,
+      groupsMapped,
+      coveredChildren,
+      direct,
+      unmapped,
+      skippedLayers,
+      pct,
+    };
+  }, [sourceLayerMappings]);
+
+  // V3 actions
+
+  /** Assign a user model to a source layer, clearing any previous assignment */
+  const assignUserModelToLayer = useCallback(
+    (sourceLayerName: string, userModelName: string) => {
+      // Find any user model currently assigned to this source layer
+      const existingUserModel = sourceToUserMap.get(sourceLayerName);
+      if (existingUserModel && existingUserModel !== userModelName) {
+        // Clear the old assignment
+        clearMapping(existingUserModel);
+      }
+      // Assign: user model (dest) → source layer (source)
+      assignSource(userModelName, sourceLayerName);
+    },
+    [sourceToUserMap, clearMapping, assignSource],
+  );
+
+  /** Clear a source layer's mapping by finding and removing the assigned user model */
+  const clearLayerMapping = useCallback(
+    (sourceLayerName: string) => {
+      const userModelName = sourceToUserMap.get(sourceLayerName);
+      if (userModelName) {
+        clearMapping(userModelName);
+      }
+    },
+    [sourceToUserMap, clearMapping],
+  );
+
+  const skipSourceLayer = useCallback((sourceLayerName: string) => {
+    // Also clear any existing assignment
+    const userModelName = sourceToUserMap.get(sourceLayerName);
+    if (userModelName) {
+      clearMapping(userModelName);
+    }
+    setSkippedSourceLayers((prev) => new Set(prev).add(sourceLayerName));
+  }, [sourceToUserMap, clearMapping]);
+
+  const unskipSourceLayer = useCallback((sourceLayerName: string) => {
+    setSkippedSourceLayers((prev) => {
+      const next = new Set(prev);
+      next.delete(sourceLayerName);
+      return next;
+    });
+  }, []);
+
+  // V3 suggestions: given a source layer, rank user models
+  const getSuggestionsForLayer = useCallback(
+    (sourceModel: ParsedModel) => {
+      // Filter dest models: exclude DMX, include unassigned + currently assigned to this source
+      const currentUserModel = sourceToUserMap.get(sourceModel.name);
+      const pool = destModels.filter(
+        (m) =>
+          !isDmxModel(m) &&
+          (!assignedUserModelNames.has(m.name) ||
+            m.name === currentUserModel),
+      );
+      return suggestMatchesForSource(
+        sourceModel,
+        pool,
+        sourceModels,
+        destModels,
+      );
+    },
+    [
+      destModels,
+      sourceModels,
+      sourceToUserMap,
+      assignedUserModelNames,
+    ],
+  );
+
+  // V3 navigation: find next unmapped source layer
+  const nextUnmappedLayer = useCallback((): string | null => {
+    for (const sl of sourceLayerMappings) {
+      if (!sl.isMapped && !sl.isSkipped) {
+        return sl.sourceModel.name;
+      }
+    }
+    return null;
+  }, [sourceLayerMappings]);
+
   return {
+    // V2 dest-centric
     destMappings,
     availableSourceModels,
     allSourceModels: sourceModels,
@@ -610,5 +874,23 @@ export function useInteractiveMapping(
     toMappingResult,
     nextUnmappedDest,
     getSuggestions,
+
+    // V3 source-first
+    sourceLayerMappings,
+    assignUserModelToLayer,
+    clearLayerMapping,
+    skipSourceLayer,
+    unskipSourceLayer,
+    getSuggestionsForLayer,
+    assignedUserModelNames,
+    totalSourceLayers: sourceStats.total,
+    mappedLayerCount: sourceStats.mapped,
+    skippedLayerCount: sourceStats.skippedLayers,
+    groupsMappedCount: sourceStats.groupsMapped,
+    groupsCoveredChildCount: sourceStats.coveredChildren,
+    directMappedCount: sourceStats.direct,
+    unmappedLayerCount: sourceStats.unmapped,
+    coveragePercentage: sourceStats.pct,
+    nextUnmappedLayer,
   };
 }

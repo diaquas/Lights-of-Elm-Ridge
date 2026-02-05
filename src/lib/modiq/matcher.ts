@@ -1693,3 +1693,50 @@ export function suggestMatches(
   suggestions.sort((a, b) => b.score - a.score);
   return suggestions.slice(0, 20);
 }
+
+/**
+ * V3 source-first suggestion: given a SOURCE model (the task item),
+ * rank user (dest) models by how well they match.
+ * Same scoring as suggestMatches but iterating dest pool instead of source pool.
+ */
+export function suggestMatchesForSource(
+  sourceModel: ParsedModel,
+  destPool: ParsedModel[],
+  allSourceModels: ParsedModel[],
+  allDestModels: ParsedModel[],
+): {
+  model: ParsedModel;
+  score: number;
+  confidence: Confidence;
+  factors: ModelMapping["factors"];
+}[] {
+  const sourceBounds = getNormalizedBounds(allSourceModels);
+  const destBounds = getNormalizedBounds(allDestModels);
+
+  const suggestions: {
+    model: ParsedModel;
+    score: number;
+    confidence: Confidence;
+    factors: ModelMapping["factors"];
+  }[] = [];
+
+  for (const dest of destPool) {
+    const { score, factors } = computeScore(
+      sourceModel,
+      dest,
+      sourceBounds,
+      destBounds,
+    );
+    if (score > 0.05) {
+      suggestions.push({
+        model: dest,
+        score,
+        confidence: scoreToConfidence(score),
+        factors,
+      });
+    }
+  }
+
+  suggestions.sort((a, b) => b.score - a.score);
+  return suggestions.slice(0, 20);
+}
