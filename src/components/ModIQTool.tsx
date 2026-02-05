@@ -21,6 +21,7 @@ import {
   computeDisplayCoverage,
   findBoostSuggestions,
   findSpinnerBoostSuggestions,
+  parseXsqModels,
 } from "@/lib/modiq";
 import type { ParsedLayout, MappingResult, DisplayType, EffectTree } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
@@ -102,6 +103,12 @@ export default function ModIQTool() {
   const sourceFileInputRef = useRef<HTMLInputElement>(null);
   const [sourceIsDragging, setSourceIsDragging] = useState(false);
 
+  // Vendor .xsq sequence file (required for other-vendor mode)
+  const [vendorXsqFile, setVendorXsqFile] = useState<File | null>(null);
+  const [vendorXsqModels, setVendorXsqModels] = useState<string[] | null>(null);
+  const vendorXsqInputRef = useRef<HTMLInputElement>(null);
+  const [vendorXsqIsDragging, setVendorXsqIsDragging] = useState(false);
+
   // User's target layout ("Map TO")
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [userLayout, setUserLayout] = useState<ParsedLayout | null>(null);
@@ -157,6 +164,33 @@ export default function ModIQTool() {
     reader.readAsText(file);
   }, []);
 
+  // ─── Vendor .xsq Sequence File Upload ─────────────────
+  const handleVendorXsqFile = useCallback((file: File) => {
+    setError("");
+    if (!file.name.endsWith(".xsq")) {
+      setError("Please upload an xLights sequence file (.xsq).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const models = parseXsqModels(content);
+        if (models.length === 0) {
+          setError("No model effects found in this sequence file.");
+          return;
+        }
+        setVendorXsqModels(models);
+        setVendorXsqFile(file);
+      } catch (err) {
+        setError(
+          `Failed to parse sequence file: ${err instanceof Error ? err.message : "Unknown error"}`,
+        );
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
   // ─── User Layout File Upload (Map TO) ─────────────────
   const handleFile = useCallback((file: File) => {
     setError("");
@@ -192,7 +226,7 @@ export default function ModIQTool() {
   const canRun =
     mapFromMode === "elm-ridge"
       ? !!selectedSequence && isAccessible && !!userLayout
-      : !!sourceLayout && !!userLayout;
+      : !!vendorXsqFile && !!sourceLayout && !!userLayout;
 
   // ─── Processing ─────────────────────────────────────────
   const runMapping = useCallback(async () => {
@@ -213,7 +247,7 @@ export default function ModIQTool() {
     const hasEffectData =
       mapFromMode === "elm-ridge" && selectedSequence
         ? !!getSequenceModelList(selectedSequence)
-        : false;
+        : mapFromMode === "other-vendor" && !!vendorXsqModels;
 
     const steps: ProcessingStep[] = [
       {
@@ -264,7 +298,9 @@ export default function ModIQTool() {
     const seqModelList =
       mapFromMode === "elm-ridge" && selectedSequence
         ? getSequenceModelList(selectedSequence)
-        : undefined;
+        : mapFromMode === "other-vendor" && vendorXsqModels
+          ? vendorXsqModels
+          : undefined;
 
     if (hasEffectData) {
       await advance(300); // "Building effect tree" → active
@@ -302,7 +338,7 @@ export default function ModIQTool() {
 
     setMappingResult(result);
     setStep("results");
-  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq]);
+  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq, vendorXsqModels]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -347,13 +383,13 @@ export default function ModIQTool() {
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
                   (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) ||
-                  (mapFromMode === "other-vendor" && sourceLayout)
+                  (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout)
                     ? "bg-green-500"
                     : "bg-accent"
                 }`}
               >
                 {(mapFromMode === "elm-ridge" && selectedSequence && isAccessible) ||
-                (mapFromMode === "other-vendor" && sourceLayout) ? (
+                (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout) ? (
                   <svg
                     width="14"
                     height="14"
@@ -517,34 +553,135 @@ export default function ModIQTool() {
             )}
 
             {/* Vendor upload zone — appears below when vendor selected */}
-            {mapFromMode === "other-vendor" && !sourceFile && (
-              <div className="mt-3 animate-[slideDown_0.25s_ease-out]" onClick={(e) => { e.stopPropagation(); sourceFileInputRef.current?.click(); }}>
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setSourceIsDragging(true);
-                  }}
-                  onDragLeave={() => setSourceIsDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setSourceIsDragging(false);
-                    const file = e.dataTransfer.files[0];
-                    if (file) handleSourceFile(file);
-                  }}
-                  className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
-                    sourceIsDragging
-                      ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
-                      : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
-                  }`}
-                >
-                  <p className="text-[13px] text-foreground/40">
-                    Drop{" "}
-                    <span className="text-foreground/60 font-semibold">
-                      xlights_rgbeffects.xml
-                    </span>{" "}
-                    here or click to browse
-                  </p>
-                </div>
+            {mapFromMode === "other-vendor" && (
+              <div className="mt-3 animate-[slideDown_0.25s_ease-out] space-y-3">
+                {/* Step A: .xsq file (required) */}
+                {!vendorXsqFile ? (
+                  <div onClick={(e) => { e.stopPropagation(); vendorXsqInputRef.current?.click(); }}>
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setVendorXsqIsDragging(true);
+                      }}
+                      onDragLeave={() => setVendorXsqIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setVendorXsqIsDragging(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleVendorXsqFile(file);
+                      }}
+                      className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
+                        vendorXsqIsDragging
+                          ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
+                          : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
+                      }`}
+                    >
+                      <p className="text-[13px] text-foreground/40">
+                        <span className="text-red-400 font-medium">Required:</span>{" "}
+                        Drop{" "}
+                        <span className="text-foreground/60 font-semibold">.xsq sequence file</span>{" "}
+                        here or click to browse
+                      </p>
+                      <p className="text-[11px] text-foreground/30 mt-1">
+                        Enables smart filtering to only map models with effects
+                      </p>
+                    </div>
+                    <input
+                      ref={vendorXsqInputRef}
+                      type="file"
+                      accept=".xsq"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleVendorXsqFile(file);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-xl p-3 bg-green-500/5 border border-green-500/20 flex items-center gap-3">
+                    <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-foreground truncate">{vendorXsqFile.name}</p>
+                      <p className="text-[11px] text-green-400/70">
+                        {vendorXsqModels?.length ?? 0} active layers detected
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVendorXsqFile(null);
+                        setVendorXsqModels(null);
+                      }}
+                      className="text-foreground/30 hover:text-red-400 text-sm"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                )}
+
+                {/* Step B: xlights_rgbeffects.xml (shows after .xsq uploaded) */}
+                {vendorXsqFile && !sourceFile && (
+                  <div onClick={(e) => { e.stopPropagation(); sourceFileInputRef.current?.click(); }}>
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setSourceIsDragging(true);
+                      }}
+                      onDragLeave={() => setSourceIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setSourceIsDragging(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleSourceFile(file);
+                      }}
+                      className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
+                        sourceIsDragging
+                          ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
+                          : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
+                      }`}
+                    >
+                      <p className="text-[13px] text-foreground/40">
+                        Drop{" "}
+                        <span className="text-foreground/60 font-semibold">
+                          xlights_rgbeffects.xml
+                        </span>{" "}
+                        here or click to browse
+                      </p>
+                      <p className="text-[11px] text-foreground/30 mt-1">
+                        From the vendor&apos;s sequence folder (contains model definitions)
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Show uploaded layout file */}
+                {vendorXsqFile && sourceFile && sourceLayout && (
+                  <div className="rounded-xl p-3 bg-green-500/5 border border-green-500/20 flex items-center gap-3">
+                    <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-foreground truncate">{sourceFile.name}</p>
+                      <p className="text-[11px] text-foreground/40">
+                        {sourceLayout.models.length} models in layout
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSourceFile(null);
+                        setSourceLayout(null);
+                      }}
+                      className="text-foreground/30 hover:text-red-400 text-sm"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -555,7 +692,7 @@ export default function ModIQTool() {
             <div className="flex items-center gap-3 mb-4">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
-                  userLayout ? "bg-green-500" : (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) || (mapFromMode === "other-vendor" && sourceLayout) ? "bg-accent" : "bg-[#262626]"
+                  userLayout ? "bg-green-500" : (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) || (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout) ? "bg-accent" : "bg-[#262626]"
                 }`}
               >
                 {userLayout ? (
@@ -985,6 +1122,56 @@ function InteractiveResults({
         unmappedIndividuals: individuals,
       };
     }, [interactive.sourceLayerMappings]);
+
+  // Group mapped layers by confidence tier for TICKET-000
+  type ConfidenceTier = "high" | "medium" | "low" | "manual";
+  interface MappedLayerWithConfidence {
+    layer: SourceLayerMapping;
+    confidence: number; // 0-1 score, -1 for manual
+    tier: ConfidenceTier;
+  }
+
+  const mappedByConfidence = useMemo(() => {
+    const result: Record<ConfidenceTier, MappedLayerWithConfidence[]> = {
+      high: [],
+      medium: [],
+      low: [],
+      manual: [],
+    };
+
+    for (const layer of mappedLayers) {
+      // Get the score for the first assigned user model
+      const suggestions = interactive.getSuggestionsForLayer(layer.sourceModel);
+      const firstAssigned = layer.assignedUserModels[0];
+      let confidence = -1;
+      let tier: ConfidenceTier = "manual";
+
+      if (firstAssigned) {
+        const match = suggestions.find((s) => s.model.name === firstAssigned.name);
+        if (match) {
+          confidence = match.score;
+          if (confidence >= 0.7) tier = "high";
+          else if (confidence >= 0.4) tier = "medium";
+          else tier = "low";
+        }
+      }
+
+      result[tier].push({ layer, confidence, tier });
+    }
+
+    // Sort each tier by confidence descending (manual stays as-is)
+    result.high.sort((a, b) => b.confidence - a.confidence);
+    result.medium.sort((a, b) => b.confidence - a.confidence);
+    result.low.sort((a, b) => b.confidence - a.confidence);
+
+    return result;
+  }, [mappedLayers, interactive]);
+
+  // State for confidence tier collapse
+  const [showHighTier, setShowHighTier] = useState(true);
+  const [showMediumTier, setShowMediumTier] = useState(true);
+  const [showLowTier, setShowLowTier] = useState(false); // collapsed by default
+  const [showManualTier, setShowManualTier] = useState(true);
 
   // Filter layers by search
   const filterLayers = useCallback(
@@ -1420,7 +1607,7 @@ function InteractiveResults({
               </div>
             )}
 
-            {/* ─── MAPPED ────────────────────────────────── */}
+            {/* ─── MAPPED with confidence tiers ────────────────────────────────── */}
             {mappedLayers.length > 0 && (
               <div className="bg-surface rounded-lg border border-border overflow-hidden">
                 <button
@@ -1445,15 +1632,166 @@ function InteractiveResults({
                   </svg>
                 </button>
                 {showMappedSection && (
-                  <div className="border-t border-border divide-y divide-border/30">
-                    {mappedLayers.map((sl) => (
-                      <MappedItemRow
-                        key={sl.sourceModel.name}
-                        layer={sl}
-                        onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
-                        onRemoveLink={interactive.removeLinkFromLayer}
-                      />
-                    ))}
+                  <div className="border-t border-border">
+                    {/* HIGH CONFIDENCE (≥70%) */}
+                    {mappedByConfidence.high.length > 0 && (
+                      <div className="border-b border-border/30">
+                        <button
+                          type="button"
+                          onClick={() => setShowHighTier(!showHighTier)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-green-500"
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-green-400">
+                            High Confidence
+                          </span>
+                          <span className="text-[11px] text-foreground/50">≥70%</span>
+                          <span className="text-[12px] font-bold text-foreground/70">
+                            {mappedByConfidence.high.length}
+                          </span>
+                          <svg
+                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showHighTier ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showHighTier && (
+                          <div className="divide-y divide-border/20">
+                            {mappedByConfidence.high.map(({ layer, confidence }) => (
+                              <MappedItemRow
+                                key={layer.sourceModel.name}
+                                layer={layer}
+                                confidence={confidence}
+                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
+                                onRemoveLink={interactive.removeLinkFromLayer}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* MEDIUM CONFIDENCE (40-69%) */}
+                    {mappedByConfidence.medium.length > 0 && (
+                      <div className="border-b border-border/30">
+                        <button
+                          type="button"
+                          onClick={() => setShowMediumTier(!showMediumTier)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-amber-500"
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                            Medium Confidence
+                          </span>
+                          <span className="text-[11px] text-foreground/50">40-69%</span>
+                          <span className="text-[12px] font-bold text-foreground/70">
+                            {mappedByConfidence.medium.length}
+                          </span>
+                          <svg
+                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showMediumTier ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showMediumTier && (
+                          <div className="divide-y divide-border/20">
+                            {mappedByConfidence.medium.map(({ layer, confidence }) => (
+                              <MappedItemRow
+                                key={layer.sourceModel.name}
+                                layer={layer}
+                                confidence={confidence}
+                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
+                                onRemoveLink={interactive.removeLinkFromLayer}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* LOW CONFIDENCE (<40%) */}
+                    {mappedByConfidence.low.length > 0 && (
+                      <div className="border-b border-border/30">
+                        <button
+                          type="button"
+                          onClick={() => setShowLowTier(!showLowTier)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-zinc-500"
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                            Low Confidence
+                          </span>
+                          <span className="text-[11px] text-foreground/50">&lt;40%</span>
+                          <span className="text-[12px] font-bold text-foreground/70">
+                            {mappedByConfidence.low.length}
+                          </span>
+                          <svg
+                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showLowTier ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showLowTier && (
+                          <div className="divide-y divide-border/20">
+                            {mappedByConfidence.low.map(({ layer, confidence }) => (
+                              <MappedItemRow
+                                key={layer.sourceModel.name}
+                                layer={layer}
+                                confidence={confidence}
+                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
+                                onRemoveLink={interactive.removeLinkFromLayer}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* MANUAL (user-dragged with no algorithmic match) */}
+                    {mappedByConfidence.manual.length > 0 && (
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setShowManualTier(!showManualTier)}
+                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-teal-500"
+                        >
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-teal-400">
+                            Manual
+                          </span>
+                          <span className="text-[11px] text-foreground/50">user mapped</span>
+                          <span className="text-[12px] font-bold text-foreground/70">
+                            {mappedByConfidence.manual.length}
+                          </span>
+                          <svg
+                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showManualTier ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showManualTier && (
+                          <div className="divide-y divide-border/20">
+                            {mappedByConfidence.manual.map(({ layer }) => (
+                              <MappedItemRow
+                                key={layer.sourceModel.name}
+                                layer={layer}
+                                confidence={-1}
+                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
+                                onRemoveLink={interactive.removeLinkFromLayer}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1768,10 +2106,12 @@ function InteractiveResults({
 /** Expandable row for mapped items in the MAPPED section */
 function MappedItemRow({
   layer,
+  confidence,
   onClear,
   onRemoveLink,
 }: {
   layer: SourceLayerMapping;
+  confidence: number; // 0-1 score, -1 for manual
   onClear: () => void;
   onRemoveLink: (sourceName: string, destName: string) => void;
 }) {
@@ -1779,6 +2119,17 @@ function MappedItemRow({
   const hasMultipleDests = layer.assignedUserModels.length > 1;
   const hasResolvedChildren = layer.coveredChildCount > 0;
   const isExpandable = hasMultipleDests || hasResolvedChildren;
+
+  // Confidence badge styling
+  const confidencePercent = confidence >= 0 ? Math.round(confidence * 100) : null;
+  const confidenceColor =
+    confidence >= 0.7
+      ? "text-green-400"
+      : confidence >= 0.4
+        ? "text-amber-400"
+        : confidence >= 0
+          ? "text-zinc-400"
+          : "text-teal-400";
 
   return (
     <div>
@@ -1796,6 +2147,9 @@ function MappedItemRow({
               <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">GRP</span>
             )}
             <span className="text-[13px] text-foreground truncate">{layer.sourceModel.name}</span>
+            {confidencePercent !== null && (
+              <span className={`text-[10px] ${confidenceColor} opacity-70`}>{confidencePercent}%</span>
+            )}
             {isExpandable && (
               <svg
                 className={`w-3 h-3 text-foreground/30 transition-transform ${isExpanded ? "rotate-180" : ""}`}
