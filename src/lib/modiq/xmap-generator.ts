@@ -7,17 +7,17 @@
  * Format learned from 6 real-world xmap files:
  *
  *   Line 1: "false" (boolean flag, likely "hide unmapped")
- *   Line 2: Number of source models (count)
- *   Lines 3..N+2: Source model names, one per line
+ *   Line 2: Number of dest models (count)
+ *   Lines 3..N+2: Dest model names, one per line (YOUR models)
  *   Lines N+3..: Tab-separated mapping rows:
- *     Col 1: Source model name
- *     Col 2: Source submodel name (empty for top-level)
- *     Col 3: Source sub-submodel (usually empty)
- *     Col 4: Destination model name (uses "/" for submodel paths)
+ *     Col 1: Dest model name (YOUR model - what to map TO)
+ *     Col 2: Dest submodel name (empty for top-level)
+ *     Col 3: (usually empty)
+ *     Col 4: Source model name (SEQUENCE model - what to map FROM)
  *     Col 5: Color (always "white")
  *
  * Example mapping row (tabs shown as →):
- *   Spinner - Showstopper 1→01 Cascading Arches→→Showstopper Spinner Left/01 Cascading Arches→white
+ *   My Spinner→01 Cascading Arches→→Showstopper Spinner/01 Cascading Arches→white
  */
 
 import type { MappingResult, ModelMapping } from "./matcher";
@@ -35,44 +35,46 @@ export function generateXmap(
 
   const allSourceMappings = result.mappings;
 
-  // Deduplicate source model names (many-to-one produces multiple entries per source)
-  const uniqueSourceNames: string[] = [];
-  const seenSources = new Set<string>();
+  // Deduplicate DEST model names (user's models - what appears in column 1)
+  const uniqueDestNames: string[] = [];
+  const seenDests = new Set<string>();
   for (const mapping of allSourceMappings) {
-    if (!seenSources.has(mapping.sourceModel.name)) {
-      seenSources.add(mapping.sourceModel.name);
-      uniqueSourceNames.push(mapping.sourceModel.name);
+    if (mapping.destModel && !seenDests.has(mapping.destModel.name)) {
+      seenDests.add(mapping.destModel.name);
+      uniqueDestNames.push(mapping.destModel.name);
     }
   }
 
   // Line 1: Boolean flag
   lines.push("false");
 
-  // Line 2: Count of unique source models
-  lines.push(String(uniqueSourceNames.length));
+  // Line 2: Count of unique dest models
+  lines.push(String(uniqueDestNames.length));
 
-  // Lines 3..N+2: Unique source model names
-  for (const name of uniqueSourceNames) {
+  // Lines 3..N+2: Unique dest model names (user's models)
+  for (const name of uniqueDestNames) {
     lines.push(name);
   }
 
-  // Mapping rows (includes all entries, even multiple dests per source)
+  // Mapping rows: DEST (col1) → SOURCE (col4)
   for (const mapping of allSourceMappings) {
     const srcName = mapping.sourceModel.name;
     const destName = mapping.destModel?.name || "";
 
-    // Top-level model mapping
-    lines.push([srcName, "", "", destName, "white"].join(TAB));
+    if (!destName) continue; // Skip unmapped sources
+
+    // Top-level model mapping: dest → source
+    lines.push([destName, "", "", srcName, "white"].join(TAB));
 
     // Submodel mappings
     for (const subMap of mapping.submodelMappings) {
       if (subMap.destName) {
         lines.push(
           [
-            srcName,
-            subMap.sourceName,
+            destName,
+            subMap.destName,
             "",
-            `${destName}/${subMap.destName}`,
+            `${srcName}/${subMap.sourceName}`,
             "white",
           ].join(TAB),
         );
