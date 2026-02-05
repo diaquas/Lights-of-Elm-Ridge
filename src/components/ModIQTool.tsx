@@ -238,194 +238,385 @@ export default function ModIQTool() {
 
       {/* ── Input Step ─────────────────────────────────── */}
       {step === "input" && (
-        <div className="space-y-8 max-w-5xl mx-auto">
-          {/* MAP FROM Section */}
-          <div className="bg-surface rounded-xl border border-border p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">
-                1
-              </span>
-              <h2 className="text-lg font-semibold font-display">
-                What are you mapping FROM?
+        <div className="space-y-8 max-w-[860px] mx-auto">
+          {/* Step 1 — MAP FROM */}
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
+                  mapFromMode === "elm-ridge"
+                    ? displayType
+                      ? "bg-green-500"
+                      : "bg-accent"
+                    : mapFromMode === "other-vendor" && sourceLayout
+                      ? "bg-green-500"
+                      : "bg-accent"
+                }`}
+              >
+                {(mapFromMode === "elm-ridge" && displayType) ||
+                (mapFromMode === "other-vendor" && sourceLayout) ? (
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  "1"
+                )}
+              </div>
+              <h2 className="text-lg font-semibold text-foreground/60">
+                What are you mapping{" "}
+                <span className="text-white font-bold">FROM</span>?
               </h2>
             </div>
 
-            {/* Radio buttons */}
-            <div className="space-y-4">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input
-                  type="radio"
-                  name="mapFrom"
-                  checked={mapFromMode === "elm-ridge"}
-                  onChange={() => setMapFromMode("elm-ridge")}
-                  className="mt-1 accent-accent"
-                />
-                <div className="flex-1">
-                  <span className="font-medium text-foreground group-hover:text-accent transition-colors">
-                    Lights of Elm Ridge Layout
+            {/* Card container: Elm Ridge group (2/3) + Vendor card (1/3) */}
+            <div className="flex gap-4">
+              {/* ═══ Lights of Elm Ridge grouped card ═══ */}
+              <div className="flex-[2] flex flex-col gap-0">
+                {/* Logo header band */}
+                <div className="flex items-center justify-center gap-2.5 py-2.5 rounded-t-xl bg-gradient-to-b from-accent/[0.06] to-accent/[0.02] border-t border-x border-accent/[0.15]">
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-accent/70"
+                  >
+                    <path d="M12 2L7 8h3l-4 6h3l-5 8h16l-5-8h3l-4-6h3L12 2z" />
+                  </svg>
+                  <span className="text-[12px] font-semibold text-accent/70 uppercase tracking-wider">
+                    Lights of Elm Ridge
                   </span>
-                  <p className="text-xs text-foreground/40 mt-0.5">
-                    Map to our display&apos;s model structure
-                  </p>
                 </div>
-              </label>
 
-              {/* Display type selector (Halloween/Christmas) */}
-              {mapFromMode === "elm-ridge" && (
-                <div className="ml-7 flex items-center gap-3">
-                  <span className="text-xs text-foreground/50">Display:</span>
-                  <div className="flex rounded-lg border border-border overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setDisplayType("halloween")}
-                      className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                {/* Two sub-cards side by side */}
+                <div className="flex gap-[2px]">
+                  {/* Halloween card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMapFromMode("elm-ridge");
+                      setDisplayType("halloween");
+                    }}
+                    className={`flex-1 relative overflow-hidden rounded-bl-xl py-8 px-5 text-center transition-all outline-none cursor-pointer ${
+                      mapFromMode === "elm-ridge" &&
+                      displayType === "halloween"
+                        ? "bg-gradient-to-b from-[#1a1a1a] via-[#1c1210] to-[#1a1008] border-2 border-orange-500 border-t-0"
+                        : "bg-[#131313] border-2 border-white/[0.04] border-t-0 hover:bg-gradient-to-b hover:from-[#1a1a1a] hover:to-[#1c1510] hover:border-orange-500/25"
+                    }`}
+                  >
+                    <div
+                      className={`text-[44px] mb-3.5 transition-all ${
+                        mapFromMode === "elm-ridge" &&
                         displayType === "halloween"
-                          ? "bg-accent text-white"
-                          : "bg-surface hover:bg-surface-light text-foreground/60"
+                          ? ""
+                          : "grayscale-[0.2] brightness-[0.9]"
+                      }`}
+                    >
+                      🎃
+                    </div>
+                    <div
+                      className={`text-[17px] font-bold mb-0.5 transition-colors ${
+                        mapFromMode === "elm-ridge" &&
+                        displayType === "halloween"
+                          ? "text-orange-400"
+                          : "text-foreground/80"
                       }`}
                     >
                       Halloween
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDisplayType("christmas")}
-                      className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-border ${
+                    </div>
+                    <div className="text-[11px] text-foreground/30 tracking-wide">
+                      Display Layout
+                    </div>
+                    {mapFromMode === "elm-ridge" &&
+                      displayType === "halloween" && (
+                        <div className="absolute top-2 right-2 w-[22px] h-[22px] rounded-full bg-orange-500 flex items-center justify-center animate-[popIn_0.2s_ease-out]">
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="white"
+                            strokeWidth="3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      )}
+                  </button>
+
+                  {/* Christmas card */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMapFromMode("elm-ridge");
+                      setDisplayType("christmas");
+                    }}
+                    className={`flex-1 relative overflow-hidden rounded-br-xl py-8 px-5 text-center transition-all outline-none cursor-pointer ${
+                      mapFromMode === "elm-ridge" &&
+                      displayType === "christmas"
+                        ? "bg-gradient-to-b from-[#1a1a1a] via-[#0f1a10] to-[#0a1a0a] border-2 border-green-500 border-t-0"
+                        : "bg-[#131313] border-2 border-white/[0.04] border-t-0 hover:bg-gradient-to-b hover:from-[#1a1a1a] hover:to-[#0f1a10] hover:border-green-500/25"
+                    }`}
+                  >
+                    <div
+                      className={`text-[44px] mb-3.5 transition-all ${
+                        mapFromMode === "elm-ridge" &&
                         displayType === "christmas"
-                          ? "bg-accent text-white"
-                          : "bg-surface hover:bg-surface-light text-foreground/60"
+                          ? ""
+                          : "grayscale-[0.2] brightness-[0.9]"
+                      }`}
+                    >
+                      🎄
+                    </div>
+                    <div
+                      className={`text-[17px] font-bold mb-0.5 transition-colors ${
+                        mapFromMode === "elm-ridge" &&
+                        displayType === "christmas"
+                          ? "text-green-400"
+                          : "text-foreground/80"
                       }`}
                     >
                       Christmas
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input
-                  type="radio"
-                  name="mapFrom"
-                  checked={mapFromMode === "other-vendor"}
-                  onChange={() => setMapFromMode("other-vendor")}
-                  className="mt-1 accent-accent"
-                />
-                <div className="flex-1">
-                  <span className="font-medium text-foreground group-hover:text-accent transition-colors">
-                    Another Vendor&apos;s Sequence
-                  </span>
-                  <p className="text-xs text-foreground/40 mt-0.5">
-                    Upload the vendor&apos;s xlights_rgbeffects.xml
-                  </p>
-                </div>
-              </label>
-
-              {/* Other vendor source upload */}
-              {mapFromMode === "other-vendor" && (
-                <div className="ml-7">
-                  <div
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setSourceIsDragging(false);
-                      const file = e.dataTransfer.files[0];
-                      if (file) handleSourceFile(file);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setSourceIsDragging(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      setSourceIsDragging(false);
-                    }}
-                    onClick={() => sourceFileInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
-                      sourceIsDragging
-                        ? "border-accent bg-accent/10"
-                        : sourceFile
-                          ? "border-green-500/50 bg-green-500/5"
-                          : "border-border hover:border-foreground/30 hover:bg-surface-light"
-                    }`}
-                  >
-                    <input
-                      ref={sourceFileInputRef}
-                      type="file"
-                      accept=".xml"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleSourceFile(file);
-                      }}
-                      className="hidden"
-                    />
-                    {sourceFile && sourceLayout ? (
-                      <div>
-                        <svg
-                          className="w-8 h-8 mx-auto mb-2 text-green-500"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
+                    </div>
+                    <div className="text-[11px] text-foreground/30 tracking-wide">
+                      Display Layout
+                    </div>
+                    {mapFromMode === "elm-ridge" &&
+                      displayType === "christmas" && (
+                        <div className="absolute top-2 right-2 w-[22px] h-[22px] rounded-full bg-green-500 flex items-center justify-center animate-[popIn_0.2s_ease-out]">
+                          <svg
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="white"
+                            strokeWidth="3"
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                        <p className="text-foreground font-medium text-sm">
-                          {sourceFile.name}
-                        </p>
-                        <p className="text-xs text-foreground/60 mt-1">
-                          Found {sourceLayout.modelCount} models in source
-                          layout
-                        </p>
-                        <p className="text-xs text-foreground/40 mt-1">
-                          Click to replace
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <svg
-                          className="w-8 h-8 mx-auto mb-2 text-foreground/30"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                          />
-                        </svg>
-                        <p className="text-foreground/70 font-medium text-sm">
-                          Drag & drop the vendor&apos;s xlights_rgbeffects.xml
-                        </p>
-                        <p className="text-xs text-foreground/40 mt-1">
-                          or click to browse
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                          >
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </div>
+                      )}
+                  </button>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* MAP TO Section */}
-          <div className="bg-surface rounded-xl border border-border p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <span className="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">
-                  2
-                </span>
-                <h2 className="text-lg font-semibold font-display">
-                  What are you mapping TO?
-                </h2>
               </div>
 
-              <p className="text-sm text-foreground/50 mb-3">
-                Upload your own xLights layout file
-              </p>
+              {/* ═══ Other Vendor card ═══ */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMapFromMode("other-vendor");
+                  if (!sourceFile) sourceFileInputRef.current?.click();
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setSourceIsDragging(true);
+                  setMapFromMode("other-vendor");
+                }}
+                onDragLeave={() => setSourceIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setSourceIsDragging(false);
+                  setMapFromMode("other-vendor");
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleSourceFile(file);
+                }}
+                className={`flex-1 relative rounded-xl py-8 px-5 text-center transition-all outline-none cursor-pointer flex flex-col items-center justify-center ${
+                  mapFromMode === "other-vendor"
+                    ? "bg-gradient-to-b from-[#1a1a1a] via-[#141420] to-[#12121e] border-2 border-indigo-500"
+                    : sourceIsDragging
+                      ? "bg-[#131313] border-2 border-dashed border-indigo-500"
+                      : "bg-[#131313] border-2 border-white/[0.04] hover:border-indigo-500/30"
+                }`}
+              >
+                <input
+                  ref={sourceFileInputRef}
+                  type="file"
+                  accept=".xml"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleSourceFile(file);
+                  }}
+                  className="hidden"
+                />
+                <div
+                  className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3.5 transition-colors ${
+                    mapFromMode === "other-vendor"
+                      ? "bg-indigo-500/10"
+                      : "bg-white/[0.03]"
+                  }`}
+                >
+                  <svg
+                    width="26"
+                    height="26"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className={`transition-colors ${
+                      mapFromMode === "other-vendor"
+                        ? "text-indigo-400"
+                        : "text-foreground/30"
+                    }`}
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                </div>
+                <div
+                  className={`text-[17px] font-bold mb-0.5 transition-colors ${
+                    mapFromMode === "other-vendor"
+                      ? "text-indigo-300"
+                      : "text-foreground/80"
+                  }`}
+                >
+                  Other Vendor
+                </div>
+                <div className="text-[11px] text-foreground/30 leading-relaxed tracking-wide">
+                  Upload their layout
+                </div>
+                {mapFromMode === "other-vendor" && sourceLayout && (
+                  <div className="absolute top-2 right-2 w-[22px] h-[22px] rounded-full bg-indigo-500 flex items-center justify-center animate-[popIn_0.2s_ease-out]">
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="white"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            </div>
 
+            {/* Vendor upload zone — appears below cards when vendor selected */}
+            {mapFromMode === "other-vendor" && !sourceFile && (
+              <div className="mt-3 animate-[slideDown_0.25s_ease-out]">
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setSourceIsDragging(true);
+                  }}
+                  onDragLeave={() => setSourceIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setSourceIsDragging(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleSourceFile(file);
+                  }}
+                  onClick={() => sourceFileInputRef.current?.click()}
+                  className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
+                    sourceIsDragging
+                      ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
+                      : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
+                  }`}
+                >
+                  <p className="text-[13px] text-foreground/40">
+                    Drop{" "}
+                    <span className="text-foreground/60 font-semibold">
+                      xlights_rgbeffects.xml
+                    </span>{" "}
+                    here or click to browse
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Vendor file confirmation */}
+            {mapFromMode === "other-vendor" && sourceFile && sourceLayout && (
+              <div className="mt-3 animate-[slideDown_0.25s_ease-out]">
+                <div className="bg-indigo-500/[0.06] border border-indigo-500/20 rounded-xl px-4 py-3 flex items-center gap-2.5">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    className="text-indigo-500 flex-shrink-0"
+                  >
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  <span className="text-[13px] text-indigo-300 flex-1 truncate">
+                    {sourceFile.name}
+                  </span>
+                  <span className="text-[11px] text-green-400">
+                    ✓ {sourceLayout.modelCount} models found
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSourceFile(null);
+                      setSourceLayout(null);
+                    }}
+                    className="text-foreground/30 hover:text-foreground/60 text-base px-1"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Step 2 — YOUR LAYOUT */}
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
+                  userLayout ? "bg-green-500" : canRun || mapFromMode === "elm-ridge" ? "bg-accent" : "bg-[#262626]"
+                }`}
+              >
+                {userLayout ? (
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  "2"
+                )}
+              </div>
+              <h2 className="text-lg font-semibold text-foreground/60">
+                Upload{" "}
+                <span className="text-white font-bold">YOUR</span> layout
+              </h2>
+            </div>
+
+            {!uploadedFile || !userLayout ? (
               <div
                 onDrop={(e) => {
                   e.preventDefault();
@@ -442,12 +633,10 @@ export default function ModIQTool() {
                   setIsDragging(false);
                 }}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                className={`rounded-xl p-7 text-center cursor-pointer transition-all ${
                   isDragging
-                    ? "border-accent bg-accent/10"
-                    : uploadedFile
-                      ? "border-green-500/50 bg-green-500/5"
-                      : "border-border hover:border-foreground/30 hover:bg-surface-light"
+                    ? "bg-accent/[0.04] border-2 border-dashed border-accent"
+                    : "bg-white/[0.015] border-2 border-dashed border-[#262626] hover:border-foreground/20"
                 }`}
               >
                 <input
@@ -460,63 +649,65 @@ export default function ModIQTool() {
                   }}
                   className="hidden"
                 />
-
-                {uploadedFile && userLayout ? (
-                  <div>
-                    <svg
-                      className="w-10 h-10 mx-auto mb-3 text-green-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <p className="text-foreground font-medium">
-                      {uploadedFile.name}
-                    </p>
-                    <p className="text-sm text-foreground/60 mt-1">
-                      Found {userLayout.modelCount} models in your layout
-                    </p>
-                    <p className="text-xs text-foreground/40 mt-2">
-                      Click to replace
-                    </p>
-                  </div>
-                ) : (
-                  <div>
-                    <svg
-                      className="w-10 h-10 mx-auto mb-3 text-foreground/30"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                    <p className="text-foreground/70 font-medium">
-                      Drag & drop your xlights_rgbeffects.xml
-                    </p>
-                    <p className="text-sm text-foreground/40 mt-1">
-                      or click to browse
-                    </p>
-                  </div>
-                )}
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mx-auto mb-2 text-foreground/30"
+                >
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                <p className="text-[13px] text-foreground/40">
+                  Drop your{" "}
+                  <span className="text-foreground/60 font-semibold">
+                    xlights_rgbeffects.xml
+                  </span>{" "}
+                  here or click to browse
+                </p>
+                <p className="text-[11px] text-foreground/20 mt-1">
+                  Found in your xLights show folder
+                </p>
               </div>
-
-              <p className="text-xs text-foreground/40 mt-3">
-                Find this file in your xLights show folder. Your files are
-                processed locally in your browser and never uploaded to any
-                server.
-              </p>
-            </div>
+            ) : (
+              <div className="bg-accent/[0.04] border border-accent/[0.15] rounded-xl px-4 py-3.5 flex items-center gap-2.5 animate-[slideDown_0.25s_ease-out]">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  className="text-accent flex-shrink-0"
+                >
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                <span className="text-[13px] text-accent/80 flex-1 truncate">
+                  {uploadedFile.name}
+                </span>
+                <span className="text-[11px] text-green-400">
+                  ✓ {userLayout.modelCount} models found
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadedFile(null);
+                    setUserLayout(null);
+                  }}
+                  className="text-foreground/30 hover:text-foreground/60 text-base px-1"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Error */}
           {error && (
@@ -525,14 +716,23 @@ export default function ModIQTool() {
             </div>
           )}
 
-          {/* Run Button */}
+          {/* ModIQ It Button */}
           <button
             onClick={runMapping}
             disabled={!canRun}
-            className="w-full py-4 rounded-xl font-display font-bold text-lg transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-accent hover:bg-accent/90 text-white"
+            className={`w-full py-4 rounded-xl font-display font-bold text-lg transition-all ${
+              canRun
+                ? "bg-gradient-to-r from-accent to-red-700 text-white shadow-[0_4px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_8px_32px_rgba(239,68,68,0.3)] hover:-translate-y-[1px]"
+                : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
+            }`}
           >
-            ModIQ It
+            {canRun ? "ModIQ It \u2192" : "ModIQ It"}
           </button>
+
+          {/* Keyboard hints */}
+          <p className="text-center text-[11px] text-foreground/15 tracking-wide">
+            Tab: next step · Enter: confirm · Esc: clear
+          </p>
         </div>
       )}
 
@@ -1056,7 +1256,7 @@ function InteractiveResults({
       </div>
 
       {/* ── Two-Panel Layout ───────────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_340px] items-start">
         {/* Left panel: YOUR LAYOUT */}
         <div className="space-y-1.5 min-w-0">
           {/* Filter controls */}
@@ -1260,8 +1460,8 @@ function InteractiveResults({
           )}
         </div>
 
-        {/* Right panel: Source model pool — sticky, fills viewport height */}
-        <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-7rem)]">
+        {/* Right panel: Source model pool — sticky, min 10 rows, capped at viewport */}
+        <div className="lg:sticky lg:top-24 self-start lg:min-h-[440px] lg:max-h-[calc(100vh-7rem)]">
           <SourceModelPool
             allSourceModels={interactive.allSourceModels}
             assignedSourceNames={interactive.assignedSourceNames}
