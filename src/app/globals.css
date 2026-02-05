@@ -57,6 +57,51 @@ body {
   line-height: 1.6;
 }
 
+/* ─── Global Scrollbar Styling (TICKET-000B) ─── */
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3f3f46 transparent;
+}
+
+/* WebKit (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* Hide scrollbar until hover on scrollable containers */
+.scrollbar-fade {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.scrollbar-fade:hover {
+  scrollbar-color: #3f3f46 transparent;
+}
+
+.scrollbar-fade::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.scrollbar-fade:hover::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+
 /* Site Logo — CSS wordmark */
 .site-logo {
   display: flex;
