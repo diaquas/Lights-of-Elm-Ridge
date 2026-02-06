@@ -1197,6 +1197,13 @@ function computeScore(
     return { score: 0, factors: zeroFactors };
   }
 
+  // ── MODEL vs GROUP HARD CONSTRAINT ──────────────────────
+  // Models should only match models. Groups should only match groups.
+  // e.g., "Tree - Spiral 2" (model) should NOT match "09 All Mega Trees" (group)
+  if (source.isGroup !== dest.isGroup) {
+    return { score: 0, factors: zeroFactors };
+  }
+
   // ── Group-vs-group matching ────────────────────────────
   if (source.isGroup && dest.isGroup) {
     // Note: SUBMODEL_GRP vs MODEL_GRP mismatch already handled above
