@@ -120,7 +120,6 @@ export function AutoAcceptPhase() {
         icon={<span className="text-5xl">&#127919;</span>}
         title="No High-Confidence Matches"
         description="No automatic matches found with 85%+ confidence. Continue to the next phase to map groups manually."
-        action={{ label: "Continue to Groups", onClick: goToNextPhase }}
       />
     );
   }
@@ -208,15 +207,6 @@ export function AutoAcceptPhase() {
           </details>
         </div>
 
-        <div className="px-8 py-4 border-t border-border flex-shrink-0 text-center">
-          <button
-            type="button"
-            onClick={goToNextPhase}
-            className="px-8 py-2.5 bg-accent hover:bg-accent/90 text-white font-medium rounded-lg transition-all duration-200"
-          >
-            Continue to Groups
-          </button>
-        </div>
       </div>
     );
   }

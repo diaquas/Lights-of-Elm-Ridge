@@ -58,7 +58,6 @@ export function SpinnersPhase() {
         icon={<span className="text-5xl">&#127921;</span>}
         title="No Spinner Submodel Groups"
         description="No spinner submodel groups detected. Continue to review."
-        action={{ label: "Continue to Review", onClick: goToNextPhase }}
       />
     );
   }
@@ -160,7 +159,6 @@ export function SpinnersPhase() {
         icon={<span className="text-5xl">&#10024;</span>}
         title="Spinner Matching Complete!"
         description={`${mappedSpinners} of ${totalSpinners} spinner submodel groups matched.`}
-        action={{ label: "Continue to Review", onClick: goToNextPhase }}
       />
     );
   }

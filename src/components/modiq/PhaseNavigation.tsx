@@ -10,10 +10,11 @@ export function PhaseNavigation() {
     goToPreviousPhase,
     canGoNext,
     canGoPrevious,
-    phaseProgress,
+    overallProgress,
   } = useMappingPhase();
 
-  const currentConfig = PHASE_CONFIG.find((p) => p.id === currentPhase);
+  const phaseIndex = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
+  const nextPhase = phaseIndex < PHASE_CONFIG.length - 1 ? PHASE_CONFIG[phaseIndex + 1] : null;
 
   return (
     <div className="flex items-center justify-between px-6 py-3 bg-surface border-t border-border">
@@ -35,14 +36,11 @@ export function PhaseNavigation() {
         Back
       </button>
 
-      {/* Phase Info */}
-      <div className="text-center">
-        <div className="text-sm text-foreground/50">{currentConfig?.description}</div>
-        {currentPhase !== "review" && (
-          <div className="text-xs text-foreground/30 mt-0.5">
-            {phaseProgress.completed} of {phaseProgress.total} complete in this phase
-          </div>
-        )}
+      {/* Overall Progress */}
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-foreground/50">
+          {overallProgress.completed} of {overallProgress.total} mapped
+        </span>
       </div>
 
       {/* Next / Export Button */}
@@ -55,13 +53,13 @@ export function PhaseNavigation() {
           onClick={goToNextPhase}
           disabled={!canGoNext}
           className={`
-            flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+            flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
             ${canGoNext
-              ? "bg-accent text-white hover:bg-accent/90"
+              ? "bg-accent text-white hover:bg-accent/90 shadow-sm"
               : "bg-foreground/10 text-foreground/20 cursor-not-allowed"}
           `}
         >
-          Continue
+          Continue{nextPhase ? ` to ${nextPhase.label}` : ""}
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

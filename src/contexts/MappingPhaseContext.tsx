@@ -161,12 +161,12 @@ export function MappingPhaseProvider({
   const overallProgress = useMemo((): PhaseProgress => {
     const nonSkipped = interactive.sourceLayerMappings.filter((l) => !l.isSkipped);
     const total = nonSkipped.length;
-    const mapped = nonSkipped.filter((l) => l.isMapped).length;
+    const completed = nonSkipped.filter((l) => l.isMapped).length;
     return {
-      mapped,
+      completed,
       total,
-      percentage: total > 0 ? Math.round((mapped / total) * 100) : 0,
-    } as PhaseProgress & { mapped: number };
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+    };
   }, [interactive.sourceLayerMappings]);
 
   const phaseCounts = useMemo(() => {
