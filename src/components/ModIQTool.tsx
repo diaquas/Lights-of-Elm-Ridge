@@ -1168,7 +1168,7 @@ function InteractiveResults({
     result.low.sort((a, b) => b.confidence - a.confidence);
 
     return result;
-  }, [mappedLayers, interactive]);
+  }, [mappedLayers, interactive.getSuggestionsForLayer]);
 
   // State for confidence tier collapse
   const [showHighTier, setShowHighTier] = useState(true);
@@ -1198,7 +1198,7 @@ function InteractiveResults({
     );
     if (!sl) return [];
     return interactive.getSuggestionsForLayer(sl.sourceModel).slice(0, 5);
-  }, [focusedSourceLayer, interactive]);
+  }, [focusedSourceLayer, interactive.sourceLayerMappings, interactive.getSuggestionsForLayer]);
 
   // Global suggestions: top unmapped source layers with their best user matches (for when nothing selected)
   const globalSuggestions = useMemo(() => {
@@ -1226,7 +1226,7 @@ function InteractiveResults({
     });
 
     return suggestions.slice(0, 5);
-  }, [focusedSourceLayer, interactive]);
+  }, [focusedSourceLayer, interactive.sourceLayerMappings, interactive.getSuggestionsForLayer]);
 
   // Right panel: user models categorized (all models always visible, never hidden by assignment)
   const { userGroups, userModels } = useMemo(() => {

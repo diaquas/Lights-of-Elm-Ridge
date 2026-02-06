@@ -22,6 +22,8 @@ export {
   mapSubmodels,
   scoreToConfidence,
   isDmxModel,
+  clearTokenCache,
+  clearSubmodelCache,
 } from "./matcher";
 export type {
   Confidence,

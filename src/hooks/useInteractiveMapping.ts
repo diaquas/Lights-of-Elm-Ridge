@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import type {
   MappingResult,
   ModelMapping,
@@ -1026,21 +1026,49 @@ export function useInteractiveMapping(
     });
   }, []);
 
+  // Suggestion cache: keyed by sourceModel.name, invalidated when links change
+  const suggestionCacheRef = useRef<{
+    version: number;
+    cache: Map<string, ReturnType<typeof suggestMatchesForSource>>;
+  }>({ version: 0, cache: new Map() });
+
+  // Track sourceDestLinks changes via serialized size (fast approximate check)
+  const linksVersion = useMemo(() => {
+    let v = sourceDestLinks.size;
+    for (const [, dests] of sourceDestLinks) {
+      v += dests.size;
+    }
+    return v;
+  }, [sourceDestLinks]);
+
+  // Invalidate cache when links change
+  if (suggestionCacheRef.current.version !== linksVersion) {
+    suggestionCacheRef.current = { version: linksVersion, cache: new Map() };
+  }
+
   // V3 suggestions: given a source layer, rank user models
   // With many-to-one, all non-DMX models are candidates EXCEPT those
   // already linked to THIS specific source layer.
+  // Uses cache for performance - avoids re-scoring unchanged layers.
   const getSuggestionsForLayer = useCallback(
     (sourceModel: ParsedModel) => {
+      const cacheKey = sourceModel.name;
+      const cached = suggestionCacheRef.current.cache.get(cacheKey);
+      if (cached) return cached;
+
       const alreadyLinked = sourceDestLinks.get(sourceModel.name);
       const pool = destModels.filter(
         (m) => !isDmxModel(m) && !alreadyLinked?.has(m.name),
       );
-      return suggestMatchesForSource(
+      const suggestions = suggestMatchesForSource(
         sourceModel,
         pool,
         sourceModels,
         destModels,
       );
+
+      suggestionCacheRef.current.cache.set(cacheKey, suggestions);
+      return suggestions;
     },
     [destModels, sourceModels, sourceDestLinks],
   );

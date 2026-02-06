@@ -149,6 +149,26 @@ const SYNONYMS: Record<string, string[]> = {
 };
 
 /**
+ * Pre-computed reverse synonym map for O(1) lookup.
+ * Maps each synonym value back to its canonical key.
+ * Built once at module load time instead of O(n) lookup per tokenize() call.
+ */
+const REVERSE_SYNONYMS: Map<string, string> = (() => {
+  const map = new Map<string, string>();
+  for (const [key, vals] of Object.entries(SYNONYMS)) {
+    for (const v of vals) {
+      // For multi-word synonyms, map each word too
+      map.set(v, key);
+      const words = v.split(/\s+/);
+      if (words.length > 1) {
+        for (const w of words) map.set(w, key);
+      }
+    }
+  }
+  return map;
+})();
+
+/**
  * Canonical prop-type keywords. When these appear in a name,
  * they are the "essence" of what the model is.
  */
@@ -278,23 +298,42 @@ function extractIndex(name: string): number {
 }
 
 /**
+ * Tokenization cache to avoid re-computing for the same normalized names.
+ * Cleared between matching sessions via clearTokenCache().
+ */
+const tokenCache = new Map<string, Set<string>>();
+
+/**
+ * Clear the tokenization cache. Call between independent matching sessions.
+ */
+export function clearTokenCache(): void {
+  tokenCache.clear();
+}
+
+/**
  * Tokenize a normalized name, expanding synonyms.
+ * Uses pre-computed REVERSE_SYNONYMS for O(1) reverse lookup.
+ * Results are cached for repeated lookups of the same name.
  */
 function tokenize(normalized: string): Set<string> {
+  const cached = tokenCache.get(normalized);
+  if (cached) return cached;
+
   const rawTokens = normalized.split(/\s+/).filter(Boolean);
   const expanded = new Set<string>();
   for (const tok of rawTokens) {
     expanded.add(tok);
-    // Add synonym expansions
+    // Add synonym expansions (forward lookup)
     const syns = SYNONYMS[tok];
     if (syns) {
       for (const s of syns) expanded.add(s);
     }
-    // Reverse: if tok matches a synonym value, add the key too
-    for (const [key, vals] of Object.entries(SYNONYMS)) {
-      if (vals.includes(tok)) expanded.add(key);
-    }
+    // Reverse lookup: O(1) via pre-computed map
+    const reverseKey = REVERSE_SYNONYMS.get(tok);
+    if (reverseKey) expanded.add(reverseKey);
   }
+
+  tokenCache.set(normalized, expanded);
   return expanded;
 }
 
@@ -433,15 +472,38 @@ function scoreMemberOverlap(source: ParsedModel, dest: ParsedModel): number {
 
   if (matches === 0) {
     // Try token-level matching for cross-language cases
+    // Optimization: pre-tokenize all members first (uses cache)
     const srcTokenSets = srcMembers.map((m) => tokenize(normalizeName(m)));
     const destTokenSets = destMembers.map((m) => tokenize(normalizeName(m)));
 
+    // Build combined dest token set for O(1) lookups
+    const allDestTokens = new Set<string>();
+    for (const dSet of destTokenSets) {
+      for (const t of dSet) allDestTokens.add(t);
+    }
+
     let tokenMatches = 0;
     for (const srcSet of srcTokenSets) {
+      // Quick check: does srcSet have ANY token in dest pool?
+      let hasAnyOverlap = false;
+      for (const t of srcSet) {
+        if (allDestTokens.has(t)) {
+          hasAnyOverlap = true;
+          break;
+        }
+      }
+      if (!hasAnyOverlap) continue;
+
+      // Full check: find a destSet with >50% overlap
       for (const destSet of destTokenSets) {
         let overlap = 0;
+        const threshold = Math.max(srcSet.size, destSet.size) * 0.5;
         for (const t of srcSet) {
-          if (destSet.has(t)) overlap++;
+          if (destSet.has(t)) {
+            overlap++;
+            // Early exit: already past threshold
+            if (overlap > threshold) break;
+          }
         }
         if (overlap / Math.max(srcSet.size, destSet.size) > 0.5) {
           tokenMatches++;
@@ -1139,11 +1201,28 @@ function isSpinnerSharedMatch(source: ParsedModel, dest: ParsedModel): boolean {
 // Submodel Matching
 // ═══════════════════════════════════════════════════════════════════
 
+/**
+ * Cache for submodel mappings to avoid recomputing during export.
+ */
+const submodelCache = new Map<string, SubmodelMapping[]>();
+
+/**
+ * Clear the submodel mapping cache.
+ */
+export function clearSubmodelCache(): void {
+  submodelCache.clear();
+}
+
 function mapSubmodels(
   source: ParsedModel,
   dest: ParsedModel,
 ): SubmodelMapping[] {
   if (source.submodels.length === 0) return [];
+
+  // Check cache
+  const cacheKey = `${source.name}:${dest.name}`;
+  const cached = submodelCache.get(cacheKey);
+  if (cached) return cached;
 
   const mappings: SubmodelMapping[] = [];
   const usedDest = new Set<number>();
@@ -1195,6 +1274,8 @@ function mapSubmodels(
     }
   }
 
+  // Store in cache before returning
+  submodelCache.set(cacheKey, mappings);
   return mappings;
 }
 
@@ -1550,6 +1631,32 @@ export function matchModels(
 }
 
 /**
+ * Fast pre-filter to skip obviously incompatible pairs before expensive scoring.
+ * Returns true if the pair should be SKIPPED (incompatible).
+ */
+function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
+  // Skip DMX and moving head models
+  if (isDmxModel(dest) || isDmxModel(source)) return true;
+  if (isMovingHead(dest) || isMovingHead(source)) return true;
+
+  // Matrix type-lock: matrix only matches matrix (unless both are groups)
+  if (isMatrixType(source) !== isMatrixType(dest)) {
+    if (!(source.isGroup && dest.isGroup)) return true;
+  }
+
+  // Extreme pixel count difference (>= 1000) for non-groups
+  if (!source.isGroup && !dest.isGroup) {
+    const srcPx = source.pixelCount;
+    const destPx = dest.pixelCount;
+    if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
  * Greedy matching within a pool of source and dest models.
  * Returns mappings for all source models (matched or unmapped).
  */
@@ -1559,7 +1666,7 @@ function greedyMatch(
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
 ): ModelMapping[] {
-  // Build score matrix
+  // Build score matrix with pre-filtering
   const entries: {
     srcIdx: number;
     destIdx: number;
@@ -1569,6 +1676,9 @@ function greedyMatch(
 
   for (let s = 0; s < sources.length; s++) {
     for (let d = 0; d < dests.length; d++) {
+      // Fast pre-filter: skip incompatible pairs before expensive scoring
+      if (shouldSkipPair(sources[s], dests[d])) continue;
+
       const { score, factors } = computeScore(
         sources[s],
         dests[d],
@@ -1674,6 +1784,9 @@ export function suggestMatches(
   }[] = [];
 
   for (const source of sourcePool) {
+    // Fast pre-filter: skip incompatible pairs
+    if (shouldSkipPair(source, destModel)) continue;
+
     const { score, factors } = computeScore(
       source,
       destModel,
@@ -1721,6 +1834,9 @@ export function suggestMatchesForSource(
   }[] = [];
 
   for (const dest of destPool) {
+    // Fast pre-filter: skip incompatible pairs
+    if (shouldSkipPair(sourceModel, dest)) continue;
+
     const { score, factors } = computeScore(
       sourceModel,
       dest,
