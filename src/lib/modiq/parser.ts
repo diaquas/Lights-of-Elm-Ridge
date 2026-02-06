@@ -698,7 +698,7 @@ function getSemanticCategory(groupName: string): string | undefined {
 /**
  * Fully classify a group: determine type, parent models, and semantic category.
  */
-function classifyGroup(
+export function classifyGroup(
   groupName: string,
   memberModels: string[]
 ): { groupType: GroupType; parentModels?: string[]; semanticCategory?: string } {
