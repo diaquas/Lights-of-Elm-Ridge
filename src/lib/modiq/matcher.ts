@@ -102,8 +102,11 @@ const WEIGHTS = {
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * Expanded abbreviation/synonym map built from analyzing 7 community files.
+ * Expanded abbreviation/synonym map built from analyzing community xmap files.
  * Maps short forms → canonical forms for cross-matching.
+ *
+ * Priority: Direct name matches always win. These synonyms are fallbacks
+ * for when no exact match exists.
  */
 const SYNONYMS: Record<string, string[]> = {
   // Directions
@@ -120,7 +123,8 @@ const SYNONYMS: Record<string, string[]> = {
   mod: ["model"],
   vert: ["vertical", "verticals", "verts", "verticle", "verticl"],
   horiz: ["horizontal", "horizontals"],
-  eave: ["horizontal", "horizontals", "eaves"],
+  eave: ["horizontal", "horizontals", "eaves", "roofline", "icicles"],
+  roofline: ["eave", "eaves", "horizontal", "horizontals"],
   // Props
   arch: ["arches", "archway"],
   ss: ["showstopper"],
@@ -128,24 +132,78 @@ const SYNONYMS: Record<string, string[]> = {
   dw: ["driveway"],
   sw: ["sidewalk"],
   pole: ["pixel pole"],
+  cane: ["candy cane", "candycane", "canes"],
+  candycane: ["cane", "canes"],
   // Vendor abbreviations / type patterns
   spin: ["spinner"],
   moaw: ["wreath"],
   boaw: ["wreath"],
-  // Common renames from community files
-  tumba: ["tombstone", "tomb"],
-  contorno: ["outline"],
-  estrella: ["star"],
-  arbol: ["tree"],
-  cana: ["cane"],
-  araña: ["spider"],
-  murcielago: ["bat"],
-  fantasma: ["ghost"],
-  calabaza: ["pumpkin"],
+  // Spanish-English translations (comprehensive)
+  tumba: ["tombstone", "tomb", "tumbas"],
+  tombstone: ["tumba", "tumbas", "tomb"],
+  contorno: ["outline", "contornos"],
+  outline: ["contorno", "contornos"],
+  estrella: ["star", "estrellas"],
+  arbol: ["tree", "arboles"],
+  cana: ["cane", "canas"],
+  araña: ["spider", "arañas"],
+  murcielago: ["bat", "murcielagos"],
+  fantasma: ["ghost", "fantasmas"],
+  calabaza: ["pumpkin", "calabazas"],
+  rip: ["rip"], // stays same in both languages
+  // Cross-holiday/prop mappings (used when no direct match exists)
+  firework: ["spiral tree", "inverted tree", "spiral", "fireworks"],
+  spiral: ["firework", "fireworks", "inverted tree"],
+  "pixel forest": ["peace stakes", "vertical matrix"],
+  "peace stakes": ["pixel forest"],
+  // GE product synonyms (same physical prop, different vendor names)
+  fuzion: ["rosa wreath", "rosawreath", "rosa"],
+  "rosa wreath": ["fuzion"],
+  rosawreath: ["fuzion"],
+  // Flake submodel synonyms
+  "flake arms": ["snowflake tips", "tips"],
+  "flake spokes": ["center stars", "snowflake spokes"],
+  // Singing prop types (all singing props are interchangeable)
+  pimp: ["singing pumpkin", "singing face", "singing prop"],
+  "singing pumpkin": ["pimp", "singing skull", "singing face", "singing prop"],
+  "singing skull": ["pimp", "singing pumpkin", "singing face"],
+  "singing tree": ["singing bulb", "efl snowman", "singing face"],
+  "singing bulb": ["singing tree", "efl snowman"],
   // Compound abbreviations
   mt: ["mega tree", "megatree"],
   mh: ["moving head", "movinghead"],
   ppd: ["wreath"],
+};
+
+/**
+ * Spanish-English translation map for model names.
+ * Applies bidirectionally during name normalization.
+ */
+const SPANISH_ENGLISH_MAP: Record<string, string> = {
+  // Spanish → English
+  tumba: "tombstone",
+  tumbas: "tombstones",
+  contorno: "outline",
+  contornos: "outlines",
+  estrella: "star",
+  estrellas: "stars",
+  arbol: "tree",
+  arboles: "trees",
+  cana: "cane",
+  canas: "canes",
+  araña: "spider",
+  arañas: "spiders",
+  murcielago: "bat",
+  murcielagos: "bats",
+  fantasma: "ghost",
+  fantasmas: "ghosts",
+  calabaza: "pumpkin",
+  calabazas: "pumpkins",
+  todo: "all",
+  todos: "all",
+  linea: "line",
+  lineas: "lines",
+  // English → Spanish (reverse lookups handled by tokenization)
 };
 
 /**
@@ -257,14 +315,21 @@ function canonicalBase(base: string): string {
  * Normalize a model name for comparison:
  * - lowercase
  * - strip separators to spaces
- * - strip version prefixes like "01.11" or "02.14.0Grp"
+ * - strip version prefixes (various formats from vendors)
  * - strip common noise words (all, group, grp, my, the, model, mod)
  * - strip trailing numeric indices for base-name comparison
  */
 function normalizeName(name: string): string {
   let n = name.toLowerCase();
-  // Strip version-prefix patterns like "01.11", "02.14.0Grp", "03.7.0Mod"
-  n = n.replace(/^\d{1,3}\.\d{1,3}(\.\d+)?(grp|mod|sub)?\s*/i, "");
+  // Strip version-prefix patterns from various vendors:
+  //   "01.11 Garage Peak" → "Garage Peak"
+  //   "02.14.0Grp FLOODS" → "FLOODS"
+  //   "03.16.0Mod Showstopper" → "Showstopper"
+  //   "01.9.3Sub Peace Stakes" → "Peace Stakes"
+  //   "01 Cascading Arches" → "Cascading Arches" (simple numeric prefix)
+  n = n.replace(/^\d{1,3}(\.\d{1,3})*(\.\d+)?(grp|mod|sub)?\s+/i, "");
+  // Also strip simple leading "NN " pattern (e.g., "01 ", "15 ")
+  n = n.replace(/^\d{1,2}\s+/, "");
   // Replace separators with spaces
   n = n.replace(/[-_.\t]+/g, " ");
   // Strip noise words (keep "no" — it's meaningful for group matching)
@@ -816,6 +881,26 @@ function isFloodType(model: ParsedModel): boolean {
 }
 
 /**
+ * Check if a model is a large spinner/wreath type (500+ pixels).
+ * Large spinners are generally compatible with each other regardless of
+ * exact pixel count (e.g., Showstopper, GE Overlord, GE Fuzion, Rosa Wreath).
+ * This allows 800px Showstopper to match 1529px GE Overlord.
+ */
+function isLargeSpinner(model: ParsedModel): boolean {
+  const n = model.name.toLowerCase();
+  const da = model.displayAs.toLowerCase();
+  // Type-based detection
+  if (model.type === "Spinner" || da === "spinner" || da.includes("wreath")) {
+    return true;
+  }
+  // Name-based detection for common spinner/wreath products
+  if (/\b(spinner|showstopper|fuzion|rosa|overlord|wreath|starburst|click\s*click\s*boom|grand\s*illusion|shape\s*shifter|king|spinarcy)\b/i.test(n)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Holiday indicator detection.
  * Returns "halloween", "christmas", or null if no clear indicator.
  */
@@ -887,9 +972,16 @@ function isHouseLine(model: ParsedModel): boolean {
 }
 
 /** Check if a model is a singing face/prop.
- *  Detects via name ("singing") or submodel names (mouth/eyes/phoneme). */
+ *  Detects via name patterns or submodel names (mouth/eyes/phoneme).
+ *  Common vendor names: "Pimp", "Male Singing Prop", "EFL Snowman", "Singing Bulb" */
 function isSinging(model: ParsedModel): boolean {
-  if (/\bsinging\b/i.test(model.name)) return true;
+  const n = model.name.toLowerCase();
+  // Direct "singing" keyword
+  if (/\bsinging\b/i.test(n)) return true;
+  // Vendor names for singing props
+  if (/\bpimp\b/i.test(n)) return true;
+  if (/\befl\s*snowman\b/i.test(n)) return true;
+  // Submodel detection (mouth/eyes/phoneme indicates a singing face)
   return model.submodels.some((s) => /\b(mouth|eyes?|phoneme)\b/i.test(s.name));
 }
 
@@ -988,11 +1080,20 @@ function computeScore(
 
   // Extreme pixel count difference: if drift >= 1000 and neither is a group,
   // these models are fundamentally different (e.g. 100px spider vs 12000px matrix)
+  // EXCEPTION: Large spinners (500+ pixels) are generally compatible with each other
+  // regardless of pixel count differences (e.g., 800px Showstopper ↔ 1529px GE Overlord)
   if (!source.isGroup && !dest.isGroup) {
     const srcPx = source.pixelCount;
     const destPx = dest.pixelCount;
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
-      return { score: 0, factors: zeroFactors };
+      // Check if both are large spinners (500+ pixels each)
+      const bothLargeSpinners =
+        isLargeSpinner(source) && isLargeSpinner(dest) &&
+        srcPx >= 500 && destPx >= 500;
+      if (!bothLargeSpinners) {
+        return { score: 0, factors: zeroFactors };
+      }
+      // Large spinners with big pixel diff: allow but score will reflect mismatch
     }
   }
 
@@ -1016,6 +1117,16 @@ function computeScore(
         return { score: 0, factors: zeroFactors };
       }
     }
+  }
+
+  // SINGING CONSTRAINT: Singing models ONLY match other singing models.
+  // Never cross-match a singing face/prop to a non-singing model.
+  // This is a hard rule from community xmap analysis.
+  const srcSinging = isSinging(source);
+  const destSinging = isSinging(dest);
+  if (srcSinging !== destSinging) {
+    // One is singing, the other is not — hard exclusion
+    return { score: 0, factors: zeroFactors };
   }
 
   // ── Compute base factors ───────────────────────────────
@@ -1090,6 +1201,27 @@ function computeScore(
     factors.shape * WEIGHTS.shape +
     factors.type * WEIGHTS.type +
     factors.pixels * WEIGHTS.pixels;
+
+  // COORDINATE-BASED TIEBREAKER: When base names match but indices differ,
+  // position becomes the primary differentiator.
+  // e.g., "Window 1" vs "Window 2" → match by leftmost-to-leftmost
+  // e.g., "Spinner - Showstopper 1" vs "Spinner - Showstopper 2" → match by position
+  if (!source.isGroup && !dest.isGroup) {
+    const srcBase = baseName(source.name);
+    const destBase = baseName(dest.name);
+    const srcIdx = extractIndex(source.name);
+    const destIdx = extractIndex(dest.name);
+    // If base names match well but indices differ, boost spatial weight significantly
+    if (srcBase === destBase && srcBase.length > 0 && srcIdx !== destIdx) {
+      // Re-weight: spatial becomes 45%, name drops to 20%
+      score =
+        factors.name * 0.20 +
+        factors.spatial * 0.45 +
+        factors.shape * WEIGHTS.shape +
+        factors.type * WEIGHTS.type +
+        factors.pixels * WEIGHTS.pixels;
+    }
+  }
 
   // Eave/vert individual models should preferably match other house-line
   // models (eave, vert, roofline, outline), not random props
@@ -1645,11 +1777,18 @@ function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
   }
 
   // Extreme pixel count difference (>= 1000) for non-groups
+  // EXCEPTION: Large spinners (500+ pixels) are compatible with each other
   if (!source.isGroup && !dest.isGroup) {
     const srcPx = source.pixelCount;
     const destPx = dest.pixelCount;
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
-      return true;
+      // Allow large spinners to pass through
+      const bothLargeSpinners =
+        isLargeSpinner(source) && isLargeSpinner(dest) &&
+        srcPx >= 500 && destPx >= 500;
+      if (!bothLargeSpinners) {
+        return true;
+      }
     }
   }
 
