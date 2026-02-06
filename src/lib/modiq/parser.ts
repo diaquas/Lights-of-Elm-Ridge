@@ -331,10 +331,6 @@ const MODEL_GROUP_PATTERNS = [
   /^\d+\s+All\s+/i,               // "10 All Arches", "6 All Tombstones"
   /^GROUP\s*-/i,                  // "GROUP - All Ghosts"
   /^FOLDER\s*-/i,                 // "FOLDER - Rosa Tomb Groups"
-  // Top-level product groups (vendor + product name + GRP, no element)
-  /^PPD\s+\w+\s+GRP$/i,           // "PPD Wreath GRP" (not "PPD Wreath Spokes GRP")
-  /^GE\s+\w+\s+GRP$/i,            // "GE Overlord GRP" (not "GE Overlord Spokes GRP")
-  /^Spinner\s*-\s*\w+\s*\d*$/i,   // "Spinner - Showstopper 1", "Spinner - Fuzion"
 ];
 
 /**
@@ -473,9 +469,10 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
  * Derived from parsing 1,340+ xmodel files across 4 major vendors.
  */
 const KNOWN_SPINNER_PROPS: string[] = [
-  // Gilbert Engineering (17 families)
+  // Gilbert Engineering (17+ families)
   "GE Spin Reel Max",
   "GE SpinReel Max",
+  "GE SpinReel",
   "GE Reel Max",
   "Grand Illusion",
   "Baby Grand Illusion",
@@ -495,12 +492,17 @@ const KNOWN_SPINNER_PROPS: string[] = [
   "GE Firework Spinner",
   "GE Magical Spinner",
   "StarBurst xTreme",
+  "GE Starburst",
   "GE Click Click Boom",
   "GE Overlord",
   "GE King Diamond",
   "GE Shape Shifter",
+  "GE SpinArchy",
+  "GE XLS",
+  "GE Preying",
   // EFL Designs (4 families)
   "Showstopper Snowflake",
+  "Showstopper",
   "Smiley_Wreath",
   "BigdaFan",
   "BabyFlake",
@@ -519,6 +521,8 @@ const KNOWN_SPINNER_PROPS: string[] = [
   "Star Wreath",
   // PPD
   "PPD Wreath",
+  // CCC
+  "CCC",
 ];
 
 /**
@@ -625,39 +629,37 @@ function classifyGroupFromMembers(
 }
 
 /**
- * Classify a group based on its name (fallback when member analysis is inconclusive).
+ * Classify a group based on its name.
+ *
+ * Any group whose name matches a known spinner product is SUBMODEL_GROUP,
+ * whether it's the whole product ("GE Starlord GRP") or a specific element
+ * ("GE Starlord Spokes GRP"). Spinner product groups always belong in the
+ * Spinners phase.
  */
 function classifyGroupByName(groupName: string): GroupType {
-  // Check if it matches known MODEL_GROUP patterns first (take priority)
-  for (const pattern of MODEL_GROUP_PATTERNS) {
-    if (pattern.test(groupName)) {
-      return "MODEL_GROUP";
-    }
-  }
-
-  // Check known SUBMODEL_GROUP prefixes (reliable, unambiguous)
+  // Check known SUBMODEL_GROUP prefixes first (reliable, unambiguous)
   for (const prefix of SUBMODEL_GROUP_PREFIXES) {
     if (groupName.startsWith(prefix)) {
       return "SUBMODEL_GROUP";
     }
   }
 
-  // Check vendor + element combination (e.g., "GE Rosa Spokes GRP" but not "GE Rosa GRP")
+  // Check vendor + element combination (e.g., "GE Rosa Spokes GRP")
   if (hasVendorPlusElement(groupName)) {
     return "SUBMODEL_GROUP";
   }
 
-  // Check if group references a known spinner prop family AND contains an element keyword
-  // e.g., "Showstopper Rings GRP" → SUBMODEL_GROUP (known prop + element)
-  // but "Showstopper GRP" → MODEL_GROUP (just the prop, no element)
+  // Any group referencing a known spinner product is a SUBMODEL_GROUP —
+  // whether it's the whole product ("GE Starlord GRP") or an element
+  // ("GE Starlord Spokes GRP"). Spinner groups always go to Spinners phase.
   if (isKnownSpinnerProp(groupName)) {
-    const hasElement = SUBMODEL_ELEMENT_KEYWORDS.some(keyword => {
-      const keywordUpper = keyword.toUpperCase();
-      const regex = new RegExp(`\\b${keywordUpper}\\b`);
-      return regex.test(groupName.toUpperCase());
-    });
-    if (hasElement) {
-      return "SUBMODEL_GROUP";
+    return "SUBMODEL_GROUP";
+  }
+
+  // Check if it matches known MODEL_GROUP patterns
+  for (const pattern of MODEL_GROUP_PATTERNS) {
+    if (pattern.test(groupName)) {
+      return "MODEL_GROUP";
     }
   }
 
@@ -697,12 +699,33 @@ function getSemanticCategory(groupName: string): string | undefined {
 
 /**
  * Fully classify a group: determine type, parent models, and semantic category.
+ *
+ * Name-based detection takes priority for spinner products: if the group name
+ * matches a known spinner product, it's SUBMODEL_GROUP regardless of member
+ * composition. This handles product-level groups ("GE Starlord GRP"),
+ * meta-groups of spinner sub-groups, and mixed composition spinner groups.
  */
 export function classifyGroup(
   groupName: string,
   memberModels: string[]
 ): { groupType: GroupType; parentModels?: string[]; semanticCategory?: string } {
-  // Primary method: analyze member names using the xLights type system
+  // Name-based detection first: spinner product groups always win
+  const nameType = classifyGroupByName(groupName);
+  if (nameType === "SUBMODEL_GROUP") {
+    // Extract parent models from members if available
+    const parentNames = new Set<string>();
+    for (const member of memberModels) {
+      const slashIdx = member.indexOf("/");
+      if (slashIdx > 0) parentNames.add(member.substring(0, slashIdx));
+    }
+    return {
+      groupType: "SUBMODEL_GROUP",
+      parentModels: parentNames.size > 0 ? Array.from(parentNames) : [],
+      semanticCategory: getSemanticCategory(groupName),
+    };
+  }
+
+  // Member-based analysis for non-spinner groups
   const memberAnalysis = classifyGroupFromMembers(memberModels);
 
   if (memberAnalysis.groupType === "SUBMODEL_GROUP") {
@@ -716,18 +739,6 @@ export function classifyGroup(
   // META_GROUP and MIXED_GROUP are detected purely from members
   if (memberAnalysis.groupType === "META_GROUP" || memberAnalysis.groupType === "MIXED_GROUP") {
     return { groupType: memberAnalysis.groupType };
-  }
-
-  // For MODEL_GROUP from member analysis, also check name-based fallback
-  // (name patterns may detect SUBMODEL_GROUP that member analysis missed)
-  const nameType = classifyGroupByName(groupName);
-
-  if (nameType === "SUBMODEL_GROUP") {
-    return {
-      groupType: "SUBMODEL_GROUP",
-      parentModels: [],
-      semanticCategory: getSemanticCategory(groupName),
-    };
   }
 
   return { groupType: "MODEL_GROUP" };
