@@ -223,12 +223,20 @@ function estimateSubmodelPixels(rangeData: string): number {
 // and SUBMODEL_GRP (collection of submodels within a single parent prop)
 
 /**
- * Known spinner/prop prefixes that indicate submodel groups.
- * These are established naming conventions for spinner submodel groups.
+ * Reliable SUBMODEL_GRP prefixes — these ALWAYS indicate submodel groups.
+ * Only includes patterns that are unambiguous.
  */
 const SUBMODEL_GROUP_PREFIXES = [
   "S - ",              // Showstopper convention: "S - Big Hearts", "S - Rings"
-  "PPD ",              // PPD spinner submodels
+  "Spinners - ",       // Generic spinner submodel groups
+];
+
+/**
+ * Vendor prefixes that, when combined with element keywords, indicate SUBMODEL_GRP.
+ * These alone do NOT indicate SUBMODEL_GRP (e.g., "PPD Wreath GRP" is MODEL_GRP).
+ */
+const SPINNER_VENDOR_PREFIXES = [
+  "PPD",               // PPD spinners
   "GE SpinReel",       // Gilbert Engineering SpinReel
   "GE SpinArchy",      // Gilbert Engineering SpinArchy
   "GE Grand Illusion", // Gilbert Engineering Grand Illusion
@@ -238,46 +246,65 @@ const SUBMODEL_GROUP_PREFIXES = [
   "GE Fuzion",         // Gilbert Engineering Fuzion
   "GE Click Click",    // Gilbert Engineering Click Click Boom alt
   "GE Preying",        // Gilbert Engineering Preying Spider
-  "EFL Showstopper",   // EFL spinner
-  "Spinners -",        // Generic spinner submodel groups
+  "EFL",               // EFL spinner
+  "CCC",               // Christmas Concepts Corp
+  "Boscoyo",           // Boscoyo
 ];
 
 /**
- * Submodel group pattern suffixes — these indicate specific submodel types
- * (rings, spokes, arms, etc.) that are parts of a larger spinner/prop.
+ * Element keywords that indicate submodel components of a spinner.
+ * When combined with a vendor prefix, these indicate SUBMODEL_GRP.
  */
-const SUBMODEL_GROUP_PATTERNS = [
-  /\bRings?\b.*(?:All|GRP)?$/i,
-  /\bSpokes?\b.*(?:All|GRP)?$/i,
-  /\bArms?\b.*(?:All|GRP)?$/i,
-  /\bPetals?\b.*(?:All|GRP)?$/i,
-  /\bFlowers?\b.*(?:All|GRP)?$/i,
-  /\bHearts?\b.*(?:All|GRP)?$/i,
-  /\bCircles?\b.*(?:All|GRP)?$/i,
-  /\bSpirals?\b.*(?:All|GRP)?$/i,
-  /\bBalls?\b.*(?:All|GRP)?$/i,
-  /\bRibbons?\b.*(?:All|GRP)?$/i,
-  /\bTriangles?\b.*(?:All|GRP)?$/i,
-  /\bDiamonds?\b.*(?:All|GRP)?$/i,
-  /\bScallops?\b.*(?:All|GRP)?$/i,
-  /\bFeathers?\b.*(?:All|GRP)?$/i,
-  /\bStars?\b.*(?:All|GRP)?$/i,
-  /\bArrows?\b.*(?:All|GRP)?$/i,
-  /\bOutline\b.*(?:All|GRP)?$/i,
-  /\bCenter\b.*(?:All|GRP)?$/i,
-  /\bOuter\b.*(?:All|GRP)?$/i,
-  /\bInner\b.*(?:All|GRP)?$/i,
-  /\bEven\b.*(?:All|GRP)?$/i,
-  /\bOdd\b.*(?:All|GRP)?$/i,
-  /\bSwirl\b.*(?:All|GRP)?$/i,
-  /\bWillow\b.*(?:All|GRP)?$/i,
-  /\bSaucers?\b.*(?:All|GRP)?$/i,
-  /\bBows?\b.*(?:All|GRP)?$/i,
-  /\bLeaf\b.*(?:All|GRP)?$/i,
-  /\bIris\b.*(?:All|GRP)?$/i,
-  /\bChalice\b.*(?:All|GRP)?$/i,
-  /\bTorches?\b.*(?:All|GRP)?$/i,
-  /\bHooks?\b.*(?:All|GRP)?$/i,
+const SUBMODEL_ELEMENT_KEYWORDS = [
+  "Spokes", "Spoke",
+  "Rings", "Ring",
+  "Arms", "Arm",
+  "Petals", "Petal",
+  "Flowers", "Flower",
+  "Hearts", "Heart",
+  "Circles", "Circle",
+  "Spirals", "Spiral",
+  "Balls", "Ball",
+  "Ribbons", "Ribbon",
+  "Triangles", "Triangle",
+  "Diamonds", "Diamond",
+  "Scallops", "Scallop",
+  "Feathers", "Feather",
+  "Stars", "Star",
+  "Arrows", "Arrow",
+  "Outline",
+  "Center",
+  "Outer",
+  "Inner",
+  "Even",
+  "Odd",
+  "Swirl",
+  "Willow",
+  "Saucers", "Saucer",
+  "Bows", "Bow",
+  "Leaf",
+  "Iris",
+  "Chalice",
+  "Torches", "Torch",
+  "Hooks", "Hook",
+  "Stigma",
+  "Thelma",
+  "Snarfle",
+  "Desparado",
+  "Lolli",
+  "Noose",
+  "Friction",
+  "Points",
+  "Spaceship",
+  "Arrowhead",
+  "Windmill",
+  "Cone", "Cones",
+  "Finger",
+  "Piece of Work",
+  "Pull My Finger",
+  "Off Limits",
+  // Positional qualifiers when combined with vendor prefixes
+  "All",     // "GE Rosa Grande Spokes All GRP"
 ];
 
 /**
@@ -285,12 +312,40 @@ const SUBMODEL_GROUP_PATTERNS = [
  * rather than submodels of a single prop.
  */
 const MODEL_GROUP_PATTERNS = [
-  /^All\s*-\s*.*-\s*GRP$/i,     // "All - Arches - GRP", "All - Poles - GRP"
-  /^All\s+.*s$/i,               // "All Arches", "All Poles" (plural)
-  /^\d+\s+All\s+/i,             // "10 All Arches", "6 All Tombstones"
-  /^GROUP\s*-/i,                // "GROUP - All Ghosts"
-  /^FOLDER\s*-/i,               // "FOLDER - Rosa Tomb Groups"
+  /^All\s*-\s*.*-\s*GRP$/i,       // "All - Arches - GRP", "All - Poles - GRP"
+  /^All\s+\w+s(?:\s|$)/i,         // "All Arches", "All Poles" (plural nouns)
+  /^\d+\s+All\s+/i,               // "10 All Arches", "6 All Tombstones"
+  /^GROUP\s*-/i,                  // "GROUP - All Ghosts"
+  /^FOLDER\s*-/i,                 // "FOLDER - Rosa Tomb Groups"
+  // Top-level product groups (vendor + product name + GRP, no element)
+  /^PPD\s+\w+\s+GRP$/i,           // "PPD Wreath GRP" (not "PPD Wreath Spokes GRP")
+  /^GE\s+\w+\s+GRP$/i,            // "GE Overlord GRP" (not "GE Overlord Spokes GRP")
+  /^Spinner\s*-\s*\w+\s*\d*$/i,   // "Spinner - Showstopper 1", "Spinner - Fuzion"
 ];
+
+/**
+ * Check if a group name indicates a SUBMODEL_GRP based on vendor + element combination.
+ */
+function hasVendorPlusElement(groupName: string): boolean {
+  const upperName = groupName.toUpperCase();
+
+  // Check if name has a known vendor prefix
+  const hasVendorPrefix = SPINNER_VENDOR_PREFIXES.some(prefix =>
+    upperName.startsWith(prefix.toUpperCase())
+  );
+
+  if (!hasVendorPrefix) return false;
+
+  // Check if name also contains an element keyword
+  const hasElement = SUBMODEL_ELEMENT_KEYWORDS.some(keyword => {
+    const keywordUpper = keyword.toUpperCase();
+    // Must be a word boundary match (not part of product name)
+    const regex = new RegExp(`\\b${keywordUpper}\\b`);
+    return regex.test(upperName);
+  });
+
+  return hasElement;
+}
 
 /**
  * Semantic categories for submodel groups — used for cross-vendor matching.
@@ -389,18 +444,16 @@ function classifyGroupByName(groupName: string): GroupType {
     }
   }
 
-  // Check known SUBMODEL_GRP prefixes
+  // Check known SUBMODEL_GRP prefixes (reliable, unambiguous)
   for (const prefix of SUBMODEL_GROUP_PREFIXES) {
     if (groupName.startsWith(prefix)) {
       return "SUBMODEL_GRP";
     }
   }
 
-  // Check known SUBMODEL_GRP patterns (spinner parts like Rings, Spokes, etc.)
-  for (const pattern of SUBMODEL_GROUP_PATTERNS) {
-    if (pattern.test(groupName)) {
-      return "SUBMODEL_GRP";
-    }
+  // Check vendor + element combination (e.g., "GE Rosa Spokes GRP" but not "GE Rosa GRP")
+  if (hasVendorPlusElement(groupName)) {
+    return "SUBMODEL_GRP";
   }
 
   // Default to MODEL_GRP for generic groups
