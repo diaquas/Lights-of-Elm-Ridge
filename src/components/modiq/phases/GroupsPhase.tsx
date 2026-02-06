@@ -7,11 +7,15 @@ import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
+import { useBulkInference } from "@/hooks/useBulkInference";
+import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export function GroupsPhase() {
   const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
   const dnd = useDragAndDrop();
+
+  const bulk = useBulkInference(interactive, phaseItems);
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -63,7 +67,18 @@ export function GroupsPhase() {
     userModelName: string,
   ) => {
     interactive.assignUserModelToLayer(groupName, userModelName);
+    bulk.checkForPattern(groupName, userModelName);
     setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
+  };
+
+  const handleBulkInferenceAccept = () => {
+    if (!bulk.suggestion) return;
+    const bulkNames = new Set(bulk.suggestion.pairs.map((p) => p.sourceName));
+    bulk.acceptAll();
+    const remaining = unmappedGroups.filter(
+      (g) => !bulkNames.has(g.sourceModel.name),
+    );
+    setSelectedGroupId(remaining[0]?.sourceModel.name ?? null);
   };
 
   const handleBulkAccept = () => {
@@ -105,6 +120,14 @@ export function GroupsPhase() {
             {mappedGroups.length} already mapped
           </p>
         </div>
+
+        {bulk.suggestion && (
+          <BulkInferenceBanner
+            suggestion={bulk.suggestion}
+            onAcceptAll={handleBulkInferenceAccept}
+            onDismiss={bulk.dismiss}
+          />
+        )}
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <div className="space-y-2">

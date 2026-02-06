@@ -7,6 +7,8 @@ import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
+import { useBulkInference } from "@/hooks/useBulkInference";
+import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -23,6 +25,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 export function SpinnersPhase() {
   const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
   const dnd = useDragAndDrop();
+
+  const bulk = useBulkInference(interactive, phaseItems);
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -70,7 +74,18 @@ export function SpinnersPhase() {
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
+    bulk.checkForPattern(sourceName, userModelName);
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
+  };
+
+  const handleBulkInferenceAccept = () => {
+    if (!bulk.suggestion) return;
+    const bulkNames = new Set(bulk.suggestion.pairs.map((p) => p.sourceName));
+    bulk.acceptAll();
+    const remaining = unmappedItems.filter(
+      (i) => !bulkNames.has(i.sourceModel.name),
+    );
+    setSelectedItemId(remaining[0]?.sourceModel.name ?? null);
   };
 
   const handleBulkAccept = () => {
@@ -112,6 +127,14 @@ export function SpinnersPhase() {
             {mappedItems.length} already mapped
           </p>
         </div>
+
+        {bulk.suggestion && (
+          <BulkInferenceBanner
+            suggestion={bulk.suggestion}
+            onAcceptAll={handleBulkInferenceAccept}
+            onDismiss={bulk.dismiss}
+          />
+        )}
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <div className="space-y-2">
