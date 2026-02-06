@@ -6,10 +6,16 @@ import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
+import { useBulkInference } from "@/hooks/useBulkInference";
+import { useItemFamilies } from "@/hooks/useItemFamilies";
+import { BulkInferenceBanner } from "../BulkInferenceBanner";
+import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 
 export function IndividualsPhase() {
   const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
   const dnd = useDragAndDrop();
+
+  const bulk = useBulkInference(interactive, phaseItems);
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -26,6 +32,8 @@ export function IndividualsPhase() {
         item.sourceModel.type.toLowerCase().includes(q),
     );
   }, [unmappedItems, search]);
+
+  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
   const selectedItem = phaseItems.find(
     (i) => i.sourceModel.name === selectedItemId,
@@ -65,7 +73,18 @@ export function IndividualsPhase() {
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
+    bulk.checkForPattern(sourceName, userModelName);
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
+  };
+
+  const handleBulkInferenceAccept = () => {
+    if (!bulk.suggestion) return;
+    const bulkNames = new Set(bulk.suggestion.pairs.map((p) => p.sourceName));
+    bulk.acceptAll();
+    const remaining = unmappedItems.filter(
+      (i) => !bulkNames.has(i.sourceModel.name),
+    );
+    setSelectedItemId(remaining[0]?.sourceModel.name ?? null);
   };
 
   const handleSkip = (sourceName: string) => {
@@ -80,6 +99,50 @@ export function IndividualsPhase() {
     if (item) {
       handleAccept(sourceName, item.sourceModelName);
     }
+  };
+
+  const renderItemCard = (item: (typeof filteredUnmapped)[0]) => {
+    const topSugg = interactive.getSuggestionsForLayer(item.sourceModel)[0];
+    const isSelected = selectedItemId === item.sourceModel.name;
+    const isDropHover = dnd.state.activeDropTarget === item.sourceModel.name;
+    return (
+      <div
+        key={item.sourceModel.name}
+        onClick={() => setSelectedItemId(item.sourceModel.name)}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }}
+        onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
+        onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
+        onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
+        className={`
+          w-full p-3 rounded-lg text-left transition-all duration-200 cursor-pointer
+          ${isDropHover
+            ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
+            : isSelected
+              ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
+              : "bg-surface border border-border hover:border-foreground/20"}
+        `}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-[13px] font-medium text-foreground truncate">
+              {item.sourceModel.name}
+            </span>
+          </div>
+          {topSugg && (
+            <ConfidenceBadge score={topSugg.score} size="sm" />
+          )}
+        </div>
+        <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground/30">
+          {item.sourceModel.pixelCount ? (
+            <span>{item.sourceModel.pixelCount}px</span>
+          ) : null}
+          <span>{item.sourceModel.type}</span>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -115,49 +178,34 @@ export function IndividualsPhase() {
           </div>
         </div>
 
+        {bulk.suggestion && (
+          <BulkInferenceBanner
+            suggestion={bulk.suggestion}
+            onAcceptAll={handleBulkInferenceAccept}
+            onDismiss={bulk.dismiss}
+          />
+        )}
+
         {/* List */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <div className="space-y-1.5">
-            {filteredUnmapped.map((item) => {
-              const topSugg = interactive.getSuggestionsForLayer(item.sourceModel)[0];
-              const isSelected = selectedItemId === item.sourceModel.name;
-              const isDropHover = dnd.state.activeDropTarget === item.sourceModel.name;
+            {families.map((family) => {
+              if (family.items.length === 1) {
+                return renderItemCard(family.items[0]);
+              }
               return (
-                <div
-                  key={item.sourceModel.name}
-                  onClick={() => setSelectedItemId(item.sourceModel.name)}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                  }}
-                  onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
-                  onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
-                  onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
-                  className={`
-                    w-full p-3 rounded-lg text-left transition-all duration-200 cursor-pointer
-                    ${isDropHover
-                      ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
-                      : isSelected
-                        ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
-                        : "bg-surface border border-border hover:border-foreground/20"}
-                  `}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-[13px] font-medium text-foreground truncate">
-                        {item.sourceModel.name}
-                      </span>
+                <div key={family.prefix}>
+                  <FamilyAccordionHeader
+                    prefix={family.prefix}
+                    count={family.items.length}
+                    isExpanded={isExpanded(family.prefix)}
+                    onToggle={() => toggle(family.prefix)}
+                  />
+                  {isExpanded(family.prefix) && (
+                    <div className="space-y-1.5 pl-2 mt-1">
+                      {family.items.map((item) => renderItemCard(item))}
                     </div>
-                    {topSugg && (
-                      <ConfidenceBadge score={topSugg.score} size="sm" />
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground/30">
-                    {item.sourceModel.pixelCount ? (
-                      <span>{item.sourceModel.pixelCount}px</span>
-                    ) : null}
-                    <span>{item.sourceModel.type}</span>
-                  </div>
+                  )}
                 </div>
               );
             })}
