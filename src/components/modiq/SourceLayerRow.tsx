@@ -44,6 +44,27 @@ function DestCountBadge({ count }: { count: number }) {
   );
 }
 
+/** Effect count badge with color-coding by magnitude */
+function EffectCountBadge({ count }: { count: number }) {
+  if (count === 0) return null;
+
+  // Color-code by magnitude: 100+ bright orange, 10-99 yellow, 1-9 dim gray
+  const colorClass = count >= 100
+    ? "text-orange-400"
+    : count >= 10
+      ? "text-yellow-500/70"
+      : "text-foreground/30";
+
+  return (
+    <span
+      className={`text-[10px] tabular-nums flex-shrink-0 ${colorClass}`}
+      title={`${count} effects in this sequence`}
+    >
+      {count} fx
+    </span>
+  );
+}
+
 export default memo(function SourceLayerRow({
   layer,
   isFocused,
@@ -209,6 +230,7 @@ export default memo(function SourceLayerRow({
                 {name}
               </span>
               <DestCountBadge count={destCount} />
+              <EffectCountBadge count={layer.effectCount} />
             </div>
             <div className="text-[11px] text-foreground/40 truncate">
               &rarr; Your &quot;{firstDest.name}&quot;
@@ -346,6 +368,7 @@ export default memo(function SourceLayerRow({
             <span className="text-[13px] font-semibold text-foreground truncate">
               {name}
             </span>
+            <EffectCountBadge count={layer.effectCount} />
             {/* Expand chevron for groups */}
             {hasGroupPreview && (
               <svg

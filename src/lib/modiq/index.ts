@@ -4,7 +4,7 @@
  */
 
 export { parseRgbEffectsXml, normalizeType } from "./parser";
-export type { ParsedModel, ParsedLayout, SubModel } from "./parser";
+export type { ParsedModel, ParsedLayout, SubModel, GroupType } from "./parser";
 
 export {
   HALLOWEEN_MODELS,
@@ -40,7 +40,7 @@ export {
   downloadMappingReport,
 } from "./xmap-generator";
 
-export { parseXsqModels, getSequenceModelList } from "./xsq-parser";
+export { parseXsqModels, getSequenceModelList, getSequenceEffectCounts, getModelEffectCount } from "./xsq-parser";
 
 export {
   buildEffectTree,
