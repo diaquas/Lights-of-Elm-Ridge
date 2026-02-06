@@ -69,8 +69,8 @@ export const PHASE_CONFIG: PhaseConfig[] = [
   },
   {
     id: "spinners",
-    label: "Spinners",
-    description: "Semantic matching for spinner submodel groups",
+    label: "Submodel Groups",
+    description: "Match submodel groups for spinners, wreaths & HD props",
     icon: "spinners",
     filter: (layer) => isSpinnerType(layer.sourceModel.groupType),
   },
