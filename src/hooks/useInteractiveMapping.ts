@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, startTransition } from "react";
 import type {
   MappingResult,
   ModelMapping,
@@ -900,29 +900,33 @@ export function useInteractiveMapping(
       const existing = sourceDestLinks.get(sourceLayerName);
       if (existing?.has(userModelName)) return;
 
-      setUndoStack((s) => [
-        ...s,
-        { type: "v3_addLink", sourceName: sourceLayerName, destName: userModelName },
-      ]);
-      setSourceDestLinks((prev) => {
-        const next = new Map(prev);
-        const set = new Set(next.get(sourceLayerName) ?? []);
-        set.add(userModelName);
-        next.set(sourceLayerName, set);
-        return next;
-      });
-      // Also update V2 assignments for compat (last-write wins for dest→source)
-      setAssignments((prev) => {
-        const next = new Map(prev);
-        next.set(userModelName, sourceLayerName);
-        return next;
-      });
-      // Unskip if it was skipped
-      setSkippedSourceLayers((prev) => {
-        if (!prev.has(sourceLayerName)) return prev;
-        const next = new Set(prev);
-        next.delete(sourceLayerName);
-        return next;
+      // Use startTransition to keep UI responsive during state updates
+      // This allows React to prioritize user interactions over re-renders
+      startTransition(() => {
+        setUndoStack((s) => [
+          ...s,
+          { type: "v3_addLink", sourceName: sourceLayerName, destName: userModelName },
+        ]);
+        setSourceDestLinks((prev) => {
+          const next = new Map(prev);
+          const set = new Set(next.get(sourceLayerName) ?? []);
+          set.add(userModelName);
+          next.set(sourceLayerName, set);
+          return next;
+        });
+        // Also update V2 assignments for compat (last-write wins for dest→source)
+        setAssignments((prev) => {
+          const next = new Map(prev);
+          next.set(userModelName, sourceLayerName);
+          return next;
+        });
+        // Unskip if it was skipped
+        setSkippedSourceLayers((prev) => {
+          if (!prev.has(sourceLayerName)) return prev;
+          const next = new Set(prev);
+          next.delete(sourceLayerName);
+          return next;
+        });
       });
     },
     [sourceDestLinks],
@@ -934,26 +938,28 @@ export function useInteractiveMapping(
       const existing = sourceDestLinks.get(sourceName);
       if (!existing?.has(destName)) return;
 
-      setUndoStack((s) => [
-        ...s,
-        { type: "v3_removeLink", sourceName, destName },
-      ]);
-      setSourceDestLinks((prev) => {
-        const next = new Map(prev);
-        const set = new Set(next.get(sourceName) ?? []);
-        set.delete(destName);
-        if (set.size === 0) next.delete(sourceName);
-        else next.set(sourceName, set);
-        return next;
-      });
-      // Clean up V2 assignments
-      setAssignments((prev) => {
-        if (prev.get(destName) === sourceName) {
+      startTransition(() => {
+        setUndoStack((s) => [
+          ...s,
+          { type: "v3_removeLink", sourceName, destName },
+        ]);
+        setSourceDestLinks((prev) => {
           const next = new Map(prev);
-          next.delete(destName);
+          const set = new Set(next.get(sourceName) ?? []);
+          set.delete(destName);
+          if (set.size === 0) next.delete(sourceName);
+          else next.set(sourceName, set);
           return next;
-        }
-        return prev;
+        });
+        // Clean up V2 assignments
+        setAssignments((prev) => {
+          if (prev.get(destName) === sourceName) {
+            const next = new Map(prev);
+            next.delete(destName);
+            return next;
+          }
+          return prev;
+        });
       });
     },
     [sourceDestLinks],
@@ -966,22 +972,24 @@ export function useInteractiveMapping(
       if (!existing || existing.size === 0) return;
 
       const prevDests = Array.from(existing);
-      setUndoStack((s) => [
-        ...s,
-        { type: "v3_clearLayer", sourceName: sourceLayerName, prevDests },
-      ]);
-      setSourceDestLinks((prev) => {
-        const next = new Map(prev);
-        next.delete(sourceLayerName);
-        return next;
-      });
-      // Clean up V2 assignments
-      setAssignments((prev) => {
-        const next = new Map(prev);
-        for (const dn of prevDests) {
-          if (next.get(dn) === sourceLayerName) next.delete(dn);
-        }
-        return next;
+      startTransition(() => {
+        setUndoStack((s) => [
+          ...s,
+          { type: "v3_clearLayer", sourceName: sourceLayerName, prevDests },
+        ]);
+        setSourceDestLinks((prev) => {
+          const next = new Map(prev);
+          next.delete(sourceLayerName);
+          return next;
+        });
+        // Clean up V2 assignments
+        setAssignments((prev) => {
+          const next = new Map(prev);
+          for (const dn of prevDests) {
+            if (next.get(dn) === sourceLayerName) next.delete(dn);
+          }
+          return next;
+        });
       });
     },
     [sourceDestLinks],
@@ -992,28 +1000,30 @@ export function useInteractiveMapping(
       const existing = sourceDestLinks.get(sourceLayerName);
       const prevDests = existing ? Array.from(existing) : [];
 
-      setUndoStack((s) => [
-        ...s,
-        { type: "v3_skipLayer", sourceName: sourceLayerName, prevDests },
-      ]);
+      startTransition(() => {
+        setUndoStack((s) => [
+          ...s,
+          { type: "v3_skipLayer", sourceName: sourceLayerName, prevDests },
+        ]);
 
-      // Clear links
-      if (prevDests.length > 0) {
-        setSourceDestLinks((prev) => {
-          const next = new Map(prev);
-          next.delete(sourceLayerName);
-          return next;
-        });
-        setAssignments((prev) => {
-          const next = new Map(prev);
-          for (const dn of prevDests) {
-            if (next.get(dn) === sourceLayerName) next.delete(dn);
-          }
-          return next;
-        });
-      }
+        // Clear links
+        if (prevDests.length > 0) {
+          setSourceDestLinks((prev) => {
+            const next = new Map(prev);
+            next.delete(sourceLayerName);
+            return next;
+          });
+          setAssignments((prev) => {
+            const next = new Map(prev);
+            for (const dn of prevDests) {
+              if (next.get(dn) === sourceLayerName) next.delete(dn);
+            }
+            return next;
+          });
+        }
 
-      setSkippedSourceLayers((prev) => new Set(prev).add(sourceLayerName));
+        setSkippedSourceLayers((prev) => new Set(prev).add(sourceLayerName));
+      });
     },
     [sourceDestLinks],
   );
