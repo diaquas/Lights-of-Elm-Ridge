@@ -1014,6 +1014,7 @@ function InteractiveResults({
     sourceModels,
     destModels,
     effectTree,
+    selectedSequence,
   );
 
   const dnd = useDragAndDrop();
@@ -1114,8 +1115,7 @@ function InteractiveResults({
         }
       }
 
-      // Sort unmapped layers by best match score (per ticket requirements)
-      // Primary: match score descending, Secondary: groups first, Tertiary: alphabetical
+      // Sort unmapped layers by: match tier → effect count → groups first → alphabetical
       const unmappedWithScores = unmapped.map((sl) => {
         const suggestions = interactive.getSuggestionsForLayer(sl.sourceModel);
         const bestScore = suggestions.length > 0 ? suggestions[0].score : 0;
@@ -1123,15 +1123,19 @@ function InteractiveResults({
       });
 
       unmappedWithScores.sort((a, b) => {
-        // Primary: best match score (descending)
+        // Primary: best match score (descending) — tier-based comparison
         const scoreDiff = b.bestScore - a.bestScore;
         if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
 
-        // Secondary: groups before individual models
+        // Secondary: effect count (descending) — high-effect items rise to top
+        const effectDiff = b.sl.effectCount - a.sl.effectCount;
+        if (effectDiff !== 0) return effectDiff;
+
+        // Tertiary: groups before individual models
         if (a.sl.isGroup && !b.sl.isGroup) return -1;
         if (!a.sl.isGroup && b.sl.isGroup) return 1;
 
-        // Tertiary: alphabetical
+        // Quaternary: alphabetical
         return a.sl.sourceModel.name.localeCompare(b.sl.sourceModel.name);
       });
 

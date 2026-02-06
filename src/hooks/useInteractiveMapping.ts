@@ -15,6 +15,7 @@ import {
   suggestMatchesForSource,
   mapSubmodels,
   isDmxModel,
+  getSequenceEffectCounts,
 } from "@/lib/modiq";
 
 // ─── Types ──────────────────────────────────────────────
@@ -73,6 +74,8 @@ export interface SourceLayerMapping {
   isSkipped: boolean;
   /** True if at least one user model is assigned */
   isMapped: boolean;
+  /** Number of effects for this model in the current sequence */
+  effectCount: number;
 }
 
 export interface InteractiveMappingState {
@@ -141,6 +144,7 @@ export function useInteractiveMapping(
   sourceModels: ParsedModel[],
   destModels: ParsedModel[],
   effectTree?: EffectTree | null,
+  sequenceSlug?: string,
 ): InteractiveMappingState {
   // Core state: dest model name → source model name (or null)
   // Only include auto-mappings that reached a real confidence tier (HIGH/MED/LOW).
@@ -782,6 +786,9 @@ export function useInteractiveMapping(
   const sourceLayerMappings: SourceLayerMapping[] = useMemo(() => {
     if (!effectTree) return [];
 
+    // Get effect counts for current sequence (if available)
+    const effectCounts = sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined;
+
     const layers: SourceLayerMapping[] = [];
 
     // Groups with effects (Scenario A and B — C are individual-only)
@@ -814,6 +821,7 @@ export function useInteractiveMapping(
         coveredChildCount,
         isSkipped: skippedSourceLayers.has(gInfo.model.name),
         isMapped: userModels.length > 0,
+        effectCount: effectCounts?.[gInfo.model.name] ?? 0,
       });
     }
 
@@ -841,11 +849,12 @@ export function useInteractiveMapping(
         coveredChildCount: 0,
         isSkipped: skippedSourceLayers.has(mInfo.model.name),
         isMapped: userModels.length > 0,
+        effectCount: effectCounts?.[mInfo.model.name] ?? 0,
       });
     }
 
     return layers;
-  }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers]);
+  }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers, sequenceSlug]);
 
   // V3 source-centric stats
   const sourceStats = useMemo(() => {

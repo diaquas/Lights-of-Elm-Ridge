@@ -40,7 +40,7 @@ export {
   downloadMappingReport,
 } from "./xmap-generator";
 
-export { parseXsqModels, getSequenceModelList } from "./xsq-parser";
+export { parseXsqModels, getSequenceModelList, getSequenceEffectCounts, getModelEffectCount } from "./xsq-parser";
 
 export {
   buildEffectTree,
