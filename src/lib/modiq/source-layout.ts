@@ -11,6 +11,8 @@
  */
 
 import type { ParsedModel } from "./parser";
+import { classifyGroup } from "./parser";
+import { getEntityType } from "@/types/xLightsTypes";
 
 export type DisplayType = "halloween" | "christmas";
 
@@ -5061,7 +5063,14 @@ export function getSourceModelsForSequence(
  * Convert our source layout to ParsedModel format for use with the matching engine.
  */
 export function sourceModelToParsedModel(source: SourceModel): ParsedModel {
-  return {
+  const memberModels = source.memberModels || [];
+
+  // Classify groups using the same logic as the XML parser
+  const classification = source.isGroup
+    ? classifyGroup(source.name, memberModels)
+    : undefined;
+
+  const model: ParsedModel = {
     name: source.name,
     displayAs: source.displayAs,
     type: source.type,
@@ -5082,6 +5091,17 @@ export function sourceModelToParsedModel(source: SourceModel): ParsedModel {
     })),
     isGroup: source.isGroup,
     aliases: [],
-    memberModels: source.memberModels || [],
+    memberModels,
   };
+
+  if (classification) {
+    model.groupType = classification.groupType;
+    model.parentModels = classification.parentModels;
+    model.semanticCategory = classification.semanticCategory;
+    model.entityType = classification.groupType;
+  } else {
+    model.entityType = getEntityType(model);
+  }
+
+  return model;
 }
