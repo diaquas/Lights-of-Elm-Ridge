@@ -29,10 +29,10 @@ export function GroupsPhase() {
     return interactive.getSuggestionsForLayer(selectedGroup.sourceModel).slice(0, 8);
   }, [interactive, selectedGroup]);
 
-  // Type filter: exclude SUBMODEL_GRP from Groups phase source panel
+  // Type filter: exclude SUBMODEL_GROUP from Groups phase source panel
   const groupSourceFilter = useCallback(
     (m: { isGroup?: boolean; groupType?: string }) =>
-      m.groupType !== "SUBMODEL_GRP",
+      m.groupType !== "SUBMODEL_GROUP",
     [],
   );
 
@@ -190,7 +190,7 @@ export function GroupsPhase() {
             <div className="px-6 py-3 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded">
-                  MODEL_GRP
+                  {selectedGroup.sourceModel.groupType ?? "GROUP"}
                 </span>
               </div>
               <h3 className="text-base font-semibold text-foreground truncate">

@@ -6,6 +6,21 @@
 export { parseRgbEffectsXml, normalizeType } from "./parser";
 export type { ParsedModel, ParsedLayout, SubModel, GroupType } from "./parser";
 
+export type {
+  XLightsEntityType,
+  GroupEntityType,
+  ModIQPhaseType,
+} from "@/types/xLightsTypes";
+export {
+  detectGroupType,
+  getEntityType,
+  getPhaseType,
+  isSpinnerType,
+  isGroupPhaseType,
+  parseMemberType,
+  analyzeGroupMembers,
+} from "@/types/xLightsTypes";
+
 export {
   HALLOWEEN_MODELS,
   CHRISTMAS_MODELS,

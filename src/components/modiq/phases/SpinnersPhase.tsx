@@ -275,9 +275,9 @@ function SpinnerCategoryStep({
     .getSuggestionsForLayer(currentItem.sourceModel)
     .slice(0, 5);
 
-  // Type filter: only show SUBMODEL_GRP sources in Spinners
+  // Type filter: only show SUBMODEL_GROUP sources in Spinners
   const spinnerSourceFilter = useCallback(
-    (m: { groupType?: string }) => m.groupType === "SUBMODEL_GRP",
+    (m: { groupType?: string }) => m.groupType === "SUBMODEL_GROUP",
     [],
   );
 
@@ -359,7 +359,7 @@ function SpinnerCategoryStep({
           }`}>
             <div className="flex items-center gap-3 mb-4">
               <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-500/15 text-purple-400 rounded">
-                SUBMODEL_GRP
+                SUBMODEL_GROUP
               </span>
               <span className="text-xs text-foreground/40">
                 Category: {category.label}
@@ -384,7 +384,7 @@ function SpinnerCategoryStep({
           </button>
         </div>
 
-        {/* Right: Universal Source Panel (SUBMODEL_GRP only) */}
+        {/* Right: Universal Source Panel (SUBMODEL_GROUP only) */}
         <div className="w-1/2 flex flex-col overflow-hidden">
           <UniversalSourcePanel
             allModels={interactive.allDestModels}

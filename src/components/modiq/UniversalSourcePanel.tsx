@@ -316,9 +316,13 @@ const ModelCard = memo(function ModelCard({
   );
 
   const typeLabel = model.isGroup
-    ? model.groupType === "SUBMODEL_GRP"
+    ? model.groupType === "SUBMODEL_GROUP"
       ? "SUB"
-      : "GRP"
+      : model.groupType === "META_GROUP"
+        ? "META"
+        : model.groupType === "MIXED_GROUP"
+          ? "MIX"
+          : "GRP"
     : model.type.toUpperCase().slice(0, 6);
 
   return (
