@@ -901,6 +901,7 @@ export default function ModIQTool() {
             displayType={displayType}
             sourceFileName={sourceFile?.name}
             effectTree={effectTree}
+            xsqFilename={mapFromMode === "other-vendor" && vendorXsqFile ? vendorXsqFile.name : selectedSequence || "sequence"}
             onReset={handleReset}
             onExported={(fileName, meta) => {
               setExportFileName(fileName);
@@ -985,6 +986,7 @@ function InteractiveResults({
   displayType,
   sourceFileName,
   effectTree,
+  xsqFilename,
   onReset,
   onExported,
 }: {
@@ -996,6 +998,7 @@ function InteractiveResults({
   displayType: DisplayType;
   sourceFileName?: string;
   effectTree: EffectTree | null;
+  xsqFilename: string;
   onReset: () => void;
   onExported: (fileName: string, meta?: {
     displayCoverage?: number;
@@ -1300,8 +1303,9 @@ function InteractiveResults({
   const doExport = useCallback((boostLines?: { userGroupName: string; sourceGroupName: string }[]) => {
     const result = interactive.toMappingResult();
     const xmapContent = generateXmap(result, seqTitle);
-    downloadXmap(xmapContent, seqTitle);
-    const fileName = `modiq-${seqTitle.toLowerCase().replace(/\s+/g, "-")}-mapping.xmap`;
+    downloadXmap(xmapContent, xsqFilename);
+    const baseName = xsqFilename.replace(/\.xsq$/i, "");
+    const fileName = `modiq_${baseName}.xmap`;
     telemetry.trackAction({
       sequenceSlug: selectedSequence,
       action: "export",
@@ -1323,7 +1327,7 @@ function InteractiveResults({
       groupsCoveredChildCount: interactive.groupsCoveredChildCount,
       directMappedCount: interactive.directMappedCount,
     });
-  }, [interactive, seqTitle, selectedSequence, telemetry, onExported, destModels]);
+  }, [interactive, seqTitle, xsqFilename, selectedSequence, telemetry, onExported, destModels]);
 
   const handleExport = useCallback(() => {
     if (interactive.unmappedLayerCount > 0) {
