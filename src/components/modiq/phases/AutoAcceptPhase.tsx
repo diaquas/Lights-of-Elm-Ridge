@@ -6,17 +6,30 @@ import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { CelebrationToast } from "../CelebrationToast";
+import { UniversalSourcePanel } from "../UniversalSourcePanel";
+import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export function AutoAcceptPhase() {
-  const { phaseItems, goToNextPhase, interactive } =
-    useMappingPhase();
+  const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
+  const dnd = useDragAndDrop();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
+  const [overrideItemId, setOverrideItemId] = useState<string | null>(null);
 
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
   const mappedItems = phaseItems.filter((item) => item.isMapped);
+
+  const overrideItem = phaseItems.find(
+    (i) => i.sourceModel.name === overrideItemId,
+  );
+
+  // Suggestions for override item
+  const overrideSuggestions = useMemo(() => {
+    if (!overrideItem) return [];
+    return interactive.getSuggestionsForLayer(overrideItem.sourceModel).slice(0, 10);
+  }, [interactive, overrideItem]);
 
   // Get top suggestion for each unmapped item
   const suggestions = useMemo(() => {
@@ -33,7 +46,6 @@ export function AutoAcceptPhase() {
     return map;
   }, [unmappedItems, interactive]);
 
-  // Accept all unmapped high-confidence matches
   const handleAcceptAll = useCallback(() => {
     for (const item of unmappedItems) {
       const sugg = suggestions.get(item.sourceModel.name);
@@ -48,7 +60,6 @@ export function AutoAcceptPhase() {
     }, 1800);
   }, [unmappedItems, suggestions, interactive, goToNextPhase]);
 
-  // Accept selected items
   const handleAcceptSelected = useCallback(() => {
     for (const item of unmappedItems) {
       if (!selectedIds.has(item.sourceModel.name)) continue;
@@ -77,11 +88,28 @@ export function AutoAcceptPhase() {
     }
   };
 
-  // Accept a single item
   const handleAcceptOne = (item: SourceLayerMapping) => {
     const sugg = suggestions.get(item.sourceModel.name);
     if (sugg) {
       interactive.assignUserModelToLayer(item.sourceModel.name, sugg.model.name);
+    }
+    if (overrideItemId === item.sourceModel.name) {
+      setOverrideItemId(null);
+    }
+  };
+
+  // Manual override: assign a different user model to this source layer
+  const handleManualOverride = (sourceName: string, userModelName: string) => {
+    interactive.assignUserModelToLayer(sourceName, userModelName);
+    setOverrideItemId(null);
+  };
+
+  // Handle drops on left panel items
+  const handleDropOnItem = (sourceName: string, e: React.DragEvent) => {
+    e.preventDefault();
+    const item = dnd.handleDrop({ destModelName: sourceName, isMapped: false });
+    if (item) {
+      handleManualOverride(sourceName, item.sourceModelName);
     }
   };
 
@@ -112,7 +140,6 @@ export function AutoAcceptPhase() {
 
     return (
       <div className="h-full flex flex-col overflow-hidden">
-        {/* Success Header */}
         <div className="text-center py-8 flex-shrink-0">
           <div className="text-5xl mb-3">&#9989;</div>
           <h2 className="text-xl font-bold text-foreground">
@@ -124,7 +151,6 @@ export function AutoAcceptPhase() {
           </p>
         </div>
 
-        {/* Confidence Insight Bar */}
         <div className="px-8 flex-shrink-0">
           <div className="max-w-lg mx-auto bg-green-500/5 border border-green-500/15 rounded-xl p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
@@ -140,7 +166,6 @@ export function AutoAcceptPhase() {
           </div>
         </div>
 
-        {/* Expandable Review List */}
         <div className="flex-1 overflow-y-auto px-8 pb-4">
           <details className="max-w-lg mx-auto">
             <summary className="text-sm font-medium text-foreground/50 cursor-pointer hover:text-foreground/70 mb-3">
@@ -183,7 +208,6 @@ export function AutoAcceptPhase() {
           </details>
         </div>
 
-        {/* Continue Button */}
         <div className="px-8 py-4 border-t border-border flex-shrink-0 text-center">
           <button
             type="button"
@@ -198,93 +222,151 @@ export function AutoAcceptPhase() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Phase Header */}
-      <div className="px-6 py-4 border-b border-border flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-              <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    <div className="flex h-full overflow-hidden">
+      {/* Left: Match List */}
+      <div className={`${overrideItem ? "w-1/2" : "w-full"} flex flex-col overflow-hidden transition-all duration-300`}>
+        {/* Phase Header */}
+        <div className="px-6 py-4 border-b border-border flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                High-Confidence Matches
+              </h2>
+              <p className="text-sm text-foreground/50 mt-1">
+                {unmappedItems.length} matches ready to accept (85%+ confidence)
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAcceptAll}
+              className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-green-600/20 hover:shadow-green-500/30"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              High-Confidence Matches
-            </h2>
-            <p className="text-sm text-foreground/50 mt-1">
-              {unmappedItems.length} matches ready to accept (85%+ confidence)
-            </p>
+              Accept All {unmappedItems.length}
+            </button>
+          </div>
+        </div>
+
+        {/* Match List */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-2">
+            {unmappedItems.map((item) => {
+              const sugg = suggestions.get(item.sourceModel.name);
+              if (!sugg) return null;
+
+              const reasoning = generateMatchReasoning(sugg.factors, sugg.score);
+              const isDropHover = dnd.state.activeDropTarget === item.sourceModel.name;
+
+              return (
+                <AutoAcceptMatchCard
+                  key={item.sourceModel.name}
+                  layer={item}
+                  matchName={sugg.model.name}
+                  matchScore={sugg.score}
+                  matchPixels={sugg.model.pixelCount}
+                  reasoning={reasoning}
+                  isSelected={selectedIds.has(item.sourceModel.name)}
+                  isOverrideActive={overrideItemId === item.sourceModel.name}
+                  isDropTarget={isDropHover}
+                  onSelect={() => handleSelect(item.sourceModel.name)}
+                  onAccept={() => handleAcceptOne(item)}
+                  onOverride={() =>
+                    setOverrideItemId(
+                      overrideItemId === item.sourceModel.name ? null : item.sourceModel.name,
+                    )
+                  }
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
+                  onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
+                  onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
+                />
+              );
+            })}
           </div>
 
-          {/* Accept All Button */}
-          <button
-            type="button"
-            onClick={handleAcceptAll}
-            className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-green-600/20 hover:shadow-green-500/30"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            Accept All {unmappedItems.length} Matches
-          </button>
+          {mappedItems.length > 0 && (
+            <details className="mt-6">
+              <summary className="text-sm text-foreground/40 cursor-pointer hover:text-foreground/60">
+                {mappedItems.length} already mapped in this phase
+              </summary>
+              <div className="mt-3 space-y-2 opacity-60">
+                {mappedItems.map((item) => (
+                  <div
+                    key={item.sourceModel.name}
+                    className="flex items-center gap-4 p-3 rounded-lg bg-green-500/5 border border-green-500/15"
+                  >
+                    <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-sm text-foreground/60 truncate flex-1">
+                      {item.sourceModel.name}
+                    </span>
+                    <span className="text-sm text-foreground/30">&rarr;</span>
+                    <span className="text-sm text-foreground/60 truncate flex-1 text-right">
+                      {item.assignedUserModels[0]?.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </div>
 
-      {/* Match List */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        <div className="space-y-2">
-          {unmappedItems.map((item) => {
-            const sugg = suggestions.get(item.sourceModel.name);
-            if (!sugg) return null;
-
-            const reasoning = generateMatchReasoning(sugg.factors, sugg.score);
-
-            return (
-              <AutoAcceptMatchCard
-                key={item.sourceModel.name}
-                layer={item}
-                matchName={sugg.model.name}
-                matchScore={sugg.score}
-                matchPixels={sugg.model.pixelCount}
-                reasoning={reasoning}
-                isSelected={selectedIds.has(item.sourceModel.name)}
-                onSelect={() => handleSelect(item.sourceModel.name)}
-                onAccept={() => handleAcceptOne(item)}
-              />
-            );
-          })}
-        </div>
-
-        {/* Already Mapped */}
-        {mappedItems.length > 0 && (
-          <details className="mt-6">
-            <summary className="text-sm text-foreground/40 cursor-pointer hover:text-foreground/60">
-              {mappedItems.length} already mapped in this phase
-            </summary>
-            <div className="mt-3 space-y-2 opacity-60">
-              {mappedItems.map((item) => (
-                <div
-                  key={item.sourceModel.name}
-                  className="flex items-center gap-4 p-3 rounded-lg bg-green-500/5 border border-green-500/15"
-                >
-                  <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-sm text-foreground/60 truncate flex-1">
-                    {item.sourceModel.name}
-                  </span>
-                  <span className="text-sm text-foreground/30">&rarr;</span>
-                  <span className="text-sm text-foreground/60 truncate flex-1 text-right">
-                    {item.assignedUserModels[0]?.name}
-                  </span>
+      {/* Right: Override Panel (shows when an item is selected for override) */}
+      {overrideItem && (
+        <div className="w-1/2 flex flex-col border-l border-border bg-surface/50 overflow-hidden">
+          {/* Override Header */}
+          <div className="px-6 py-3 border-b border-border flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[10px] font-semibold text-amber-400 uppercase tracking-wide mb-1">
+                  Manual Override
                 </div>
-              ))}
+                <h3 className="text-base font-semibold text-foreground truncate">
+                  {overrideItem.sourceModel.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOverrideItemId(null)}
+                className="p-1.5 rounded-lg text-foreground/30 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-          </details>
-        )}
-      </div>
+          </div>
+
+          {/* Universal Source Panel */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <UniversalSourcePanel
+              allModels={interactive.allDestModels}
+              suggestions={overrideSuggestions}
+              assignedNames={interactive.assignedUserModelNames}
+              selectedDestLabel={overrideItem.sourceModel.name}
+              onAccept={(userModelName) =>
+                handleManualOverride(overrideItem.sourceModel.name, userModelName)
+              }
+              dnd={dnd}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Bulk Action Bar */}
       {selectedIds.size > 0 && (
@@ -317,8 +399,15 @@ function AutoAcceptMatchCard({
   matchPixels,
   reasoning,
   isSelected,
+  isOverrideActive,
+  isDropTarget,
   onSelect,
   onAccept,
+  onOverride,
+  onDragOver,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
 }: {
   layer: SourceLayerMapping;
   matchName: string;
@@ -326,17 +415,32 @@ function AutoAcceptMatchCard({
   matchPixels: number | undefined;
   reasoning: ReturnType<typeof generateMatchReasoning>;
   isSelected: boolean;
+  isOverrideActive: boolean;
+  isDropTarget: boolean;
   onSelect: () => void;
   onAccept: () => void;
+  onOverride: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragEnter: () => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
 }) {
   return (
     <div
       className={`
         flex items-center gap-4 p-4 rounded-lg border transition-all duration-200
-        ${isSelected
-          ? "bg-accent/5 border-accent/30"
-          : "bg-surface border-border hover:border-foreground/20"}
+        ${isDropTarget
+          ? "bg-accent/10 border-accent/50 ring-2 ring-accent/30"
+          : isOverrideActive
+            ? "bg-amber-500/5 border-amber-500/30"
+            : isSelected
+              ? "bg-accent/5 border-accent/30"
+              : "bg-surface border-border hover:border-foreground/20"}
       `}
+      onDragOver={onDragOver}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
       {/* Checkbox */}
       <button
@@ -393,6 +497,22 @@ function AutoAcceptMatchCard({
 
       {/* Confidence Badge */}
       <ConfidenceBadge score={matchScore} reasoning={reasoning} size="md" />
+
+      {/* Override Button */}
+      <button
+        type="button"
+        onClick={onOverride}
+        className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+          isOverrideActive
+            ? "bg-amber-500/20 text-amber-400"
+            : "bg-foreground/5 text-foreground/30 hover:text-foreground/50 hover:bg-foreground/10"
+        }`}
+        title="Choose different match"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
+      </button>
 
       {/* Accept Button */}
       <button

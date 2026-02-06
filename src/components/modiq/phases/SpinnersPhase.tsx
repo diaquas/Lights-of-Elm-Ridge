@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
+import { UniversalSourcePanel } from "../UniversalSourcePanel";
+import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
@@ -273,6 +275,14 @@ function SpinnerCategoryStep({
     .getSuggestionsForLayer(currentItem.sourceModel)
     .slice(0, 5);
 
+  // Type filter: only show SUBMODEL_GRP sources in Spinners
+  const spinnerSourceFilter = useCallback(
+    (m: { groupType?: string }) => m.groupType === "SUBMODEL_GRP",
+    [],
+  );
+
+  const dnd = useDragAndDrop();
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Category Header */}
@@ -316,13 +326,37 @@ function SpinnerCategoryStep({
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Current Item */}
-        <div className="w-1/2 p-6 border-r border-border flex flex-col">
+        {/* Left: Current Item (droppable) */}
+        <div
+          className={`w-1/2 p-6 border-r border-border flex flex-col ${
+            dnd.state.activeDropTarget === currentItem.sourceModel.name
+              ? "bg-accent/5"
+              : ""
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+          }}
+          onDragEnter={() => dnd.handleDragEnter(currentItem.sourceModel.name)}
+          onDragLeave={() => dnd.handleDragLeave(currentItem.sourceModel.name)}
+          onDrop={(e) => {
+            e.preventDefault();
+            const item = dnd.handleDrop({
+              destModelName: currentItem.sourceModel.name,
+              isMapped: false,
+            });
+            if (item) handleAcceptMatch(item.sourceModelName);
+          }}
+        >
           <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wide mb-4">
             Source Spinner Group
           </h3>
 
-          <div className="bg-surface rounded-xl border border-border p-6 flex-1">
+          <div className={`bg-surface rounded-xl border p-6 flex-1 transition-all ${
+            dnd.state.activeDropTarget === currentItem.sourceModel.name
+              ? "border-accent/50 ring-2 ring-accent/30"
+              : "border-border"
+          }`}>
             <div className="flex items-center gap-3 mb-4">
               <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-500/15 text-purple-400 rounded">
                 SUBMODEL_GRP
@@ -350,70 +384,17 @@ function SpinnerCategoryStep({
           </button>
         </div>
 
-        {/* Right: Semantic Matches */}
-        <div className="w-1/2 p-6 flex flex-col">
-          <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wide mb-4">
-            Best Semantic Matches
-          </h3>
-
-          <div className="flex-1 overflow-y-auto space-y-3">
-            {suggestions.length === 0 ? (
-              <div className="text-center py-8 text-foreground/30">
-                <p className="text-sm">No semantic matches found.</p>
-                <button
-                  type="button"
-                  onClick={handleSkipItem}
-                  className="mt-4 text-accent hover:text-accent/80"
-                >
-                  Skip or manually match later
-                </button>
-              </div>
-            ) : (
-              suggestions.map((match, index) => {
-                const reasoning = generateMatchReasoning(
-                  match.factors,
-                  match.score,
-                );
-                return (
-                  <button
-                    key={match.model.name}
-                    type="button"
-                    onClick={() => handleAcceptMatch(match.model.name)}
-                    className={`
-                      w-full p-4 rounded-xl text-left transition-all duration-200
-                      ${index === 0
-                        ? "bg-accent/8 border-2 border-accent/25 hover:border-accent/40"
-                        : "bg-surface border border-border hover:border-foreground/20"}
-                    `}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {index === 0 && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent/15 text-accent rounded">
-                            BEST MATCH
-                          </span>
-                        )}
-                        <span className="font-medium text-foreground">
-                          {match.model.name}
-                        </span>
-                      </div>
-                      <ConfidenceBadge
-                        score={match.score}
-                        reasoning={reasoning}
-                        size="sm"
-                      />
-                    </div>
-                    <div className="text-sm text-foreground/40">
-                      {reasoning.summary}
-                    </div>
-                    <div className="mt-2 text-xs text-foreground/25 flex items-center gap-1">
-                      Click to accept this match
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
+        {/* Right: Universal Source Panel (SUBMODEL_GRP only) */}
+        <div className="w-1/2 flex flex-col overflow-hidden">
+          <UniversalSourcePanel
+            allModels={interactive.allDestModels}
+            suggestions={suggestions}
+            sourceFilter={spinnerSourceFilter}
+            assignedNames={interactive.assignedUserModelNames}
+            selectedDestLabel={currentItem.sourceModel.name}
+            onAccept={handleAcceptMatch}
+            dnd={dnd}
+          />
         </div>
       </div>
 
