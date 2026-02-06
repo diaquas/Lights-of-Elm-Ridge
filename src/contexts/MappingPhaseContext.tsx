@@ -11,6 +11,7 @@ import {
 import type { InteractiveMappingState, SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 import type { MappingPhase } from "@/types/mappingPhases";
 import { PHASE_CONFIG } from "@/types/mappingPhases";
+import { isSpinnerType } from "@/types/xLightsTypes";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -105,7 +106,7 @@ export function MappingPhaseProvider({
         // Review shows everything
         if (config.id === "review") return true;
 
-        const isSpinner = layer.sourceModel.groupType === "SUBMODEL_GRP";
+        const isSpinner = isSpinnerType(layer.sourceModel.groupType);
         const bestScore = scoreMap.get(layer.sourceModel.name) ?? 0;
 
         switch (config.id) {

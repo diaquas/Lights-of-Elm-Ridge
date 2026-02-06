@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
-import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
-import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
+import { UniversalSourcePanel } from "../UniversalSourcePanel";
+import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 
 export function IndividualsPhase() {
   const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
+  const dnd = useDragAndDrop();
+
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
@@ -27,6 +29,18 @@ export function IndividualsPhase() {
 
   const selectedItem = phaseItems.find(
     (i) => i.sourceModel.name === selectedItemId,
+  );
+
+  // Suggestions for selected item
+  const suggestions = useMemo(() => {
+    if (!selectedItem) return [];
+    return interactive.getSuggestionsForLayer(selectedItem.sourceModel).slice(0, 10);
+  }, [interactive, selectedItem]);
+
+  // Type filter: exclude all group types from Individuals source panel
+  const individualSourceFilter = useCallback(
+    (m: { isGroup?: boolean }) => !m.isGroup,
+    [],
   );
 
   if (phaseItems.length === 0) {
@@ -53,7 +67,6 @@ export function IndividualsPhase() {
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
-    // Select next unmapped
     const next = unmappedItems.find(
       (i) => i.sourceModel.name !== sourceName && !i.isMapped,
     );
@@ -66,6 +79,15 @@ export function IndividualsPhase() {
       (i) => i.sourceModel.name !== sourceName && !i.isMapped,
     );
     setSelectedItemId(next?.sourceModel.name ?? null);
+  };
+
+  // Handle drops on left panel items
+  const handleDropOnItem = (sourceName: string, e: React.DragEvent) => {
+    e.preventDefault();
+    const item = dnd.handleDrop({ destModelName: sourceName, isMapped: false });
+    if (item) {
+      handleAccept(sourceName, item.sourceModelName);
+    }
   };
 
   return (
@@ -106,16 +128,26 @@ export function IndividualsPhase() {
           <div className="space-y-1.5">
             {filteredUnmapped.map((item) => {
               const topSugg = interactive.getSuggestionsForLayer(item.sourceModel)[0];
+              const isSelected = selectedItemId === item.sourceModel.name;
+              const isDropHover = dnd.state.activeDropTarget === item.sourceModel.name;
               return (
-                <button
+                <div
                   key={item.sourceModel.name}
-                  type="button"
                   onClick={() => setSelectedItemId(item.sourceModel.name)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
+                  onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
+                  onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
                   className={`
-                    w-full p-3 rounded-lg text-left transition-all duration-200
-                    ${selectedItemId === item.sourceModel.name
-                      ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
-                      : "bg-surface border border-border hover:border-foreground/20"}
+                    w-full p-3 rounded-lg text-left transition-all duration-200 cursor-pointer
+                    ${isDropHover
+                      ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
+                      : isSelected
+                        ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
+                        : "bg-surface border border-border hover:border-foreground/20"}
                   `}
                 >
                   <div className="flex items-center justify-between">
@@ -134,24 +166,56 @@ export function IndividualsPhase() {
                     ) : null}
                     <span>{item.sourceModel.type}</span>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
         </div>
       </div>
 
-      {/* Right: Detail / Suggestion Panel */}
+      {/* Right: Source Panel */}
       <div className="w-1/2 flex flex-col bg-surface/50 overflow-hidden">
         {selectedItem && !selectedItem.isMapped ? (
-          <IndividualDetailPanel
-            item={selectedItem}
-            interactive={interactive}
-            onAccept={(userModelName) =>
-              handleAccept(selectedItem.sourceModel.name, userModelName)
-            }
-            onSkip={() => handleSkip(selectedItem.sourceModel.name)}
-          />
+          <>
+            {/* Item Info Header */}
+            <div className="px-6 py-3 border-b border-border flex-shrink-0">
+              <h3 className="text-base font-semibold text-foreground truncate">
+                {selectedItem.sourceModel.name}
+              </h3>
+              <div className="flex items-center gap-3 mt-1 text-[12px] text-foreground/40">
+                {selectedItem.sourceModel.pixelCount ? (
+                  <span>{selectedItem.sourceModel.pixelCount}px</span>
+                ) : null}
+                <span>{selectedItem.sourceModel.type}</span>
+              </div>
+            </div>
+
+            {/* Universal Source Panel */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <UniversalSourcePanel
+                allModels={interactive.allDestModels}
+                suggestions={suggestions}
+                sourceFilter={individualSourceFilter}
+                assignedNames={interactive.assignedUserModelNames}
+                selectedDestLabel={selectedItem.sourceModel.name}
+                onAccept={(userModelName) =>
+                  handleAccept(selectedItem.sourceModel.name, userModelName)
+                }
+                dnd={dnd}
+              />
+            </div>
+
+            {/* Skip */}
+            <div className="px-6 py-3 border-t border-border flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => handleSkip(selectedItem.sourceModel.name)}
+                className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
+              >
+                Skip This Model
+              </button>
+            </div>
+          </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground/30">
             <div className="text-center">
@@ -162,96 +226,6 @@ export function IndividualsPhase() {
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function IndividualDetailPanel({
-  item,
-  interactive,
-  onAccept,
-  onSkip,
-}: {
-  item: SourceLayerMapping;
-  interactive: ReturnType<typeof useMappingPhase>["interactive"];
-  onAccept: (userModelName: string) => void;
-  onSkip: () => void;
-}) {
-  const suggestions = useMemo(
-    () => interactive.getSuggestionsForLayer(item.sourceModel).slice(0, 10),
-    [interactive, item.sourceModel],
-  );
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="px-6 py-4 border-b border-border">
-        <h3 className="text-lg font-semibold text-foreground">{item.sourceModel.name}</h3>
-        <div className="flex items-center gap-3 mt-1 text-sm text-foreground/40">
-          {item.sourceModel.pixelCount ? (
-            <span>{item.sourceModel.pixelCount}px</span>
-          ) : null}
-          <span>{item.sourceModel.type}</span>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        <h4 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wide mb-3">
-          Suggested Matches
-        </h4>
-
-        {suggestions.length === 0 ? (
-          <div className="text-center py-8 text-foreground/30">
-            <p className="text-sm">No matches found. Try drag-and-drop or skip.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {suggestions.map((sugg, index) => {
-              const reasoning = generateMatchReasoning(sugg.factors, sugg.score);
-              return (
-                <button
-                  key={sugg.model.name}
-                  type="button"
-                  onClick={() => onAccept(sugg.model.name)}
-                  className={`
-                    w-full p-3 rounded-lg text-left transition-all duration-200
-                    ${index === 0
-                      ? "bg-accent/8 border border-accent/25 hover:border-accent/40"
-                      : "bg-foreground/3 border border-border hover:border-foreground/20"}
-                  `}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {index === 0 && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent/15 text-accent rounded flex-shrink-0">
-                          BEST
-                        </span>
-                      )}
-                      <span className="text-[13px] font-medium text-foreground truncate">
-                        {sugg.model.name}
-                      </span>
-                    </div>
-                    <ConfidenceBadge score={sugg.score} reasoning={reasoning} size="sm" />
-                  </div>
-                  <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground/30">
-                    {sugg.model.pixelCount ? <span>{sugg.model.pixelCount}px</span> : null}
-                    <span>{sugg.model.type}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div className="px-6 py-3 border-t border-border">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="w-full py-2.5 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
-        >
-          Skip This Model
-        </button>
       </div>
     </div>
   );

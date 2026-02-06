@@ -5,6 +5,9 @@
  * for the matching engine. Runs client-side in the browser.
  */
 
+import type { GroupEntityType, XLightsEntityType } from "@/types/xLightsTypes";
+import { detectGroupType, getEntityType } from "@/types/xLightsTypes";
+
 export interface SubModel {
   name: string;
   type: string;
@@ -12,8 +15,15 @@ export interface SubModel {
   pixelCount: number;
 }
 
-/** Group classification: MODEL_GRP = independent models, SUBMODEL_GRP = submodels of a single parent */
-export type GroupType = "MODEL_GRP" | "SUBMODEL_GRP";
+/**
+ * Group classification for xLights model groups.
+ *
+ * - MODEL_GROUP    — Group of independent models (e.g., "All Mega Trees")
+ * - SUBMODEL_GROUP — Group of submodel parts from a single prop (e.g., spinner spokes)
+ * - META_GROUP     — Group containing only other groups
+ * - MIXED_GROUP    — Group containing a mix of member types
+ */
+export type GroupType = GroupEntityType;
 
 export interface ParsedModel {
   name: string;
@@ -33,12 +43,16 @@ export interface ParsedModel {
   aliases: string[];
   memberModels: string[]; // For groups: names of models in this group
 
+  // ── Entity classification ──
+  /** The resolved xLights entity type (MODEL, SUBMODEL, MODEL_GROUP, etc.) */
+  entityType?: XLightsEntityType;
+
   // ── Group classification (only set when isGroup=true) ──
-  /** Type of group: MODEL_GRP (independent models) or SUBMODEL_GRP (parts of a single prop) */
+  /** Type of group: MODEL_GROUP, SUBMODEL_GROUP, META_GROUP, or MIXED_GROUP */
   groupType?: GroupType;
-  /** For SUBMODEL_GRP: the parent prop name(s) the submodels belong to */
+  /** For SUBMODEL_GROUP: the parent prop name(s) the submodels belong to */
   parentModels?: string[];
-  /** For SUBMODEL_GRP: semantic category for cross-vendor matching (decorative, circular, radial) */
+  /** For SUBMODEL_GROUP: semantic category for cross-vendor matching (decorative, circular, radial) */
   semanticCategory?: string;
 }
 
@@ -219,11 +233,11 @@ function estimateSubmodelPixels(rangeData: string): number {
 }
 
 // ─── Group Classification ─────────────────────────────────────────
-// Distinguishes between MODEL_GRP (collection of independent models)
-// and SUBMODEL_GRP (collection of submodels within a single parent prop)
+// Classifies groups into four types: MODEL_GROUP, SUBMODEL_GROUP,
+// META_GROUP (groups of groups), and MIXED_GROUP (mixed member types)
 
 /**
- * Reliable SUBMODEL_GRP prefixes — these ALWAYS indicate submodel groups.
+ * Reliable SUBMODEL_GROUP prefixes — these ALWAYS indicate submodel groups.
  * Only includes patterns that are unambiguous.
  */
 const SUBMODEL_GROUP_PREFIXES = [
@@ -232,8 +246,8 @@ const SUBMODEL_GROUP_PREFIXES = [
 ];
 
 /**
- * Vendor prefixes that, when combined with element keywords, indicate SUBMODEL_GRP.
- * These alone do NOT indicate SUBMODEL_GRP (e.g., "PPD Wreath GRP" is MODEL_GRP).
+ * Vendor prefixes that, when combined with element keywords, indicate SUBMODEL_GROUP.
+ * These alone do NOT indicate SUBMODEL_GROUP (e.g., "PPD Wreath GRP" is MODEL_GROUP).
  */
 const SPINNER_VENDOR_PREFIXES = [
   "PPD",               // PPD spinners
@@ -253,7 +267,7 @@ const SPINNER_VENDOR_PREFIXES = [
 
 /**
  * Element keywords that indicate submodel components of a spinner.
- * When combined with a vendor prefix, these indicate SUBMODEL_GRP.
+ * When combined with a vendor prefix, these indicate SUBMODEL_GROUP.
  */
 const SUBMODEL_ELEMENT_KEYWORDS = [
   "Spokes", "Spoke",
@@ -324,7 +338,7 @@ const MODEL_GROUP_PATTERNS = [
 ];
 
 /**
- * Check if a group name indicates a SUBMODEL_GRP based on vendor + element combination.
+ * Check if a group name indicates a SUBMODEL_GROUP based on vendor + element combination.
  */
 function hasVendorPlusElement(groupName: string): boolean {
   const upperName = groupName.toUpperCase();
@@ -581,66 +595,61 @@ function isKnownSpinnerProp(groupName: string): boolean {
 
 /**
  * Classify a group based on its member names.
- * Primary method: checks if members follow the "Parent/Submodel" pattern.
+ * Uses the xLights type system: `/` → submodel, ` GRP` suffix → group, else → model.
+ * Detects all four group types: MODEL_GROUP, SUBMODEL_GROUP, META_GROUP, MIXED_GROUP.
  */
 function classifyGroupFromMembers(
   memberModels: string[]
 ): { groupType: GroupType; parentModels: string[] } {
   if (memberModels.length === 0) {
-    return { groupType: "MODEL_GRP", parentModels: [] };
+    return { groupType: "MODEL_GROUP", parentModels: [] };
   }
 
-  // Check if members follow "Parent/Submodel" pattern (e.g., "PPD Wreath/Spiral-1")
-  const submodelPattern = /^(.+)\/(.+)$/;
-  const parentNames = new Set<string>();
-  let submodelCount = 0;
+  // Use the centralized detection logic
+  const groupType = detectGroupType(memberModels);
 
-  for (const member of memberModels) {
-    const match = member.match(submodelPattern);
-    if (match) {
-      parentNames.add(match[1]); // Collect parent model names
-      submodelCount++;
+  // Extract parent model names for SUBMODEL_GROUP
+  const parentModels: string[] = [];
+  if (groupType === "SUBMODEL_GROUP") {
+    const parentNames = new Set<string>();
+    for (const member of memberModels) {
+      const slashIdx = member.indexOf("/");
+      if (slashIdx > 0) {
+        parentNames.add(member.substring(0, slashIdx));
+      }
     }
+    parentModels.push(...parentNames);
   }
 
-  // If most/all members are submodels of a small set of parents, it's a SUBMODEL_GRP
-  // Allow up to 2 parent models (some groups span related props)
-  if (submodelCount >= memberModels.length * 0.5 && parentNames.size <= 2) {
-    return {
-      groupType: "SUBMODEL_GRP",
-      parentModels: Array.from(parentNames),
-    };
-  }
-
-  return { groupType: "MODEL_GRP", parentModels: [] };
+  return { groupType, parentModels };
 }
 
 /**
  * Classify a group based on its name (fallback when member analysis is inconclusive).
  */
 function classifyGroupByName(groupName: string): GroupType {
-  // Check if it matches known MODEL_GRP patterns first (take priority)
+  // Check if it matches known MODEL_GROUP patterns first (take priority)
   for (const pattern of MODEL_GROUP_PATTERNS) {
     if (pattern.test(groupName)) {
-      return "MODEL_GRP";
+      return "MODEL_GROUP";
     }
   }
 
-  // Check known SUBMODEL_GRP prefixes (reliable, unambiguous)
+  // Check known SUBMODEL_GROUP prefixes (reliable, unambiguous)
   for (const prefix of SUBMODEL_GROUP_PREFIXES) {
     if (groupName.startsWith(prefix)) {
-      return "SUBMODEL_GRP";
+      return "SUBMODEL_GROUP";
     }
   }
 
   // Check vendor + element combination (e.g., "GE Rosa Spokes GRP" but not "GE Rosa GRP")
   if (hasVendorPlusElement(groupName)) {
-    return "SUBMODEL_GRP";
+    return "SUBMODEL_GROUP";
   }
 
   // Check if group references a known spinner prop family AND contains an element keyword
-  // e.g., "Showstopper Rings GRP" → SUBMODEL_GRP (known prop + element)
-  // but "Showstopper GRP" → MODEL_GRP (just the prop, no element)
+  // e.g., "Showstopper Rings GRP" → SUBMODEL_GROUP (known prop + element)
+  // but "Showstopper GRP" → MODEL_GROUP (just the prop, no element)
   if (isKnownSpinnerProp(groupName)) {
     const hasElement = SUBMODEL_ELEMENT_KEYWORDS.some(keyword => {
       const keywordUpper = keyword.toUpperCase();
@@ -648,12 +657,12 @@ function classifyGroupByName(groupName: string): GroupType {
       return regex.test(groupName.toUpperCase());
     });
     if (hasElement) {
-      return "SUBMODEL_GRP";
+      return "SUBMODEL_GROUP";
     }
   }
 
-  // Default to MODEL_GRP for generic groups
-  return "MODEL_GRP";
+  // Default to MODEL_GROUP for generic groups
+  return "MODEL_GROUP";
 }
 
 /**
@@ -693,29 +702,35 @@ function classifyGroup(
   groupName: string,
   memberModels: string[]
 ): { groupType: GroupType; parentModels?: string[]; semanticCategory?: string } {
-  // Primary method: analyze member names for "Parent/Submodel" pattern
+  // Primary method: analyze member names using the xLights type system
   const memberAnalysis = classifyGroupFromMembers(memberModels);
 
-  if (memberAnalysis.groupType === "SUBMODEL_GRP") {
+  if (memberAnalysis.groupType === "SUBMODEL_GROUP") {
     return {
-      groupType: "SUBMODEL_GRP",
+      groupType: "SUBMODEL_GROUP",
       parentModels: memberAnalysis.parentModels,
       semanticCategory: getSemanticCategory(groupName),
     };
   }
 
-  // Fallback: classify by name patterns
+  // META_GROUP and MIXED_GROUP are detected purely from members
+  if (memberAnalysis.groupType === "META_GROUP" || memberAnalysis.groupType === "MIXED_GROUP") {
+    return { groupType: memberAnalysis.groupType };
+  }
+
+  // For MODEL_GROUP from member analysis, also check name-based fallback
+  // (name patterns may detect SUBMODEL_GROUP that member analysis missed)
   const nameType = classifyGroupByName(groupName);
 
-  if (nameType === "SUBMODEL_GRP") {
+  if (nameType === "SUBMODEL_GROUP") {
     return {
-      groupType: "SUBMODEL_GRP",
+      groupType: "SUBMODEL_GROUP",
       parentModels: [],
       semanticCategory: getSemanticCategory(groupName),
     };
   }
 
-  return { groupType: "MODEL_GRP" };
+  return { groupType: "MODEL_GROUP" };
 }
 
 /**
@@ -791,6 +806,8 @@ export function parseRgbEffectsXml(
       customModel,
     );
 
+    const entityType = getEntityType({ isGroup: false, name });
+
     models.push({
       name,
       displayAs,
@@ -808,6 +825,7 @@ export function parseRgbEffectsXml(
       isGroup: false,
       aliases,
       memberModels: [],
+      entityType,
     });
   });
 
@@ -846,7 +864,7 @@ export function parseRgbEffectsXml(
       if (aliasName) aliases.push(aliasName);
     });
 
-    // Classify the group: MODEL_GRP (independent models) or SUBMODEL_GRP (parts of a prop)
+    // Classify the group using the xLights type system
     const classification = classifyGroup(name, memberModels);
 
     models.push({
@@ -866,6 +884,7 @@ export function parseRgbEffectsXml(
       isGroup: true,
       aliases,
       memberModels,
+      entityType: classification.groupType,
       groupType: classification.groupType,
       parentModels: classification.parentModels,
       semanticCategory: classification.semanticCategory,

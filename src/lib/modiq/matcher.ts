@@ -1181,19 +1181,19 @@ function computeScore(
     return { score: Math.min(0.1, factors.name * 0.1), factors };
   }
 
-  // ── SUBMODEL_GRP HARD CONSTRAINT ─────────────────────────
-  // SUBMODEL_GRP groups should ONLY match other SUBMODEL_GRP groups.
-  // They should NEVER match regular models (like "Driveway Left") or MODEL_GRP groups.
+  // ── SUBMODEL_GROUP HARD CONSTRAINT ─────────────────────────
+  // SUBMODEL_GROUP groups should ONLY match other SUBMODEL_GROUP groups.
+  // They should NEVER match regular models or MODEL_GROUP/META_GROUP/MIXED_GROUP groups.
   // This is the highest priority rule for spinner submodel groups.
-  const srcIsSubmodelGrp = source.isGroup && source.groupType === "SUBMODEL_GRP";
-  const destIsSubmodelGrp = dest.isGroup && dest.groupType === "SUBMODEL_GRP";
+  const srcIsSubmodelGrp = source.isGroup && source.groupType === "SUBMODEL_GROUP";
+  const destIsSubmodelGrp = dest.isGroup && dest.groupType === "SUBMODEL_GROUP";
 
   if (srcIsSubmodelGrp && !destIsSubmodelGrp) {
-    // Source is a SUBMODEL_GRP but dest is not — hard block
+    // Source is a SUBMODEL_GROUP but dest is not — hard block
     return { score: 0, factors: zeroFactors };
   }
   if (destIsSubmodelGrp && !srcIsSubmodelGrp) {
-    // Dest is a SUBMODEL_GRP but source is not — hard block
+    // Dest is a SUBMODEL_GROUP but source is not — hard block
     return { score: 0, factors: zeroFactors };
   }
 
@@ -1206,7 +1206,7 @@ function computeScore(
 
   // ── Group-vs-group matching ────────────────────────────
   if (source.isGroup && dest.isGroup) {
-    // Note: SUBMODEL_GRP vs MODEL_GRP mismatch already handled above
+    // Note: SUBMODEL_GROUP vs MODEL_GROUP mismatch already handled above
 
     // "NO" logic: if one group has "no" negation and the other doesn't,
     // they almost certainly don't match
@@ -1742,9 +1742,9 @@ export function matchModels(
             if (usedDestInClass.has(d)) continue;
             const dest = destPool[d];
 
-            // GROUP TYPE COMPATIBILITY: Skip if one is SUBMODEL_GRP and other is MODEL_GRP
-            const srcIsSubmodelGrp = src.groupType === "SUBMODEL_GRP";
-            const destIsSubmodelGrp = dest.groupType === "SUBMODEL_GRP";
+            // GROUP TYPE COMPATIBILITY: Skip if one is SUBMODEL_GROUP and other is not
+            const srcIsSubmodelGrp = src.groupType === "SUBMODEL_GROUP";
+            const destIsSubmodelGrp = dest.groupType === "SUBMODEL_GROUP";
             if (srcIsSubmodelGrp !== destIsSubmodelGrp) continue;
 
             const memberS = scoreMemberOverlap(src, dest);

@@ -1,4 +1,5 @@
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
+import { isSpinnerType } from "@/types/xLightsTypes";
 
 export type MappingPhase =
   | "auto-accept"
@@ -26,6 +27,12 @@ export const UPLOAD_STEP = {
  * Phase definitions for the ModIQ mapping wizard.
  *
  * Ordering: [Upload (always done)] → Auto-Accept → Groups → Individuals → Spinners → Review
+ *
+ * Phase routing uses the xLights type system:
+ * - Spinners: SUBMODEL_GROUP only
+ * - Groups: MODEL_GROUP + META_GROUP + MIXED_GROUP (below auto-accept threshold)
+ * - Models: MODEL + SUBMODEL (below auto-accept threshold)
+ * - Auto-Accept: anything above 0.85 confidence (except spinners)
  */
 export const PHASE_CONFIG: PhaseConfig[] = [
   {
@@ -34,7 +41,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     description: "High-confidence matches ready to accept",
     icon: "auto",
     filter: (layer) => {
-      if (layer.sourceModel.groupType === "SUBMODEL_GRP") return false;
+      if (isSpinnerType(layer.sourceModel.groupType)) return false;
       return getLayerBestScore(layer) >= 0.85;
     },
   },
@@ -44,7 +51,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     description: "Match model groups to your groups",
     icon: "groups",
     filter: (layer) => {
-      if (layer.sourceModel.groupType === "SUBMODEL_GRP") return false;
+      if (isSpinnerType(layer.sourceModel.groupType)) return false;
       if (!layer.isGroup) return false;
       return getLayerBestScore(layer) < 0.85;
     },
@@ -55,7 +62,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     description: "Match individual models one by one",
     icon: "individuals",
     filter: (layer) => {
-      if (layer.sourceModel.groupType === "SUBMODEL_GRP") return false;
+      if (isSpinnerType(layer.sourceModel.groupType)) return false;
       if (layer.isGroup) return false;
       return getLayerBestScore(layer) < 0.85;
     },
@@ -65,7 +72,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     label: "Spinners",
     description: "Semantic matching for spinner submodel groups",
     icon: "spinners",
-    filter: (layer) => layer.sourceModel.groupType === "SUBMODEL_GRP",
+    filter: (layer) => isSpinnerType(layer.sourceModel.groupType),
   },
   {
     id: "review",
