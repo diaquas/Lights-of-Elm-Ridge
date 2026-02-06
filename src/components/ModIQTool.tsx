@@ -1492,16 +1492,18 @@ function InteractiveResults({
       </div>
 
       {/* ── V4 Phase Content ─────────────────────────────── */}
-      <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col min-h-[500px] max-h-[calc(100vh-12rem)]">
-        <PhaseContainer
-          reviewProps={{
-            onExport: handleExport,
-            onExportReport: handleExportReport,
-            onReset: onReset,
-            seqTitle,
-            coveragePercent,
-          }}
-        />
+      <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[calc(100vh-11rem)]">
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <PhaseContainer
+            reviewProps={{
+              onExport: handleExport,
+              onExportReport: handleExportReport,
+              onReset: onReset,
+              seqTitle,
+              coveragePercent,
+            }}
+          />
+        </div>
         <PhaseNavigation />
       </div>
 

@@ -1,9 +1,14 @@
 "use client";
 
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
-import { PHASE_CONFIG } from "@/types/mappingPhases";
+import { PHASE_CONFIG, UPLOAD_STEP } from "@/types/mappingPhases";
 
 const PHASE_ICONS: Record<string, React.ReactNode> = {
+  upload: (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+    </svg>
+  ),
   auto: (
     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -31,6 +36,16 @@ const PHASE_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
+const CHECK_ICON = (
+  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+    <path
+      fillRule="evenodd"
+      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
 export function PhaseStepper() {
   const {
     currentPhase,
@@ -42,9 +57,19 @@ export function PhaseStepper() {
   const currentIndex = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-surface border-b border-border">
+    <div className="flex items-center justify-between px-4 py-2.5">
       {/* Phase Steps */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
+        {/* Upload Step (always completed) */}
+        <div className="flex items-center">
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[13px] font-medium bg-green-500/15 text-green-400">
+            {CHECK_ICON}
+            <span>{UPLOAD_STEP.label}</span>
+          </div>
+          <div className="w-5 h-0.5 mx-0.5 bg-green-500/40" />
+        </div>
+
+        {/* Mapping Phases */}
         {PHASE_CONFIG.map((phase, index) => {
           const isCurrent = index === currentIndex;
           const isComplete = index < currentIndex;
@@ -52,16 +77,41 @@ export function PhaseStepper() {
           const count = phaseCounts.get(phase.id) ?? 0;
 
           return (
-            <PhaseStep
-              key={phase.id}
-              phase={phase}
-              count={count}
-              isCurrent={isCurrent}
-              isComplete={isComplete}
-              isPending={isPending}
-              isLast={index === PHASE_CONFIG.length - 1}
-              onClick={() => setCurrentPhase(phase.id)}
-            />
+            <div key={phase.id} className="flex items-center">
+              <button
+                type="button"
+                onClick={() => setCurrentPhase(phase.id)}
+                className={`
+                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[13px] font-medium
+                  transition-all duration-200
+                  ${isComplete ? "bg-green-500/15 text-green-400 hover:bg-green-500/25" : ""}
+                  ${isCurrent ? "bg-accent/15 text-accent ring-1 ring-accent/40" : ""}
+                  ${isPending ? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10 hover:text-foreground/60" : ""}
+                `}
+              >
+                {isComplete ? CHECK_ICON : PHASE_ICONS[phase.icon]}
+                <span>{phase.label}</span>
+                {count > 0 && phase.id !== "review" && (
+                  <span
+                    className={`
+                      text-[10px] px-1.5 py-0.5 rounded-full font-semibold
+                      ${isComplete ? "bg-green-500/20 text-green-400" : ""}
+                      ${isCurrent ? "bg-accent/20 text-accent" : ""}
+                      ${isPending ? "bg-foreground/10 text-foreground/30" : ""}
+                    `}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+
+              {/* Connector Line */}
+              {index < PHASE_CONFIG.length - 1 && (
+                <div
+                  className={`w-5 h-0.5 mx-0.5 ${isComplete ? "bg-green-500/40" : "bg-foreground/10"}`}
+                />
+              )}
+            </div>
           );
         })}
       </div>
@@ -71,79 +121,13 @@ export function PhaseStepper() {
         <span className="text-foreground/50">
           {overallProgress.completed}/{overallProgress.total} mapped
         </span>
-        <div className="w-28 h-2 bg-foreground/10 rounded-full overflow-hidden">
+        <div className="w-24 h-2 bg-foreground/10 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 ease-out"
             style={{ width: `${overallProgress.percentage}%` }}
           />
         </div>
       </div>
-    </div>
-  );
-}
-
-function PhaseStep({
-  phase,
-  count,
-  isCurrent,
-  isComplete,
-  isPending,
-  isLast,
-  onClick,
-}: {
-  phase: (typeof PHASE_CONFIG)[number];
-  count: number;
-  isCurrent: boolean;
-  isComplete: boolean;
-  isPending: boolean;
-  isLast: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <div className="flex items-center">
-      <button
-        type="button"
-        onClick={onClick}
-        className={`
-          flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-medium
-          transition-all duration-200
-          ${isComplete ? "bg-green-500/15 text-green-400 hover:bg-green-500/25" : ""}
-          ${isCurrent ? "bg-accent/15 text-accent ring-1 ring-accent/40" : ""}
-          ${isPending ? "bg-foreground/5 text-foreground/40 hover:bg-foreground/10 hover:text-foreground/60" : ""}
-        `}
-      >
-        {isComplete ? (
-          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        ) : (
-          PHASE_ICONS[phase.icon]
-        )}
-        <span>{phase.label}</span>
-        {count > 0 && phase.id !== "review" && (
-          <span
-            className={`
-              text-[10px] px-1.5 py-0.5 rounded-full font-semibold
-              ${isComplete ? "bg-green-500/20 text-green-400" : ""}
-              ${isCurrent ? "bg-accent/20 text-accent" : ""}
-              ${isPending ? "bg-foreground/10 text-foreground/30" : ""}
-            `}
-          >
-            {count}
-          </span>
-        )}
-      </button>
-
-      {/* Connector Line */}
-      {!isLast && (
-        <div
-          className={`w-6 h-0.5 mx-0.5 ${isComplete ? "bg-green-500/40" : "bg-foreground/10"}`}
-        />
-      )}
     </div>
   );
 }

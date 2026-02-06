@@ -15,16 +15,17 @@ export interface PhaseConfig {
   filter: (layer: SourceLayerMapping) => boolean;
 }
 
+/** Upload is always shown as completed — the actual upload happens before the wizard. */
+export const UPLOAD_STEP = {
+  id: "upload" as const,
+  label: "Upload",
+  icon: "upload",
+};
+
 /**
  * Phase definitions for the ModIQ mapping wizard.
  *
- * Ordering: Auto-Accept → Groups → Individuals → Spinners → Review
- *
- * Auto-accept captures high-confidence matches (score >= 0.85).
- * Groups captures MODEL_GRP items below auto-accept threshold.
- * Individuals captures non-group, non-spinner items below auto-accept.
- * Spinners captures SUBMODEL_GRP items (any confidence).
- * Review is the final summary/export step.
+ * Ordering: [Upload (always done)] → Auto-Accept → Groups → Individuals → Spinners → Review
  */
 export const PHASE_CONFIG: PhaseConfig[] = [
   {
@@ -33,9 +34,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     description: "High-confidence matches ready to accept",
     icon: "auto",
     filter: (layer) => {
-      // Spinners always go to their own phase regardless of confidence
       if (layer.sourceModel.groupType === "SUBMODEL_GRP") return false;
-      // High-confidence = auto-accept candidates
       return getLayerBestScore(layer) >= 0.85;
     },
   },
@@ -77,22 +76,11 @@ export const PHASE_CONFIG: PhaseConfig[] = [
   },
 ];
 
-/**
- * Helper: get the best match score for a layer.
- * Uses the first suggestion score from the interactive mapping hook.
- * This is a placeholder — will be populated by the context based on actual suggestions.
- */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getLayerBestScore(_layer: SourceLayerMapping): number {
-  // The actual score lookup happens in MappingPhaseContext where we have
-  // access to getSuggestionsForLayer. This static filter is used as a
-  // fallback and re-computed with real scores at runtime.
   return 0;
 }
 
-/**
- * Get the best score for a layer from a precomputed score map.
- */
 export function getLayerBestScoreFromMap(
   layer: SourceLayerMapping,
   scoreMap: Map<string, number>,

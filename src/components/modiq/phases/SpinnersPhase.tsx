@@ -64,7 +64,7 @@ export function SpinnersPhase() {
   // Intro screen
   if (wizardStep === "intro") {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="h-full flex items-center justify-center p-8 overflow-y-auto">
         <div className="max-w-2xl w-full">
           <div className="text-center mb-8">
             <div className="text-6xl mb-4">&#127921;</div>
@@ -228,7 +228,7 @@ function SpinnerCategoryStep({
 
   if (unmappedItems.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="h-full flex items-center justify-center p-8">
         <div className="text-center">
           <div className="text-5xl mb-4">&#9989;</div>
           <h3 className="text-xl font-semibold text-foreground">
@@ -274,9 +274,9 @@ function SpinnerCategoryStep({
     .slice(0, 5);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Category Header */}
-      <div className="px-6 py-4 border-b border-border">
+      <div className="px-6 py-4 border-b border-border flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span
@@ -382,14 +382,14 @@ function SpinnerCategoryStep({
                     className={`
                       w-full p-4 rounded-xl text-left transition-all duration-200
                       ${index === 0
-                        ? "bg-green-500/8 border-2 border-green-500/25 hover:border-green-500/40"
+                        ? "bg-accent/8 border-2 border-accent/25 hover:border-accent/40"
                         : "bg-surface border border-border hover:border-foreground/20"}
                     `}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         {index === 0 && (
-                          <span className="px-1.5 py-0.5 text-[10px] font-bold bg-green-500/15 text-green-400 rounded">
+                          <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent/15 text-accent rounded">
                             BEST MATCH
                           </span>
                         )}
@@ -418,7 +418,7 @@ function SpinnerCategoryStep({
       </div>
 
       {/* Footer Navigation */}
-      <div className="px-6 py-3 border-t border-border flex items-center justify-between">
+      <div className="px-6 py-3 border-t border-border flex items-center justify-between flex-shrink-0">
         <button
           type="button"
           onClick={onBack}

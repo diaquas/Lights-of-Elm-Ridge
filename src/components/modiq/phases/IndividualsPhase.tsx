@@ -69,10 +69,10 @@ export function IndividualsPhase() {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-hidden">
       {/* Left: Model List */}
-      <div className="w-1/2 flex flex-col border-r border-border">
-        <div className="px-6 py-4 border-b border-border">
+      <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
+        <div className="px-6 py-4 border-b border-border flex-shrink-0">
           <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
             <svg className="w-5 h-5 text-foreground/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -86,7 +86,7 @@ export function IndividualsPhase() {
         </div>
 
         {/* Search */}
-        <div className="px-4 py-2 border-b border-border">
+        <div className="px-4 py-2 border-b border-border flex-shrink-0">
           <div className="relative">
             <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -142,7 +142,7 @@ export function IndividualsPhase() {
       </div>
 
       {/* Right: Detail / Suggestion Panel */}
-      <div className="w-1/2 flex flex-col bg-surface/50">
+      <div className="w-1/2 flex flex-col bg-surface/50 overflow-hidden">
         {selectedItem && !selectedItem.isMapped ? (
           <IndividualDetailPanel
             item={selectedItem}
@@ -216,14 +216,14 @@ function IndividualDetailPanel({
                   className={`
                     w-full p-3 rounded-lg text-left transition-all duration-200
                     ${index === 0
-                      ? "bg-green-500/8 border border-green-500/25 hover:border-green-500/40"
+                      ? "bg-accent/8 border border-accent/25 hover:border-accent/40"
                       : "bg-foreground/3 border border-border hover:border-foreground/20"}
                   `}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       {index === 0 && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-bold bg-green-500/15 text-green-400 rounded flex-shrink-0">
+                        <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent/15 text-accent rounded flex-shrink-0">
                           BEST
                         </span>
                       )}

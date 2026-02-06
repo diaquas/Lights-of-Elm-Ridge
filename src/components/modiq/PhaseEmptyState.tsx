@@ -12,7 +12,7 @@ interface PhaseEmptyStateProps {
 
 export function PhaseEmptyState({ icon, title, description, action }: PhaseEmptyStateProps) {
   return (
-    <div className="flex-1 flex items-center justify-center p-8">
+    <div className="h-full flex items-center justify-center p-8">
       <div className="text-center max-w-md">
         <div className="text-5xl mb-5">{icon}</div>
         <h3 className="text-lg font-semibold text-foreground">{title}</h3>
