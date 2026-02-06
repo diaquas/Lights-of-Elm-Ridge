@@ -21,11 +21,22 @@ export function GroupsPhase() {
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
 
   const unmappedGroups = phaseItems.filter((item) => !item.isMapped);
   const mappedGroups = phaseItems.filter((item) => item.isMapped);
 
-  const { families, toggle, isExpanded } = useItemFamilies(unmappedGroups, selectedGroupId);
+  const filteredUnmapped = useMemo(() => {
+    if (!search) return unmappedGroups;
+    const q = search.toLowerCase();
+    return unmappedGroups.filter(
+      (item) =>
+        item.sourceModel.name.toLowerCase().includes(q) ||
+        item.sourceModel.type.toLowerCase().includes(q),
+    );
+  }, [unmappedGroups, search]);
+
+  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedGroupId);
 
   const selectedGroup = phaseItems.find(
     (g) => g.sourceModel.name === selectedGroupId,
@@ -37,10 +48,10 @@ export function GroupsPhase() {
     return interactive.getSuggestionsForLayer(selectedGroup.sourceModel).slice(0, 8);
   }, [interactive, selectedGroup]);
 
-  // Type filter: exclude SUBMODEL_GROUP from Groups phase source panel
+  // Type filter: only show model-level groups (not individual models or submodel groups)
   const groupSourceFilter = useCallback(
     (m: { isGroup?: boolean; groupType?: string }) =>
-      m.groupType !== "SUBMODEL_GROUP",
+      !!m.isGroup && m.groupType !== "SUBMODEL_GROUP",
     [],
   );
 
@@ -123,6 +134,22 @@ export function GroupsPhase() {
             {unmappedGroups.length} groups need matching &middot;{" "}
             {mappedGroups.length} already mapped
           </p>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-2 border-b border-border flex-shrink-0">
+          <div className="relative">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Filter groups..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full text-[12px] pl-8 pr-3 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+            />
+          </div>
         </div>
 
         {bulk.suggestion && (
