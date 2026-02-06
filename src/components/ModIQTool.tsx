@@ -1865,8 +1865,8 @@ function InteractiveResults({
         </div>
 
         {/* ═══ Right Panel: Your Models (The Answer Pool) ═══ */}
-        <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-8.5rem)]">
-          <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-full">
+        <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-8.5rem)] overflow-hidden">
+          <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-full max-h-[calc(100vh-8.5rem)]">
             {/* Header */}
             <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
               <h3 className="font-display font-bold text-[15px]">Your Models</h3>
@@ -1887,7 +1887,7 @@ function InteractiveResults({
             </div>
 
             {/* Cards area */}
-            <div className="flex-1 min-h-[440px] overflow-y-auto">
+            <div className="flex-1 overflow-y-auto">
               {/* Dynamic Best Matches */}
               {focusedSourceLayer && bestMatchesForFocused.length > 0 && (
                 <div>
