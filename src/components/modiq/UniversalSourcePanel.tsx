@@ -5,6 +5,7 @@ import type { ParsedModel } from "@/lib/modiq";
 import type { DragItem, DragAndDropHandlers } from "@/hooks/useDragAndDrop";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
+import { PANEL_STYLES } from "./panelStyles";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ export function UniversalSourcePanel({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-3 border-b border-border flex-shrink-0">
+      <div className="px-6 py-2 border-b border-border flex-shrink-0">
         <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wide">
           {selectedDestLabel
             ? `Match for: ${selectedDestLabel}`
@@ -100,11 +101,11 @@ export function UniversalSourcePanel({
         </div>
       </div>
 
-      {/* Search — ALWAYS visible, above suggestions */}
-      <div className="px-6 py-2 border-b border-border flex-shrink-0">
+      {/* Search — same height as left panel search */}
+      <div className={PANEL_STYLES.search.wrapper}>
         <div className="relative">
           <svg
-            className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30"
+            className={PANEL_STYLES.search.icon}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -242,6 +243,8 @@ const SuggestionCard = memo(function SuggestionCard({
     [dnd, dragItem],
   );
 
+  const memberCount = sugg.model.memberModels?.length ?? 0;
+
   return (
     <button
       type="button"
@@ -270,15 +273,18 @@ const SuggestionCard = memo(function SuggestionCard({
         </div>
         <ConfidenceBadge score={sugg.score} reasoning={reasoning} size="sm" />
       </div>
-      {sugg.model.pixelCount ? (
-        <div className="text-[11px] text-foreground/30 mt-0.5">
-          {sugg.model.pixelCount}px &middot; {sugg.model.type}
-        </div>
-      ) : (
-        <div className="text-[11px] text-foreground/30 mt-0.5">
-          {sugg.model.type}
-        </div>
-      )}
+      <div className="flex items-center gap-2 text-[11px] text-foreground/30 mt-0.5">
+        {sugg.model.pixelCount ? (
+          <span>{sugg.model.pixelCount}px</span>
+        ) : null}
+        <span>{sugg.model.type}</span>
+        {memberCount > 0 && (
+          <>
+            <span className="text-foreground/15">&middot;</span>
+            <span>{memberCount} members</span>
+          </>
+        )}
+      </div>
     </button>
   );
 });
@@ -321,6 +327,8 @@ const ModelCard = memo(function ModelCard({
           : "GRP"
     : model.type.toUpperCase().slice(0, 6);
 
+  const memberCount = model.memberModels?.length ?? 0;
+
   return (
     <div
       draggable={!!dnd}
@@ -353,8 +361,26 @@ const ModelCard = memo(function ModelCard({
         {model.name}
       </span>
 
-      {/* Type badge */}
-      <span className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 text-foreground/30 flex-shrink-0 uppercase tracking-wide">
+      {/* Member count for groups */}
+      {memberCount > 0 && (
+        <span className="text-[10px] text-foreground/25 flex-shrink-0">
+          {memberCount}m
+        </span>
+      )}
+
+      {/* Type badge — with hierarchy icon for SUB */}
+      <span className={`text-[9px] px-1 py-0.5 rounded flex-shrink-0 uppercase tracking-wide ${
+        typeLabel === "SUB"
+          ? "bg-purple-500/10 text-purple-400"
+          : typeLabel === "GRP"
+            ? "bg-blue-500/10 text-blue-400"
+            : "bg-foreground/5 text-foreground/30"
+      }`}>
+        {typeLabel === "SUB" && (
+          <svg className="w-2 h-2 inline-block mr-0.5 -mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+            <path strokeLinecap="round" d="M9 3v12m0 0H5m4 0h4" />
+          </svg>
+        )}
         {typeLabel}
       </span>
 
