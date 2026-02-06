@@ -117,9 +117,9 @@ export function AutoAcceptPhase() {
   if (phaseItems.length === 0) {
     return (
       <PhaseEmptyState
-        icon={<span className="text-5xl">&#127919;</span>}
-        title="No High-Confidence Matches"
-        description="No automatic matches found with 85%+ confidence. Continue to the next phase to map groups manually."
+        icon={<span className="text-5xl">&#128170;</span>}
+        title="Manual Matching Mode"
+        description="No 85%+ auto-matches this time — you have full control! Continue to map groups manually."
       />
     );
   }

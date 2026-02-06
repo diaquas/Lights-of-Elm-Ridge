@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useMappingPhase } from "@/contexts/MappingPhaseContext";
+import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
@@ -46,9 +46,9 @@ export function IndividualsPhase() {
   if (phaseItems.length === 0) {
     return (
       <PhaseEmptyState
-        icon={<span className="text-5xl">&#128203;</span>}
-        title="No Individual Models"
-        description="No individual models need manual matching. Continue to spinners."
+        icon={<span className="text-5xl">&#128077;</span>}
+        title="Models All Set!"
+        description="No individual models need manual matching — they were auto-matched or covered by groups."
       />
     );
   }
@@ -58,25 +58,19 @@ export function IndividualsPhase() {
       <PhaseEmptyState
         icon={<span className="text-5xl">&#9989;</span>}
         title="All Models Mapped!"
-        description={`${mappedItems.length} individual models have been matched.`}
+        description={`${mappedItems.length} individual model${mappedItems.length === 1 ? "" : "s"} successfully matched. Nice work!`}
       />
     );
   }
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
-    const next = unmappedItems.find(
-      (i) => i.sourceModel.name !== sourceName && !i.isMapped,
-    );
-    setSelectedItemId(next?.sourceModel.name ?? null);
+    setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
   const handleSkip = (sourceName: string) => {
     interactive.skipSourceLayer(sourceName);
-    const next = unmappedItems.find(
-      (i) => i.sourceModel.name !== sourceName && !i.isMapped,
-    );
-    setSelectedItemId(next?.sourceModel.name ?? null);
+    setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
   // Handle drops on left panel items

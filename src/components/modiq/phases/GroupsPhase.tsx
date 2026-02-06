@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useMappingPhase } from "@/contexts/MappingPhaseContext";
+import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
@@ -40,9 +40,9 @@ export function GroupsPhase() {
   if (phaseItems.length === 0) {
     return (
       <PhaseEmptyState
-        icon={<span className="text-5xl">&#128193;</span>}
-        title="No Model Groups Found"
-        description="No model groups below auto-accept threshold. Continue to individual models."
+        icon={<span className="text-5xl">&#128077;</span>}
+        title="Groups All Set!"
+        description="No model groups need manual matching — they were auto-matched or this sequence doesn't use groups."
       />
     );
   }
@@ -53,7 +53,7 @@ export function GroupsPhase() {
       <PhaseEmptyState
         icon={<span className="text-5xl">&#9989;</span>}
         title="All Groups Mapped!"
-        description={`${mappedGroups.length} model groups have been matched.`}
+        description={`${mappedGroups.length} model group${mappedGroups.length === 1 ? "" : "s"} successfully matched. Nice work!`}
       />
     );
   }
@@ -63,11 +63,7 @@ export function GroupsPhase() {
     userModelName: string,
   ) => {
     interactive.assignUserModelToLayer(groupName, userModelName);
-    // Auto-select next
-    const nextUnmapped = unmappedGroups.find(
-      (g) => g.sourceModel.name !== groupName && !g.isMapped,
-    );
-    setSelectedGroupId(nextUnmapped?.sourceModel.name ?? null);
+    setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
   };
 
   const handleBulkAccept = () => {
@@ -188,7 +184,7 @@ export function GroupsPhase() {
             <div className="px-6 py-3 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded">
-                  {selectedGroup.sourceModel.groupType ?? "GROUP"}
+                  GROUP
                 </span>
               </div>
               <h3 className="text-base font-semibold text-foreground truncate">
@@ -237,10 +233,7 @@ export function GroupsPhase() {
               <button
                 type="button"
                 onClick={() => {
-                  const next = unmappedGroups.find(
-                    (g) => g.sourceModel.name !== selectedGroup.sourceModel.name,
-                  );
-                  setSelectedGroupId(next?.sourceModel.name ?? null);
+                  setSelectedGroupId(findNextUnmapped(unmappedGroups, selectedGroup.sourceModel.name));
                 }}
                 className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
               >

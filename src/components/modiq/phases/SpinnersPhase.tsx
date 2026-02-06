@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useMappingPhase } from "@/contexts/MappingPhaseContext";
+import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
@@ -50,9 +50,9 @@ export function SpinnersPhase() {
   if (phaseItems.length === 0) {
     return (
       <PhaseEmptyState
-        icon={<span className="text-5xl">&#127921;</span>}
-        title="No Submodel Groups"
-        description="No submodel groups detected. Continue to review."
+        icon={<span className="text-5xl">&#128077;</span>}
+        title="Submodel Groups All Set!"
+        description="No submodel groups need matching in this sequence."
       />
     );
   }
@@ -63,18 +63,14 @@ export function SpinnersPhase() {
       <PhaseEmptyState
         icon={<span className="text-5xl">&#9989;</span>}
         title="All Submodel Groups Mapped!"
-        description={`${mappedItems.length} submodel groups have been matched.`}
+        description={`${mappedItems.length} submodel group${mappedItems.length === 1 ? "" : "s"} successfully matched. Nice work!`}
       />
     );
   }
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
-    // Auto-select next
-    const nextUnmapped = unmappedItems.find(
-      (i) => i.sourceModel.name !== sourceName && !i.isMapped,
-    );
-    setSelectedItemId(nextUnmapped?.sourceModel.name ?? null);
+    setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
   const handleBulkAccept = () => {
@@ -190,7 +186,7 @@ export function SpinnersPhase() {
             <div className="px-6 py-3 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-500/15 text-purple-400 rounded">
-                  SUBMODEL_GROUP
+                  SUBMODEL
                 </span>
                 {selectedItem.sourceModel.semanticCategory && (
                   <span className="px-2 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/40 rounded">
@@ -245,10 +241,7 @@ export function SpinnersPhase() {
                 type="button"
                 onClick={() => {
                   interactive.skipSourceLayer(selectedItem.sourceModel.name);
-                  const next = unmappedItems.find(
-                    (i) => i.sourceModel.name !== selectedItem.sourceModel.name,
-                  );
-                  setSelectedItemId(next?.sourceModel.name ?? null);
+                  setSelectedItemId(findNextUnmapped(unmappedItems, selectedItem.sourceModel.name));
                 }}
                 className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
               >
