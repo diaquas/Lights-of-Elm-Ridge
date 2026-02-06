@@ -6,6 +6,7 @@ import {
   useState,
   useMemo,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
 import type { InteractiveMappingState, SourceLayerMapping } from "@/hooks/useInteractiveMapping";
@@ -77,70 +78,57 @@ export function MappingPhaseProvider({
     }
   }, [currentPhase]);
 
-  // Precompute best-match scores for all layers so phase filters work correctly.
-  // We call getSuggestionsForLayer for each layer and cache the top score.
+  // Stable caches: scores and phase assignments are computed once per item
+  // and never change. This prevents items from migrating between phases when mapped
+  // (e.g., a group getting score 1.0 and jumping to auto-accept).
+  const stableScoreRef = useRef(new Map<string, number>());
+  const phaseAssignmentRef = useRef(new Map<string, MappingPhase>());
+
+  // Compute stable scores and phase assignments for any new items.
+  // Once an item's score/phase is cached, it never recalculates.
   const scoreMap = useMemo(() => {
-    const map = new Map<string, number>();
     for (const layer of interactive.sourceLayerMappings) {
-      // If already mapped, treat as high score so it stays in whatever phase it was
-      if (layer.isMapped) {
-        map.set(layer.sourceModel.name, 1.0);
-        continue;
+      if (layer.isSkipped) continue;
+      const name = layer.sourceModel.name;
+
+      // Score: compute once from initial suggestions, cache forever
+      if (!stableScoreRef.current.has(name)) {
+        const suggestions = interactive.getSuggestionsForLayer(layer.sourceModel);
+        const topScore = suggestions.length > 0 ? suggestions[0].score : 0;
+        stableScoreRef.current.set(name, topScore);
       }
-      if (layer.isSkipped) {
-        continue;
-      }
-      const suggestions = interactive.getSuggestionsForLayer(layer.sourceModel);
-      const topScore = suggestions.length > 0 ? suggestions[0].score : 0;
-      map.set(layer.sourceModel.name, topScore);
-    }
-    return map;
-  }, [interactive]);
 
-  // Create phase-aware filters that use the real scores
-  const phaseFilters = useMemo(() => {
-    const filters = new Map<MappingPhase, (layer: SourceLayerMapping) => boolean>();
-
-    for (const config of PHASE_CONFIG) {
-      filters.set(config.id, (layer: SourceLayerMapping) => {
-        // Review shows everything
-        if (config.id === "review") return true;
-
+      // Phase: assign once based on stable score, cache forever
+      if (!phaseAssignmentRef.current.has(name)) {
         const isSpinner = isSpinnerType(layer.sourceModel.groupType);
-        const bestScore = scoreMap.get(layer.sourceModel.name) ?? 0;
+        const bestScore = stableScoreRef.current.get(name) ?? 0;
 
-        switch (config.id) {
-          case "auto-accept":
-            if (isSpinner) return false;
-            return bestScore >= 0.85;
-          case "groups":
-            if (isSpinner) return false;
-            if (!layer.isGroup) return false;
-            return bestScore < 0.85;
-          case "individuals":
-            if (isSpinner) return false;
-            if (layer.isGroup) return false;
-            return bestScore < 0.85;
-          case "spinners":
-            return isSpinner;
-          default:
-            return false;
+        if (isSpinner) {
+          phaseAssignmentRef.current.set(name, "spinners");
+        } else if (bestScore >= 0.85) {
+          phaseAssignmentRef.current.set(name, "auto-accept");
+        } else if (layer.isGroup) {
+          phaseAssignmentRef.current.set(name, "groups");
+        } else {
+          phaseAssignmentRef.current.set(name, "individuals");
         }
-      });
+      }
     }
 
-    return filters;
-  }, [scoreMap]);
+    return new Map(stableScoreRef.current);
+  }, [interactive]);
 
   const getPhaseItems = useCallback(
     (phase: MappingPhase): SourceLayerMapping[] => {
-      const filter = phaseFilters.get(phase);
-      if (!filter) return [];
-      return interactive.sourceLayerMappings.filter(
-        (layer) => !layer.isSkipped && filter(layer),
-      );
+      if (phase === "review") {
+        return interactive.sourceLayerMappings.filter((l) => !l.isSkipped);
+      }
+      return interactive.sourceLayerMappings.filter((layer) => {
+        if (layer.isSkipped) return false;
+        return phaseAssignmentRef.current.get(layer.sourceModel.name) === phase;
+      });
     },
-    [phaseFilters, interactive.sourceLayerMappings],
+    [interactive.sourceLayerMappings],
   );
 
   const phaseItems = useMemo(
@@ -161,12 +149,12 @@ export function MappingPhaseProvider({
   const overallProgress = useMemo((): PhaseProgress => {
     const nonSkipped = interactive.sourceLayerMappings.filter((l) => !l.isSkipped);
     const total = nonSkipped.length;
-    const mapped = nonSkipped.filter((l) => l.isMapped).length;
+    const completed = nonSkipped.filter((l) => l.isMapped).length;
     return {
-      mapped,
+      completed,
       total,
-      percentage: total > 0 ? Math.round((mapped / total) * 100) : 0,
-    } as PhaseProgress & { mapped: number };
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+    };
   }, [interactive.sourceLayerMappings]);
 
   const phaseCounts = useMemo(() => {

@@ -49,7 +49,6 @@ export function IndividualsPhase() {
         icon={<span className="text-5xl">&#128203;</span>}
         title="No Individual Models"
         description="No individual models need manual matching. Continue to spinners."
-        action={{ label: "Continue to Spinners", onClick: goToNextPhase }}
       />
     );
   }
@@ -60,7 +59,6 @@ export function IndividualsPhase() {
         icon={<span className="text-5xl">&#9989;</span>}
         title="All Models Mapped!"
         description={`${mappedItems.length} individual models have been matched.`}
-        action={{ label: "Continue to Spinners", onClick: goToNextPhase }}
       />
     );
   }

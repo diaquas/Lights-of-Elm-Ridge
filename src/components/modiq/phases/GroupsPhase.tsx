@@ -43,7 +43,6 @@ export function GroupsPhase() {
         icon={<span className="text-5xl">&#128193;</span>}
         title="No Model Groups Found"
         description="No model groups below auto-accept threshold. Continue to individual models."
-        action={{ label: "Continue to Models", onClick: goToNextPhase }}
       />
     );
   }
@@ -55,7 +54,6 @@ export function GroupsPhase() {
         icon={<span className="text-5xl">&#9989;</span>}
         title="All Groups Mapped!"
         description={`${mappedGroups.length} model groups have been matched.`}
-        action={{ label: "Continue to Models", onClick: goToNextPhase }}
       />
     );
   }
