@@ -386,7 +386,7 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bArrows?\b/i,
   ],
   // SPIRALS: Spiral/swirl patterns
-  // Cross-vendor equivalent: Spiral ≈ Swirl ≈ Vortex ≈ Twist
+  // Cross-vendor equivalent: Spiral ≈ Swirl ≈ Vortex ≈ Twist ≈ Whirliwig ≈ Hook
   spirals: [
     /\bSpirals?\b/i,
     /\bSwirls?\b/i,
@@ -394,9 +394,11 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bTwist\b/i,
     /\bSpiral\s*All\b/i,
     /\bWillow\b/i,
+    /\bWhirliwig\b/i,      // GE Grand Illusion Whirliwig
+    /\bHooks?\b/i,         // GE Grand Illusion Hook CCW/CW
   ],
   // FLORALS: Flower-like decorative elements
-  // Cross-vendor equivalent: Flower ≈ Petal ≈ Heart ≈ Star ≈ Leaf
+  // Cross-vendor equivalent: Flower ≈ Petal ≈ Heart ≈ Star ≈ Leaf ≈ Angel
   florals: [
     /\bFlowers?\b/i,
     /\bPetals?\b/i,
@@ -409,9 +411,10 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bFloral\b/i,
     /\bDiamonds?\b/i,
     /\bBows?\b/i,
+    /\bAngels?\b/i,         // GE SpinReel Max Angels
   ],
-  // SCALLOPS: Curved decorative borders
-  // Cross-vendor equivalent: Scallop ≈ Ribbon ≈ Wave ≈ Arc ≈ Curve ≈ Arch
+  // SCALLOPS: Curved decorative borders and cascading patterns
+  // Cross-vendor equivalent: Scallop ≈ Ribbon ≈ Wave ≈ Arc ≈ Curve ≈ Arch ≈ Cascading
   scallops: [
     /\bScallops?\b/i,
     /\bRibbons?\b/i,
@@ -419,23 +422,26 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bArcs?\b/i,
     /\bCurves?\b/i,
     /\bArch\b/i,
+    /\bCascading\b/i,       // S - Cascading Arches, S - Cascading Petal
   ],
   // TRIANGLES: Triangular geometric elements
-  // Cross-vendor equivalent: Triangle ≈ Wedge ≈ Segment
+  // Cross-vendor equivalent: Triangle ≈ Wedge ≈ Segment ≈ Trident ≈ Arrow
   triangles: [
     /\bTriangles?\b/i,
     /\bWedges?\b/i,
     /\bSegments?\b/i,
+    /\bTridents?\b/i,       // S - Trident
+    /\bArrowheads?\b/i,     // Arrow-shaped elements (distinct from spoke arrows)
   ],
   // EFFECTS: Animated effect patterns
-  // Cross-vendor equivalent: Firework ≈ Cascade ≈ Burst ≈ Explosion ≈ Flash
+  // Cross-vendor equivalent: Firework ≈ Cascade ≈ Burst ≈ Explosion ≈ Flash ≈ Snowflake
   effects: [
     /\bFireworks?\b/i,
-    /\bCascad(?:e|ing)\b/i,
     /\bBurst\b/i,
     /\bExplosion\b/i,
     /\bFlash\b/i,
     /\bSparkle\b/i,
+    /\bSnowflakes?\b/i,     // S - Snowflakes (effect pattern, not prop type)
   ],
   // OUTLINE: Perimeter/outline elements (lower priority - often structural)
   outline: [
@@ -502,37 +508,64 @@ const KNOWN_SPINNER_PROPS: string[] = [
 ];
 
 /**
- * Source sequence naming patterns - used to extract the semantic core
- * from source group names.
- *
- * Examples:
- *   "S - Big Hearts" → "Big Hearts"
- *   "Spinner - Rings" → "Rings"
- *   "Hearts GRP" → "Hearts"
- *   "All Rings" → "Rings"
+ * Vendor product prefixes to strip when extracting semantic names.
+ * These are the spinner product family names that precede the element name.
  */
-const SOURCE_NAME_PATTERNS: RegExp[] = [
-  /^S\s*-\s*(.+)$/i,           // "S - Big Hearts" → "Big Hearts"
-  /^Spinner\s*-\s*(.+)$/i,     // "Spinner - Rings" → "Rings"
-  /^Spin\s*-\s*(.+)$/i,        // "Spin - Spokes" → "Spokes"
-  /^(.+?)\s+GRP$/i,            // "Hearts GRP" → "Hearts"
-  /^(.+?)\s+Group$/i,          // "Hearts Group" → "Hearts"
-  /^All\s+(.+)$/i,             // "All Rings" → "Rings"
-  /^(.+?)\s+All$/i,            // "Rings All" → "Rings"
+const VENDOR_PRODUCT_PREFIXES: RegExp[] = [
+  /^GE\s+SpinReel\s+Max\s*/i,     // "GE SpinReel Max Ribbons" → "Ribbons"
+  /^GE\s+Spin\s+Reel\s+Max\s*/i,  // "GE Spin Reel Max Ribbons" → "Ribbons"
+  /^GE\s+Grand\s+Illusion\s*/i,   // "GE Grand Illusion Hook" → "Hook"
+  /^Grand\s+Illusion\s*/i,        // "Grand Illusion Hook" → "Hook"
+  /^GE\s+Rosa\s+Grande\s*/i,      // "GE Rosa Grande Spokes" → "Spokes"
+  /^GE\s+Click\s+Click\s+Boom\s*/i,
+  /^GE\s+Overlord\s*/i,
+  /^GE\s+Fuzion\s*/i,
+  /^GE\s+Shape\s+Shifter\s*/i,
+  /^GE\s+King\s+Diamond\s*/i,
+  /^GE\s+Starlord\s*/i,
+  /^GE\s+Space\s+Odyssey\s*/i,
+  /^GE\s+Dazzler\s*/i,
+  /^GE\s+Ringmaster\s*/i,
+  /^GE\s+Star\s+Gazer\s*/i,
+  /^GE\s+Dragonfly\s*/i,
+  /^GE\s+Lightspeed\s*/i,
+  /^Showstopper\s*/i,             // "Showstopper Rings" → "Rings"
+  /^PPD\s+Wreath\s*/i,            // "PPD Wreath Hearts" → "Hearts"
+  /^EFL\s+Wreath\s*/i,
+  /^MegaSpin(?:ner)?\s*/i,
+  /^ChromaFlake\s*/i,
 ];
 
 /**
- * Extract the semantic name from a group name by stripping common prefixes/suffixes.
- * Used for cross-vendor matching where "S - Big Hearts" should match "PPD Wreath Hearts GRP".
+ * Extract the semantic name from a group name by stripping vendor prefixes and suffixes.
+ *
+ * Examples:
+ *   "S - Big Hearts" → "Big Hearts"
+ *   "GE SpinReel Max Ribbons GRP" → "Ribbons"
+ *   "GE Grand Illusion Hook CCW GRP" → "Hook CCW"
+ *   "PPD Wreath Hearts GRP" → "Hearts"
+ *   "Spinner - Rings" → "Rings"
  */
 function extractSemanticName(groupName: string): string {
-  for (const pattern of SOURCE_NAME_PATTERNS) {
-    const match = groupName.match(pattern);
-    if (match) {
-      return match[1].trim();
-    }
+  let name = groupName;
+
+  // Strip common prefixes first
+  name = name.replace(/^S\s*-\s*/i, "");           // "S - Big Hearts" → "Big Hearts"
+  name = name.replace(/^Spinners?\s*-\s*/i, "");   // "Spinner - Rings" → "Rings"
+  name = name.replace(/^Spin\s*-\s*/i, "");        // "Spin - Spokes" → "Spokes"
+  name = name.replace(/^All\s+/i, "");             // "All Rings" → "Rings"
+
+  // Strip vendor product prefixes
+  for (const prefix of VENDOR_PRODUCT_PREFIXES) {
+    name = name.replace(prefix, "");
   }
-  return groupName;
+
+  // Strip common suffixes
+  name = name.replace(/\s+GRP$/i, "");             // "Hearts GRP" → "Hearts"
+  name = name.replace(/\s+Group$/i, "");           // "Hearts Group" → "Hearts"
+  name = name.replace(/\s+All$/i, "");             // "Rings All" → "Rings"
+
+  return name.trim();
 }
 
 /**
