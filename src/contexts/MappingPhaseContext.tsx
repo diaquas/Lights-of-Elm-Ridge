@@ -13,6 +13,7 @@ import type { InteractiveMappingState, SourceLayerMapping } from "@/hooks/useInt
 import type { MappingPhase } from "@/types/mappingPhases";
 import { PHASE_CONFIG } from "@/types/mappingPhases";
 import { isSpinnerType } from "@/types/xLightsTypes";
+import { suggestMatchesForSource } from "@/lib/modiq/matcher";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -143,11 +144,25 @@ export function MappingPhaseProvider({
       if (layer.isSkipped) continue;
       const name = layer.sourceModel.name;
 
-      // Score: compute once from initial suggestions, cache forever
+      // Score: compute once, cache forever.
+      // For pre-mapped items, score the assigned pair directly against the matcher
+      // (getSuggestionsForLayer excludes assigned dest models from its pool,
+      //  giving artificially low scores for items that matchModels() already mapped)
       if (!stableScoreRef.current.has(name)) {
-        const suggestions = interactive.getSuggestionsForLayer(layer.sourceModel);
-        const topScore = suggestions.length > 0 ? suggestions[0].score : 0;
-        stableScoreRef.current.set(name, topScore);
+        if (layer.isMapped && layer.assignedUserModels.length > 0) {
+          const assigned = layer.assignedUserModels[0];
+          const result = suggestMatchesForSource(
+            layer.sourceModel,
+            [assigned],
+            interactive.allSourceModels,
+            interactive.allDestModels,
+          );
+          stableScoreRef.current.set(name, result.length > 0 ? result[0].score : 0);
+        } else {
+          const suggestions = interactive.getSuggestionsForLayer(layer.sourceModel);
+          const topScore = suggestions.length > 0 ? suggestions[0].score : 0;
+          stableScoreRef.current.set(name, topScore);
+        }
       }
 
       // Phase: assign once based on stable score, cache forever
