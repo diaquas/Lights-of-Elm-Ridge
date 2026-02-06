@@ -26,14 +26,24 @@ const TAB = "\t";
 
 /**
  * Generate an xmap file string from ModIQ mapping results.
+ *
+ * @param result - The mapping result containing all source-dest mappings
+ * @param sequenceName - The sequence name (used for internal reference)
+ * @param activeSourceNames - Optional set of source names that have effects.
+ *   If provided, only mappings for these sources will be included in the xmap.
+ *   This filters out submodels/models without effects (reducing red rows in xLights).
  */
 export function generateXmap(
   result: MappingResult,
   sequenceName: string,
+  activeSourceNames?: Set<string>,
 ): string {
   const lines: string[] = [];
 
-  const allSourceMappings = result.mappings;
+  // Filter mappings to only include active sources (those with effects)
+  const allSourceMappings = activeSourceNames
+    ? result.mappings.filter((m) => activeSourceNames.has(m.sourceModel.name))
+    : result.mappings;
 
   // Deduplicate DEST model names (user's models - what appears in column 1)
   const uniqueDestNames: string[] = [];
