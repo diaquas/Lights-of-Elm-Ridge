@@ -1075,9 +1075,8 @@ export function useInteractiveMapping(
       const cached = suggestionCacheRef.current.cache.get(cacheKey);
       if (cached) return cached;
 
-      const alreadyLinked = sourceDestLinks.get(sourceModel.name);
       const pool = destModels.filter(
-        (m) => !isDmxModel(m) && !alreadyLinked?.has(m.name),
+        (m) => !isDmxModel(m) && !assignedUserModelNames.has(m.name),
       );
       const suggestions = suggestMatchesForSource(
         sourceModel,
@@ -1089,7 +1088,7 @@ export function useInteractiveMapping(
       suggestionCacheRef.current.cache.set(cacheKey, suggestions);
       return suggestions;
     },
-    [destModels, sourceModels, sourceDestLinks],
+    [destModels, sourceModels, assignedUserModelNames],
   );
 
   // V3 navigation: find next unmapped source layer
