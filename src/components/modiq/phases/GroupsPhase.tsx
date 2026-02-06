@@ -8,7 +8,9 @@ import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
+import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
+import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export function GroupsPhase() {
@@ -22,6 +24,8 @@ export function GroupsPhase() {
 
   const unmappedGroups = phaseItems.filter((item) => !item.isMapped);
   const mappedGroups = phaseItems.filter((item) => item.isMapped);
+
+  const { families, toggle, isExpanded } = useItemFamilies(unmappedGroups, selectedGroupId);
 
   const selectedGroup = phaseItems.find(
     (g) => g.sourceModel.name === selectedGroupId,
@@ -131,36 +135,57 @@ export function GroupsPhase() {
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <div className="space-y-2">
-            {unmappedGroups.map((group) => (
-              <GroupListCard
-                key={group.sourceModel.name}
-                group={group}
-                isSelected={selectedGroupId === group.sourceModel.name}
-                isChecked={selectedIds.has(group.sourceModel.name)}
-                isDropTarget={dnd.state.activeDropTarget === group.sourceModel.name}
-                interactive={interactive}
-                onClick={() => setSelectedGroupId(group.sourceModel.name)}
-                onCheck={() => {
-                  setSelectedIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(group.sourceModel.name))
-                      next.delete(group.sourceModel.name);
-                    else next.add(group.sourceModel.name);
-                    return next;
-                  });
-                }}
-                onAccept={(userModelName) =>
-                  handleAcceptGroup(group.sourceModel.name, userModelName)
-                }
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                }}
-                onDragEnter={() => dnd.handleDragEnter(group.sourceModel.name)}
-                onDragLeave={() => dnd.handleDragLeave(group.sourceModel.name)}
-                onDrop={(e) => handleDropOnGroup(group.sourceModel.name, e)}
-              />
-            ))}
+            {families.map((family) => {
+              const renderGroup = (group: SourceLayerMapping) => (
+                <GroupListCard
+                  key={group.sourceModel.name}
+                  group={group}
+                  isSelected={selectedGroupId === group.sourceModel.name}
+                  isChecked={selectedIds.has(group.sourceModel.name)}
+                  isDropTarget={dnd.state.activeDropTarget === group.sourceModel.name}
+                  interactive={interactive}
+                  onClick={() => setSelectedGroupId(group.sourceModel.name)}
+                  onCheck={() => {
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(group.sourceModel.name))
+                        next.delete(group.sourceModel.name);
+                      else next.add(group.sourceModel.name);
+                      return next;
+                    });
+                  }}
+                  onAccept={(userModelName) =>
+                    handleAcceptGroup(group.sourceModel.name, userModelName)
+                  }
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDragEnter={() => dnd.handleDragEnter(group.sourceModel.name)}
+                  onDragLeave={() => dnd.handleDragLeave(group.sourceModel.name)}
+                  onDrop={(e) => handleDropOnGroup(group.sourceModel.name, e)}
+                />
+              );
+
+              if (family.items.length === 1) {
+                return renderGroup(family.items[0]);
+              }
+              return (
+                <div key={family.prefix}>
+                  <FamilyAccordionHeader
+                    prefix={family.prefix}
+                    count={family.items.length}
+                    isExpanded={isExpanded(family.prefix)}
+                    onToggle={() => toggle(family.prefix)}
+                  />
+                  {isExpanded(family.prefix) && (
+                    <div className="space-y-2 pl-2 mt-1">
+                      {family.items.map(renderGroup)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {mappedGroups.length > 0 && (

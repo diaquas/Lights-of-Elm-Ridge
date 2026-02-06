@@ -8,7 +8,9 @@ import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
+import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
+import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -33,6 +35,8 @@ export function SpinnersPhase() {
 
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
   const mappedItems = phaseItems.filter((item) => item.isMapped);
+
+  const { families, toggle, isExpanded } = useItemFamilies(unmappedItems, selectedItemId);
 
   const selectedItem = phaseItems.find(
     (i) => i.sourceModel.name === selectedItemId,
@@ -138,36 +142,57 @@ export function SpinnersPhase() {
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <div className="space-y-2">
-            {unmappedItems.map((item) => (
-              <SpinnerListCard
-                key={item.sourceModel.name}
-                item={item}
-                isSelected={selectedItemId === item.sourceModel.name}
-                isChecked={selectedIds.has(item.sourceModel.name)}
-                isDropTarget={dnd.state.activeDropTarget === item.sourceModel.name}
-                interactive={interactive}
-                onClick={() => setSelectedItemId(item.sourceModel.name)}
-                onCheck={() => {
-                  setSelectedIds((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(item.sourceModel.name))
-                      next.delete(item.sourceModel.name);
-                    else next.add(item.sourceModel.name);
-                    return next;
-                  });
-                }}
-                onAccept={(userModelName) =>
-                  handleAccept(item.sourceModel.name, userModelName)
-                }
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                }}
-                onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
-                onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
-                onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
-              />
-            ))}
+            {families.map((family) => {
+              const renderSpinner = (item: SourceLayerMapping) => (
+                <SpinnerListCard
+                  key={item.sourceModel.name}
+                  item={item}
+                  isSelected={selectedItemId === item.sourceModel.name}
+                  isChecked={selectedIds.has(item.sourceModel.name)}
+                  isDropTarget={dnd.state.activeDropTarget === item.sourceModel.name}
+                  interactive={interactive}
+                  onClick={() => setSelectedItemId(item.sourceModel.name)}
+                  onCheck={() => {
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.sourceModel.name))
+                        next.delete(item.sourceModel.name);
+                      else next.add(item.sourceModel.name);
+                      return next;
+                    });
+                  }}
+                  onAccept={(userModelName) =>
+                    handleAccept(item.sourceModel.name, userModelName)
+                  }
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
+                  onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
+                  onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
+                />
+              );
+
+              if (family.items.length === 1) {
+                return renderSpinner(family.items[0]);
+              }
+              return (
+                <div key={family.prefix}>
+                  <FamilyAccordionHeader
+                    prefix={family.prefix}
+                    count={family.items.length}
+                    isExpanded={isExpanded(family.prefix)}
+                    onToggle={() => toggle(family.prefix)}
+                  />
+                  {isExpanded(family.prefix) && (
+                    <div className="space-y-2 pl-2 mt-1">
+                      {family.items.map(renderSpinner)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {mappedItems.length > 0 && (
