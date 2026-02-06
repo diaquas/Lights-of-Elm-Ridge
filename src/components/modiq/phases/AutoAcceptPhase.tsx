@@ -12,7 +12,7 @@ import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export function AutoAcceptPhase() {
-  const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
+  const { phaseItems, goToNextPhase, interactive, scoreMap } = useMappingPhase();
   const dnd = useDragAndDrop();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
@@ -129,11 +129,7 @@ export function AutoAcceptPhase() {
     const avgScore =
       mappedItems.length > 0
         ? mappedItems.reduce((sum, item) => {
-            const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
-            const matched = suggs.find(
-              (s) => s.model.name === item.assignedUserModels[0]?.name,
-            );
-            return sum + (matched?.score ?? 0);
+            return sum + (scoreMap.get(item.sourceModel.name) ?? 0);
           }, 0) / mappedItems.length
         : 0;
 

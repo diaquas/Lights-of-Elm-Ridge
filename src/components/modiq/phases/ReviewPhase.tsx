@@ -20,7 +20,7 @@ export function ReviewPhase({
   seqTitle,
   coveragePercent,
 }: ReviewPhaseProps) {
-  const { interactive, overallProgress, phaseCounts } = useMappingPhase();
+  const { interactive, overallProgress, phaseCounts, scoreMap } = useMappingPhase();
 
   const { mappedLayers, skippedLayers, unmappedLayers } = useMemo(() => {
     const mapped: SourceLayerMapping[] = [];
@@ -39,6 +39,15 @@ export function ReviewPhase({
   const totalChildrenResolved = mappedLayers
     .filter((l) => l.isGroup)
     .reduce((sum, g) => sum + g.coveredChildCount, 0);
+
+  const avgConfidence = useMemo(() => {
+    if (mappedLayers.length === 0) return 0;
+    const totalScore = mappedLayers.reduce(
+      (sum, layer) => sum + (scoreMap.get(layer.sourceModel.name) ?? 0),
+      0,
+    );
+    return Math.round((totalScore / mappedLayers.length) * 100);
+  }, [mappedLayers, scoreMap]);
 
   const exportClass =
     coveragePercent >= 100
@@ -99,7 +108,7 @@ export function ReviewPhase({
               color="foreground"
             />
             <StatCard
-              label="Spinners"
+              label="Submodel Groups"
               value={phaseCounts.get("spinners") ?? 0}
               color="purple"
             />
@@ -111,9 +120,14 @@ export function ReviewPhase({
               <span className="text-sm font-semibold text-foreground">
                 Sequence Coverage
               </span>
-              <span className="text-lg font-bold text-foreground">
-                {Math.round(coveragePercent)}%
-              </span>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-foreground/50">
+                  Avg Confidence: <span className="font-semibold text-foreground">{avgConfidence}%</span>
+                </span>
+                <span className="text-lg font-bold text-foreground">
+                  {Math.round(coveragePercent)}%
+                </span>
+              </div>
             </div>
             <div className="h-3 bg-foreground/10 rounded-full overflow-hidden">
               <div
