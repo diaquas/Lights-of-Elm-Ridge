@@ -1098,14 +1098,12 @@ function InteractiveResults({
     }
   }, [coveragePercent, interactive.unmappedLayerCount]);
 
-  // Group source layers by status
-  const { unmappedLayers, mappedLayers, skippedLayers, unmappedGroups, unmappedIndividuals } =
+  // Group source layers by status and sort unmapped by best match score
+  const { unmappedLayers, mappedLayers, skippedLayers } =
     useMemo(() => {
       const unmapped: SourceLayerMapping[] = [];
       const mapped: SourceLayerMapping[] = [];
       const skippedList: SourceLayerMapping[] = [];
-      const groups: SourceLayerMapping[] = [];
-      const individuals: SourceLayerMapping[] = [];
       for (const sl of interactive.sourceLayerMappings) {
         if (sl.isSkipped) {
           skippedList.push(sl);
@@ -1113,18 +1111,36 @@ function InteractiveResults({
           mapped.push(sl);
         } else {
           unmapped.push(sl);
-          if (sl.isGroup) groups.push(sl);
-          else individuals.push(sl);
         }
       }
+
+      // Sort unmapped layers by best match score (per ticket requirements)
+      // Primary: match score descending, Secondary: groups first, Tertiary: alphabetical
+      const unmappedWithScores = unmapped.map((sl) => {
+        const suggestions = interactive.getSuggestionsForLayer(sl.sourceModel);
+        const bestScore = suggestions.length > 0 ? suggestions[0].score : 0;
+        return { sl, bestScore };
+      });
+
+      unmappedWithScores.sort((a, b) => {
+        // Primary: best match score (descending)
+        const scoreDiff = b.bestScore - a.bestScore;
+        if (Math.abs(scoreDiff) > 0.01) return scoreDiff;
+
+        // Secondary: groups before individual models
+        if (a.sl.isGroup && !b.sl.isGroup) return -1;
+        if (!a.sl.isGroup && b.sl.isGroup) return 1;
+
+        // Tertiary: alphabetical
+        return a.sl.sourceModel.name.localeCompare(b.sl.sourceModel.name);
+      });
+
       return {
-        unmappedLayers: unmapped,
+        unmappedLayers: unmappedWithScores.map((item) => item.sl),
         mappedLayers: mapped,
         skippedLayers: skippedList,
-        unmappedGroups: groups,
-        unmappedIndividuals: individuals,
       };
-    }, [interactive.sourceLayerMappings]);
+    }, [interactive.sourceLayerMappings, interactive.getSuggestionsForLayer]);
 
   // Group mapped layers by confidence tier for TICKET-000
   type ConfidenceTier = "high" | "medium" | "low" | "manual";
@@ -1190,51 +1206,6 @@ function InteractiveResults({
     [leftSearch],
   );
 
-  // Best matches for focused source layer (dynamic right panel section)
-  // Filter: show unmapped items always, mapped items only if score ≥80%
-  const bestMatchesForFocused = useMemo(() => {
-    if (!focusedSourceLayer) return [];
-    const sl = interactive.sourceLayerMappings.find(
-      (s) => s.sourceModel.name === focusedSourceLayer,
-    );
-    if (!sl) return [];
-    const allMatches = interactive.getSuggestionsForLayer(sl.sourceModel);
-    // Filter: unmapped always, mapped only if ≥80%
-    return allMatches.filter((match) => {
-      const isMapped = interactive.destToSourcesMap.has(match.model.name) &&
-        (interactive.destToSourcesMap.get(match.model.name)?.size ?? 0) > 0;
-      return !isMapped || match.score >= 0.80;
-    }).slice(0, 5);
-  }, [focusedSourceLayer, interactive.sourceLayerMappings, interactive.getSuggestionsForLayer, interactive.destToSourcesMap]);
-
-  // Global suggestions: top unmapped source layers with their best user matches (for when nothing selected)
-  const globalSuggestions = useMemo(() => {
-    if (focusedSourceLayer) return []; // Don't compute when focused
-    const suggestions: { sourceLayer: SourceLayerMapping; bestMatch: { model: ParsedModel; score: number } }[] = [];
-
-    for (const sl of interactive.sourceLayerMappings) {
-      if (sl.isMapped || sl.isSkipped) continue;
-      const matches = interactive.getSuggestionsForLayer(sl.sourceModel);
-      if (matches.length > 0 && matches[0].score >= 0.5) {
-        suggestions.push({
-          sourceLayer: sl,
-          bestMatch: { model: matches[0].model, score: matches[0].score },
-        });
-      }
-    }
-
-    // Sort by score descending, prioritize groups
-    suggestions.sort((a, b) => {
-      // Groups first
-      if (a.sourceLayer.isGroup && !b.sourceLayer.isGroup) return -1;
-      if (!a.sourceLayer.isGroup && b.sourceLayer.isGroup) return 1;
-      // Then by score
-      return b.bestMatch.score - a.bestMatch.score;
-    });
-
-    return suggestions.slice(0, 5);
-  }, [focusedSourceLayer, interactive.sourceLayerMappings, interactive.getSuggestionsForLayer]);
-
   // Right panel: user models partitioned by mapped status
   const { unmappedUserGroups, unmappedUserModels, mappedUserGroups, mappedUserModels } = useMemo(() => {
     const uGroups: ParsedModel[] = [];
@@ -1283,12 +1254,17 @@ function InteractiveResults({
     },
     onEnter: () => {
       // Accept best match for focused layer
-      if (focusedSourceLayer && bestMatchesForFocused.length > 0) {
-        assignWithCascadeFeedback(
-          focusedSourceLayer,
-          bestMatchesForFocused[0].model.name,
+      if (focusedSourceLayer) {
+        const sl = interactive.sourceLayerMappings.find(
+          (s) => s.sourceModel.name === focusedSourceLayer,
         );
-        setFocusedSourceLayer(null);
+        if (sl) {
+          const suggestions = interactive.getSuggestionsForLayer(sl.sourceModel);
+          if (suggestions.length > 0) {
+            assignWithCascadeFeedback(focusedSourceLayer, suggestions[0].model.name);
+            setFocusedSourceLayer(null);
+          }
+        }
       }
     },
     onSkip: () => {
@@ -1559,7 +1535,7 @@ function InteractiveResults({
 
           {/* Scrollable sections */}
           <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
-            {/* ─── NEEDS MAPPING ─────────────────────────── */}
+            {/* ─── NEEDS MAPPING (sorted by match confidence) ─────────────────────────── */}
             {unmappedLayers.length > 0 && (
               <div className="bg-surface rounded-lg border border-amber-500/30 ring-1 ring-amber-500/10 overflow-hidden">
                 <div className="px-3 h-9 flex items-center gap-2 bg-amber-500/5">
@@ -1574,66 +1550,30 @@ function InteractiveResults({
 
                 <div className="border-t border-border">
                   <div className="px-3 py-1.5 text-[11px] text-foreground/40 bg-surface-light border-b border-border">
-                    Assign your models to each source layer. Groups first — they carry the most effects.
+                    Sorted by match confidence — work top to bottom for best results.
                   </div>
 
-                  {/* Groups tier */}
-                  {filterLayers(unmappedGroups).length > 0 && (
-                    <div>
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-teal-400/70 bg-teal-500/5 border-b border-border/50">
-                        GROUPS ({filterLayers(unmappedGroups).length})
-                      </div>
-                      <div className="space-y-0 divide-y divide-border/30">
-                        {filterLayers(unmappedGroups).map((sl) => (
-                          <SourceLayerRow
-                            key={sl.sourceModel.name}
-                            layer={sl}
-                            isFocused={focusedSourceLayer === sl.sourceModel.name}
-                            onFocus={() => setFocusedSourceLayer(sl.sourceModel.name)}
-                            onDrop={handleLayerDrop}
-                            onAcceptSuggestion={handleAcceptSuggestion}
-                            onSkip={() => interactive.skipSourceLayer(sl.sourceModel.name)}
-                            onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
-                            onRemoveLink={interactive.removeLinkFromLayer}
-                            getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
-                            isDragActive={dnd.state.isDragging}
-                            draggedModelName={dnd.state.dragItem?.sourceModelName}
-                            onDragEnter={dnd.handleDragEnter}
-                            onDragLeave={dnd.handleDragLeave}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Individual models tier */}
-                  {filterLayers(unmappedIndividuals).length > 0 && (
-                    <div>
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light border-b border-border/50">
-                        INDIVIDUAL MODELS ({filterLayers(unmappedIndividuals).length})
-                      </div>
-                      <div className="space-y-0 divide-y divide-border/30">
-                        {filterLayers(unmappedIndividuals).map((sl) => (
-                          <SourceLayerRow
-                            key={sl.sourceModel.name}
-                            layer={sl}
-                            isFocused={focusedSourceLayer === sl.sourceModel.name}
-                            onFocus={() => setFocusedSourceLayer(sl.sourceModel.name)}
-                            onDrop={handleLayerDrop}
-                            onAcceptSuggestion={handleAcceptSuggestion}
-                            onSkip={() => interactive.skipSourceLayer(sl.sourceModel.name)}
-                            onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
-                            onRemoveLink={interactive.removeLinkFromLayer}
-                            getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
-                            isDragActive={dnd.state.isDragging}
-                            draggedModelName={dnd.state.dragItem?.sourceModelName}
-                            onDragEnter={dnd.handleDragEnter}
-                            onDragLeave={dnd.handleDragLeave}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Single sorted list by match score */}
+                  <div className="space-y-0 divide-y divide-border/30">
+                    {filterLayers(unmappedLayers).map((sl) => (
+                      <SourceLayerRow
+                        key={sl.sourceModel.name}
+                        layer={sl}
+                        isFocused={focusedSourceLayer === sl.sourceModel.name}
+                        onFocus={() => setFocusedSourceLayer(sl.sourceModel.name)}
+                        onDrop={handleLayerDrop}
+                        onAcceptSuggestion={handleAcceptSuggestion}
+                        onSkip={() => interactive.skipSourceLayer(sl.sourceModel.name)}
+                        onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
+                        onRemoveLink={interactive.removeLinkFromLayer}
+                        getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
+                        isDragActive={dnd.state.isDragging}
+                        draggedModelName={dnd.state.dragItem?.sourceModelName}
+                        onDragEnter={dnd.handleDragEnter}
+                        onDragLeave={dnd.handleDragLeave}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1911,94 +1851,8 @@ function InteractiveResults({
               />
             </div>
 
-            {/* Cards area */}
+            {/* Cards area - stable list of available targets */}
             <div className="flex-1 overflow-y-auto">
-              {/* Dynamic Best Matches */}
-              {focusedSourceLayer && bestMatchesForFocused.length > 0 && (
-                <div>
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-accent/70 bg-accent/5 sticky top-0 z-10 border-b border-border/50">
-                    Best Matches for: {focusedSourceLayer}
-                  </div>
-                  <div className="px-2 py-1.5 space-y-0.5 border-b border-border">
-                    {bestMatchesForFocused.map((match) => (
-                      <DraggableUserCard
-                        key={match.model.name}
-                        model={match.model}
-                        score={match.score}
-                        onDragStart={dnd.handleDragStart}
-                        onDragEnd={dnd.handleDragEnd}
-                        getDragDataTransfer={dnd.getDragDataTransfer}
-                        assignedSources={interactive.destToSourcesMap.get(match.model.name)}
-                        onRemoveLink={interactive.removeLinkFromLayer}
-                        onClickAssign={() => {
-                          if (focusedSourceLayer) {
-                            assignWithCascadeFeedback(focusedSourceLayer, match.model.name);
-                          }
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!focusedSourceLayer && globalSuggestions.length > 0 && (
-                <div className="border-b border-border/50">
-                  <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-teal-400/70 bg-teal-500/5 sticky top-0 z-10 flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    Suggested Next Steps
-                  </div>
-                  <div className="px-2 py-1.5 space-y-1">
-                    {globalSuggestions.map((suggestion) => (
-                      <button
-                        key={suggestion.sourceLayer.sourceModel.name}
-                        type="button"
-                        onClick={() => {
-                          // Option 1: Just focus the source layer
-                          setFocusedSourceLayer(suggestion.sourceLayer.sourceModel.name);
-                          const el = document.getElementById(
-                            `source-layer-${suggestion.sourceLayer.sourceModel.name}`,
-                          );
-                          el?.scrollIntoView({ behavior: "smooth", block: "center" });
-                        }}
-                        className="w-full flex items-center gap-2 px-2 py-2 rounded-lg bg-surface hover:bg-surface-light border border-border/50 hover:border-border transition-colors text-left"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 text-[12px]">
-                            {suggestion.sourceLayer.isGroup && (
-                              <span className="text-[8px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">
-                                GRP
-                              </span>
-                            )}
-                            <span className="font-semibold text-foreground truncate">
-                              {suggestion.sourceLayer.sourceModel.name}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-foreground/40 truncate">
-                            &rarr; {suggestion.bestMatch.model.name}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="text-[11px] font-semibold text-green-400">
-                            {(suggestion.bestMatch.score * 100).toFixed(0)}%
-                          </span>
-                          <svg className="w-3.5 h-3.5 text-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!focusedSourceLayer && globalSuggestions.length === 0 && (
-                <div className="px-3 py-2.5 text-[11px] text-foreground/30 text-center border-b border-border/50">
-                  Click a source layer to see best matches
-                </div>
-              )}
-
               {/* ═══ UNMAPPED Section (expanded by default) ═══ */}
               {(unmappedUserGroups.length > 0 || unmappedUserModels.length > 0) && (
                 <div className="border-b border-border/50">
