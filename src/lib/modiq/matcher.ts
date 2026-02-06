@@ -172,9 +172,13 @@ const SYNONYMS: Record<string, string[]> = {
   fuzion: ["rosa wreath", "rosawreath", "rosa"],
   "rosa wreath": ["fuzion"],
   rosawreath: ["fuzion"],
-  // Flake submodel synonyms
+  // Flake/snowflake synonyms (vendor product names)
+  chromaflake: ["snowflake", "flake"],
+  icequeen: ["snowflake", "flake"],
   "flake arms": ["snowflake tips", "tips"],
   "flake spokes": ["center stars", "snowflake spokes"],
+  // Outline/trim products
+  chromatrim: ["outline", "roofline", "trim"],
   // Singing prop types (all singing props are interchangeable)
   pimp: ["singing pumpkin", "singing face", "singing prop"],
   "singing pumpkin": ["pimp", "singing skull", "singing face", "singing prop"],
@@ -906,7 +910,7 @@ function isLargeSpinner(model: ParsedModel): boolean {
     return true;
   }
   // Name-based detection for common spinner/wreath products
-  if (/\b(spinner|showstopper|fuzion|rosa|overlord|wreath|starburst|click\s*click\s*boom|grand\s*illusion|shape\s*shifter|king|spinarcy)\b/i.test(n)) {
+  if (/\b(spinner|showstopper|fuzion|rosa|overlord|wreath|starburst|click\s*click\s*boom|grand\s*illusion|shape\s*shifter|king|spinarcy|mesmerizer|boscoyo|mega\s*spinner|radiation)\b/i.test(n)) {
     return true;
   }
   return false;
