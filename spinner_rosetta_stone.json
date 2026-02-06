@@ -1,0 +1,674 @@
+{
+  "version": "1.0",
+  "description": "Spinner Submodel Rosetta Stone - Maps semantically equivalent submodel patterns across vendors",
+  "usage": "Use this to match source spinner groups (e.g., 'S - Big Hearts') to destination spinner submodel groups",
+  "semantic_categories": {
+    "rings": {
+      "canonical": "Rings",
+      "description": "Concentric circular elements",
+      "patterns": [
+        "ring",
+        "circle",
+        "ball",
+        "inner circle",
+        "outer circle",
+        "middle circle",
+        "center circle",
+        "ring all"
+      ],
+      "examples": [
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Ring 1"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Ring 2"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Ring 3"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Ring 4"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Ring 5"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE_Starburst_6ft_8_Point",
+          "submodel": "Ring 1"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE_Starburst_6ft_8_Point",
+          "submodel": "Ring 2"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE_Starburst_6ft_8_Point",
+          "submodel": "Ring 3"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Star Cross",
+          "submodel": "Inner Circle"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Starburst xTreme 1",
+          "submodel": "Ring 1"
+        }
+      ]
+    },
+    "spokes": {
+      "canonical": "Spokes",
+      "description": "Radial lines from center outward",
+      "patterns": [
+        "spoke",
+        "arm",
+        "ray",
+        "beam",
+        "line",
+        "leg",
+        "spoke all",
+        "spokes",
+        "all spokes"
+      ],
+      "examples": [
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spokes"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 1"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 2"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 3"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 4"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 5"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 6"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 7"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 8"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Spoke 9"
+        }
+      ]
+    },
+    "spirals": {
+      "canonical": "Spirals",
+      "description": "Spiral/swirl patterns",
+      "patterns": [
+        "spiral",
+        "swirl",
+        "vortex",
+        "twist",
+        "spiral all"
+      ],
+      "examples": [
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Sun",
+          "submodel": "Spiral - Left"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Sun",
+          "submodel": "Spiral - Right"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Sun",
+          "submodel": "Spiral - Right - Alternate"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE_Decorated_Spiral_Tree_600",
+          "submodel": "Spiral"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Decorated_Spiral_Tree_600",
+          "submodel": "Spiral"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE King Diamon 1",
+          "submodel": "Spiral"
+        },
+        {
+          "vendor": "EFL Designs",
+          "model": "Smiley_Wreath",
+          "submodel": "Spiral"
+        },
+        {
+          "vendor": "EFL Designs",
+          "model": "Showstopper Snowflake",
+          "submodel": "CW Outer Spirals"
+        },
+        {
+          "vendor": "EFL Designs",
+          "model": "Showstopper Snowflake",
+          "submodel": "CC Outer Spirals"
+        },
+        {
+          "vendor": "EFL Designs",
+          "model": "EFL Wreath 600",
+          "submodel": "Spiral CW"
+        }
+      ]
+    },
+    "florals": {
+      "canonical": "Florals",
+      "description": "Flower-like decorative elements (hearts, petals, flowers, stars)",
+      "patterns": [
+        "flower",
+        "petal",
+        "heart",
+        "star",
+        "leaf",
+        "floral",
+        "big hearts",
+        "cascading leaf",
+        "hearts",
+        "petals",
+        "flowers"
+      ],
+      "examples": [
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Mid Star"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Star Cross",
+          "submodel": "Star"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Starburst xTreme 1",
+          "submodel": "Mid Star"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "StarBurst xTreme",
+          "submodel": "Mid Star"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Firework Spinner",
+          "submodel": "Star 1"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Firework Spinner",
+          "submodel": "Star 2"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Firework Spinner",
+          "submodel": "Star 3"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Firework Spinner",
+          "submodel": "Star 4"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE US Air Force",
+          "submodel": "Star"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Vine - 90 Degree Corner",
+          "submodel": "Stem - Short Flower"
+        }
+      ]
+    },
+    "scallops": {
+      "canonical": "Scallops",
+      "description": "Curved decorative borders",
+      "patterns": [
+        "scallop",
+        "ribbon",
+        "wave",
+        "arc",
+        "curve",
+        "arch"
+      ],
+      "examples": [
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Maltese Cross",
+          "submodel": "Outter Ribbon"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Bulb Wreath",
+          "submodel": "Curve 1 R"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Bulb Wreath",
+          "submodel": "Curve 2 R"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Bulb Wreath",
+          "submodel": "Curve 3 R"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Bulb Wreath",
+          "submodel": "Curve 4 R"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Bulb Wreath",
+          "submodel": "Curve 1 L"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Bulb Wreath",
+          "submodel": "Curve 2 L"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Bulb Wreath",
+          "submodel": "Curve 3 L"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Bulb Wreath",
+          "submodel": "Curve 4 L"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Spin Reel Max 36",
+          "submodel": "Scallops"
+        }
+      ]
+    },
+    "triangles": {
+      "canonical": "Triangles",
+      "description": "Triangular geometric elements",
+      "patterns": [
+        "triangle",
+        "tri",
+        "wedge",
+        "segment"
+      ],
+      "examples": [
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 1"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 2"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 3"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 4"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 5"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 6"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 7"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 8"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 9"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Paratrooper",
+          "submodel": "String 10"
+        }
+      ]
+    },
+    "effects": {
+      "canonical": "Effects",
+      "description": "Animated effect patterns like fireworks, cascading",
+      "patterns": [
+        "firework",
+        "cascade",
+        "burst",
+        "explosion",
+        "flash"
+      ],
+      "examples": [
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Vine - End Cap",
+          "submodel": "Flower - Big - Fireworks"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Buttercup",
+          "submodel": "Fireworks"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "Buttercup",
+          "submodel": "Fireworks"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Small World",
+          "submodel": "Firework Large"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Small World",
+          "submodel": "Firework Large-01"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Small World",
+          "submodel": "Firework Large-02"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Small World",
+          "submodel": "Firework Large-03"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Small World",
+          "submodel": "Firework Large-04"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Small World",
+          "submodel": "Firework Large-05"
+        },
+        {
+          "vendor": "Gilbert Engineering",
+          "model": "GE Small World",
+          "submodel": "Firework Large-06"
+        }
+      ]
+    }
+  },
+  "cross_vendor_equivalences": {
+    "flowers_hearts_petals": {
+      "description": "Decorative circular patterns - all interchangeable for effect mapping",
+      "equivalent_names": [
+        "Flower",
+        "Flowers",
+        "Petal",
+        "Petals",
+        "Heart",
+        "Hearts",
+        "Big Hearts",
+        "Cascading Leaf",
+        "Leaf",
+        "Floral"
+      ],
+      "vendor_examples": {
+        "Gilbert Engineering": [
+          "GE Spin Reel Max 36/Flower",
+          "GE SpinReel Max 36/Flower"
+        ],
+        "source_sequences": [
+          "S - Big Hearts",
+          "S - Cascading Leaf",
+          "S - Hearts"
+        ]
+      }
+    },
+    "rings_circles_balls": {
+      "description": "Concentric circular patterns - all interchangeable",
+      "equivalent_names": [
+        "Ring",
+        "Rings",
+        "Circle",
+        "Circles",
+        "Ball",
+        "Balls",
+        "Inner Circle",
+        "Outer Circle",
+        "Ring All",
+        "All Rings"
+      ],
+      "vendor_examples": {
+        "Gilbert Engineering": [
+          "GE Spin Reel Max 36/Inner Circle",
+          "GE Spin Reel Max 36/Outer Circle"
+        ],
+        "Holiday Coro": [
+          "1116-2/Ring 1",
+          "1116-1/Ring 1"
+        ]
+      }
+    },
+    "spokes_arms_rays": {
+      "description": "Radial emanating patterns - all interchangeable",
+      "equivalent_names": [
+        "Spoke",
+        "Spokes",
+        "Arm",
+        "Arms",
+        "Ray",
+        "Rays",
+        "Line",
+        "Lines",
+        "Leg",
+        "Legs",
+        "Spoke All",
+        "All Spokes"
+      ],
+      "vendor_examples": {
+        "Gilbert Engineering": [
+          "StarBurst xTreme/Spoke 1",
+          "GE Easter Cross/Arm 1"
+        ],
+        "EFL Designs": [
+          "BabyFlakeNBL/Spokes"
+        ]
+      }
+    },
+    "spirals_swirls": {
+      "description": "Spiral patterns - all interchangeable",
+      "equivalent_names": [
+        "Spiral",
+        "Spirals",
+        "Swirl",
+        "Twist",
+        "Spiral All"
+      ],
+      "vendor_examples": {
+        "Gilbert Engineering": [
+          "Sun/Spiral - Left",
+          "GE_Decorated_Spiral_Tree_600/Spiral"
+        ],
+        "EFL Designs": [
+          "Smiley_Wreath/Spiral"
+        ]
+      }
+    },
+    "ribbons_scallops_arcs": {
+      "description": "Curved border patterns - all interchangeable",
+      "equivalent_names": [
+        "Ribbon",
+        "Ribbons",
+        "Scallop",
+        "Scallops",
+        "Arc",
+        "Arcs",
+        "Wave",
+        "Waves",
+        "Curve",
+        "Arch"
+      ],
+      "vendor_examples": {
+        "Gilbert Engineering": [
+          "GE SpinReel Max 36/Ribbon 1",
+          "GE SpinReel Max 36/Scallop 1"
+        ]
+      }
+    },
+    "spider_web_spinners": {
+      "description": "Spider web patterns with radial spinners",
+      "equivalent_names": [
+        "Spinner 1",
+        "Spinner 2",
+        "Web Spinner",
+        "Spider Web",
+        "Web Ring",
+        "Web Spoke"
+      ],
+      "vendor_examples": {
+        "Boscoyo": [
+          "Boscoyo Spider Web/Spinner 1-8",
+          "Boscoyo HDPE Spider Web/Spinner 1-8"
+        ],
+        "Gilbert Engineering": [
+          "Mother of all Webs",
+          "Spider in a Web"
+        ]
+      }
+    }
+  },
+  "known_spinner_props": {
+    "Gilbert Engineering": [
+      "GE Spin Reel Max",
+      "GE SpinReel Max",
+      "GE Reel Max",
+      "Grand Illusion",
+      "GE Rosa Grande",
+      "Rosa Wreath",
+      "GE G-Spasm",
+      "GE Fuzion",
+      "GE Dragonfly",
+      "GE Lightspeed",
+      "GE Dazzler",
+      "GE Star Gazer",
+      "GE Ringmaster",
+      "GE Space Odyssey",
+      "GE Starlord",
+      "Mega Spin Reel",
+      "GE Firework Spinner"
+    ],
+    "EFL Designs": [
+      "Showstopper Snowflake",
+      "Smiley_Wreath",
+      "BigdaFan",
+      "BabyFlake"
+    ],
+    "Holiday Coro": [
+      "1134 Spinner Pop",
+      "Holiday Coro 24 Spinner",
+      "1116"
+    ],
+    "PPD": [
+      "PPD Wreath"
+    ],
+    "Boscoyo": [
+      "46 MegaSpin / MegaSpinner",
+      "ChromaFlake 36",
+      "Snowflake",
+      "Spider Web / HDPE Spider Web",
+      "Whimsical Spinner",
+      "Star Wreath"
+    ]
+  },
+  "naming_conventions": {
+    "source_sequence_prefixes": [
+      "S - ",
+      "Spinner - ",
+      "Spin - "
+    ],
+    "group_suffixes": [
+      " GRP",
+      " All",
+      " Group",
+      "s"
+    ],
+    "vendor_prefixes": {
+      "Gilbert Engineering": [
+        "GE ",
+        "GE_"
+      ],
+      "EFL Designs": [
+        "EFL ",
+        "EFL_"
+      ],
+      "PPD": [
+        "PPD "
+      ],
+      "Boscoyo": [
+        "Boscoyo ",
+        "Boscoyo-"
+      ]
+    }
+  }
+}
