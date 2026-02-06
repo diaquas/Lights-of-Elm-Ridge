@@ -10,6 +10,10 @@ export type {
   XLightsEntityType,
   GroupEntityType,
   ModIQPhaseType,
+  XLightsEntity,
+  XLightsModel,
+  XLightsSubmodel,
+  XLightsGroup,
 } from "@/types/xLightsTypes";
 export {
   detectGroupType,
@@ -17,7 +21,7 @@ export {
   getPhaseType,
   isSpinnerType,
   isGroupPhaseType,
-  parseMemberType,
+  parseMemberName,
   analyzeGroupMembers,
 } from "@/types/xLightsTypes";
 
