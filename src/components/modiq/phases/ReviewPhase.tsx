@@ -48,9 +48,9 @@ export function ReviewPhase({
         : "bg-zinc-600 hover:bg-zinc-500 text-zinc-300";
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="px-8 py-6 border-b border-border text-center">
+      <div className="px-8 py-6 border-b border-border text-center flex-shrink-0">
         {coveragePercent >= 100 ? (
           <>
             <div className="text-5xl mb-3">&#10024;</div>
@@ -215,7 +215,7 @@ export function ReviewPhase({
       </div>
 
       {/* Export Actions */}
-      <div className="px-8 py-4 border-t border-border">
+      <div className="px-8 py-4 border-t border-border flex-shrink-0">
         <div className="flex flex-col sm:flex-row gap-3 max-w-3xl mx-auto">
           <button
             type="button"

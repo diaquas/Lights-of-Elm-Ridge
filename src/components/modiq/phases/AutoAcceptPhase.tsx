@@ -97,22 +97,110 @@ export function AutoAcceptPhase() {
     );
   }
 
-  // All done
+  // All done — show confidence insights + expandable review
   if (unmappedItems.length === 0) {
+    const avgScore =
+      mappedItems.length > 0
+        ? mappedItems.reduce((sum, item) => {
+            const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
+            const matched = suggs.find(
+              (s) => s.model.name === item.assignedUserModels[0]?.name,
+            );
+            return sum + (matched?.score ?? 0);
+          }, 0) / mappedItems.length
+        : 0;
+
     return (
-      <PhaseEmptyState
-        icon={<span className="text-5xl">&#9989;</span>}
-        title="All Auto-Matches Accepted!"
-        description={`${mappedItems.length} high-confidence matches have been mapped.`}
-        action={{ label: "Continue to Groups", onClick: goToNextPhase }}
-      />
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Success Header */}
+        <div className="text-center py-8 flex-shrink-0">
+          <div className="text-5xl mb-3">&#9989;</div>
+          <h2 className="text-xl font-bold text-foreground">
+            All Auto-Matches Accepted!
+          </h2>
+          <p className="text-sm text-foreground/50 mt-2">
+            {mappedItems.length} high-confidence matches mapped &middot;{" "}
+            {Math.round(avgScore * 100)}% average confidence
+          </p>
+        </div>
+
+        {/* Confidence Insight Bar */}
+        <div className="px-8 flex-shrink-0">
+          <div className="max-w-lg mx-auto bg-green-500/5 border border-green-500/15 rounded-xl p-4 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-foreground/70">Average Confidence</span>
+              <span className="text-lg font-bold text-green-400">{Math.round(avgScore * 100)}%</span>
+            </div>
+            <div className="h-2 bg-foreground/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-700"
+                style={{ width: `${avgScore * 100}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Expandable Review List */}
+        <div className="flex-1 overflow-y-auto px-8 pb-4">
+          <details className="max-w-lg mx-auto">
+            <summary className="text-sm font-medium text-foreground/50 cursor-pointer hover:text-foreground/70 mb-3">
+              Review {mappedItems.length} accepted matches
+            </summary>
+            <div className="bg-surface rounded-xl border border-border overflow-hidden">
+              <div className="divide-y divide-border/30">
+                {mappedItems.map((item) => {
+                  const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
+                  const matched = suggs.find(
+                    (s) => s.model.name === item.assignedUserModels[0]?.name,
+                  );
+                  return (
+                    <div
+                      key={item.sourceModel.name}
+                      className="px-4 py-2.5 flex items-center gap-3 hover:bg-foreground/[0.02]"
+                    >
+                      <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span className="text-[13px] text-foreground/70 truncate flex-1">
+                        {item.sourceModel.name}
+                      </span>
+                      <span className="text-foreground/20">&rarr;</span>
+                      <span className="text-[13px] text-foreground/50 truncate flex-1 text-right">
+                        {item.assignedUserModels[0]?.name}
+                      </span>
+                      {matched && (
+                        <ConfidenceBadge score={matched.score} size="sm" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </details>
+        </div>
+
+        {/* Continue Button */}
+        <div className="px-8 py-4 border-t border-border flex-shrink-0 text-center">
+          <button
+            type="button"
+            onClick={goToNextPhase}
+            className="px-8 py-2.5 bg-accent hover:bg-accent/90 text-white font-medium rounded-lg transition-all duration-200"
+          >
+            Continue to Groups
+          </button>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Phase Header */}
-      <div className="px-6 py-4 border-b border-border">
+      <div className="px-6 py-4 border-b border-border flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -310,11 +398,11 @@ function AutoAcceptMatchCard({
       <button
         type="button"
         onClick={onAccept}
-        className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors flex-shrink-0"
+        className="p-2 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors flex-shrink-0"
         title="Accept match"
       >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
         </svg>
       </button>
     </div>

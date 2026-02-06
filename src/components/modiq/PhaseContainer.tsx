@@ -15,16 +15,24 @@ interface PhaseContainerProps {
 export function PhaseContainer({ reviewProps }: PhaseContainerProps) {
   const { currentPhase } = useMappingPhase();
 
+  let content: React.ReactNode;
   switch (currentPhase) {
     case "auto-accept":
-      return <AutoAcceptPhase />;
+      content = <AutoAcceptPhase />;
+      break;
     case "groups":
-      return <GroupsPhase />;
+      content = <GroupsPhase />;
+      break;
     case "individuals":
-      return <IndividualsPhase />;
+      content = <IndividualsPhase />;
+      break;
     case "spinners":
-      return <SpinnersPhase />;
+      content = <SpinnersPhase />;
+      break;
     case "review":
-      return <ReviewPhase {...reviewProps} />;
+      content = <ReviewPhase {...reviewProps} />;
+      break;
   }
+
+  return <div className="h-full overflow-hidden">{content}</div>;
 }
