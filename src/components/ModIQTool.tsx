@@ -26,7 +26,7 @@ import {
 import type { ParsedLayout, MappingResult, DisplayType, EffectTree } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
 import type { BoostSuggestion, SpinnerBoostSuggestion, DisplayCoverage } from "@/lib/modiq";
-import { isDmxModel } from "@/lib/modiq";
+import { isDmxModel, getActiveSourceNamesForExport } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
 import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
 import { useCart } from "@/contexts/CartContext";
@@ -1168,7 +1168,7 @@ function InteractiveResults({
     result.low.sort((a, b) => b.confidence - a.confidence);
 
     return result;
-  }, [mappedLayers, interactive]);
+  }, [mappedLayers, interactive.getSuggestionsForLayer]);
 
   // State for confidence tier collapse
   const [showHighTier, setShowHighTier] = useState(true);
@@ -1198,7 +1198,7 @@ function InteractiveResults({
     );
     if (!sl) return [];
     return interactive.getSuggestionsForLayer(sl.sourceModel).slice(0, 5);
-  }, [focusedSourceLayer, interactive]);
+  }, [focusedSourceLayer, interactive.sourceLayerMappings, interactive.getSuggestionsForLayer]);
 
   // Global suggestions: top unmapped source layers with their best user matches (for when nothing selected)
   const globalSuggestions = useMemo(() => {
@@ -1226,7 +1226,7 @@ function InteractiveResults({
     });
 
     return suggestions.slice(0, 5);
-  }, [focusedSourceLayer, interactive]);
+  }, [focusedSourceLayer, interactive.sourceLayerMappings, interactive.getSuggestionsForLayer]);
 
   // Right panel: user models categorized (all models always visible, never hidden by assignment)
   const { userGroups, userModels } = useMemo(() => {
@@ -1302,7 +1302,9 @@ function InteractiveResults({
   // Export handlers
   const doExport = useCallback((boostLines?: { userGroupName: string; sourceGroupName: string }[]) => {
     const result = interactive.toMappingResult();
-    const xmapContent = generateXmap(result, seqTitle);
+    // Only export mappings for source layers that have effects (reduces red rows in xLights)
+    const activeSourceNames = effectTree ? getActiveSourceNamesForExport(effectTree) : undefined;
+    const xmapContent = generateXmap(result, seqTitle, activeSourceNames);
     downloadXmap(xmapContent, xsqFilename);
     const baseName = xsqFilename.replace(/\.xsq$/i, "");
     const fileName = `modiq_${baseName}.xmap`;
@@ -1327,7 +1329,7 @@ function InteractiveResults({
       groupsCoveredChildCount: interactive.groupsCoveredChildCount,
       directMappedCount: interactive.directMappedCount,
     });
-  }, [interactive, seqTitle, xsqFilename, selectedSequence, telemetry, onExported, destModels]);
+  }, [interactive, seqTitle, xsqFilename, selectedSequence, telemetry, onExported, destModels, effectTree]);
 
   const handleExport = useCallback(() => {
     if (interactive.unmappedLayerCount > 0) {

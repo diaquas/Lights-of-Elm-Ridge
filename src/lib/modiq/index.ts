@@ -22,6 +22,8 @@ export {
   mapSubmodels,
   scoreToConfidence,
   isDmxModel,
+  clearTokenCache,
+  clearSubmodelCache,
 } from "./matcher";
 export type {
   Confidence,
@@ -40,7 +42,11 @@ export {
 
 export { parseXsqModels, getSequenceModelList } from "./xsq-parser";
 
-export { buildEffectTree, getActiveSourceModels } from "./effect-tree";
+export {
+  buildEffectTree,
+  getActiveSourceModels,
+  getActiveSourceNamesForExport,
+} from "./effect-tree";
 export type {
   EffectTree,
   GroupEffectInfo,

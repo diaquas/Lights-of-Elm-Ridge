@@ -326,6 +326,35 @@ export function buildEffectTree(
 }
 
 /**
+ * Get the set of source model names that need mapping in the xmap export.
+ * This excludes:
+ * - Models without effects
+ * - Models fully covered by a parent group's effects
+ *
+ * Use this to filter the xmap export to only include layers with effects,
+ * eliminating "red rows" in xLights for submodels that have no effects.
+ */
+export function getActiveSourceNamesForExport(effectTree: EffectTree): Set<string> {
+  const names = new Set<string>();
+
+  // Include groups with effects (Scenario A and B, not C)
+  for (const gInfo of effectTree.groupsWithEffects) {
+    if (gInfo.scenario !== "C") {
+      names.add(gInfo.model.name);
+    }
+  }
+
+  // Include individual models that need mapping
+  for (const mInfo of effectTree.modelsWithEffects) {
+    if (mInfo.needsIndividualMapping) {
+      names.add(mInfo.model.name);
+    }
+  }
+
+  return names;
+}
+
+/**
  * Filter source models to only those that are active in the effect tree.
  * Returns groups with effects first, then individual models with effects.
  */
