@@ -154,8 +154,20 @@ const SYNONYMS: Record<string, string[]> = {
   // Cross-holiday/prop mappings (used when no direct match exists)
   firework: ["spiral tree", "inverted tree", "spiral", "fireworks"],
   spiral: ["firework", "fireworks", "inverted tree"],
-  "pixel forest": ["peace stakes", "vertical matrix"],
+  "pixel forest": ["peace stakes", "vertical matrix", "icicles"],
   "peace stakes": ["pixel forest"],
+  // Halloween ↔ Christmas prop swaps (when no direct match exists)
+  "mini trees": ["ghosts", "black cats"],
+  "mini pumpkins": ["ghosts", "stars"],
+  ghosts: ["mini trees", "mini pumpkins"],
+  "black cats": ["mini trees", "spiral trees"],
+  "spiral trees": ["black cats"],
+  // Structural equivalents
+  fence: ["vertical matrix"],
+  poles: ["verticals"],
+  // Submodel swaps for singing props (pumpkin ↔ ghost/skull)
+  "pumpkin eyes": ["ghost eyes", "skull eyes"],
+  "pumpkin outline": ["ghost body", "skull outline"],
   // GE product synonyms (same physical prop, different vendor names)
   fuzion: ["rosa wreath", "rosawreath", "rosa"],
   "rosa wreath": ["fuzion"],
@@ -973,7 +985,7 @@ function isHouseLine(model: ParsedModel): boolean {
 
 /** Check if a model is a singing face/prop.
  *  Detects via name patterns or submodel names (mouth/eyes/phoneme).
- *  Common vendor names: "Pimp", "Male Singing Prop", "EFL Snowman", "Singing Bulb" */
+ *  Common vendor names: "Pimp", "Male Singing Prop", "EFL Snowman", "Singing Bulb", "Singing Skull" */
 function isSinging(model: ParsedModel): boolean {
   const n = model.name.toLowerCase();
   // Direct "singing" keyword
@@ -981,6 +993,8 @@ function isSinging(model: ParsedModel): boolean {
   // Vendor names for singing props
   if (/\bpimp\b/i.test(n)) return true;
   if (/\befl\s*snowman\b/i.test(n)) return true;
+  // "Singing Skull" pattern (some vendors use this)
+  if (/\bsinging\s*skull\b/i.test(n)) return true;
   // Submodel detection (mouth/eyes/phoneme indicates a singing face)
   return model.submodels.some((s) => /\b(mouth|eyes?|phoneme)\b/i.test(s.name));
 }
@@ -1002,6 +1016,7 @@ const INTERCHANGEABLE_CLASSES: Record<string, string[]> = {
     "scarecrow",
     "cauldron",
     "coffin",
+    "black cat",
   ],
   christmas_yard: [
     "snowman",
@@ -1012,11 +1027,15 @@ const INTERCHANGEABLE_CLASSES: Record<string, string[]> = {
     "nutcracker",
     "ornament",
   ],
+  // Mini yard props — cross-holiday interchangeable (mini trees ↔ ghosts ↔ black cats)
+  mini_yard: ["mini tree", "ghost", "black cat", "mini pumpkin"],
   tree: ["tree", "mega tree", "megatree", "spiral"],
   arch: ["arch", "archway", "candy cane", "cane"],
   star_flake: ["star", "snowflake", "flake"],
   wreath_spinner: ["wreath", "spinner", "rosa", "fuzion"],
   structural_line: ["eave", "vertical", "roofline", "outline", "horizontal"],
+  // Vertical structures (poles, verticals, fence)
+  vertical_structure: ["pole", "vertical", "fence"],
 };
 
 /** Get the interchangeability class for a model, or null if none. */
