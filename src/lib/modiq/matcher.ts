@@ -1181,17 +1181,25 @@ function computeScore(
     return { score: Math.min(0.1, factors.name * 0.1), factors };
   }
 
+  // ── SUBMODEL_GRP HARD CONSTRAINT ─────────────────────────
+  // SUBMODEL_GRP groups should ONLY match other SUBMODEL_GRP groups.
+  // They should NEVER match regular models (like "Driveway Left") or MODEL_GRP groups.
+  // This is the highest priority rule for spinner submodel groups.
+  const srcIsSubmodelGrp = source.isGroup && source.groupType === "SUBMODEL_GRP";
+  const destIsSubmodelGrp = dest.isGroup && dest.groupType === "SUBMODEL_GRP";
+
+  if (srcIsSubmodelGrp && !destIsSubmodelGrp) {
+    // Source is a SUBMODEL_GRP but dest is not — hard block
+    return { score: 0, factors: zeroFactors };
+  }
+  if (destIsSubmodelGrp && !srcIsSubmodelGrp) {
+    // Dest is a SUBMODEL_GRP but source is not — hard block
+    return { score: 0, factors: zeroFactors };
+  }
+
   // ── Group-vs-group matching ────────────────────────────
   if (source.isGroup && dest.isGroup) {
-    // GROUP TYPE COMPATIBILITY: SUBMODEL_GRP should not match MODEL_GRP
-    // e.g., "S - Big Hearts" (SUBMODEL_GRP) should NOT match "All Arches" (MODEL_GRP)
-    const srcIsSubmodelGrp = source.groupType === "SUBMODEL_GRP";
-    const destIsSubmodelGrp = dest.groupType === "SUBMODEL_GRP";
-
-    if (srcIsSubmodelGrp !== destIsSubmodelGrp) {
-      // One is a submodel group, the other is a model group — hard block
-      return { score: 0, factors: zeroFactors };
-    }
+    // Note: SUBMODEL_GRP vs MODEL_GRP mismatch already handled above
 
     // "NO" logic: if one group has "no" negation and the other doesn't,
     // they almost certainly don't match
