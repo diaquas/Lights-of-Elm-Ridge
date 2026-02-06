@@ -50,9 +50,9 @@ export function SpinnersPhase() {
   if (phaseItems.length === 0) {
     return (
       <PhaseEmptyState
-        icon={<span className="text-5xl">&#127921;</span>}
-        title="No Submodel Groups"
-        description="No submodel groups detected. Continue to review."
+        icon={<span className="text-5xl">&#128077;</span>}
+        title="Submodel Groups All Set!"
+        description="No submodel groups need matching in this sequence."
       />
     );
   }
@@ -63,7 +63,7 @@ export function SpinnersPhase() {
       <PhaseEmptyState
         icon={<span className="text-5xl">&#9989;</span>}
         title="All Submodel Groups Mapped!"
-        description={`${mappedItems.length} submodel groups have been matched.`}
+        description={`${mappedItems.length} submodel group${mappedItems.length === 1 ? "" : "s"} successfully matched. Nice work!`}
       />
     );
   }
@@ -190,7 +190,7 @@ export function SpinnersPhase() {
             <div className="px-6 py-3 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-purple-500/15 text-purple-400 rounded">
-                  SUBMODEL_GROUP
+                  SUBMODEL
                 </span>
                 {selectedItem.sourceModel.semanticCategory && (
                   <span className="px-2 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/40 rounded">

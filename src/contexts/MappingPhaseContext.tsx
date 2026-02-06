@@ -47,6 +47,17 @@ interface PhaseContextValue {
 
 const MappingPhaseContext = createContext<PhaseContextValue | null>(null);
 
+/** Natural sort: "Arch 2" before "Arch 10", case-insensitive */
+function naturalCompare(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+}
+
+function sortLayers(layers: SourceLayerMapping[]): SourceLayerMapping[] {
+  return [...layers].sort((a, b) =>
+    naturalCompare(a.sourceModel.name, b.sourceModel.name),
+  );
+}
+
 // ─── Provider ──────────────────────────────────────────
 
 interface MappingPhaseProviderProps {
@@ -121,12 +132,12 @@ export function MappingPhaseProvider({
   const getPhaseItems = useCallback(
     (phase: MappingPhase): SourceLayerMapping[] => {
       if (phase === "review") {
-        return interactive.sourceLayerMappings.filter((l) => !l.isSkipped);
+        return sortLayers(interactive.sourceLayerMappings.filter((l) => !l.isSkipped));
       }
-      return interactive.sourceLayerMappings.filter((layer) => {
+      return sortLayers(interactive.sourceLayerMappings.filter((layer) => {
         if (layer.isSkipped) return false;
         return phaseAssignmentRef.current.get(layer.sourceModel.name) === phase;
-      });
+      }));
     },
     [interactive.sourceLayerMappings],
   );

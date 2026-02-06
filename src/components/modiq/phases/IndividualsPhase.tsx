@@ -46,9 +46,9 @@ export function IndividualsPhase() {
   if (phaseItems.length === 0) {
     return (
       <PhaseEmptyState
-        icon={<span className="text-5xl">&#128203;</span>}
-        title="No Individual Models"
-        description="No individual models need manual matching. Continue to spinners."
+        icon={<span className="text-5xl">&#128077;</span>}
+        title="Models All Set!"
+        description="No individual models need manual matching — they were auto-matched or covered by groups."
       />
     );
   }
@@ -58,7 +58,7 @@ export function IndividualsPhase() {
       <PhaseEmptyState
         icon={<span className="text-5xl">&#9989;</span>}
         title="All Models Mapped!"
-        description={`${mappedItems.length} individual models have been matched.`}
+        description={`${mappedItems.length} individual model${mappedItems.length === 1 ? "" : "s"} successfully matched. Nice work!`}
       />
     );
   }
