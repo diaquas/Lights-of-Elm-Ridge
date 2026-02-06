@@ -68,8 +68,9 @@ export default function SequenceSelector({
   }
 
   function handleSelect(slug: string) {
-    onChange(slug);
+    // Close dropdown FIRST to avoid race condition with parent re-render
     setIsOpen(false);
+    onChange(slug);
   }
 
   return (
