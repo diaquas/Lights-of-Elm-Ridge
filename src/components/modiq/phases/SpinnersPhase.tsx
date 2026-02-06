@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useMappingPhase } from "@/contexts/MappingPhaseContext";
+import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
@@ -70,11 +70,7 @@ export function SpinnersPhase() {
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
-    // Auto-select next
-    const nextUnmapped = unmappedItems.find(
-      (i) => i.sourceModel.name !== sourceName && !i.isMapped,
-    );
-    setSelectedItemId(nextUnmapped?.sourceModel.name ?? null);
+    setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
   const handleBulkAccept = () => {
@@ -245,10 +241,7 @@ export function SpinnersPhase() {
                 type="button"
                 onClick={() => {
                   interactive.skipSourceLayer(selectedItem.sourceModel.name);
-                  const next = unmappedItems.find(
-                    (i) => i.sourceModel.name !== selectedItem.sourceModel.name,
-                  );
-                  setSelectedItemId(next?.sourceModel.name ?? null);
+                  setSelectedItemId(findNextUnmapped(unmappedItems, selectedItem.sourceModel.name));
                 }}
                 className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
               >

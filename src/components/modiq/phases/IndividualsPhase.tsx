@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useMappingPhase } from "@/contexts/MappingPhaseContext";
+import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
@@ -65,18 +65,12 @@ export function IndividualsPhase() {
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
-    const next = unmappedItems.find(
-      (i) => i.sourceModel.name !== sourceName && !i.isMapped,
-    );
-    setSelectedItemId(next?.sourceModel.name ?? null);
+    setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
   const handleSkip = (sourceName: string) => {
     interactive.skipSourceLayer(sourceName);
-    const next = unmappedItems.find(
-      (i) => i.sourceModel.name !== sourceName && !i.isMapped,
-    );
-    setSelectedItemId(next?.sourceModel.name ?? null);
+    setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
   // Handle drops on left panel items

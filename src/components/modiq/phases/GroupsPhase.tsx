@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import { useMappingPhase } from "@/contexts/MappingPhaseContext";
+import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
@@ -63,11 +63,7 @@ export function GroupsPhase() {
     userModelName: string,
   ) => {
     interactive.assignUserModelToLayer(groupName, userModelName);
-    // Auto-select next
-    const nextUnmapped = unmappedGroups.find(
-      (g) => g.sourceModel.name !== groupName && !g.isMapped,
-    );
-    setSelectedGroupId(nextUnmapped?.sourceModel.name ?? null);
+    setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
   };
 
   const handleBulkAccept = () => {
@@ -237,10 +233,7 @@ export function GroupsPhase() {
               <button
                 type="button"
                 onClick={() => {
-                  const next = unmappedGroups.find(
-                    (g) => g.sourceModel.name !== selectedGroup.sourceModel.name,
-                  );
-                  setSelectedGroupId(next?.sourceModel.name ?? null);
+                  setSelectedGroupId(findNextUnmapped(unmappedGroups, selectedGroup.sourceModel.name));
                 }}
                 className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
               >

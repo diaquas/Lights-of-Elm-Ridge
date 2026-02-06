@@ -58,6 +58,40 @@ function sortLayers(layers: SourceLayerMapping[]): SourceLayerMapping[] {
   );
 }
 
+/** Extract family prefix by stripping trailing numbers: "Mini Pumpkin 8" → "Mini Pumpkin" */
+export function extractFamily(name: string): string {
+  return name.replace(/\s*\d+\s*$/, "").trim();
+}
+
+/**
+ * Find the next unmapped item, preferring items in the same "family".
+ * E.g., after mapping "Arch 3", prefer "Arch 4" over "Bat 1".
+ */
+export function findNextUnmapped(
+  unmappedItems: SourceLayerMapping[],
+  currentName: string,
+): string | null {
+  if (unmappedItems.length === 0) return null;
+
+  const family = extractFamily(currentName);
+  const remaining = unmappedItems.filter(
+    (i) => i.sourceModel.name !== currentName && !i.isMapped,
+  );
+
+  if (remaining.length === 0) return null;
+
+  // Prefer same family first
+  const sameFamily = remaining.filter(
+    (i) => extractFamily(i.sourceModel.name) === family,
+  );
+  if (sameFamily.length > 0) {
+    return sameFamily[0].sourceModel.name;
+  }
+
+  // Fallback to any unmapped item
+  return remaining[0].sourceModel.name;
+}
+
 // ─── Provider ──────────────────────────────────────────
 
 interface MappingPhaseProviderProps {
