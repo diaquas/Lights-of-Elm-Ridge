@@ -407,7 +407,7 @@ export default function ModIQTool() {
                 )}
               </div>
               <h2 className="text-lg font-semibold text-foreground/60">
-                What are you mapping{" "}
+                Where are you mapping{" "}
                 <span className="text-white font-bold">FROM</span>?
               </h2>
             </div>
