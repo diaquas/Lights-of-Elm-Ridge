@@ -261,21 +261,23 @@ export function GroupsPhase() {
       <div className="w-1/2 flex flex-col bg-surface/50 overflow-hidden">
         {selectedGroup ? (
           <>
-            {/* Group Info Header — matches left panel header height */}
+            {/* Group Info Header — compact, same height as left */}
             <div className={PANEL_STYLES.header.wrapper}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`px-2 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.GRP} rounded`}>
-                  GROUP
+              <div className="flex items-center gap-2">
+                <span className={`px-1.5 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.GRP} rounded`}>
+                  GRP
                 </span>
+                <h3 className="text-sm font-semibold text-foreground truncate">
+                  {selectedGroup.sourceModel.name}
+                </h3>
               </div>
-              <h3 className="text-base font-semibold text-foreground truncate">
-                {selectedGroup.sourceModel.name}
-              </h3>
-              <p className="text-[12px] text-foreground/40 mt-0.5">
-                {selectedGroup.memberNames.length} members &middot; Scenario{" "}
-                {selectedGroup.scenario || "A"}
-              </p>
-              <CollapsibleMembers members={selectedGroup.memberNames} />
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-foreground/40">
+                  {selectedGroup.memberNames.length} members &middot; Scenario{" "}
+                  {selectedGroup.scenario || "A"}
+                </span>
+                <CollapsibleMembers members={selectedGroup.memberNames} />
+              </div>
             </div>
 
             {/* Universal Source Panel */}

@@ -6,9 +6,9 @@
 
 export const PANEL_STYLES = {
   header: {
-    wrapper: "px-6 py-3 border-b border-border flex-shrink-0",
-    title: "text-base font-semibold text-foreground flex items-center gap-2",
-    subtitle: "text-[12px] text-foreground/50 mt-0.5",
+    wrapper: "px-4 py-2.5 border-b border-border flex-shrink-0",
+    title: "text-sm font-semibold text-foreground flex items-center gap-2",
+    subtitle: "text-[11px] text-foreground/50 mt-0.5",
   },
   search: {
     wrapper: "px-4 py-2 border-b border-border flex-shrink-0",

@@ -264,26 +264,28 @@ export function SpinnersPhase() {
       <div className="w-1/2 flex flex-col bg-surface/50 overflow-hidden">
         {selectedItem ? (
           <>
-            {/* Item Info Header — matches left panel header height */}
+            {/* Item Info Header — compact, same height as left */}
             <div className={PANEL_STYLES.header.wrapper}>
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`px-2 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.SUB} rounded`}>
-                  SUBMODEL
+              <div className="flex items-center gap-2">
+                <span className={`px-1.5 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.SUB} rounded`}>
+                  SUB
                 </span>
                 {selectedItem.sourceModel.semanticCategory && (
-                  <span className="px-2 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/40 rounded">
+                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/40 rounded">
                     {CATEGORY_LABELS[selectedItem.sourceModel.semanticCategory] ??
                       selectedItem.sourceModel.semanticCategory}
                   </span>
                 )}
+                <h3 className="text-sm font-semibold text-foreground truncate">
+                  {selectedItem.sourceModel.name}
+                </h3>
               </div>
-              <h3 className="text-base font-semibold text-foreground truncate">
-                {selectedItem.sourceModel.name}
-              </h3>
-              <p className="text-[12px] text-foreground/40 mt-0.5">
-                {selectedItem.memberNames.length} members
-              </p>
-              <CollapsibleMembers members={selectedItem.memberNames} />
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-[11px] text-foreground/40">
+                  {selectedItem.memberNames.length} members
+                </span>
+                <CollapsibleMembers members={selectedItem.memberNames} />
+              </div>
             </div>
 
             {/* Universal Source Panel */}

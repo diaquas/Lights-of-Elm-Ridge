@@ -233,12 +233,12 @@ export function IndividualsPhase() {
       <div className="w-1/2 flex flex-col bg-surface/50 overflow-hidden">
         {selectedItem && !selectedItem.isMapped ? (
           <>
-            {/* Item Info Header — matches left panel header height */}
+            {/* Item Info Header — compact, same height as left */}
             <div className={PANEL_STYLES.header.wrapper}>
-              <h3 className="text-base font-semibold text-foreground truncate">
+              <h3 className="text-sm font-semibold text-foreground truncate">
                 {selectedItem.sourceModel.name}
               </h3>
-              <div className="flex items-center gap-3 mt-1 text-[12px] text-foreground/40">
+              <div className="flex items-center gap-3 mt-0.5 text-[11px] text-foreground/40">
                 {selectedItem.sourceModel.pixelCount ? (
                   <span>{selectedItem.sourceModel.pixelCount}px</span>
                 ) : null}

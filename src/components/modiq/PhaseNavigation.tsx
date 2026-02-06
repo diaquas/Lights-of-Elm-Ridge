@@ -17,7 +17,7 @@ export function PhaseNavigation() {
   const nextPhase = phaseIndex < PHASE_CONFIG.length - 1 ? PHASE_CONFIG[phaseIndex + 1] : null;
 
   return (
-    <div className="flex items-center justify-between px-6 py-3 bg-surface border-t border-border">
+    <div className="flex items-center justify-between px-6 py-2.5 bg-surface border-b border-border flex-shrink-0">
       {/* Back Button */}
       <button
         type="button"
