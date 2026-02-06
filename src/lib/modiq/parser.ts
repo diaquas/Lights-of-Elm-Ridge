@@ -350,52 +350,201 @@ function hasVendorPlusElement(groupName: string): boolean {
 /**
  * Semantic categories for submodel groups — used for cross-vendor matching.
  * Groups in the same semantic category are likely functionally equivalent.
+ *
+ * ROSETTA STONE INTEGRATION: Categories and patterns derived from parsing
+ * 1,340+ xmodel files from Gilbert Engineering, Holiday Coro, EFL Designs,
+ * and Boscoyo vendors.
  */
 const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
-  // Circular elements (rings, circles, balls)
-  circular: [
+  // RINGS: Concentric circular elements (rings, circles, balls)
+  // Cross-vendor equivalent: Ring ≈ Circle ≈ Ball ≈ Orb
+  rings: [
     /\bRings?\b/i,
     /\bCircles?\b/i,
     /\bBalls?\b/i,
+    /\bOrb\b/i,
+    /\bInner\s*Circle\b/i,
+    /\bOuter\s*Circle\b/i,
+    /\bMiddle\s*Circle\b/i,
+    /\bCenter\s*Circle\b/i,
+    /\bRing\s*All\b/i,
+    /\bAll\s*Rings\b/i,
     /\bSaucers?\b/i,
   ],
-  // Decorative shapes (hearts, flowers, petals, stars)
-  decorative: [
-    /\bHearts?\b/i,
+  // SPOKES: Radial lines emanating from center
+  // Cross-vendor equivalent: Spoke ≈ Arm ≈ Ray ≈ Beam ≈ Line ≈ Leg
+  spokes: [
+    /\bSpokes?\b/i,
+    /\bArms?\b/i,
+    /\bRays?\b/i,
+    /\bBeams?\b/i,
+    /\bLines?\b/i,
+    /\bLegs?\b/i,
+    /\bSpoke\s*All\b/i,
+    /\bAll\s*Spokes\b/i,
+    /\bFeathers?\b/i,
+    /\bArrows?\b/i,
+  ],
+  // SPIRALS: Spiral/swirl patterns
+  // Cross-vendor equivalent: Spiral ≈ Swirl ≈ Vortex ≈ Twist
+  spirals: [
+    /\bSpirals?\b/i,
+    /\bSwirls?\b/i,
+    /\bVortex\b/i,
+    /\bTwist\b/i,
+    /\bSpiral\s*All\b/i,
+    /\bWillow\b/i,
+  ],
+  // FLORALS: Flower-like decorative elements
+  // Cross-vendor equivalent: Flower ≈ Petal ≈ Heart ≈ Star ≈ Leaf
+  florals: [
     /\bFlowers?\b/i,
     /\bPetals?\b/i,
+    /\bHearts?\b/i,
+    /\bBig\s*Hearts?\b/i,
     /\bStars?\b/i,
+    /\bLeaf\b/i,
+    /\bLeaves\b/i,
+    /\bCascading\s*Leaf\b/i,
+    /\bFloral\b/i,
     /\bDiamonds?\b/i,
     /\bBows?\b/i,
   ],
-  // Radial elements (spokes, arms, arrows)
-  radial: [
-    /\bSpokes?\b/i,
-    /\bArms?\b/i,
-    /\bArrows?\b/i,
-    /\bFeathers?\b/i,
-  ],
-  // Spiral/swirl elements
-  spiral: [
-    /\bSpirals?\b/i,
-    /\bSwirl\b/i,
-    /\bWillow\b/i,
+  // SCALLOPS: Curved decorative borders
+  // Cross-vendor equivalent: Scallop ≈ Ribbon ≈ Wave ≈ Arc ≈ Curve ≈ Arch
+  scallops: [
+    /\bScallops?\b/i,
     /\bRibbons?\b/i,
+    /\bWaves?\b/i,
+    /\bArcs?\b/i,
+    /\bCurves?\b/i,
+    /\bArch\b/i,
   ],
-  // Outline/perimeter elements
+  // TRIANGLES: Triangular geometric elements
+  // Cross-vendor equivalent: Triangle ≈ Wedge ≈ Segment
+  triangles: [
+    /\bTriangles?\b/i,
+    /\bWedges?\b/i,
+    /\bSegments?\b/i,
+  ],
+  // EFFECTS: Animated effect patterns
+  // Cross-vendor equivalent: Firework ≈ Cascade ≈ Burst ≈ Explosion ≈ Flash
+  effects: [
+    /\bFireworks?\b/i,
+    /\bCascad(?:e|ing)\b/i,
+    /\bBurst\b/i,
+    /\bExplosion\b/i,
+    /\bFlash\b/i,
+    /\bSparkle\b/i,
+  ],
+  // OUTLINE: Perimeter/outline elements (lower priority - often structural)
   outline: [
     /\bOutline\b/i,
     /\bOuter\b/i,
     /\bInner\b/i,
     /\bCenter\b/i,
     /\bEdge\b/i,
-  ],
-  // Triangular elements
-  triangular: [
-    /\bTriangles?\b/i,
-    /\bScallops?\b/i,
+    /\bHub\b/i,
   ],
 };
+
+/**
+ * Known spinner prop families by vendor - used to identify spinner submodel groups.
+ * Derived from parsing 1,340+ xmodel files across 4 major vendors.
+ */
+const KNOWN_SPINNER_PROPS: string[] = [
+  // Gilbert Engineering (17 families)
+  "GE Spin Reel Max",
+  "GE SpinReel Max",
+  "GE Reel Max",
+  "Grand Illusion",
+  "Baby Grand Illusion",
+  "GE Rosa Grande",
+  "Rosa Wreath",
+  "GE RosaWreath",
+  "GE G-Spasm",
+  "GE Fuzion",
+  "GE Dragonfly",
+  "GE Lightspeed",
+  "GE Dazzler",
+  "GE Star Gazer",
+  "GE Ringmaster",
+  "GE Space Odyssey",
+  "GE Starlord",
+  "Mega Spin Reel",
+  "GE Firework Spinner",
+  "GE Magical Spinner",
+  "StarBurst xTreme",
+  "GE Click Click Boom",
+  "GE Overlord",
+  "GE King Diamond",
+  "GE Shape Shifter",
+  // EFL Designs (4 families)
+  "Showstopper Snowflake",
+  "Smiley_Wreath",
+  "BigdaFan",
+  "BabyFlake",
+  "EFL Wreath",
+  // Holiday Coro (3 families)
+  "1134 Spinner Pop",
+  "Holiday Coro 24 Spinner",
+  "1116",
+  // Boscoyo (6 families)
+  "MegaSpin",
+  "MegaSpinner",
+  "ChromaFlake",
+  "Spider Web",
+  "HDPE Spider Web",
+  "Whimsical Spinner",
+  "Star Wreath",
+  // PPD
+  "PPD Wreath",
+];
+
+/**
+ * Source sequence naming patterns - used to extract the semantic core
+ * from source group names.
+ *
+ * Examples:
+ *   "S - Big Hearts" → "Big Hearts"
+ *   "Spinner - Rings" → "Rings"
+ *   "Hearts GRP" → "Hearts"
+ *   "All Rings" → "Rings"
+ */
+const SOURCE_NAME_PATTERNS: RegExp[] = [
+  /^S\s*-\s*(.+)$/i,           // "S - Big Hearts" → "Big Hearts"
+  /^Spinner\s*-\s*(.+)$/i,     // "Spinner - Rings" → "Rings"
+  /^Spin\s*-\s*(.+)$/i,        // "Spin - Spokes" → "Spokes"
+  /^(.+?)\s+GRP$/i,            // "Hearts GRP" → "Hearts"
+  /^(.+?)\s+Group$/i,          // "Hearts Group" → "Hearts"
+  /^All\s+(.+)$/i,             // "All Rings" → "Rings"
+  /^(.+?)\s+All$/i,            // "Rings All" → "Rings"
+];
+
+/**
+ * Extract the semantic name from a group name by stripping common prefixes/suffixes.
+ * Used for cross-vendor matching where "S - Big Hearts" should match "PPD Wreath Hearts GRP".
+ */
+function extractSemanticName(groupName: string): string {
+  for (const pattern of SOURCE_NAME_PATTERNS) {
+    const match = groupName.match(pattern);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+  return groupName;
+}
+
+/**
+ * Check if a group name references a known spinner prop family.
+ * Used to identify submodel groups derived from spinner props.
+ */
+function isKnownSpinnerProp(groupName: string): boolean {
+  const upperName = groupName.toUpperCase();
+  return KNOWN_SPINNER_PROPS.some(prop =>
+    upperName.includes(prop.toUpperCase())
+  );
+}
 
 /**
  * Classify a group based on its member names.
@@ -456,22 +605,51 @@ function classifyGroupByName(groupName: string): GroupType {
     return "SUBMODEL_GRP";
   }
 
+  // Check if group references a known spinner prop family AND contains an element keyword
+  // e.g., "Showstopper Rings GRP" → SUBMODEL_GRP (known prop + element)
+  // but "Showstopper GRP" → MODEL_GRP (just the prop, no element)
+  if (isKnownSpinnerProp(groupName)) {
+    const hasElement = SUBMODEL_ELEMENT_KEYWORDS.some(keyword => {
+      const keywordUpper = keyword.toUpperCase();
+      const regex = new RegExp(`\\b${keywordUpper}\\b`);
+      return regex.test(groupName.toUpperCase());
+    });
+    if (hasElement) {
+      return "SUBMODEL_GRP";
+    }
+  }
+
   // Default to MODEL_GRP for generic groups
   return "MODEL_GRP";
 }
 
 /**
  * Determine the semantic category for a submodel group.
- * Used for cross-vendor matching (e.g., "Hearts" ≈ "Flowers" in "decorative").
+ * Used for cross-vendor matching (e.g., "Hearts" ≈ "Flowers" in "florals").
+ *
+ * ROSETTA STONE MATCHING:
+ *   Source: "S - Big Hearts" → extracts "Big Hearts" → matches "florals"
+ *   Dest: "PPD Wreath Petals GRP" → matches "florals"
+ *   Result: Same category → high confidence cross-vendor match
  */
 function getSemanticCategory(groupName: string): string | undefined {
-  for (const [category, patterns] of Object.entries(SEMANTIC_CATEGORY_PATTERNS)) {
-    for (const pattern of patterns) {
-      if (pattern.test(groupName)) {
-        return category;
+  // First, extract the semantic core (strips prefixes like "S - " and suffixes like " GRP")
+  const semanticName = extractSemanticName(groupName);
+
+  // Check both the original name and extracted semantic name against patterns
+  // (the extracted name often matches better for source sequences)
+  const namesToCheck = [groupName, semanticName];
+
+  for (const name of namesToCheck) {
+    for (const [category, patterns] of Object.entries(SEMANTIC_CATEGORY_PATTERNS)) {
+      for (const pattern of patterns) {
+        if (pattern.test(name)) {
+          return category;
+        }
       }
     }
   }
+
   return undefined;
 }
 
