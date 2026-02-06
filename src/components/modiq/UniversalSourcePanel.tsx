@@ -57,9 +57,26 @@ export function UniversalSourcePanel({
     return models;
   }, [allModels, sourceFilter]);
 
-  // Search results
-  const searchResults = useMemo(() => {
-    if (!search) return null;
+  // Suggestion model names (for deduplication in "all models" list)
+  const suggestionNames = useMemo(
+    () => new Set(suggestions.map((s) => s.model.name)),
+    [suggestions],
+  );
+
+  // Filtered suggestions (when searching)
+  const filteredSuggestions = useMemo(() => {
+    if (!search) return suggestions;
+    const q = search.toLowerCase();
+    return suggestions.filter(
+      (s) =>
+        s.model.name.toLowerCase().includes(q) ||
+        s.model.type.toLowerCase().includes(q),
+    );
+  }, [search, suggestions]);
+
+  // Filtered all-models list (always computed from availableModels)
+  const filteredModels = useMemo(() => {
+    if (!search) return availableModels;
     const q = search.toLowerCase();
     return availableModels.filter(
       (m) =>
@@ -67,12 +84,6 @@ export function UniversalSourcePanel({
         m.type.toLowerCase().includes(q),
     );
   }, [search, availableModels]);
-
-  // Suggestion model names (for deduplication in "all models" list)
-  const suggestionNames = useMemo(
-    () => new Set(suggestions.map((s) => s.model.name)),
-    [suggestions],
-  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -89,27 +100,7 @@ export function UniversalSourcePanel({
         </div>
       </div>
 
-      {/* AI Suggestions (when no search active) */}
-      {!searchResults && suggestions.length > 0 && (
-        <div className="px-6 py-3 border-b border-border flex-shrink-0 bg-surface/50">
-          <h4 className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-2">
-            AI Suggestions
-          </h4>
-          <div className="space-y-1.5">
-            {suggestions.map((sugg, index) => (
-              <SuggestionCard
-                key={sugg.model.name}
-                sugg={sugg}
-                isBest={index === 0}
-                onAccept={onAccept}
-                dnd={dnd}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Search */}
+      {/* Search — ALWAYS visible, above suggestions */}
       <div className="px-6 py-2 border-b border-border flex-shrink-0">
         <div className="relative">
           <svg
@@ -154,48 +145,53 @@ export function UniversalSourcePanel({
             </button>
           )}
         </div>
+        {search && (
+          <p className="text-[10px] text-foreground/30 mt-1">
+            Showing {filteredSuggestions.length + filteredModels.length} of{" "}
+            {suggestions.length + availableModels.length}
+          </p>
+        )}
       </div>
 
-      {/* Content: Search Results or All Models */}
-      <div className="flex-1 overflow-y-auto px-6 py-3">
-        {searchResults ? (
-          <>
-            <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-2">
-              Search Results ({searchResults.length})
+      {/* Scrollable area: Suggestions + All Models together */}
+      <div className="flex-1 overflow-y-auto">
+        {/* AI Suggestions section */}
+        {filteredSuggestions.length > 0 && (
+          <div className="px-6 py-3 border-b border-border bg-surface/50">
+            <h4 className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-2">
+              AI Suggestions ({filteredSuggestions.length})
+            </h4>
+            <div className="space-y-1.5">
+              {filteredSuggestions.map((sugg, index) => (
+                <SuggestionCard
+                  key={sugg.model.name}
+                  sugg={sugg}
+                  isBest={index === 0 && !search}
+                  onAccept={onAccept}
+                  dnd={dnd}
+                />
+              ))}
             </div>
-            {searchResults.length === 0 ? (
-              <div className="text-center py-8 text-foreground/30">
-                <p className="text-sm">
-                  No models matching &ldquo;{search}&rdquo;
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                {searchResults.slice(0, 30).map((model) => (
-                  <ModelCard
-                    key={model.name}
-                    model={model}
-                    isAssigned={assignedNames?.has(model.name) ?? false}
-                    onAccept={onAccept}
-                    dnd={dnd}
-                  />
-                ))}
-                {searchResults.length > 30 && (
-                  <div className="text-center text-[11px] text-foreground/30 py-2">
-                    +{searchResults.length - 30} more &mdash; refine your search
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-2">
-              All Models ({availableModels.length})
+          </div>
+        )}
+
+        {/* All Models section */}
+        <div className="px-6 py-3">
+          <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-2">
+            All Models ({filteredModels.length})
+          </div>
+          {filteredModels.length === 0 ? (
+            <div className="text-center py-8 text-foreground/30">
+              <p className="text-sm">
+                {search
+                  ? <>No models matching &ldquo;{search}&rdquo;</>
+                  : "No models available"}
+              </p>
             </div>
+          ) : (
             <div className="space-y-1">
-              {availableModels.map((model) =>
-                suggestionNames.has(model.name) ? null : (
+              {filteredModels.map((model) =>
+                !search && suggestionNames.has(model.name) ? null : (
                   <ModelCard
                     key={model.name}
                     model={model}
@@ -206,8 +202,8 @@ export function UniversalSourcePanel({
                 ),
               )}
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

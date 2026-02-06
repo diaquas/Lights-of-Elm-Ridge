@@ -32,11 +32,22 @@ export function SpinnersPhase() {
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
 
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
   const mappedItems = phaseItems.filter((item) => item.isMapped);
 
-  const { families, toggle, isExpanded } = useItemFamilies(unmappedItems, selectedItemId);
+  const filteredUnmapped = useMemo(() => {
+    if (!search) return unmappedItems;
+    const q = search.toLowerCase();
+    return unmappedItems.filter(
+      (item) =>
+        item.sourceModel.name.toLowerCase().includes(q) ||
+        item.sourceModel.type.toLowerCase().includes(q),
+    );
+  }, [unmappedItems, search]);
+
+  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
   const selectedItem = phaseItems.find(
     (i) => i.sourceModel.name === selectedItemId,
@@ -130,6 +141,22 @@ export function SpinnersPhase() {
             {unmappedItems.length} groups need matching &middot;{" "}
             {mappedItems.length} already mapped
           </p>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-2 border-b border-border flex-shrink-0">
+          <div className="relative">
+            <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Filter submodel groups..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full text-[12px] pl-8 pr-3 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+            />
+          </div>
         </div>
 
         {bulk.suggestion && (
