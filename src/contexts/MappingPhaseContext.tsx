@@ -43,6 +43,8 @@ interface PhaseContextValue {
   scoreMap: Map<string, number>;
   /** The full interactive mapping state (for phase components to dispatch actions) */
   interactive: InteractiveMappingState;
+  /** Move rejected auto-accept items to their natural fallback phases */
+  reassignFromAutoAccept: (rejectedNames: Set<string>) => void;
 }
 
 const MappingPhaseContext = createContext<PhaseContextValue | null>(null);
@@ -128,6 +130,11 @@ export function MappingPhaseProvider({
   // (e.g., a group getting score 1.0 and jumping to auto-accept).
   const stableScoreRef = useRef(new Map<string, number>());
   const phaseAssignmentRef = useRef(new Map<string, MappingPhase>());
+  /** For auto-accept items: the phase they'd belong to if rejected (groups/individuals/spinners) */
+  const fallbackPhaseRef = useRef(new Map<string, MappingPhase>());
+
+  /** Auto-accept threshold: items scored 70%+ go to auto-accept for bulk review */
+  const AUTO_ACCEPT_THRESHOLD = 0.70;
 
   // Compute stable scores and phase assignments for any new items.
   // Once an item's score/phase is cached, it never recalculates.
@@ -148,10 +155,19 @@ export function MappingPhaseProvider({
         const isSpinner = isSpinnerType(layer.sourceModel.groupType);
         const bestScore = stableScoreRef.current.get(name) ?? 0;
 
-        if (isSpinner) {
-          phaseAssignmentRef.current.set(name, "spinners");
-        } else if (bestScore >= 0.85) {
+        // All entity types (groups, models, spinners) with 70%+ go to auto-accept
+        if (bestScore >= AUTO_ACCEPT_THRESHOLD) {
           phaseAssignmentRef.current.set(name, "auto-accept");
+          // Store natural fallback for rejection routing
+          if (isSpinner) {
+            fallbackPhaseRef.current.set(name, "spinners");
+          } else if (layer.isGroup) {
+            fallbackPhaseRef.current.set(name, "groups");
+          } else {
+            fallbackPhaseRef.current.set(name, "individuals");
+          }
+        } else if (isSpinner) {
+          phaseAssignmentRef.current.set(name, "spinners");
         } else if (layer.isGroup) {
           phaseAssignmentRef.current.set(name, "groups");
         } else {
@@ -162,6 +178,20 @@ export function MappingPhaseProvider({
 
     return new Map(stableScoreRef.current);
   }, [interactive]);
+
+  /**
+   * Move rejected auto-accept items to their natural fallback phases.
+   * Called by AutoAcceptPhase when user clicks Continue with unchecked items.
+   * The ref mutation is visible on next render (triggered by other state changes).
+   */
+  const reassignFromAutoAccept = useCallback((rejectedNames: Set<string>) => {
+    for (const name of rejectedNames) {
+      const fallback = fallbackPhaseRef.current.get(name);
+      if (fallback) {
+        phaseAssignmentRef.current.set(name, fallback);
+      }
+    }
+  }, []);
 
   const getPhaseItems = useCallback(
     (phase: MappingPhase): SourceLayerMapping[] => {
@@ -229,6 +259,7 @@ export function MappingPhaseProvider({
       phaseCounts,
       scoreMap,
       interactive,
+      reassignFromAutoAccept,
     }),
     [
       currentPhase,
@@ -243,6 +274,7 @@ export function MappingPhaseProvider({
       phaseCounts,
       scoreMap,
       interactive,
+      reassignFromAutoAccept,
     ],
   );
 

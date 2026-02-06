@@ -29,20 +29,20 @@ export const UPLOAD_STEP = {
  * Ordering: [Upload (always done)] → Auto-Accept → Groups → Individuals → Spinners → Review
  *
  * Phase routing uses the xLights type system:
- * - Spinners: SUBMODEL_GROUP only
- * - Groups: MODEL_GROUP + META_GROUP + MIXED_GROUP (below auto-accept threshold)
- * - Models: MODEL + SUBMODEL (below auto-accept threshold)
- * - Auto-Accept: anything above 0.85 confidence (except spinners)
+ * - Auto-Accept: ALL entity types with 70%+ confidence (opt-out review)
+ * - Groups: MODEL_GROUP + META_GROUP + MIXED_GROUP (below 70%)
+ * - Models: MODEL + SUBMODEL (below 70%)
+ * - Spinners: SUBMODEL_GROUP (below 70%)
+ * - Items rejected from auto-accept are routed to their natural phase
  */
 export const PHASE_CONFIG: PhaseConfig[] = [
   {
     id: "auto-accept",
     label: "Auto-Matches",
-    description: "High-confidence matches ready to accept",
+    description: "Review auto-matched items (70%+ confidence)",
     icon: "auto",
     filter: (layer) => {
-      if (isSpinnerType(layer.sourceModel.groupType)) return false;
-      return getLayerBestScore(layer) >= 0.85;
+      return getLayerBestScore(layer) >= 0.70;
     },
   },
   {
@@ -53,7 +53,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     filter: (layer) => {
       if (isSpinnerType(layer.sourceModel.groupType)) return false;
       if (!layer.isGroup) return false;
-      return getLayerBestScore(layer) < 0.85;
+      return getLayerBestScore(layer) < 0.70;
     },
   },
   {
@@ -64,7 +64,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     filter: (layer) => {
       if (isSpinnerType(layer.sourceModel.groupType)) return false;
       if (layer.isGroup) return false;
-      return getLayerBestScore(layer) < 0.85;
+      return getLayerBestScore(layer) < 0.70;
     },
   },
   {
@@ -72,7 +72,10 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     label: "Submodel Groups",
     description: "Match submodel groups for spinners, wreaths & HD props",
     icon: "spinners",
-    filter: (layer) => isSpinnerType(layer.sourceModel.groupType),
+    filter: (layer) => {
+      if (!isSpinnerType(layer.sourceModel.groupType)) return false;
+      return getLayerBestScore(layer) < 0.70;
+    },
   },
   {
     id: "review",
