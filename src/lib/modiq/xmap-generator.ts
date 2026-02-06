@@ -97,16 +97,17 @@ export function createXmapBlob(xmapContent: string): Blob {
 
 /**
  * Trigger a browser download for an xmap file.
+ * @param xmapContent - The xmap file content
+ * @param xsqFilename - The xsq filename (with or without extension)
  */
-export function downloadXmap(xmapContent: string, sequenceName: string): void {
+export function downloadXmap(xmapContent: string, xsqFilename: string): void {
   const blob = createXmapBlob(xmapContent);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const safeName = sequenceName
-    .replace(/[^a-zA-Z0-9-_ ]/g, "")
-    .replace(/\s+/g, "_");
+  // Strip .xsq extension if present, keep it simple
+  const baseName = xsqFilename.replace(/\.xsq$/i, "");
   a.href = url;
-  a.download = `ModIQ_${safeName}.xmap`;
+  a.download = `modiq_${baseName}.xmap`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
