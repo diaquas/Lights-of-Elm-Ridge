@@ -46,6 +46,7 @@
  */
 
 import type { ParsedModel } from "./parser";
+import { calculateSynonymBoost, tokenizeName } from "./semanticSynonyms";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -524,9 +525,23 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
     }
   }
 
+  // Semantic synonym boost: catches "Lawn Outline" ↔ "Yard Border" etc.
+  // Only applies when existing overlap is low (avoids double-boosting)
+  let semanticBoost = 0;
+  if (overlapScore < 0.5) {
+    const srcSemanticTokens = tokenizeName(source.name);
+    const destSemanticTokens = tokenizeName(dest.name);
+    if (srcSemanticTokens.length > 0 && destSemanticTokens.length > 0) {
+      const synScore = calculateSynonymBoost(srcSemanticTokens, destSemanticTokens);
+      if (synScore > 0.4) {
+        semanticBoost = synScore * 0.25;
+      }
+    }
+  }
+
   return Math.min(
     1.0,
-    overlapScore + substringBonus + keywordBonus + aliasBonus,
+    overlapScore + substringBonus + keywordBonus + aliasBonus + semanticBoost,
   );
 }
 
