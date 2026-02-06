@@ -1183,12 +1183,43 @@ function computeScore(
 
   // ── Group-vs-group matching ────────────────────────────
   if (source.isGroup && dest.isGroup) {
+    // GROUP TYPE COMPATIBILITY: SUBMODEL_GRP should not match MODEL_GRP
+    // e.g., "S - Big Hearts" (SUBMODEL_GRP) should NOT match "All Arches" (MODEL_GRP)
+    const srcIsSubmodelGrp = source.groupType === "SUBMODEL_GRP";
+    const destIsSubmodelGrp = dest.groupType === "SUBMODEL_GRP";
+
+    if (srcIsSubmodelGrp !== destIsSubmodelGrp) {
+      // One is a submodel group, the other is a model group — hard block
+      return { score: 0, factors: zeroFactors };
+    }
+
     // "NO" logic: if one group has "no" negation and the other doesn't,
     // they almost certainly don't match
     const srcNeg = groupHasNegation(source);
     const destNeg = groupHasNegation(dest);
     if (srcNeg !== destNeg) {
       return { score: 0, factors };
+    }
+
+    // SUBMODEL GROUP MATCHING: Allow cross-vendor matching via semantic category
+    // e.g., "S - Big Hearts" (decorative) ≈ "GE SpinReel Max Flowers GRP" (decorative)
+    if (srcIsSubmodelGrp && destIsSubmodelGrp) {
+      const srcCategory = source.semanticCategory;
+      const destCategory = dest.semanticCategory;
+
+      // If both have semantic categories and they match, boost the match
+      if (srcCategory && destCategory && srcCategory === destCategory) {
+        // Strong match for same semantic category
+        const categoryScore = 0.75 + factors.name * 0.25;
+        return { score: Math.min(1.0, categoryScore), factors };
+      }
+
+      // If only one has a category or categories differ, use normal name matching
+      // but with a penalty for different categories
+      if (srcCategory && destCategory && srcCategory !== destCategory) {
+        const penalizedScore = factors.name * 0.5;
+        return { score: penalizedScore, factors };
+      }
     }
 
     const memberScore = scoreMemberOverlap(source, dest);
@@ -1695,6 +1726,12 @@ export function matchModels(
           for (let d = 0; d < destPool.length; d++) {
             if (usedDestInClass.has(d)) continue;
             const dest = destPool[d];
+
+            // GROUP TYPE COMPATIBILITY: Skip if one is SUBMODEL_GRP and other is MODEL_GRP
+            const srcIsSubmodelGrp = src.groupType === "SUBMODEL_GRP";
+            const destIsSubmodelGrp = dest.groupType === "SUBMODEL_GRP";
+            if (srcIsSubmodelGrp !== destIsSubmodelGrp) continue;
+
             const memberS = scoreMemberOverlap(src, dest);
             const typeS = scoreType(src, dest);
             const nameS = scoreName(src, dest);

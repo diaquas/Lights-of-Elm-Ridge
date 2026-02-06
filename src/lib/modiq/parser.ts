@@ -12,6 +12,9 @@ export interface SubModel {
   pixelCount: number;
 }
 
+/** Group classification: MODEL_GRP = independent models, SUBMODEL_GRP = submodels of a single parent */
+export type GroupType = "MODEL_GRP" | "SUBMODEL_GRP";
+
 export interface ParsedModel {
   name: string;
   displayAs: string; // raw DisplayAs value from XML
@@ -29,6 +32,14 @@ export interface ParsedModel {
   isGroup: boolean;
   aliases: string[];
   memberModels: string[]; // For groups: names of models in this group
+
+  // ── Group classification (only set when isGroup=true) ──
+  /** Type of group: MODEL_GRP (independent models) or SUBMODEL_GRP (parts of a single prop) */
+  groupType?: GroupType;
+  /** For SUBMODEL_GRP: the parent prop name(s) the submodels belong to */
+  parentModels?: string[];
+  /** For SUBMODEL_GRP: semantic category for cross-vendor matching (decorative, circular, radial) */
+  semanticCategory?: string;
 }
 
 export interface ParsedLayout {
@@ -207,6 +218,242 @@ function estimateSubmodelPixels(rangeData: string): number {
   return count;
 }
 
+// ─── Group Classification ─────────────────────────────────────────
+// Distinguishes between MODEL_GRP (collection of independent models)
+// and SUBMODEL_GRP (collection of submodels within a single parent prop)
+
+/**
+ * Known spinner/prop prefixes that indicate submodel groups.
+ * These are established naming conventions for spinner submodel groups.
+ */
+const SUBMODEL_GROUP_PREFIXES = [
+  "S - ",              // Showstopper convention: "S - Big Hearts", "S - Rings"
+  "PPD ",              // PPD spinner submodels
+  "GE SpinReel",       // Gilbert Engineering SpinReel
+  "GE SpinArchy",      // Gilbert Engineering SpinArchy
+  "GE Grand Illusion", // Gilbert Engineering Grand Illusion
+  "GE Rosa",           // Gilbert Engineering Rosa Grande
+  "GE CC Boom",        // Gilbert Engineering Click Click Boom
+  "GE Overlord",       // Gilbert Engineering Overlord
+  "GE Fuzion",         // Gilbert Engineering Fuzion
+  "GE Click Click",    // Gilbert Engineering Click Click Boom alt
+  "GE Preying",        // Gilbert Engineering Preying Spider
+  "EFL Showstopper",   // EFL spinner
+  "Spinners -",        // Generic spinner submodel groups
+];
+
+/**
+ * Submodel group pattern suffixes — these indicate specific submodel types
+ * (rings, spokes, arms, etc.) that are parts of a larger spinner/prop.
+ */
+const SUBMODEL_GROUP_PATTERNS = [
+  /\bRings?\b.*(?:All|GRP)?$/i,
+  /\bSpokes?\b.*(?:All|GRP)?$/i,
+  /\bArms?\b.*(?:All|GRP)?$/i,
+  /\bPetals?\b.*(?:All|GRP)?$/i,
+  /\bFlowers?\b.*(?:All|GRP)?$/i,
+  /\bHearts?\b.*(?:All|GRP)?$/i,
+  /\bCircles?\b.*(?:All|GRP)?$/i,
+  /\bSpirals?\b.*(?:All|GRP)?$/i,
+  /\bBalls?\b.*(?:All|GRP)?$/i,
+  /\bRibbons?\b.*(?:All|GRP)?$/i,
+  /\bTriangles?\b.*(?:All|GRP)?$/i,
+  /\bDiamonds?\b.*(?:All|GRP)?$/i,
+  /\bScallops?\b.*(?:All|GRP)?$/i,
+  /\bFeathers?\b.*(?:All|GRP)?$/i,
+  /\bStars?\b.*(?:All|GRP)?$/i,
+  /\bArrows?\b.*(?:All|GRP)?$/i,
+  /\bOutline\b.*(?:All|GRP)?$/i,
+  /\bCenter\b.*(?:All|GRP)?$/i,
+  /\bOuter\b.*(?:All|GRP)?$/i,
+  /\bInner\b.*(?:All|GRP)?$/i,
+  /\bEven\b.*(?:All|GRP)?$/i,
+  /\bOdd\b.*(?:All|GRP)?$/i,
+  /\bSwirl\b.*(?:All|GRP)?$/i,
+  /\bWillow\b.*(?:All|GRP)?$/i,
+  /\bSaucers?\b.*(?:All|GRP)?$/i,
+  /\bBows?\b.*(?:All|GRP)?$/i,
+  /\bLeaf\b.*(?:All|GRP)?$/i,
+  /\bIris\b.*(?:All|GRP)?$/i,
+  /\bChalice\b.*(?:All|GRP)?$/i,
+  /\bTorches?\b.*(?:All|GRP)?$/i,
+  /\bHooks?\b.*(?:All|GRP)?$/i,
+];
+
+/**
+ * Regular model group patterns — these indicate collections of independent models
+ * rather than submodels of a single prop.
+ */
+const MODEL_GROUP_PATTERNS = [
+  /^All\s*-\s*.*-\s*GRP$/i,     // "All - Arches - GRP", "All - Poles - GRP"
+  /^All\s+.*s$/i,               // "All Arches", "All Poles" (plural)
+  /^\d+\s+All\s+/i,             // "10 All Arches", "6 All Tombstones"
+  /^GROUP\s*-/i,                // "GROUP - All Ghosts"
+  /^FOLDER\s*-/i,               // "FOLDER - Rosa Tomb Groups"
+];
+
+/**
+ * Semantic categories for submodel groups — used for cross-vendor matching.
+ * Groups in the same semantic category are likely functionally equivalent.
+ */
+const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
+  // Circular elements (rings, circles, balls)
+  circular: [
+    /\bRings?\b/i,
+    /\bCircles?\b/i,
+    /\bBalls?\b/i,
+    /\bSaucers?\b/i,
+  ],
+  // Decorative shapes (hearts, flowers, petals, stars)
+  decorative: [
+    /\bHearts?\b/i,
+    /\bFlowers?\b/i,
+    /\bPetals?\b/i,
+    /\bStars?\b/i,
+    /\bDiamonds?\b/i,
+    /\bBows?\b/i,
+  ],
+  // Radial elements (spokes, arms, arrows)
+  radial: [
+    /\bSpokes?\b/i,
+    /\bArms?\b/i,
+    /\bArrows?\b/i,
+    /\bFeathers?\b/i,
+  ],
+  // Spiral/swirl elements
+  spiral: [
+    /\bSpirals?\b/i,
+    /\bSwirl\b/i,
+    /\bWillow\b/i,
+    /\bRibbons?\b/i,
+  ],
+  // Outline/perimeter elements
+  outline: [
+    /\bOutline\b/i,
+    /\bOuter\b/i,
+    /\bInner\b/i,
+    /\bCenter\b/i,
+    /\bEdge\b/i,
+  ],
+  // Triangular elements
+  triangular: [
+    /\bTriangles?\b/i,
+    /\bScallops?\b/i,
+  ],
+};
+
+/**
+ * Classify a group based on its member names.
+ * Primary method: checks if members follow the "Parent/Submodel" pattern.
+ */
+function classifyGroupFromMembers(
+  memberModels: string[]
+): { groupType: GroupType; parentModels: string[] } {
+  if (memberModels.length === 0) {
+    return { groupType: "MODEL_GRP", parentModels: [] };
+  }
+
+  // Check if members follow "Parent/Submodel" pattern (e.g., "PPD Wreath/Spiral-1")
+  const submodelPattern = /^(.+)\/(.+)$/;
+  const parentNames = new Set<string>();
+  let submodelCount = 0;
+
+  for (const member of memberModels) {
+    const match = member.match(submodelPattern);
+    if (match) {
+      parentNames.add(match[1]); // Collect parent model names
+      submodelCount++;
+    }
+  }
+
+  // If most/all members are submodels of a small set of parents, it's a SUBMODEL_GRP
+  // Allow up to 2 parent models (some groups span related props)
+  if (submodelCount >= memberModels.length * 0.5 && parentNames.size <= 2) {
+    return {
+      groupType: "SUBMODEL_GRP",
+      parentModels: Array.from(parentNames),
+    };
+  }
+
+  return { groupType: "MODEL_GRP", parentModels: [] };
+}
+
+/**
+ * Classify a group based on its name (fallback when member analysis is inconclusive).
+ */
+function classifyGroupByName(groupName: string): GroupType {
+  // Check if it matches known MODEL_GRP patterns first (take priority)
+  for (const pattern of MODEL_GROUP_PATTERNS) {
+    if (pattern.test(groupName)) {
+      return "MODEL_GRP";
+    }
+  }
+
+  // Check known SUBMODEL_GRP prefixes
+  for (const prefix of SUBMODEL_GROUP_PREFIXES) {
+    if (groupName.startsWith(prefix)) {
+      return "SUBMODEL_GRP";
+    }
+  }
+
+  // Check known SUBMODEL_GRP patterns (spinner parts like Rings, Spokes, etc.)
+  for (const pattern of SUBMODEL_GROUP_PATTERNS) {
+    if (pattern.test(groupName)) {
+      return "SUBMODEL_GRP";
+    }
+  }
+
+  // Default to MODEL_GRP for generic groups
+  return "MODEL_GRP";
+}
+
+/**
+ * Determine the semantic category for a submodel group.
+ * Used for cross-vendor matching (e.g., "Hearts" ≈ "Flowers" in "decorative").
+ */
+function getSemanticCategory(groupName: string): string | undefined {
+  for (const [category, patterns] of Object.entries(SEMANTIC_CATEGORY_PATTERNS)) {
+    for (const pattern of patterns) {
+      if (pattern.test(groupName)) {
+        return category;
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Fully classify a group: determine type, parent models, and semantic category.
+ */
+function classifyGroup(
+  groupName: string,
+  memberModels: string[]
+): { groupType: GroupType; parentModels?: string[]; semanticCategory?: string } {
+  // Primary method: analyze member names for "Parent/Submodel" pattern
+  const memberAnalysis = classifyGroupFromMembers(memberModels);
+
+  if (memberAnalysis.groupType === "SUBMODEL_GRP") {
+    return {
+      groupType: "SUBMODEL_GRP",
+      parentModels: memberAnalysis.parentModels,
+      semanticCategory: getSemanticCategory(groupName),
+    };
+  }
+
+  // Fallback: classify by name patterns
+  const nameType = classifyGroupByName(groupName);
+
+  if (nameType === "SUBMODEL_GRP") {
+    return {
+      groupType: "SUBMODEL_GRP",
+      parentModels: [],
+      semanticCategory: getSemanticCategory(groupName),
+    };
+  }
+
+  return { groupType: "MODEL_GRP" };
+}
+
 /**
  * Parse an xlights_rgbeffects.xml string into structured model data.
  * Uses DOMParser for browser-side XML parsing.
@@ -335,6 +582,9 @@ export function parseRgbEffectsXml(
       if (aliasName) aliases.push(aliasName);
     });
 
+    // Classify the group: MODEL_GRP (independent models) or SUBMODEL_GRP (parts of a prop)
+    const classification = classifyGroup(name, memberModels);
+
     models.push({
       name,
       displayAs: "ModelGroup",
@@ -352,6 +602,9 @@ export function parseRgbEffectsXml(
       isGroup: true,
       aliases,
       memberModels,
+      groupType: classification.groupType,
+      parentModels: classification.parentModels,
+      semanticCategory: classification.semanticCategory,
     });
   });
 
