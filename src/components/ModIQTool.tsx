@@ -45,6 +45,10 @@ import ExportDialog from "@/components/modiq/ExportDialog";
 import CoverageBoostPrompt from "@/components/modiq/CoverageBoostPrompt";
 import PostExportScreen from "@/components/modiq/PostExportScreen";
 import CascadeToastContainer, { useCascadeToasts } from "@/components/modiq/CascadeToast";
+import { MappingPhaseProvider } from "@/contexts/MappingPhaseContext";
+import { PhaseStepper } from "@/components/modiq/PhaseStepper";
+import { PhaseContainer } from "@/components/modiq/PhaseContainer";
+import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
 
 type Step = "input" | "processing" | "results" | "exported";
 type MapFromMode = "elm-ridge" | "other-vendor";
@@ -1443,11 +1447,13 @@ function InteractiveResults({
   }, [doExport]);
 
   return (
+    <MappingPhaseProvider interactive={interactive}>
     <div className="space-y-0">
-      {/* ── Sticky Status Bar ────────────────────────────── */}
-      <div className="sticky top-0 z-40 bg-background/95 border-b border-border -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 py-3 mb-4">
+      {/* ── V4 Phased Wizard Header ─────────────────────── */}
+      <div className="sticky top-0 z-40 bg-background/95 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 mb-4">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-1">
+          {/* Title Bar */}
+          <div className="flex items-center justify-between py-2.5 border-b border-border">
             <div className="flex items-center gap-3 min-w-0">
               <h2 className="text-[15px] font-display font-bold flex-shrink-0">
                 ModIQ
@@ -1480,33 +1486,27 @@ function InteractiveResults({
             </div>
           </div>
 
-          {isV3 ? (
-            <MappingProgressBar
-              mode="v3"
-              mappedLayerCount={interactive.mappedLayerCount}
-              totalSourceLayers={interactive.totalSourceLayers}
-              skippedLayerCount={interactive.skippedLayerCount}
-              groupsMappedCount={interactive.groupsMappedCount}
-              groupsCoveredChildCount={interactive.groupsCoveredChildCount}
-              directMappedCount={interactive.directMappedCount}
-              unmappedLayerCount={interactive.unmappedLayerCount}
-            />
-          ) : (
-            <MappingProgressBar
-              mode="v2"
-              mappedCount={interactive.mappedCount}
-              totalCount={interactive.totalDest}
-              skippedCount={interactive.skippedCount}
-              highCount={interactive.highCount}
-              mediumCount={interactive.mediumCount}
-              lowCount={interactive.lowCount}
-              coveredByGroupCount={interactive.coveredByGroupCount}
-              percentage={interactive.mappedPercentage}
-            />
-          )}
+          {/* Phase Stepper */}
+          <PhaseStepper />
         </div>
       </div>
 
+      {/* ── V4 Phase Content ─────────────────────────────── */}
+      <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col min-h-[500px] max-h-[calc(100vh-12rem)]">
+        <PhaseContainer
+          reviewProps={{
+            onExport: handleExport,
+            onExportReport: handleExportReport,
+            onReset: onReset,
+            seqTitle,
+            coveragePercent,
+          }}
+        />
+        <PhaseNavigation />
+      </div>
+
+      {/* V3 legacy layout preserved below for backwards compat — hidden in V4 */}
+      <div className="hidden">
       {/* ── Two-Panel Layout (V3: 60/40 split) ────────── */}
       <div className="grid gap-4 lg:grid-cols-[1fr_380px] items-start">
         {/* ═══ Left Panel: Sequence Layers (The Task List) ═══ */}
@@ -2042,6 +2042,7 @@ function InteractiveResults({
         <span>&middot;</span>
         <span>Ctrl+Z: undo</span>
       </div>
+      </div>{/* end hidden V3 legacy layout */}
 
       {/* Export Warning Dialog */}
       {showExportDialog && (
@@ -2072,6 +2073,7 @@ function InteractiveResults({
       {/* Cascade feedback toasts */}
       <CascadeToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
+    </MappingPhaseProvider>
   );
 }
 
