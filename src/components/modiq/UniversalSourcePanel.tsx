@@ -88,20 +88,7 @@ export function UniversalSourcePanel({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="px-6 py-2 border-b border-border flex-shrink-0">
-        <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-wide">
-          {selectedDestLabel
-            ? `Match for: ${selectedDestLabel}`
-            : "Available Models"}
-        </h3>
-        <div className="text-[11px] text-foreground/25 mt-0.5">
-          {availableModels.length} available &middot; Drag to map or click to
-          select
-        </div>
-      </div>
-
-      {/* Search — same height as left panel search */}
+      {/* Search — aligned with left panel search row */}
       <div className={PANEL_STYLES.search.wrapper}>
         <div className="relative">
           <svg

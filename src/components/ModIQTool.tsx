@@ -1493,6 +1493,7 @@ function InteractiveResults({
 
       {/* ── V4 Phase Content ─────────────────────────────── */}
       <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[calc(100vh-11rem)]">
+        <PhaseNavigation />
         <div className="flex-1 min-h-0 overflow-hidden">
           <PhaseContainer
             reviewProps={{
@@ -1504,7 +1505,6 @@ function InteractiveResults({
             }}
           />
         </div>
-        <PhaseNavigation />
       </div>
 
       {/* V3 legacy layout preserved below for backwards compat — hidden in V4 */}
