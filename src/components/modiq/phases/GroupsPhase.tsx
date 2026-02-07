@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
@@ -39,9 +39,27 @@ export function GroupsPhase() {
 
   const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedGroupId);
 
-  const selectedGroup = phaseItems.find(
-    (g) => g.sourceModel.name === selectedGroupId,
-  );
+  // O(1) lookup map for phase items
+  const phaseItemsByName = useMemo(() => {
+    const map = new Map<string, SourceLayerMapping>();
+    for (const item of phaseItems) map.set(item.sourceModel.name, item);
+    return map;
+  }, [phaseItems]);
+
+  const selectedGroup = selectedGroupId
+    ? phaseItemsByName.get(selectedGroupId) ?? null
+    : null;
+
+  // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
+  const topSuggestionsMap = useMemo(() => {
+    const map = new Map<string, { model: { name: string }; score: number } | null>();
+    for (const item of phaseItems) {
+      if (item.isMapped) continue;
+      const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
+      map.set(item.sourceModel.name, suggs[0] ?? null);
+    }
+    return map;
+  }, [phaseItems, interactive]);
 
   // Suggestions for selected group
   const suggestions = useMemo(() => {
@@ -169,13 +187,13 @@ export function GroupsPhase() {
           <div className="space-y-2">
             {families.map((family) => {
               const renderGroup = (group: SourceLayerMapping) => (
-                <GroupListCard
+                <GroupListCardMemo
                   key={group.sourceModel.name}
                   group={group}
                   isSelected={selectedGroupId === group.sourceModel.name}
                   isChecked={selectedIds.has(group.sourceModel.name)}
                   isDropTarget={dnd.state.activeDropTarget === group.sourceModel.name}
-                  interactive={interactive}
+                  topSuggestion={topSuggestionsMap.get(group.sourceModel.name) ?? null}
                   onClick={() => setSelectedGroupId(group.sourceModel.name)}
                   onCheck={() => {
                     setSelectedIds((prev) => {
@@ -389,7 +407,7 @@ function GroupListCard({
   isSelected,
   isChecked,
   isDropTarget,
-  interactive,
+  topSuggestion,
   onClick,
   onCheck,
   onAccept,
@@ -403,7 +421,7 @@ function GroupListCard({
   isSelected: boolean;
   isChecked: boolean;
   isDropTarget: boolean;
-  interactive: ReturnType<typeof useMappingPhase>["interactive"];
+  topSuggestion: { model: { name: string }; score: number } | null;
   onClick: () => void;
   onCheck: () => void;
   onAccept: (userModelName: string) => void;
@@ -413,10 +431,6 @@ function GroupListCard({
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
 }) {
-  const topSuggestion = useMemo(() => {
-    const suggs = interactive.getSuggestionsForLayer(group.sourceModel);
-    return suggs[0] ?? null;
-  }, [interactive, group.sourceModel]);
 
   return (
     <div
@@ -525,3 +539,14 @@ function GroupListCard({
     </div>
   );
 }
+
+const GroupListCardMemo = memo(GroupListCard, (prev, next) =>
+  prev.group.sourceModel === next.group.sourceModel &&
+  prev.group.isMapped === next.group.isMapped &&
+  prev.group.coveredChildCount === next.group.coveredChildCount &&
+  prev.isSelected === next.isSelected &&
+  prev.isChecked === next.isChecked &&
+  prev.isDropTarget === next.isDropTarget &&
+  prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
+  prev.topSuggestion?.score === next.topSuggestion?.score,
+);

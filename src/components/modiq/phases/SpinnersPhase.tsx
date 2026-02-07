@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
@@ -50,9 +50,27 @@ export function SpinnersPhase() {
 
   const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
-  const selectedItem = phaseItems.find(
-    (i) => i.sourceModel.name === selectedItemId,
-  );
+  // O(1) lookup map for phase items
+  const phaseItemsByName = useMemo(() => {
+    const map = new Map<string, SourceLayerMapping>();
+    for (const item of phaseItems) map.set(item.sourceModel.name, item);
+    return map;
+  }, [phaseItems]);
+
+  const selectedItem = selectedItemId
+    ? phaseItemsByName.get(selectedItemId) ?? null
+    : null;
+
+  // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
+  const topSuggestionsMap = useMemo(() => {
+    const map = new Map<string, { model: { name: string }; score: number } | null>();
+    for (const item of phaseItems) {
+      if (item.isMapped) continue;
+      const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
+      map.set(item.sourceModel.name, suggs[0] ?? null);
+    }
+    return map;
+  }, [phaseItems, interactive]);
 
   // Suggestions for selected item
   const suggestions = useMemo(() => {
@@ -177,13 +195,13 @@ export function SpinnersPhase() {
           <div className="space-y-2">
             {families.map((family) => {
               const renderSpinner = (item: SourceLayerMapping) => (
-                <SpinnerListCard
+                <SpinnerListCardMemo
                   key={item.sourceModel.name}
                   item={item}
                   isSelected={selectedItemId === item.sourceModel.name}
                   isChecked={selectedIds.has(item.sourceModel.name)}
                   isDropTarget={dnd.state.activeDropTarget === item.sourceModel.name}
-                  interactive={interactive}
+                  topSuggestion={topSuggestionsMap.get(item.sourceModel.name) ?? null}
                   onClick={() => setSelectedItemId(item.sourceModel.name)}
                   onCheck={() => {
                     setSelectedIds((prev) => {
@@ -395,7 +413,7 @@ function SpinnerListCard({
   isSelected,
   isChecked,
   isDropTarget,
-  interactive,
+  topSuggestion,
   onClick,
   onCheck,
   onAccept,
@@ -409,7 +427,7 @@ function SpinnerListCard({
   isSelected: boolean;
   isChecked: boolean;
   isDropTarget: boolean;
-  interactive: ReturnType<typeof useMappingPhase>["interactive"];
+  topSuggestion: { model: { name: string }; score: number } | null;
   onClick: () => void;
   onCheck: () => void;
   onAccept: (userModelName: string) => void;
@@ -419,10 +437,6 @@ function SpinnerListCard({
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
 }) {
-  const topSuggestion = useMemo(() => {
-    const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
-    return suggs[0] ?? null;
-  }, [interactive, item.sourceModel]);
 
   const categoryLabel = item.sourceModel.semanticCategory
     ? CATEGORY_LABELS[item.sourceModel.semanticCategory] ?? item.sourceModel.semanticCategory
@@ -538,3 +552,13 @@ function SpinnerListCard({
     </div>
   );
 }
+
+const SpinnerListCardMemo = memo(SpinnerListCard, (prev, next) =>
+  prev.item.sourceModel === next.item.sourceModel &&
+  prev.item.isMapped === next.item.isMapped &&
+  prev.isSelected === next.isSelected &&
+  prev.isChecked === next.isChecked &&
+  prev.isDropTarget === next.isDropTarget &&
+  prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
+  prev.topSuggestion?.score === next.topSuggestion?.score,
+);

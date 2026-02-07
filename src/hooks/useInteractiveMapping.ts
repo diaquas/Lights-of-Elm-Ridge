@@ -1045,48 +1045,31 @@ export function useInteractiveMapping(
     });
   }, []);
 
-  // Suggestion cache: keyed by sourceModel.name, invalidated when links change
-  const suggestionCacheRef = useRef<{
-    version: number;
-    cache: Map<string, ReturnType<typeof suggestMatchesForSource>>;
-  }>({ version: 0, cache: new Map() });
+  // Full-pool suggestion cache: scored once per source model, never invalidated.
+  // Results are filtered at read time to exclude currently-assigned user models.
+  // This avoids expensive re-scoring when only the assigned set changes.
+  const fullSuggestionCacheRef = useRef(
+    new Map<string, ReturnType<typeof suggestMatchesForSource>>(),
+  );
 
-  // Track sourceDestLinks changes via serialized size (fast approximate check)
-  const linksVersion = useMemo(() => {
-    let v = sourceDestLinks.size;
-    for (const [, dests] of sourceDestLinks) {
-      v += dests.size;
-    }
-    return v;
-  }, [sourceDestLinks]);
-
-  // Invalidate cache when links change
-  if (suggestionCacheRef.current.version !== linksVersion) {
-    suggestionCacheRef.current = { version: linksVersion, cache: new Map() };
-  }
-
-  // V3 suggestions: given a source layer, rank user models
-  // With many-to-one, all non-DMX models are candidates EXCEPT those
-  // already linked to THIS specific source layer.
-  // Uses cache for performance - avoids re-scoring unchanged layers.
+  // V3 suggestions: given a source layer, rank user models.
+  // Scores are cached permanently (full pool); assigned models are filtered at read time.
   const getSuggestionsForLayer = useCallback(
     (sourceModel: ParsedModel) => {
       const cacheKey = sourceModel.name;
-      const cached = suggestionCacheRef.current.cache.get(cacheKey);
-      if (cached) return cached;
-
-      const pool = destModels.filter(
-        (m) => !isDmxModel(m) && !assignedUserModelNames.has(m.name),
-      );
-      const suggestions = suggestMatchesForSource(
-        sourceModel,
-        pool,
-        sourceModels,
-        destModels,
-      );
-
-      suggestionCacheRef.current.cache.set(cacheKey, suggestions);
-      return suggestions;
+      let fullResults = fullSuggestionCacheRef.current.get(cacheKey);
+      if (!fullResults) {
+        const fullPool = destModels.filter((m) => !isDmxModel(m));
+        fullResults = suggestMatchesForSource(
+          sourceModel,
+          fullPool,
+          sourceModels,
+          destModels,
+        );
+        fullSuggestionCacheRef.current.set(cacheKey, fullResults);
+      }
+      // Filter out currently-assigned user models at read time (cheap O(k) filter)
+      return fullResults.filter((s) => !assignedUserModelNames.has(s.model.name));
     },
     [destModels, sourceModels, assignedUserModelNames],
   );
