@@ -46,6 +46,8 @@ interface PhaseContextValue {
   interactive: InteractiveMappingState;
   /** Move rejected auto-accept items to their natural fallback phases */
   reassignFromAutoAccept: (rejectedNames: Set<string>) => void;
+  /** Register a callback that runs instead of the default goToNextPhase (for auto-accept) */
+  registerOnContinue: (cb: (() => void) | null) => void;
 }
 
 const MappingPhaseContext = createContext<PhaseContextValue | null>(null);
@@ -107,12 +109,21 @@ export function MappingPhaseProvider({
   interactive,
 }: MappingPhaseProviderProps) {
   const [currentPhase, setCurrentPhase] = useState<MappingPhase>("auto-accept");
+  const onContinueRef = useRef<(() => void) | null>(null);
+
+  const registerOnContinue = useCallback((cb: (() => void) | null) => {
+    onContinueRef.current = cb;
+  }, []);
 
   const phaseIndex = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
   const canGoNext = phaseIndex < PHASE_CONFIG.length - 1;
   const canGoPrevious = phaseIndex > 0;
 
   const goToNextPhase = useCallback(() => {
+    if (onContinueRef.current) {
+      onContinueRef.current();
+      return;
+    }
     const idx = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
     if (idx < PHASE_CONFIG.length - 1) {
       setCurrentPhase(PHASE_CONFIG[idx + 1].id);
@@ -275,6 +286,7 @@ export function MappingPhaseProvider({
       scoreMap,
       interactive,
       reassignFromAutoAccept,
+      registerOnContinue,
     }),
     [
       currentPhase,
@@ -290,6 +302,7 @@ export function MappingPhaseProvider({
       scoreMap,
       interactive,
       reassignFromAutoAccept,
+      registerOnContinue,
     ],
   );
 

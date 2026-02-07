@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
+import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
+import type { ModelMapping } from "@/lib/modiq";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 const GREEN_THRESHOLD = 0.90;
@@ -33,6 +35,7 @@ export function AutoAcceptPhase() {
     scoreMap,
     overallProgress,
     reassignFromAutoAccept,
+    registerOnContinue,
   } = useMappingPhase();
 
   const [rejectedNames, setRejectedNames] = useState<Set<string>>(new Set());
@@ -44,7 +47,7 @@ export function AutoAcceptPhase() {
   const suggestions = useMemo(() => {
     const map = new Map<
       string,
-      { name: string; score: number; pixelCount: number | undefined }
+      { name: string; score: number; pixelCount: number | undefined; factors: ModelMapping["factors"] }
     >();
     for (const item of phaseItems) {
       const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
@@ -53,6 +56,7 @@ export function AutoAcceptPhase() {
           name: suggs[0].model.name,
           score: suggs[0].score,
           pixelCount: suggs[0].model.pixelCount,
+          factors: suggs[0].factors,
         });
       }
     }
@@ -148,7 +152,7 @@ export function AutoAcceptPhase() {
     });
   };
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     // Assign all non-rejected items with their top suggestion
     for (const item of phaseItems) {
       if (item.isMapped) continue;
@@ -162,8 +166,16 @@ export function AutoAcceptPhase() {
     if (rejectedNames.size > 0) {
       reassignFromAutoAccept(rejectedNames);
     }
+    // Clear override before navigating so other phases use default behavior
+    registerOnContinue(null);
     goToNextPhase();
-  };
+  }, [phaseItems, rejectedNames, suggestions, interactive, reassignFromAutoAccept, registerOnContinue, goToNextPhase]);
+
+  // Register the custom continue handler so the top nav button triggers it
+  useEffect(() => {
+    registerOnContinue(handleContinue);
+    return () => registerOnContinue(null);
+  }, [registerOnContinue, handleContinue]);
 
   // No high-confidence matches at all
   if (phaseItems.length === 0) {
@@ -179,7 +191,7 @@ export function AutoAcceptPhase() {
   // User came back — everything already mapped
   const unmappedCount = phaseItems.filter((i) => !i.isMapped).length;
   if (unmappedCount === 0) {
-    return <AllDoneView items={phaseItems} scoreMap={scoreMap} interactive={interactive} overallTotal={overallProgress.total} />;
+    return <AllDoneView items={phaseItems} scoreMap={scoreMap} suggestions={suggestions} overallTotal={overallProgress.total} />;
   }
 
   return (
@@ -304,34 +316,6 @@ export function AutoAcceptPhase() {
         </div>
       </div>
 
-      {/* ── Footer ──────────────────────────────────── */}
-      <div className="px-8 py-4 border-t border-border flex-shrink-0">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <span className="text-sm text-foreground/40">
-            {stats.accepted} of {stats.total} accepted
-          </span>
-          <button
-            type="button"
-            onClick={handleContinue}
-            className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-green-600/20"
-          >
-            Continue
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M14 5l7 7m0 0l-7 7m7-7H3"
-              />
-            </svg>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -420,7 +404,7 @@ function CollapsibleSection({
   badge: string;
   items: SourceLayerMapping[];
   rejectedNames: Set<string>;
-  suggestions: Map<string, { name: string; score: number; pixelCount: number | undefined }>;
+  suggestions: Map<string, { name: string; score: number; pixelCount: number | undefined; factors: ModelMapping["factors"] }>;
   scoreMap: Map<string, number>;
   onToggleReject: (name: string) => void;
   searchActive: boolean;
@@ -503,13 +487,17 @@ function AutoMatchRow({
 }: {
   item: SourceLayerMapping;
   isRejected: boolean;
-  suggestion: { name: string; score: number; pixelCount: number | undefined } | undefined;
+  suggestion: { name: string; score: number; pixelCount: number | undefined; factors: ModelMapping["factors"] } | undefined;
   score: number;
   onToggle: () => void;
 }) {
   const isAccepted = !isRejected;
   const typeLabel = getTypeLabel(item);
   const typeBadgeClass = getTypeBadgeClass(item);
+  const reasoning = useMemo(
+    () => suggestion ? generateMatchReasoning(suggestion.factors, score) : undefined,
+    [suggestion, score],
+  );
 
   return (
     <div
@@ -575,7 +563,7 @@ function AutoMatchRow({
       </span>
 
       {/* Confidence */}
-      <ConfidenceBadge score={score} size="sm" />
+      <ConfidenceBadge score={score} reasoning={reasoning} size="sm" />
     </div>
   );
 }
@@ -585,12 +573,12 @@ function AutoMatchRow({
 function AllDoneView({
   items,
   scoreMap,
-  interactive,
+  suggestions,
   overallTotal,
 }: {
   items: SourceLayerMapping[];
   scoreMap: Map<string, number>;
-  interactive: { getSuggestionsForLayer: (model: SourceLayerMapping["sourceModel"]) => { model: { name: string }; score: number }[] };
+  suggestions: Map<string, { name: string; score: number; pixelCount: number | undefined; factors: ModelMapping["factors"] }>;
   overallTotal: number;
 }) {
   const greenItems = items.filter(
@@ -645,6 +633,8 @@ function AllDoneView({
           <div className="divide-y divide-border/30">
             {items.map((item) => {
               const score = scoreMap.get(item.sourceModel.name) ?? 0;
+              const sugg = suggestions.get(item.sourceModel.name);
+              const reasoning = sugg ? generateMatchReasoning(sugg.factors, score) : undefined;
               return (
                 <div
                   key={item.sourceModel.name}
@@ -673,7 +663,7 @@ function AllDoneView({
                   >
                     {getTypeLabel(item)}
                   </span>
-                  <ConfidenceBadge score={score} size="sm" />
+                  <ConfidenceBadge score={score} reasoning={reasoning} size="sm" />
                 </div>
               );
             })}
