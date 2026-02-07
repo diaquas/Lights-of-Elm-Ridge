@@ -219,6 +219,44 @@ function ReasoningTooltip({
             </ul>
           </div>
         )}
+
+        {/* Pixel Comparison */}
+        {reasoning.pixelComparison && (
+          <div className="px-4 py-2.5 border-t border-border">
+            <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5">
+              Pixel Comparison
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-foreground/40">Source</span>
+                <span className="font-mono text-foreground/60 tabular-nums">
+                  {reasoning.pixelComparison.source.toLocaleString()}px
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-foreground/40">Your model</span>
+                <span className="font-mono text-foreground/60 tabular-nums">
+                  {reasoning.pixelComparison.dest.toLocaleString()}px
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/50">
+                <span className="text-foreground/40">Difference</span>
+                <span className={`font-mono tabular-nums ${
+                  Math.abs(reasoning.pixelComparison.source - reasoning.pixelComparison.dest) === 0
+                    ? "text-green-400"
+                    : Math.min(reasoning.pixelComparison.source, reasoning.pixelComparison.dest) /
+                        Math.max(reasoning.pixelComparison.source, reasoning.pixelComparison.dest) >= 0.8
+                      ? "text-amber-400"
+                      : "text-red-400"
+                }`}>
+                  {reasoning.pixelComparison.source === reasoning.pixelComparison.dest
+                    ? "Exact match"
+                    : `${reasoning.pixelComparison.source > reasoning.pixelComparison.dest ? "−" : "+"}${Math.abs(reasoning.pixelComparison.source - reasoning.pixelComparison.dest).toLocaleString()}px`}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

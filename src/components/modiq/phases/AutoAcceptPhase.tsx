@@ -495,8 +495,17 @@ function AutoMatchRow({
   const typeLabel = getTypeLabel(item);
   const typeBadgeClass = getTypeBadgeClass(item);
   const reasoning = useMemo(
-    () => suggestion ? generateMatchReasoning(suggestion.factors, score) : undefined,
-    [suggestion, score],
+    () =>
+      suggestion
+        ? generateMatchReasoning(
+            suggestion.factors,
+            score,
+            item.sourceModel.pixelCount && suggestion.pixelCount
+              ? { source: item.sourceModel.pixelCount, dest: suggestion.pixelCount }
+              : undefined,
+          )
+        : undefined,
+    [suggestion, score, item.sourceModel.pixelCount],
   );
 
   return (
@@ -634,7 +643,15 @@ function AllDoneView({
             {items.map((item) => {
               const score = scoreMap.get(item.sourceModel.name) ?? 0;
               const sugg = suggestions.get(item.sourceModel.name);
-              const reasoning = sugg ? generateMatchReasoning(sugg.factors, score) : undefined;
+              const reasoning = sugg
+                ? generateMatchReasoning(
+                    sugg.factors,
+                    score,
+                    item.sourceModel.pixelCount && sugg.pixelCount
+                      ? { source: item.sourceModel.pixelCount, dest: sugg.pixelCount }
+                      : undefined,
+                  )
+                : undefined;
               return (
                 <div
                   key={item.sourceModel.name}
