@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { MatchReasoning } from "@/types/matching";
 
 interface ConfidenceBadgeProps {
@@ -71,9 +72,14 @@ export function ConfidenceBadge({
         <span>{percentage}%</span>
       </div>
 
-      {/* Reasoning Tooltip */}
+      {/* Reasoning Tooltip — portaled to body to escape overflow:hidden ancestors */}
       {showTooltip && reasoning && (
-        <ReasoningTooltip reasoning={reasoning} score={score} tier={tier} />
+        <ReasoningTooltip
+          reasoning={reasoning}
+          score={score}
+          tier={tier}
+          anchorRef={badgeRef}
+        />
       )}
     </div>
   );
@@ -83,11 +89,49 @@ function ReasoningTooltip({
   reasoning,
   score,
   tier,
+  anchorRef,
 }: {
   reasoning: MatchReasoning;
   score: number;
   tier: "high" | "medium" | "low" | "none";
+  anchorRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+
+    const rect = anchor.getBoundingClientRect();
+    const tooltipWidth = 256; // w-64 = 16rem = 256px
+
+    // Center horizontally on the badge, clamp to viewport
+    let left = rect.left + rect.width / 2 - tooltipWidth / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tooltipWidth - 8));
+
+    // Position above the badge by default
+    let top = rect.top - 8; // 8px gap
+
+    setPos({ top, left });
+  }, [anchorRef]);
+
+  // After first render, adjust top so tooltip sits above badge (account for actual height)
+  useEffect(() => {
+    if (!pos || !tooltipRef.current) return;
+    const tooltipHeight = tooltipRef.current.offsetHeight;
+    const anchor = anchorRef.current;
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+
+    let top = rect.top - tooltipHeight - 8;
+    // If it would go off-screen top, flip below the badge
+    if (top < 4) {
+      top = rect.bottom + 8;
+    }
+    setPos((prev) => (prev && prev.top !== top ? { ...prev, top } : prev));
+  }, [pos, anchorRef]);
+
   const tierHeaderBg = {
     high: "bg-green-500/10",
     medium: "bg-amber-500/10",
@@ -101,8 +145,16 @@ function ReasoningTooltip({
     none: "text-foreground/40",
   };
 
-  return (
-    <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64">
+  const tooltip = (
+    <div
+      ref={tooltipRef}
+      className="fixed w-64 pointer-events-none"
+      style={{
+        zIndex: 9999,
+        top: pos?.top ?? -9999,
+        left: pos?.left ?? -9999,
+      }}
+    >
       <div className="bg-surface border border-border rounded-xl shadow-xl overflow-hidden">
         {/* Header */}
         <div className={`px-4 py-2.5 border-b border-border ${tierHeaderBg[tier]}`}>
@@ -170,4 +222,6 @@ function ReasoningTooltip({
       </div>
     </div>
   );
+
+  return createPortal(tooltip, document.body);
 }
