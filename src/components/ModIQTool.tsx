@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 // Performance note: React.memo applied to all child components;
 // stable callbacks via useCallback; rAF-throttled DnD state updates
 import { useSearchParams } from "next/navigation";
@@ -50,6 +50,7 @@ import { MappingPhaseProvider } from "@/contexts/MappingPhaseContext";
 import { PhaseStepper } from "@/components/modiq/PhaseStepper";
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
 import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
+import { useModiqSessions } from "@/hooks/useModiqSessions";
 
 type Step = "input" | "processing" | "results" | "exported";
 type MapFromMode = "elm-ridge" | "other-vendor";
@@ -155,6 +156,10 @@ export default function ModIQTool() {
   const [exportGroupsMapped, setExportGroupsMapped] = useState<number>(0);
   const [exportGroupsCoveredChildren, setExportGroupsCoveredChildren] = useState<number>(0);
   const [exportDirectMapped, setExportDirectMapped] = useState<number>(0);
+
+  // ─── Save States / Session Recovery ────────────────────
+  const sessions = useModiqSessions();
+  const sessionIdRef = useRef<string | null>(null);
 
   // ─── Source File Upload (Other Vendor) ─────────────────
   const handleSourceFile = useCallback((file: File) => {
@@ -373,11 +378,28 @@ export default function ModIQTool() {
     await delay(200);
 
     setMappingResult(result);
+
+    // Create a cloud session for auto-save (non-blocking)
+    if (sessions.userId) {
+      sessions
+        .createSession({
+          sourceType: mapFromMode,
+          sequenceSlug: mapFromMode === "elm-ridge" ? selectedSequence || null : null,
+          sequenceTitle: seqTitle,
+          layoutFilename: uploadedFile?.name ?? "layout.xml",
+          totalCount: srcModels.length,
+        })
+        .then((id) => {
+          sessionIdRef.current = id;
+        });
+    }
+
     setStep("results");
-  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq, vendorXsqModels]);
+  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq, vendorXsqModels, sessions, selectedSequence, uploadedFile]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
+    sessionIdRef.current = null;
     setStep("input");
     setInputSubStep("source-select");
     setVendorStep(1);
@@ -412,6 +434,55 @@ export default function ModIQTool() {
         </div>
       )}
 
+
+      {/* ── Session Recovery Banner ──────────────────────── */}
+      {step === "input" && inputSubStep === "source-select" && sessions.activeSession && (
+        <div className="max-w-[860px] mx-auto mb-8">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 flex items-center gap-5">
+            <div className="h-12 w-12 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-foreground">
+                Incomplete Session Found
+              </h3>
+              <p className="text-[13px] text-foreground/50 mt-0.5">
+                {sessions.activeSession.sequence_title} &middot;{" "}
+                {sessions.activeSession.mapped_count} of {sessions.activeSession.total_count} mapped
+                ({sessions.activeSession.coverage_percent}%)
+              </p>
+              <div className="mt-2 h-1.5 rounded-full bg-foreground/10 overflow-hidden max-w-xs">
+                <div
+                  className="h-full rounded-full bg-amber-400 transition-all"
+                  style={{ width: `${sessions.activeSession.coverage_percent}%` }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => sessions.abandonSession(sessions.activeSession!.id)}
+                className="px-3 py-1.5 text-[12px] text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // TODO: implement full state restoration from session data
+                  // For now, just abandon and start fresh
+                  sessions.abandonSession(sessions.activeSession!.id);
+                }}
+                className="px-4 py-1.5 text-[12px] font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
+              >
+                Resume
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Input Step ─────────────────────────────────── */}
       {step === "input" && (
@@ -1333,6 +1404,8 @@ export default function ModIQTool() {
             sourceFileName={sourceFile?.name}
             effectTree={effectTree}
             xsqFilename={mapFromMode === "other-vendor" && vendorXsqFile ? vendorXsqFile.name : selectedSequence || "sequence"}
+            sessionIdRef={sessionIdRef}
+            sessions={sessions}
             onReset={handleReset}
             onExported={(fileName, meta) => {
               setExportFileName(fileName);
@@ -1388,6 +1461,8 @@ function InteractiveResults({
   sourceFileName,
   effectTree,
   xsqFilename,
+  sessionIdRef,
+  sessions,
   onReset,
   onExported,
 }: {
@@ -1400,6 +1475,8 @@ function InteractiveResults({
   sourceFileName?: string;
   effectTree: EffectTree | null;
   xsqFilename: string;
+  sessionIdRef: React.RefObject<string | null>;
+  sessions: ReturnType<typeof useModiqSessions>;
   onReset: () => void;
   onExported: (fileName: string, meta?: {
     displayCoverage?: number;
@@ -1417,6 +1494,25 @@ function InteractiveResults({
     effectTree,
     selectedSequence,
   );
+
+  // Auto-save mapping state to cloud on meaningful changes
+  useEffect(() => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    const state = interactive.getSerializedState();
+    sessions.saveSession(sid, { ...state, autoAcceptRejected: [] }, {
+      mappedCount: interactive.mappedLayerCount,
+      coveragePercent: Math.round(interactive.coveragePercentage),
+      currentPhase: "mapping",
+    });
+  }, [
+    interactive.mappedLayerCount,
+    interactive.skippedLayerCount,
+    interactive.coveragePercentage,
+    interactive.getSerializedState,
+    sessions,
+    sessionIdRef,
+  ]);
 
   const dnd = useDragAndDrop();
   const telemetry = useMappingTelemetry(selectedSequence);

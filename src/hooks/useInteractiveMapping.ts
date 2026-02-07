@@ -135,6 +135,13 @@ export interface InteractiveMappingState {
   coveragePercentage: number;
   /** Find next unmapped source layer */
   nextUnmappedLayer: () => string | null;
+  /** Serialize mapping state for session recovery */
+  getSerializedState: () => {
+    assignments: Record<string, string | null>;
+    skipped: string[];
+    overrides: string[];
+    sourceDestLinks: Record<string, string[]>;
+  };
 }
 
 /** Items at or above this score bypass pre-mapping so they can be reviewed
@@ -1137,5 +1144,18 @@ export function useInteractiveMapping(
     unmappedLayerCount: sourceStats.unmapped,
     coveragePercentage: sourceStats.pct,
     nextUnmappedLayer,
+
+    /** Serialize mapping state for session recovery */
+    getSerializedState: useCallback(
+      () => ({
+        assignments: Object.fromEntries(assignments),
+        skipped: Array.from(skipped),
+        overrides: Array.from(overrides),
+        sourceDestLinks: Object.fromEntries(
+          Array.from(sourceDestLinks.entries()).map(([k, v]) => [k, Array.from(v)]),
+        ),
+      }),
+      [assignments, skipped, overrides, sourceDestLinks],
+    ),
   };
 }

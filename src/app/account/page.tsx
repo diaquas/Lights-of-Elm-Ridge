@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { sequences, getThumbnailUrl } from "@/data/sequences";
+import { ModiqHistorySection } from "@/components/modiq/ModiqHistorySection";
 import type { User } from "@supabase/supabase-js";
 
 interface Purchase {
@@ -352,6 +353,9 @@ export default function AccountPage() {
             </div>
           )}
         </div>
+
+        {/* ModIQ Mapping History */}
+        <ModiqHistorySection />
 
         {/* Actions */}
         <div className="flex justify-between items-center">
