@@ -182,12 +182,6 @@ export default function AboutPage() {
               and allure of the dancing lights. It brought me so much joy in my
               youth; I figured it was time to pay it forward.
             </p>
-
-            <blockquote className="origin-quote">
-              &quot;I just wanted to put up some lights. Now I have a budget,
-              spreadsheets, and a full project management tool to keep me on
-              track all year long.&quot;
-            </blockquote>
           </div>
         </section>
 
