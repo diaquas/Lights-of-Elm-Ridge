@@ -137,6 +137,11 @@ export interface InteractiveMappingState {
   nextUnmappedLayer: () => string | null;
 }
 
+/** Items at or above this score bypass pre-mapping so they can be reviewed
+ *  in the Auto-Accept phase first. Must match AUTO_ACCEPT_THRESHOLD in
+ *  MappingPhaseContext.tsx. */
+const AUTO_ACCEPT_SCORE_THRESHOLD = 0.70;
+
 // ─── Hook ───────────────────────────────────────────────
 
 export function useInteractiveMapping(
@@ -147,15 +152,15 @@ export function useInteractiveMapping(
   sequenceSlug?: string,
 ): InteractiveMappingState {
   // Core state: dest model name → source model name (or null)
-  // Only include auto-mappings that reached a real confidence tier (HIGH/MED/LOW).
-  // "unmapped" confidence means the score was too low to be useful — these should
-  // start as truly unmapped so they show suggestions instead of a limbo state.
+  // Only include auto-mappings that reached a real confidence tier (HIGH/MED/LOW)
+  // AND are below the auto-accept threshold. Items at 70%+ are left unmapped so
+  // the Auto-Accept phase can show them for user review before confirming.
   const [assignments, setAssignments] = useState<Map<string, string | null>>(
     () => {
       if (!initialResult) return new Map();
       const map = new Map<string, string | null>();
       for (const m of initialResult.mappings) {
-        if (m.destModel && m.confidence !== "unmapped") {
+        if (m.destModel && m.confidence !== "unmapped" && m.score < AUTO_ACCEPT_SCORE_THRESHOLD) {
           map.set(m.destModel.name, m.sourceModel.name);
         }
       }
@@ -176,13 +181,14 @@ export function useInteractiveMapping(
 
   // V3 link state: source layer name → set of user (dest) model names
   // Declared here (with other state) so toMappingResult can reference it.
+  // Items at 70%+ are excluded so the Auto-Accept phase can review them first.
   const [sourceDestLinks, setSourceDestLinks] = useState<
     Map<string, Set<string>>
   >(() => {
     if (!initialResult) return new Map();
     const map = new Map<string, Set<string>>();
     for (const m of initialResult.mappings) {
-      if (m.destModel && m.confidence !== "unmapped") {
+      if (m.destModel && m.confidence !== "unmapped" && m.score < AUTO_ACCEPT_SCORE_THRESHOLD) {
         const set = map.get(m.sourceModel.name) ?? new Set();
         set.add(m.destModel.name);
         map.set(m.sourceModel.name, set);

@@ -179,7 +179,7 @@ export function AutoAcceptPhase() {
   // User came back — everything already mapped
   const unmappedCount = phaseItems.filter((i) => !i.isMapped).length;
   if (unmappedCount === 0) {
-    return <AllDoneView items={phaseItems} scoreMap={scoreMap} interactive={interactive} />;
+    return <AllDoneView items={phaseItems} scoreMap={scoreMap} interactive={interactive} overallTotal={overallProgress.total} />;
   }
 
   return (
@@ -586,41 +586,65 @@ function AllDoneView({
   items,
   scoreMap,
   interactive,
+  overallTotal,
 }: {
   items: SourceLayerMapping[];
   scoreMap: Map<string, number>;
   interactive: { getSuggestionsForLayer: (model: SourceLayerMapping["sourceModel"]) => { model: { name: string }; score: number }[] };
+  overallTotal: number;
 }) {
-  const totalScore = items.reduce(
-    (sum, item) => sum + (scoreMap.get(item.sourceModel.name) ?? 0),
-    0,
+  const greenItems = items.filter(
+    (i) => (scoreMap.get(i.sourceModel.name) ?? 0) >= GREEN_THRESHOLD,
   );
-  const avgScore = items.length > 0 ? totalScore / items.length : 0;
+  const yellowItems = items.filter(
+    (i) => (scoreMap.get(i.sourceModel.name) ?? 0) < GREEN_THRESHOLD,
+  );
+  const coveragePercent =
+    overallTotal > 0 ? Math.round((items.length / overallTotal) * 100) : 0;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="text-center py-8 flex-shrink-0">
-        <div className="text-5xl mb-3">&#9989;</div>
-        <h2 className="text-xl font-bold text-foreground">
-          Auto-Matches Complete!
-        </h2>
-        <p className="text-sm text-foreground/50 mt-2">
-          {items.length} items matched &middot;{" "}
-          {Math.round(avgScore * 100)}% average confidence
-        </p>
+      <div className="px-8 py-6 flex-shrink-0 border-b border-border">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center gap-4 mb-4">
+            <div className="h-12 w-12 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
+              <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">
+                Auto-Matches Complete!
+              </h2>
+              <p className="text-[13px] text-foreground/50">
+                {items.length} items confirmed
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-sm font-medium text-foreground/60">
+                Display Coverage
+              </span>
+              <span className="text-lg font-bold text-green-400">
+                {coveragePercent}%
+              </span>
+            </div>
+            <CoverageBar
+              greenCount={greenItems.length}
+              yellowCount={yellowItems.length}
+              total={overallTotal}
+            />
+          </div>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 pb-4">
+      <div className="flex-1 overflow-y-auto px-8 py-3">
         <div className="max-w-2xl mx-auto bg-surface rounded-xl border border-border overflow-hidden">
           <div className="divide-y divide-border/30">
             {items.map((item) => {
-              const suggs = interactive.getSuggestionsForLayer(
-                item.sourceModel,
-              );
-              const matched = suggs.find(
-                (s) =>
-                  s.model.name === item.assignedUserModels[0]?.name,
-              );
+              const score = scoreMap.get(item.sourceModel.name) ?? 0;
               return (
                 <div
                   key={item.sourceModel.name}
@@ -649,9 +673,7 @@ function AllDoneView({
                   >
                     {getTypeLabel(item)}
                   </span>
-                  {matched && (
-                    <ConfidenceBadge score={matched.score} size="sm" />
-                  )}
+                  <ConfidenceBadge score={score} size="sm" />
                 </div>
               );
             })}
