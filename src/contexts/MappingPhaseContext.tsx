@@ -226,10 +226,24 @@ export function MappingPhaseProvider({
       }
       return sortLayers(interactive.sourceLayerMappings.filter((layer) => {
         if (layer.isSkipped) return false;
-        return phaseAssignmentRef.current.get(layer.sourceModel.name) === phase;
+        const assigned = phaseAssignmentRef.current.get(layer.sourceModel.name);
+        if (assigned === phase) return true;
+        // After user completes auto-accept, include accepted (mapped) items
+        // in their natural phase so they appear in "already mapped" sections.
+        // Only do this once user has moved past auto-accept to avoid double-counting.
+        if (
+          assigned === "auto-accept" &&
+          layer.isMapped &&
+          phase !== "auto-accept" &&
+          currentPhase !== "auto-accept" &&
+          fallbackPhaseRef.current.get(layer.sourceModel.name) === phase
+        ) {
+          return true;
+        }
+        return false;
       }));
     },
-    [interactive.sourceLayerMappings],
+    [interactive.sourceLayerMappings, currentPhase],
   );
 
   const phaseItems = useMemo(
