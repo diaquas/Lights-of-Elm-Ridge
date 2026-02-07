@@ -70,8 +70,9 @@ export default memo(function PickMatchPopover({
       ? panelEl.getBoundingClientRect().left
       : rect.left;
 
-    // Clamp width between 400 and 720
-    const width = Math.max(400, Math.min(720, panelWidth));
+    // Clamp width between 320 and 720, respecting viewport
+    const maxWidth = Math.min(720, window.innerWidth - 32);
+    const width = Math.max(320, Math.min(maxWidth, panelWidth));
 
     let top = rect.bottom + 4;
     let left = panelLeft;

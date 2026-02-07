@@ -401,6 +401,7 @@ export function ModiqHistorySection() {
                       type="button"
                       onClick={() => handleDownloadXmap(xmap)}
                       className="p-1.5 text-foreground/40 hover:text-accent transition-colors"
+                      aria-label="Download xmap"
                       title="Download xmap"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -412,6 +413,7 @@ export function ModiqHistorySection() {
                       onClick={() => handleDeleteXmap(xmap.id)}
                       disabled={deletingXmap === xmap.id}
                       className="p-1.5 text-foreground/20 hover:text-red-400 transition-colors disabled:opacity-50"
+                      aria-label="Delete xmap"
                       title="Delete xmap"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -441,7 +443,7 @@ function StatCard({
 }) {
   return (
     <div className="bg-background rounded-lg border border-border/50 p-3">
-      <div className="flex items-center gap-2 text-foreground/30 mb-1">
+      <div className="flex items-center gap-2 text-foreground/40 mb-1">
         {icon}
         <span className="text-[10px] uppercase tracking-wider font-medium">{label}</span>
       </div>
@@ -511,6 +513,7 @@ function SessionRow({
                 type="button"
                 onClick={() => setExpanded(!expanded)}
                 className="p-1.5 text-foreground/40 hover:text-accent transition-colors"
+                aria-label={`${xmaps.length} xmap file${xmaps.length > 1 ? "s" : ""}`}
                 title={`${xmaps.length} xmap file${xmaps.length > 1 ? "s" : ""}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -525,6 +528,7 @@ function SessionRow({
               <Link
                 href="/modiq"
                 className="p-1.5 text-foreground/40 hover:text-accent transition-colors"
+                aria-label="Resume mapping"
                 title="Resume mapping"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -558,6 +562,7 @@ function SessionRow({
                       type="button"
                       onClick={() => onDownloadXmap(xmap)}
                       className="p-1 text-foreground/40 hover:text-accent transition-colors"
+                      aria-label="Download"
                       title="Download"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -569,6 +574,7 @@ function SessionRow({
                       onClick={() => onDeleteXmap(xmap.id)}
                       disabled={deletingXmap === xmap.id}
                       className="p-1 text-foreground/20 hover:text-red-400 transition-colors disabled:opacity-50"
+                      aria-label="Delete"
                       title="Delete"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

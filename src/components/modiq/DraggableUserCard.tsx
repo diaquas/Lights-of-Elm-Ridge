@@ -180,6 +180,7 @@ export default memo(function DraggableUserCard({
                     onRemoveLink(srcName, model.name);
                   }}
                   className="w-4 h-4 flex items-center justify-center rounded text-foreground/20 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                  aria-label={`Remove link to ${srcName}`}
                   title={`Remove link to ${srcName}`}
                 >
                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

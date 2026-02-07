@@ -283,6 +283,7 @@ export default memo(function SourceLayerRow({
                     onRemoveLink(name, m.name);
                   }}
                   className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                  aria-label={`Remove ${m.name}`}
                   title={`Remove ${m.name}`}
                 >
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -476,6 +477,7 @@ export default memo(function SourceLayerRow({
           data-action="skip"
           onClick={handleSkip}
           className="w-7 h-7 flex items-center justify-center rounded-md text-foreground/20 opacity-0 group-hover:opacity-100 hover:text-foreground/60 hover:bg-foreground/5 transition-all flex-shrink-0"
+          aria-label="Skip this layer"
           title="Skip this layer"
         >
           <svg
