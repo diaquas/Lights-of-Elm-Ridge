@@ -154,6 +154,7 @@ export function GroupsPhase() {
   };
 
   const handleSkipGroup = (groupName: string) => {
+    interactive.skipSourceLayer(groupName);
     setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
   };
 
@@ -351,9 +352,7 @@ export function GroupsPhase() {
             <div className="px-6 py-3 border-t border-border flex-shrink-0">
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedGroupId(findNextUnmapped(unmappedGroups, selectedGroup.sourceModel.name));
-                }}
+                onClick={() => handleSkipGroup(selectedGroup.sourceModel.name)}
                 className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
               >
                 Skip This Group
