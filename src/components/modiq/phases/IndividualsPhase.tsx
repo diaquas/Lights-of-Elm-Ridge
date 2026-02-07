@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
@@ -11,6 +11,7 @@ import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import { PANEL_STYLES } from "../panelStyles";
+import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export function IndividualsPhase() {
   const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
@@ -36,9 +37,27 @@ export function IndividualsPhase() {
 
   const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
-  const selectedItem = phaseItems.find(
-    (i) => i.sourceModel.name === selectedItemId,
-  );
+  // O(1) lookup map for phase items
+  const phaseItemsByName = useMemo(() => {
+    const map = new Map<string, SourceLayerMapping>();
+    for (const item of phaseItems) map.set(item.sourceModel.name, item);
+    return map;
+  }, [phaseItems]);
+
+  const selectedItem = selectedItemId
+    ? phaseItemsByName.get(selectedItemId) ?? null
+    : null;
+
+  // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
+  const topSuggestionsMap = useMemo(() => {
+    const map = new Map<string, { model: { name: string }; score: number } | null>();
+    for (const item of phaseItems) {
+      if (item.isMapped) continue;
+      const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
+      map.set(item.sourceModel.name, suggs[0] ?? null);
+    }
+    return map;
+  }, [phaseItems, interactive]);
 
   // Suggestions for selected item
   const suggestions = useMemo(() => {
@@ -102,64 +121,24 @@ export function IndividualsPhase() {
     }
   };
 
-  const renderItemCard = (item: (typeof filteredUnmapped)[0]) => {
-    const topSugg = interactive.getSuggestionsForLayer(item.sourceModel)[0];
-    const isSelected = selectedItemId === item.sourceModel.name;
-    const isDropHover = dnd.state.activeDropTarget === item.sourceModel.name;
-    return (
-      <div
-        key={item.sourceModel.name}
-        className={`
-          relative w-full p-3 rounded-lg text-left transition-all duration-200 cursor-pointer
-          ${isDropHover
-            ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
-            : isSelected
-              ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
-              : "bg-surface border border-border hover:border-foreground/20"}
-        `}
-        onClick={() => setSelectedItemId(item.sourceModel.name)}
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "move";
-        }}
-        onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
-        onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
-        onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
-      >
-        {/* Skip/X Button — top right */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleSkip(item.sourceModel.name);
-          }}
-          className="absolute top-2 right-2 p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors"
-          title="Skip this model"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-
-        <div className="flex items-center justify-between pr-6">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span className={PANEL_STYLES.card.title}>
-              {item.sourceModel.name}
-            </span>
-          </div>
-          {topSugg && (
-            <ConfidenceBadge score={topSugg.score} size="sm" />
-          )}
-        </div>
-        <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground/30">
-          {item.sourceModel.pixelCount ? (
-            <span>{item.sourceModel.pixelCount}px</span>
-          ) : null}
-          <span>{item.sourceModel.type}</span>
-        </div>
-      </div>
-    );
-  };
+  const renderItemCard = (item: (typeof filteredUnmapped)[0]) => (
+    <ItemCardMemo
+      key={item.sourceModel.name}
+      item={item}
+      isSelected={selectedItemId === item.sourceModel.name}
+      isDropTarget={dnd.state.activeDropTarget === item.sourceModel.name}
+      topSuggestion={topSuggestionsMap.get(item.sourceModel.name) ?? null}
+      onClick={() => setSelectedItemId(item.sourceModel.name)}
+      onSkip={() => handleSkip(item.sourceModel.name)}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }}
+      onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
+      onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
+      onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
+    />
+  );
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -286,3 +265,88 @@ export function IndividualsPhase() {
     </div>
   );
 }
+
+// ─── Item Card (Left Panel) ──────────────────────────
+
+function ItemCard({
+  item,
+  isSelected,
+  isDropTarget,
+  topSuggestion,
+  onClick,
+  onSkip,
+  onDragOver,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
+}: {
+  item: SourceLayerMapping;
+  isSelected: boolean;
+  isDropTarget: boolean;
+  topSuggestion: { model: { name: string }; score: number } | null;
+  onClick: () => void;
+  onSkip: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragEnter: () => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+}) {
+  return (
+    <div
+      className={`
+        relative w-full p-3 rounded-lg text-left transition-all duration-200 cursor-pointer
+        ${isDropTarget
+          ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
+          : isSelected
+            ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
+            : "bg-surface border border-border hover:border-foreground/20"}
+      `}
+      onClick={onClick}
+      onDragOver={onDragOver}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
+      {/* Skip/X Button — top right */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onSkip();
+        }}
+        className="absolute top-2 right-2 p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors"
+        title="Skip this model"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div className="flex items-center justify-between pr-6">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className={PANEL_STYLES.card.title}>
+            {item.sourceModel.name}
+          </span>
+        </div>
+        {topSuggestion && (
+          <ConfidenceBadge score={topSuggestion.score} size="sm" />
+        )}
+      </div>
+      <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground/30">
+        {item.sourceModel.pixelCount ? (
+          <span>{item.sourceModel.pixelCount}px</span>
+        ) : null}
+        <span>{item.sourceModel.type}</span>
+      </div>
+    </div>
+  );
+}
+
+const ItemCardMemo = memo(ItemCard, (prev, next) =>
+  prev.item.sourceModel === next.item.sourceModel &&
+  prev.item.isMapped === next.item.isMapped &&
+  prev.isSelected === next.isSelected &&
+  prev.isDropTarget === next.isDropTarget &&
+  prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
+  prev.topSuggestion?.score === next.topSuggestion?.score,
+);
