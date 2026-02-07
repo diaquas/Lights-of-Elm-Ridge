@@ -869,12 +869,12 @@ export function useInteractiveMapping(
       });
     }
 
-    // Filter out zero-effect items when effect data is available
-    const hasEffectData = !!effectCounts;
-    const hiddenCount = hasEffectData ? layers.filter(l => l.effectCount === 0).length : 0;
-    const filtered = hasEffectData ? layers.filter(l => l.effectCount > 0) : layers;
+    // Note: No zero-effect filtering needed here — the effect tree already
+    // ensures only models/groups with effects are included. The effectCount
+    // field is supplementary display data from SEQUENCE_EFFECT_COUNTS (which
+    // may be incomplete); it should NOT be used as a gatekeeping filter.
 
-    return { sourceLayerMappings: filtered, hiddenZeroEffectCount: hiddenCount };
+    return { sourceLayerMappings: layers, hiddenZeroEffectCount: 0 };
   }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers, sequenceSlug]);
 
   // V3 source-centric stats
