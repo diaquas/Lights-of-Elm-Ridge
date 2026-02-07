@@ -129,6 +129,9 @@ export function IndividualsPhase() {
       isDropTarget={dnd.state.activeDropTarget === item.sourceModel.name}
       topSuggestion={topSuggestionsMap.get(item.sourceModel.name) ?? null}
       onClick={() => setSelectedItemId(item.sourceModel.name)}
+      onAccept={(userModelName) =>
+        handleAccept(item.sourceModel.name, userModelName)
+      }
       onSkip={() => handleSkip(item.sourceModel.name)}
       onDragOver={(e) => {
         e.preventDefault();
@@ -274,6 +277,7 @@ function ItemCard({
   isDropTarget,
   topSuggestion,
   onClick,
+  onAccept,
   onSkip,
   onDragOver,
   onDragEnter,
@@ -285,6 +289,7 @@ function ItemCard({
   isDropTarget: boolean;
   topSuggestion: { model: { name: string }; score: number } | null;
   onClick: () => void;
+  onAccept: (userModelName: string) => void;
   onSkip: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragEnter: () => void;
@@ -322,21 +327,48 @@ function ItemCard({
         </svg>
       </button>
 
-      <div className="flex items-center justify-between pr-6">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className={PANEL_STYLES.card.title}>
-            {item.sourceModel.name}
-          </span>
+      <div className="flex items-start gap-2.5 pr-6">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={PANEL_STYLES.card.title}>
+              {item.sourceModel.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground/30">
+            {item.sourceModel.pixelCount ? (
+              <span>{item.sourceModel.pixelCount}px</span>
+            ) : null}
+            <span>{item.sourceModel.type}</span>
+          </div>
+
+          {/* Best match preview */}
+          {topSuggestion && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="text-[10px] text-foreground/30">Suggested:</span>
+              <span className="text-[12px] text-foreground/60 truncate">
+                {topSuggestion.model.name}
+              </span>
+              <ConfidenceBadge score={topSuggestion.score} size="sm" />
+            </div>
+          )}
         </div>
+
+        {/* Quick Accept */}
         {topSuggestion && (
-          <ConfidenceBadge score={topSuggestion.score} size="sm" />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAccept(topSuggestion.model.name);
+            }}
+            className="p-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors flex-shrink-0"
+            title="Accept suggested match"
+          >
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
+            </svg>
+          </button>
         )}
-      </div>
-      <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground/30">
-        {item.sourceModel.pixelCount ? (
-          <span>{item.sourceModel.pixelCount}px</span>
-        ) : null}
-        <span>{item.sourceModel.type}</span>
       </div>
     </div>
   );
