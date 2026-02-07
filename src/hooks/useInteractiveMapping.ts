@@ -133,6 +133,8 @@ export interface InteractiveMappingState {
   directMappedCount: number;
   unmappedLayerCount: number;
   coveragePercentage: number;
+  /** Number of zero-effect items hidden from mapping (no visual impact) */
+  hiddenZeroEffectCount: number;
   /** Find next unmapped source layer */
   nextUnmappedLayer: () => string | null;
   /** Serialize mapping state for session recovery */
@@ -796,8 +798,9 @@ export function useInteractiveMapping(
   }, [sourceDestLinks]);
 
   // Build source-layer mappings from effect tree
-  const sourceLayerMappings: SourceLayerMapping[] = useMemo(() => {
-    if (!effectTree) return [];
+  // Zero-effect items are filtered out — they have no visual impact and don't need mapping
+  const { sourceLayerMappings, hiddenZeroEffectCount } = useMemo(() => {
+    if (!effectTree) return { sourceLayerMappings: [] as SourceLayerMapping[], hiddenZeroEffectCount: 0 };
 
     // Get effect counts for current sequence (if available)
     const effectCounts = sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined;
@@ -866,7 +869,12 @@ export function useInteractiveMapping(
       });
     }
 
-    return layers;
+    // Filter out zero-effect items when effect data is available
+    const hasEffectData = !!effectCounts;
+    const hiddenCount = hasEffectData ? layers.filter(l => l.effectCount === 0).length : 0;
+    const filtered = hasEffectData ? layers.filter(l => l.effectCount > 0) : layers;
+
+    return { sourceLayerMappings: filtered, hiddenZeroEffectCount: hiddenCount };
   }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers, sequenceSlug]);
 
   // V3 source-centric stats
@@ -1143,6 +1151,7 @@ export function useInteractiveMapping(
     directMappedCount: sourceStats.direct,
     unmappedLayerCount: sourceStats.unmapped,
     coveragePercentage: sourceStats.pct,
+    hiddenZeroEffectCount,
     nextUnmappedLayer,
 
     /** Serialize mapping state for session recovery */
