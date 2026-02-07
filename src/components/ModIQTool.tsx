@@ -64,6 +64,13 @@ interface ProcessingStep {
   status: "pending" | "active" | "done";
 }
 
+interface ProcessingStats {
+  layoutModels: number;
+  sequenceModels: number;
+  matchesFound: number;
+  progress: number; // 0-100
+}
+
 export default function ModIQTool() {
   // Read URL query param (kept for backwards compatibility)
   const searchParams = useSearchParams();
@@ -126,6 +133,12 @@ export default function ModIQTool() {
   );
   const [error, setError] = useState<string>("");
   const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
+  const [processingStats, setProcessingStats] = useState<ProcessingStats>({
+    layoutModels: 0,
+    sequenceModels: 0,
+    matchesFound: 0,
+    progress: 0,
+  });
 
   // Store source models for the interactive mapping hook
   const [sourceModels, setSourceModels] = useState<ParsedModel[]>([]);
@@ -240,6 +253,7 @@ export default function ModIQTool() {
 
     setStep("processing");
     setError("");
+    setProcessingStats({ layoutModels: userLayout.modelCount, sequenceModels: 0, matchesFound: 0, progress: 0 });
 
     const displayLabel = displayType === "halloween" ? "Halloween" : "Christmas";
     const seqTitle =
@@ -254,6 +268,10 @@ export default function ModIQTool() {
       mapFromMode === "elm-ridge" && selectedSequence
         ? !!getSequenceModelList(selectedSequence)
         : mapFromMode === "other-vendor" && !!vendorXsqModels;
+
+    const totalStepCount = hasEffectData ? 6 : 5;
+    let completedSteps = 0;
+    const pct = () => Math.round((completedSteps / totalStepCount) * 100);
 
     const steps: ProcessingStep[] = [
       {
@@ -274,14 +292,18 @@ export default function ModIQTool() {
       { label: "Generating optimal mapping", status: "pending" },
     ];
     setProcessingSteps([...steps]);
+    completedSteps = 1; // "Parsing" is already done
+    setProcessingStats((s) => ({ ...s, progress: pct() }));
 
     // Helper to advance processing steps sequentially
     let si = 0; // starts at step 0 (already "done")
     const advance = async (ms: number) => {
       steps[si].status = "done";
       si++;
+      completedSteps++;
       if (si < steps.length) steps[si].status = "active";
       setProcessingSteps([...steps]);
+      setProcessingStats((s) => ({ ...s, progress: pct() }));
       await delay(ms);
     };
 
@@ -319,6 +341,9 @@ export default function ModIQTool() {
       srcModels = allSrcModels;
     }
 
+    // Update sequence model count
+    setProcessingStats((s) => ({ ...s, sequenceModels: srcModels.length }));
+
     if (hasEffectData && tree) {
       // Update the effect tree step label with results
       steps[si].label = `Effect tree: ${tree.summary.effectiveMappingItems} active layers from ${tree.summary.totalModelsInLayout} models`;
@@ -331,6 +356,9 @@ export default function ModIQTool() {
     await advance(300); // "Matching against ..." → active
     const result = matchModels(srcModels, userLayout.models);
 
+    // Update matches found
+    setProcessingStats((s) => ({ ...s, matchesFound: result.mappedCount }));
+
     await advance(300); // "Resolving submodel structures" → active
     await delay(200);
 
@@ -339,7 +367,9 @@ export default function ModIQTool() {
 
     // Mark final step done
     steps[si].status = "done";
+    completedSteps++;
     setProcessingSteps([...steps]);
+    setProcessingStats((s) => ({ ...s, progress: 100 }));
     await delay(200);
 
     setMappingResult(result);
@@ -1158,51 +1188,132 @@ export default function ModIQTool() {
         </>
       )}
 
-      {/* ── Processing Step ────────────────────────────── */}
+      {/* ── Processing Step (Enhanced) ────────────────────── */}
       {step === "processing" && (
-        <div className="bg-surface rounded-xl border border-border p-8 max-w-5xl mx-auto">
-          <h2 className="text-xl font-display font-bold mb-6">
-            Mod<span className="text-accent">:IQ</span> is working...
-          </h2>
-          <div className="space-y-3">
-            {processingSteps.map((ps, i) => (
-              <div key={i} className="flex items-center gap-3">
-                {ps.status === "done" && (
-                  <svg
-                    className="w-5 h-5 text-green-500 flex-shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                )}
-                {ps.status === "active" && (
-                  <div className="w-5 h-5 flex-shrink-0">
-                    <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-                {ps.status === "pending" && (
-                  <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-foreground/20" />
-                  </div>
-                )}
-                <span
-                  className={
-                    ps.status === "pending"
-                      ? "text-foreground/40"
-                      : "text-foreground"
-                  }
-                >
-                  {ps.label}
-                </span>
+        <div className="max-w-3xl mx-auto">
+          {/* ── Circular Progress + Title ── */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative w-40 h-40 mb-5">
+              {/* Pulsing background ring */}
+              <div className="absolute inset-0 rounded-full border-2 border-accent/20 proc-pulse-ring" />
+              {/* Track */}
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                <circle
+                  cx="80" cy="80" r="70"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  className="text-border"
+                />
+                <circle
+                  cx="80" cy="80" r="70"
+                  fill="none"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  stroke="url(#proc-grad)"
+                  style={{
+                    strokeDasharray: 2 * Math.PI * 70,
+                    strokeDashoffset: 2 * Math.PI * 70 * (1 - processingStats.progress / 100),
+                    transition: "stroke-dashoffset 0.5s ease-out",
+                  }}
+                />
+                <defs>
+                  <linearGradient id="proc-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#ef4444" />
+                    <stop offset="100%" stopColor="#22c55e" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              {/* Center content */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-bold font-display text-foreground">{processingStats.progress}%</span>
+                <span className="text-xs text-foreground/40 mt-0.5">processing</span>
               </div>
-            ))}
+            </div>
+            <h2 className="text-xl font-display font-bold text-foreground">
+              Mod<span className="text-accent">:IQ</span> is working...
+            </h2>
+          </div>
+
+          {/* ── Live Statistics Cards ── */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            {/* Layout models */}
+            <div className="proc-stat-enter bg-surface rounded-xl border border-border p-4 text-center" style={{ animationDelay: "0s" }}>
+              <div className="flex justify-center mb-2">
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                </svg>
+              </div>
+              <div className="text-2xl font-bold text-foreground font-display">{processingStats.layoutModels}</div>
+              <div className="text-[11px] text-foreground/40 mt-0.5">Your Models</div>
+            </div>
+            {/* Matches found — highlighted */}
+            <div className="proc-stat-enter bg-surface rounded-xl border border-accent/30 p-4 text-center relative overflow-hidden" style={{ animationDelay: "0.1s" }}>
+              <div className="absolute inset-0 bg-accent/5" />
+              <div className="relative">
+                <div className="flex justify-center mb-2">
+                  <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-1.027a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.343 8.07" />
+                  </svg>
+                </div>
+                <div className={`text-2xl font-bold text-accent font-display ${processingStats.matchesFound > 0 ? "proc-counter-bump" : ""}`}>
+                  {processingStats.matchesFound}
+                </div>
+                <div className="text-[11px] text-foreground/40 mt-0.5">Matches Found</div>
+              </div>
+            </div>
+            {/* Sequence models */}
+            <div className="proc-stat-enter bg-surface rounded-xl border border-border p-4 text-center" style={{ animationDelay: "0.2s" }}>
+              <div className="flex justify-center mb-2">
+                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-2.625 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0118 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 016 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125M18 13.125c0-.621.504-1.125 1.125-1.125M6 13.125v1.5c0 .621-.504 1.125-1.125 1.125M6 13.125C6 12.504 5.496 12 4.875 12m-1.5 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5" />
+                </svg>
+              </div>
+              <div className="text-2xl font-bold text-foreground font-display">{processingStats.sequenceModels}</div>
+              <div className="text-[11px] text-foreground/40 mt-0.5">Sequence Models</div>
+            </div>
+          </div>
+
+          {/* ── Animated Step List ── */}
+          <div className="bg-surface rounded-xl border border-border p-5">
+            <div className="space-y-3">
+              {processingSteps.map((ps, i) => (
+                <div
+                  key={i}
+                  className="proc-step-enter flex items-center gap-3"
+                  style={{ animationDelay: `${i * 0.1}s` }}
+                >
+                  {ps.status === "done" && (
+                    <div className="w-6 h-6 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0 proc-check-enter">
+                      <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                  {ps.status === "active" && (
+                    <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {ps.status === "pending" && (
+                    <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-foreground/20 proc-dot-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+                    </div>
+                  )}
+                  <span
+                    className={
+                      ps.status === "active"
+                        ? "text-foreground font-medium"
+                        : ps.status === "done"
+                          ? "text-foreground/70"
+                          : "text-foreground/30"
+                    }
+                  >
+                    {ps.label}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
