@@ -17,29 +17,18 @@ type DifficultyFilter = "all" | "Beginner" | "Intermediate" | "Advanced";
 type PriceFilter = "all" | "free" | "paid";
 type OwnershipFilter = "all" | "owned" | "not-owned";
 
-// Helper to get difficulty dots
-function DifficultyDots({ difficulty }: { difficulty: string }) {
-  if (difficulty === "Beginner") {
-    return (
-      <span className="seq-card-dots">
-        <span className="seq-card-dot blue"></span>
-      </span>
-    );
-  }
-  if (difficulty === "Intermediate") {
-    return (
-      <span className="seq-card-dots">
-        <span className="seq-card-dot blue"></span>
-        <span className="seq-card-dot amber"></span>
-      </span>
-    );
-  }
-  // Advanced
+// Helper to render sequence dominant color chips
+function ColorDots({ colors }: { colors: string[] }) {
+  if (!colors || colors.length === 0) return null;
   return (
     <span className="seq-card-dots">
-      <span className="seq-card-dot blue"></span>
-      <span className="seq-card-dot amber"></span>
-      <span className="seq-card-dot red"></span>
+      {colors.slice(0, 3).map((color, i) => (
+        <span
+          key={i}
+          className="seq-card-dot"
+          style={{ backgroundColor: color }}
+        />
+      ))}
     </span>
   );
 }
@@ -160,7 +149,7 @@ function SequenceCard({
         <div className="seq-card-title-row">
           <span className="seq-card-title">{sequence.title}</span>
           {isNew && <span className="seq-card-new-inline">New</span>}
-          <DifficultyDots difficulty={sequence.difficulty} />
+          <ColorDots colors={sequence.dominantColors} />
         </div>
         <div className="seq-card-artist">{sequence.artist}</div>
         <div className="seq-card-desc">{sequence.description}</div>
