@@ -467,7 +467,7 @@ export default function ModIQTool() {
                   <HowItWorksCard
                     number="2"
                     title="AI Matching"
-                    description="ModIQ analyzes model types, pixel counts, spatial positions, names, and submodel structures to find the best mapping."
+                    description="Mod:IQ analyzes model types, pixel counts, spatial positions, names, and submodel structures to find the best mapping."
                   />
                   <HowItWorksCard
                     number="3"
@@ -788,7 +788,7 @@ export default function ModIQTool() {
                         : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
                     }`}
                   >
-                    {canRun ? "ModIQ It \u2192" : "ModIQ It"}
+                    {canRun ? <>Mod<span className="text-white/90">:</span>IQ It &rarr;</> : <>Mod<span className="text-white/40">:</span>IQ It</>}
                   </button>
                 </div>
               )}
@@ -825,7 +825,7 @@ export default function ModIQTool() {
               {/* Progress bar */}
               <div className="w-full h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                  className="h-full bg-accent rounded-full transition-all duration-500"
                   style={{ width: vendorStep === 1 ? "50%" : "100%" }}
                 />
               </div>
@@ -860,8 +860,8 @@ export default function ModIQTool() {
                           }}
                           className={`rounded-xl p-6 text-center cursor-pointer transition-all min-h-[140px] flex flex-col items-center justify-center ${
                             sourceIsDragging
-                              ? "bg-indigo-500/[0.04] border-2 border-dashed border-indigo-500"
-                              : "bg-white/[0.015] border-2 border-dashed border-[#333] hover:border-indigo-500/30"
+                              ? "bg-accent/[0.04] border-2 border-dashed border-accent"
+                              : "bg-white/[0.015] border-2 border-dashed border-[#333] hover:border-accent/30"
                           }`}
                         >
                           <input
@@ -931,8 +931,8 @@ export default function ModIQTool() {
                           }}
                           className={`rounded-xl p-6 text-center cursor-pointer transition-all min-h-[140px] flex flex-col items-center justify-center ${
                             vendorXsqIsDragging
-                              ? "bg-indigo-500/[0.04] border-2 border-dashed border-indigo-500"
-                              : "bg-white/[0.015] border-2 border-dashed border-[#333] hover:border-indigo-500/30"
+                              ? "bg-accent/[0.04] border-2 border-dashed border-accent"
+                              : "bg-white/[0.015] border-2 border-dashed border-[#333] hover:border-accent/30"
                           }`}
                         >
                           <input
@@ -1008,7 +1008,7 @@ export default function ModIQTool() {
                     disabled={!vendorXsqFile || !sourceLayout}
                     className={`w-full py-3.5 rounded-xl font-display font-bold text-base transition-all ${
                       vendorXsqFile && sourceLayout
-                        ? "bg-indigo-500 text-white hover:bg-indigo-400"
+                        ? "bg-accent text-white hover:bg-accent/90"
                         : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
                     }`}
                   >
@@ -1019,8 +1019,8 @@ export default function ModIQTool() {
                 /* Step 2: Upload YOUR Layout */
                 <div className="space-y-6">
                   {/* Uploaded vendor files summary */}
-                  <div className="bg-indigo-500/[0.04] border border-indigo-500/20 rounded-xl px-4 py-3 flex items-center gap-3">
-                    <svg className="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="bg-accent/[0.04] border border-accent/20 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span className="text-[13px] text-foreground/60 flex-1">
@@ -1036,7 +1036,7 @@ export default function ModIQTool() {
                   </div>
 
                   <h2 className="text-xl font-display font-bold text-foreground">
-                    Upload <span className="text-indigo-400">YOUR</span> Layout
+                    Upload <span className="text-accent">YOUR</span> Layout
                   </h2>
 
                   {/* Upload zone */}
@@ -1059,7 +1059,7 @@ export default function ModIQTool() {
                       onClick={() => fileInputRef.current?.click()}
                       className={`rounded-xl p-7 text-center cursor-pointer transition-all ${
                         isDragging
-                          ? "bg-indigo-500/[0.04] border-2 border-dashed border-indigo-500"
+                          ? "bg-accent/[0.04] border-2 border-dashed border-accent"
                           : "bg-white/[0.015] border-2 border-dashed border-[#262626] hover:border-foreground/20"
                       }`}
                     >
@@ -1099,7 +1099,7 @@ export default function ModIQTool() {
                       </p>
                     </div>
                   ) : (
-                    <div className="bg-indigo-500/[0.04] border border-indigo-500/[0.15] rounded-xl px-4 py-3.5 flex items-center gap-2.5 animate-[slideDown_0.25s_ease-out]">
+                    <div className="bg-accent/[0.04] border border-accent/[0.15] rounded-xl px-4 py-3.5 flex items-center gap-2.5 animate-[slideDown_0.25s_ease-out]">
                       <svg
                         width="16"
                         height="16"
@@ -1108,12 +1108,12 @@ export default function ModIQTool() {
                         stroke="currentColor"
                         strokeWidth="2"
                         strokeLinecap="round"
-                        className="text-indigo-400 flex-shrink-0"
+                        className="text-accent flex-shrink-0"
                       >
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
                         <polyline points="9 22 9 12 15 12 15 22" />
                       </svg>
-                      <span className="text-[13px] text-indigo-400/80 flex-1 truncate">
+                      <span className="text-[13px] text-accent/80 flex-1 truncate">
                         {uploadedFile.name}
                       </span>
                       <span className="text-[11px] text-green-400">
@@ -1145,11 +1145,11 @@ export default function ModIQTool() {
                     disabled={!canRun}
                     className={`w-full py-4 rounded-xl font-display font-bold text-lg transition-all ${
                       canRun
-                        ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[0_4px_24px_rgba(99,102,241,0.2)] hover:shadow-[0_8px_32px_rgba(99,102,241,0.3)] hover:-translate-y-[1px]"
+                        ? "bg-gradient-to-r from-accent to-red-700 text-white shadow-[0_4px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_8px_32px_rgba(239,68,68,0.3)] hover:-translate-y-[1px]"
                         : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
                     }`}
                   >
-                    {canRun ? "ModIQ It \u2192" : "ModIQ It"}
+                    {canRun ? <>Mod<span className="text-white/90">:</span>IQ It &rarr;</> : <>Mod<span className="text-white/40">:</span>IQ It</>}
                   </button>
                 </div>
               )}
@@ -1162,7 +1162,7 @@ export default function ModIQTool() {
       {step === "processing" && (
         <div className="bg-surface rounded-xl border border-border p-8 max-w-5xl mx-auto">
           <h2 className="text-xl font-display font-bold mb-6">
-            ModIQ is working...
+            Mod<span className="text-accent">:IQ</span> is working...
           </h2>
           <div className="space-y-3">
             {processingSteps.map((ps, i) => (
@@ -1742,7 +1742,7 @@ function InteractiveResults({
           <div className="flex items-center justify-between py-2.5 border-b border-border">
             <div className="flex items-center gap-3 min-w-0">
               <h2 className="text-[15px] font-display font-bold flex-shrink-0">
-                ModIQ
+                Mod<span className="text-accent">:</span><span className="text-accent">IQ</span>
               </h2>
               <span className="text-[13px] text-foreground/50 truncate">
                 {seqTitle} &rarr; Your Layout
