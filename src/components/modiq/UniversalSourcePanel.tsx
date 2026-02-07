@@ -5,6 +5,7 @@ import type { ParsedModel } from "@/lib/modiq";
 import type { DragItem, DragAndDropHandlers } from "@/hooks/useDragAndDrop";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
+import { extractFamily } from "@/contexts/MappingPhaseContext";
 import { PANEL_STYLES } from "./panelStyles";
 
 // ─── Types ──────────────────────────────────────────────
@@ -20,6 +21,14 @@ interface SuggestionItem {
     pixels: number;
     structure: number;
   };
+}
+
+interface ModelFamily {
+  prefix: string;
+  models: ParsedModel[];
+  inUseCount: number;
+  type: string;
+  pixelCount: number;
 }
 
 export interface UniversalSourcePanelProps {
@@ -51,6 +60,8 @@ export function UniversalSourcePanel({
   dnd,
 }: UniversalSourcePanelProps) {
   const [search, setSearch] = useState("");
+  const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
+  const [hiddenFamilies, setHiddenFamilies] = useState<Set<string>>(new Set());
 
   // Available models = filtered + not already assigned
   const availableModels = useMemo(() => {
@@ -86,6 +97,60 @@ export function UniversalSourcePanel({
         m.type.toLowerCase().includes(q),
     );
   }, [search, availableModels]);
+
+  // Group models by family for collapsed display
+  const modelFamilies = useMemo(() => {
+    const modelsToGroup = search
+      ? filteredModels // When searching, show individual matches (bypass grouping)
+      : filteredModels.filter((m) => !suggestionNames.has(m.name));
+
+    const familyMap = new Map<string, ParsedModel[]>();
+    for (const model of modelsToGroup) {
+      const prefix = extractFamily(model.name);
+      const existing = familyMap.get(prefix);
+      if (existing) existing.push(model);
+      else familyMap.set(prefix, [model]);
+    }
+
+    const families: ModelFamily[] = [];
+    for (const [prefix, models] of familyMap) {
+      const inUseCount = models.filter((m) => assignedNames?.has(m.name)).length;
+      families.push({
+        prefix,
+        models,
+        inUseCount,
+        type: models[0].type,
+        pixelCount: models[0].pixelCount,
+      });
+    }
+    return families;
+  }, [filteredModels, search, suggestionNames, assignedNames]);
+
+  const toggleFamily = useCallback((prefix: string) => {
+    setExpandedFamilies((prev) => {
+      const next = new Set(prev);
+      if (next.has(prefix)) next.delete(prefix);
+      else next.add(prefix);
+      return next;
+    });
+  }, []);
+
+  const hideFamily = useCallback((prefix: string) => {
+    setHiddenFamilies((prev) => new Set([...prev, prefix]));
+    setExpandedFamilies((prev) => {
+      const next = new Set(prev);
+      next.delete(prefix);
+      return next;
+    });
+  }, []);
+
+  const hiddenCount = useMemo(() => {
+    let count = 0;
+    for (const f of modelFamilies) {
+      if (hiddenFamilies.has(f.prefix)) count += f.models.length;
+    }
+    return count;
+  }, [modelFamilies, hiddenFamilies]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -164,12 +229,12 @@ export function UniversalSourcePanel({
           </div>
         )}
 
-        {/* All Models section */}
+        {/* All Models section — grouped by family */}
         <div className="px-6 py-3">
           <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-2">
-            All Models ({filteredModels.length})
+            All Models ({filteredModels.length}{hiddenCount > 0 ? `, ${hiddenCount} hidden` : ""})
           </div>
-          {filteredModels.length === 0 ? (
+          {modelFamilies.length === 0 ? (
             <div className="text-center py-8 text-foreground/30">
               <p className="text-sm">
                 {search
@@ -179,21 +244,146 @@ export function UniversalSourcePanel({
             </div>
           ) : (
             <div className="space-y-1">
-              {filteredModels.map((model) =>
-                !search && suggestionNames.has(model.name) ? null : (
-                  <ModelCard
-                    key={model.name}
-                    model={model}
-                    isAssigned={assignedNames?.has(model.name) ?? false}
-                    onAccept={onAccept}
-                    dnd={dnd}
-                  />
-                ),
-              )}
+              {modelFamilies.map((family) => {
+                // Hidden families — skip entirely
+                if (!search && hiddenFamilies.has(family.prefix)) return null;
+
+                // Single item or searching — render flat
+                if (family.models.length === 1 || search) {
+                  return family.models.map((model) => (
+                    <ModelCard
+                      key={model.name}
+                      model={model}
+                      isAssigned={assignedNames?.has(model.name) ?? false}
+                      onAccept={onAccept}
+                      dnd={dnd}
+                    />
+                  ));
+                }
+
+                // Multi-item family — collapsible group
+                const isExpanded = expandedFamilies.has(family.prefix);
+                return (
+                  <div key={family.prefix}>
+                    <FamilyRow
+                      family={family}
+                      isExpanded={isExpanded}
+                      onToggle={() => toggleFamily(family.prefix)}
+                      onHide={() => hideFamily(family.prefix)}
+                    />
+                    {isExpanded && (
+                      <div className="space-y-0.5 pl-3 pb-1 ml-1 border-l border-border/30">
+                        {family.models.map((model) => (
+                          <ModelCard
+                            key={model.name}
+                            model={model}
+                            isAssigned={assignedNames?.has(model.name) ?? false}
+                            onAccept={onAccept}
+                            dnd={dnd}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+          )}
+
+          {/* Show hidden families restore link */}
+          {hiddenFamilies.size > 0 && !search && (
+            <button
+              type="button"
+              onClick={() => setHiddenFamilies(new Set())}
+              className="mt-3 text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors"
+            >
+              Show {hiddenFamilies.size} hidden group{hiddenFamilies.size > 1 ? "s" : ""} ({hiddenCount} models)
+            </button>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Family Row (collapsed group header) ─────────────────
+
+function FamilyRow({
+  family,
+  isExpanded,
+  onToggle,
+  onHide,
+}: {
+  family: ModelFamily;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onHide: () => void;
+}) {
+  return (
+    <div
+      className={`
+        flex items-center gap-1.5 rounded-lg min-h-[34px] px-2.5 py-1.5 transition-all duration-150
+        border bg-surface hover:border-foreground/20
+        ${isExpanded ? "border-foreground/15 bg-foreground/[0.02]" : "border-border"}
+      `}
+    >
+      {/* Expand/collapse toggle */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
+      >
+        <svg
+          className={`w-3 h-3 text-foreground/30 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+
+        <span className="text-[12px] font-medium truncate text-foreground/70">
+          {family.prefix}
+        </span>
+
+        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-foreground/8 text-foreground/40 font-semibold flex-shrink-0 tabular-nums">
+          {family.models.length}
+        </span>
+      </button>
+
+      {/* Type badge */}
+      <span className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 text-foreground/30 flex-shrink-0 uppercase tracking-wide">
+        {family.type.toUpperCase().slice(0, 6)}
+      </span>
+
+      {/* Pixel count */}
+      {family.pixelCount > 0 && (
+        <span className="text-[10px] text-foreground/20 flex-shrink-0 tabular-nums">
+          {family.pixelCount}px
+        </span>
+      )}
+
+      {/* In-use count */}
+      {family.inUseCount > 0 && (
+        <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-400/70 font-semibold flex-shrink-0 tabular-nums">
+          {family.inUseCount} IN USE
+        </span>
+      )}
+
+      {/* Hide/dismiss button */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onHide();
+        }}
+        className="p-0.5 rounded text-foreground/15 hover:text-foreground/40 transition-colors flex-shrink-0"
+        title={`Hide ${family.prefix} family`}
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   );
 }
