@@ -335,6 +335,7 @@ export function SpinnersPhase() {
                 sourceFilter={spinnerSourceFilter}
                 assignedNames={interactive.assignedUserModelNames}
                 selectedDestLabel={selectedItem.sourceModel.name}
+                sourcePixelCount={selectedItem.sourceModel.pixelCount}
                 onAccept={(userModelName) =>
                   handleAccept(selectedItem.sourceModel.name, userModelName)
                 }

@@ -327,6 +327,7 @@ export function GroupsPhase() {
                 sourceFilter={groupSourceFilter}
                 assignedNames={interactive.assignedUserModelNames}
                 selectedDestLabel={selectedGroup.sourceModel.name}
+                sourcePixelCount={selectedGroup.sourceModel.pixelCount}
                 onAccept={(userModelName) =>
                   handleAcceptGroup(selectedGroup.sourceModel.name, userModelName)
                 }

@@ -42,6 +42,8 @@ export interface UniversalSourcePanelProps {
   assignedNames?: Set<string>;
   /** Label for the current destination being mapped */
   selectedDestLabel?: string;
+  /** Pixel count for the source model being mapped (for tooltip comparison) */
+  sourcePixelCount?: number;
   /** Called when user clicks a model to accept it */
   onAccept: (userModelName: string) => void;
   /** Drag-and-drop handlers (optional — enables drag support) */
@@ -56,6 +58,7 @@ export function UniversalSourcePanel({
   sourceFilter,
   assignedNames,
   selectedDestLabel,
+  sourcePixelCount,
   onAccept,
   dnd,
 }: UniversalSourcePanelProps) {
@@ -221,6 +224,7 @@ export function UniversalSourcePanel({
                   key={sugg.model.name}
                   sugg={sugg}
                   isBest={index === 0 && !search}
+                  sourcePixelCount={sourcePixelCount}
                   onAccept={onAccept}
                   dnd={dnd}
                 />
@@ -393,17 +397,26 @@ function FamilyRow({
 const SuggestionCard = memo(function SuggestionCard({
   sugg,
   isBest,
+  sourcePixelCount,
   onAccept,
   dnd,
 }: {
   sugg: SuggestionItem;
   isBest: boolean;
+  sourcePixelCount?: number;
   onAccept: (name: string) => void;
   dnd?: DragAndDropHandlers;
 }) {
   const reasoning = useMemo(
-    () => generateMatchReasoning(sugg.factors, sugg.score),
-    [sugg.factors, sugg.score],
+    () =>
+      generateMatchReasoning(
+        sugg.factors,
+        sugg.score,
+        sourcePixelCount && sugg.model.pixelCount
+          ? { source: sourcePixelCount, dest: sugg.model.pixelCount }
+          : undefined,
+      ),
+    [sugg.factors, sugg.score, sourcePixelCount, sugg.model.pixelCount],
   );
 
   const dragItem = useMemo<DragItem>(

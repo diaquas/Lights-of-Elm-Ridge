@@ -8,6 +8,7 @@ import type { ModelMapping } from "./matcher";
 export function generateMatchReasoning(
   factors: ModelMapping["factors"],
   score: number,
+  pixelInfo?: { source: number; dest: number },
 ): MatchReasoning {
   const components: ReasoningComponent[] = [];
   const whyNotHigher: string[] = [];
@@ -128,5 +129,9 @@ export function generateMatchReasoning(
     components,
     whyNotHigher: whyNotHigher.length > 0 ? whyNotHigher : undefined,
     summary,
+    pixelComparison:
+      pixelInfo && pixelInfo.source > 0 && pixelInfo.dest > 0
+        ? pixelInfo
+        : undefined,
   };
 }
