@@ -8,6 +8,7 @@ import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import { MetadataBadges } from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
+import { ZeroEffectSection } from "../ZeroEffectSection";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { useItemFamilies } from "@/hooks/useItemFamilies";
@@ -29,6 +30,16 @@ export function GroupsPhase() {
 
   const unmappedGroups = phaseItems.filter((item) => !item.isMapped);
   const mappedGroups = phaseItems.filter((item) => item.isMapped);
+
+  // Split unmapped into with-effects (main list) and zero-effects (collapsed)
+  const unmappedWithEffects = useMemo(
+    () => unmappedGroups.filter((item) => item.effectCount > 0),
+    [unmappedGroups],
+  );
+  const unmappedZeroEffects = useMemo(
+    () => unmappedGroups.filter((item) => item.effectCount === 0),
+    [unmappedGroups],
+  );
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -53,7 +64,7 @@ export function GroupsPhase() {
   }, [phaseItems, interactive]);
 
   const filteredUnmapped = useMemo(() => {
-    let items = unmappedGroups;
+    let items = unmappedWithEffects;
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -63,7 +74,7 @@ export function GroupsPhase() {
       );
     }
     return sortItems(items, sortBy, topSuggestionsMap);
-  }, [unmappedGroups, search, sortBy, topSuggestionsMap]);
+  }, [unmappedWithEffects, search, sortBy, topSuggestionsMap]);
 
   const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedGroupId);
 
@@ -148,6 +159,12 @@ export function GroupsPhase() {
     setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
   };
 
+  const handleSkipAllZeroEffects = useCallback(() => {
+    for (const item of unmappedZeroEffects) {
+      interactive.skipSourceLayer(item.sourceModel.name);
+    }
+  }, [unmappedZeroEffects, interactive]);
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left: Group List */}
@@ -160,8 +177,13 @@ export function GroupsPhase() {
             Model Groups
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
-            {unmappedGroups.length} groups need matching &middot;{" "}
-            {mappedGroups.length} already mapped
+            {unmappedWithEffects.length} groups need matching
+            {unmappedZeroEffects.length > 0 && (
+              <span className="text-foreground/20"> &middot; {unmappedZeroEffects.length} with 0 effects</span>
+            )}
+            {mappedGroups.length > 0 && (
+              <span> &middot; {mappedGroups.length} already mapped</span>
+            )}
           </p>
         </div>
 
@@ -247,6 +269,12 @@ export function GroupsPhase() {
               );
             })}
           </div>
+
+          <ZeroEffectSection
+            items={unmappedZeroEffects}
+            onSkipAll={handleSkipAllZeroEffects}
+            phaseLabel="groups"
+          />
 
           {mappedGroups.length > 0 && (
             <details className="mt-6">

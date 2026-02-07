@@ -8,6 +8,7 @@ import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import { MetadataBadges } from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
+import { ZeroEffectSection } from "../ZeroEffectSection";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { useItemFamilies } from "@/hooks/useItemFamilies";
@@ -41,6 +42,16 @@ export function SpinnersPhase() {
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
   const mappedItems = phaseItems.filter((item) => item.isMapped);
 
+  // Split unmapped into with-effects (main list) and zero-effects (collapsed)
+  const unmappedWithEffects = useMemo(
+    () => unmappedItems.filter((item) => item.effectCount > 0),
+    [unmappedItems],
+  );
+  const unmappedZeroEffects = useMemo(
+    () => unmappedItems.filter((item) => item.effectCount === 0),
+    [unmappedItems],
+  );
+
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
     const map = new Map<string, SourceLayerMapping>();
@@ -64,7 +75,7 @@ export function SpinnersPhase() {
   }, [phaseItems, interactive]);
 
   const filteredUnmapped = useMemo(() => {
-    let items = unmappedItems;
+    let items = unmappedWithEffects;
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -74,7 +85,7 @@ export function SpinnersPhase() {
       );
     }
     return sortItems(items, sortBy, topSuggestionsMap);
-  }, [unmappedItems, search, sortBy, topSuggestionsMap]);
+  }, [unmappedWithEffects, search, sortBy, topSuggestionsMap]);
 
   const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
@@ -156,6 +167,12 @@ export function SpinnersPhase() {
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
+  const handleSkipAllZeroEffects = useCallback(() => {
+    for (const item of unmappedZeroEffects) {
+      interactive.skipSourceLayer(item.sourceModel.name);
+    }
+  }, [unmappedZeroEffects, interactive]);
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left: Submodel Group List */}
@@ -168,8 +185,13 @@ export function SpinnersPhase() {
             Submodel Groups
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
-            {unmappedItems.length} groups need matching &middot;{" "}
-            {mappedItems.length} already mapped
+            {unmappedWithEffects.length} groups need matching
+            {unmappedZeroEffects.length > 0 && (
+              <span className="text-foreground/20"> &middot; {unmappedZeroEffects.length} with 0 effects</span>
+            )}
+            {mappedItems.length > 0 && (
+              <span> &middot; {mappedItems.length} already mapped</span>
+            )}
           </p>
         </div>
 
@@ -255,6 +277,12 @@ export function SpinnersPhase() {
               );
             })}
           </div>
+
+          <ZeroEffectSection
+            items={unmappedZeroEffects}
+            onSkipAll={handleSkipAllZeroEffects}
+            phaseLabel="submodel groups"
+          />
 
           {mappedItems.length > 0 && (
             <details className="mt-6">
