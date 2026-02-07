@@ -644,7 +644,7 @@ export function useInteractiveMapping(
                   destModel: dest,
                   score: 0.6,
                   confidence: "medium",
-                  factors: { name: 0.6, spatial: 0.5, shape: 0.5, type: 0.5, pixels: 0.5 },
+                  factors: { name: 0.6, spatial: 0.5, shape: 0.5, type: 0.5, pixels: 0.5, structure: 0.5 },
                   reason: "Manual mapping",
                   submodelMappings: subs,
                 });
@@ -657,7 +657,7 @@ export function useInteractiveMapping(
             destModel: null,
             score: 0,
             confidence: "unmapped",
-            factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 },
+            factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 },
             reason: "No suitable match found in your layout.",
             submodelMappings: [],
           });
@@ -688,7 +688,7 @@ export function useInteractiveMapping(
               destModel: dest,
               score: 0.6,
               confidence: "medium",
-              factors: { name: 0.6, spatial: 0.5, shape: 0.5, type: 0.5, pixels: 0.5 },
+              factors: { name: 0.6, spatial: 0.5, shape: 0.5, type: 0.5, pixels: 0.5, structure: 0.5 },
               reason: "Manual mapping",
               submodelMappings: subs,
             });
@@ -699,7 +699,7 @@ export function useInteractiveMapping(
             destModel: null,
             score: 0,
             confidence: "unmapped",
-            factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 },
+            factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 },
             reason: "No suitable match found in your layout.",
             submodelMappings: [],
           });

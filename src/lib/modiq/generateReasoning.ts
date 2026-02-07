@@ -3,7 +3,7 @@ import type { ModelMapping } from "./matcher";
 
 /**
  * Generate human-readable reasoning for a match score.
- * Uses the 5-factor scoring breakdown from matcher.ts.
+ * Uses the 6-factor scoring breakdown from matcher.ts (V3).
  */
 export function generateMatchReasoning(
   factors: ModelMapping["factors"],
@@ -12,7 +12,7 @@ export function generateMatchReasoning(
   const components: ReasoningComponent[] = [];
   const whyNotHigher: string[] = [];
 
-  // Name factor (weight: 0.40)
+  // Name factor (weight: 0.38)
   components.push({
     factor: "Name Match",
     description:
@@ -23,14 +23,14 @@ export function generateMatchReasoning(
           : factors.name > 0
             ? "Weak name similarity"
             : "No name overlap",
-    score: factors.name * 0.4,
-    maxScore: 0.4,
+    score: factors.name * 0.38,
+    maxScore: 0.38,
   });
   if (factors.name < 0.5) {
     whyNotHigher.push("Different naming conventions");
   }
 
-  // Spatial factor (weight: 0.25)
+  // Spatial factor (weight: 0.22)
   components.push({
     factor: "Spatial Position",
     description:
@@ -39,14 +39,14 @@ export function generateMatchReasoning(
         : factors.spatial >= 0.4
           ? "Somewhat similar position"
           : "Different layout position",
-    score: factors.spatial * 0.25,
-    maxScore: 0.25,
+    score: factors.spatial * 0.22,
+    maxScore: 0.22,
   });
   if (factors.spatial < 0.4) {
     whyNotHigher.push("Different layout positions");
   }
 
-  // Shape factor (weight: 0.15)
+  // Shape factor (weight: 0.13)
   components.push({
     factor: "Shape Match",
     description:
@@ -55,11 +55,11 @@ export function generateMatchReasoning(
         : factors.shape > 0
           ? "Different shapes"
           : "No shape match",
-    score: factors.shape * 0.15,
-    maxScore: 0.15,
+    score: factors.shape * 0.13,
+    maxScore: 0.13,
   });
 
-  // Type factor (weight: 0.12)
+  // Type factor (weight: 0.10)
   components.push({
     factor: "Model Type",
     description:
@@ -68,25 +68,49 @@ export function generateMatchReasoning(
         : factors.type > 0
           ? "Related type"
           : "Different types",
-    score: factors.type * 0.12,
-    maxScore: 0.12,
+    score: factors.type * 0.10,
+    maxScore: 0.10,
   });
   if (factors.type < 0.5) {
     whyNotHigher.push("Different model types");
   }
 
-  // Pixels factor (weight: 0.08)
+  // Pixels factor (weight: 0.10)
   components.push({
     factor: "Pixel Count",
     description:
       factors.pixels >= 0.8
         ? "Similar pixel count"
-        : factors.pixels > 0
+        : factors.pixels >= 0.3
           ? "Different pixel counts"
-          : "No pixel data",
-    score: factors.pixels * 0.08,
-    maxScore: 0.08,
+          : factors.pixels > 0
+            ? "Very different pixel counts"
+            : "No pixel data",
+    score: factors.pixels * 0.10,
+    maxScore: 0.10,
   });
+  if (factors.pixels < 0.3) {
+    whyNotHigher.push("Pixel counts differ significantly");
+  }
+
+  // Structure factor (weight: 0.07)
+  const structureScore = factors.structure ?? 0.5;
+  components.push({
+    factor: "Structure",
+    description:
+      structureScore >= 0.8
+        ? "Similar submodel structure"
+        : structureScore >= 0.4
+          ? "Different structure"
+          : structureScore > 0
+            ? "Very different structure"
+            : "No structure data",
+    score: structureScore * 0.07,
+    maxScore: 0.07,
+  });
+  if (structureScore <= 0.2) {
+    whyNotHigher.push("Different internal structure (submodel count)");
+  }
 
   // Summary
   let summary: string;
