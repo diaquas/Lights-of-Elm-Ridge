@@ -33,6 +33,15 @@ export function SpinnersPhase() {
 
   const bulk = useBulkInference(interactive, phaseItems);
 
+  // Source effect counts for UsageBadge tooltip
+  const sourceEffectCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of interactive.sourceLayerMappings) {
+      map.set(item.sourceModel.name, item.effectCount);
+    }
+    return map;
+  }, [interactive.sourceLayerMappings]);
+
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -340,6 +349,9 @@ export function SpinnersPhase() {
                   handleAccept(selectedItem.sourceModel.name, userModelName)
                 }
                 dnd={dnd}
+                destToSourcesMap={interactive.destToSourcesMap}
+                onRemoveLink={interactive.removeLinkFromLayer}
+                sourceEffectCounts={sourceEffectCounts}
               />
             </div>
 
