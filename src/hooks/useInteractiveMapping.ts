@@ -869,10 +869,22 @@ export function useInteractiveMapping(
       });
     }
 
-    // Note: No zero-effect filtering needed here — the effect tree already
-    // ensures only models/groups with effects are included. The effectCount
-    // field is supplementary display data from SEQUENCE_EFFECT_COUNTS (which
-    // may be incomplete); it should NOT be used as a gatekeeping filter.
+    // Filter out zero-effect items when effect counts are available.
+    // These are groups/models that exist in the source layout and pass
+    // the effect tree (via isModelInSequence prefix matching) but have
+    // 0 direct effects in SEQUENCE_EFFECT_COUNTS for this sequence.
+    if (effectCounts) {
+      const filtered: SourceLayerMapping[] = [];
+      let hidden = 0;
+      for (const layer of layers) {
+        if (layer.effectCount === 0) {
+          hidden++;
+        } else {
+          filtered.push(layer);
+        }
+      }
+      return { sourceLayerMappings: filtered, hiddenZeroEffectCount: hidden };
+    }
 
     return { sourceLayerMappings: layers, hiddenZeroEffectCount: 0 };
   }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers, sequenceSlug]);
