@@ -5017,17 +5017,6 @@ a.card-item {
   font-weight: 500;
 }
 
-.origin-quote {
-  margin: 24px 0 8px;
-  padding: 16px 20px;
-  border-left: 3px solid #ef4444;
-  background: rgba(239, 68, 68, 0.12);
-  border-radius: 0 8px 8px 0;
-  font-size: 14.5px;
-  color: var(--text-primary);
-  font-style: italic;
-  line-height: 1.6;
-}
 
 /* Section Title */
 .about-page .section-title {
