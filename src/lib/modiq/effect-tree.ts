@@ -125,10 +125,15 @@ function isAllEncompassingGroup(
  * @param sourceModels  All source models (groups + individuals) from the layout
  * @param sequenceModelNames  Names of models that have effects in the sequence
  *                            (from parseXsqModels() or getSequenceModelList())
+ * @param effectCounts  Optional map of model name → effect count. When provided,
+ *                      groups are verified against this map to avoid false positives
+ *                      (groups that appear in SEQUENCE_MODELS as containers but have
+ *                      no direct effects assigned to them).
  */
 export function buildEffectTree(
   sourceModels: ParsedModel[],
   sequenceModelNames: string[],
+  effectCounts?: Record<string, number>,
 ): EffectTree {
   // Separate groups from individual models
   const groups: ParsedModel[] = [];
@@ -150,6 +155,18 @@ export function buildEffectTree(
   const hasEffects = (name: string) =>
     isModelInSequence(name, sequenceModelNames);
 
+  // For groups, when effectCounts is available, use it as ground truth.
+  // SEQUENCE_MODELS includes all models that *appear* in the .xsq file,
+  // including container groups with 0 direct effects (e.g. "All - Yard Left - GRP").
+  // effectCounts only has entries for models with actual effects, so it's more accurate.
+  const groupHasDirectEffects = (name: string): boolean => {
+    if (effectCounts) {
+      return (effectCounts[name] ?? 0) > 0;
+    }
+    // Fallback: use isModelInSequence when no effectCounts available
+    return hasEffects(name);
+  };
+
   // ── Phase 1: Classify groups ────────────────────────────────
   const groupsWithEffects: GroupEffectInfo[] = [];
   // Track which individual models are claimed by a non-all-encompassing group
@@ -157,7 +174,7 @@ export function buildEffectTree(
   const scenarioBChildren = new Set<string>(); // members with individual effects
 
   for (const group of groups) {
-    const groupHasEffects = hasEffects(group.name);
+    const groupHasEffects = groupHasDirectEffects(group.name);
     if (!groupHasEffects) {
       // Check if ANY members have effects → Scenario C
       const membersWithFx: string[] = [];
