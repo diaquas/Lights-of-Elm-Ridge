@@ -29,7 +29,7 @@ import type { BoostSuggestion, SpinnerBoostSuggestion, DisplayCoverage } from "@
 import { isDmxModel, getActiveSourceNamesForExport } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
 import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
-import { useCart } from "@/contexts/CartContext";
+// useCart removed — cart interstitial no longer on landing page
 import {
   useInteractiveMapping,
   type SourceLayerMapping,
@@ -40,7 +40,7 @@ import { useMappingTelemetry } from "@/hooks/useMappingTelemetry";
 import MappingProgressBar from "@/components/modiq/MappingProgressBar";
 import SourceLayerRow from "@/components/modiq/SourceLayerRow";
 import DraggableUserCard from "@/components/modiq/DraggableUserCard";
-import SequenceSelector from "@/components/SequenceSelector";
+// SequenceSelector no longer used — LOER flow uses grid picker
 import ExportDialog from "@/components/modiq/ExportDialog";
 import CoverageBoostPrompt from "@/components/modiq/CoverageBoostPrompt";
 import PostExportScreen from "@/components/modiq/PostExportScreen";
@@ -52,6 +52,7 @@ import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
 
 type Step = "input" | "processing" | "results" | "exported";
 type MapFromMode = "elm-ridge" | "other-vendor";
+type InputSubStep = "source-select" | "loer-flow" | "vendor-flow";
 
 // Default identifier for Elm Ridge layout (same models for all sequences)
 const ELM_RIDGE_LAYOUT_ID = "elm-ridge";
@@ -70,15 +71,28 @@ export default function ModIQTool() {
   const [step, setStep] = useState<Step>("input");
   const [mapFromMode, setMapFromMode] = useState<MapFromMode>("elm-ridge");
   const [displayType, setDisplayType] = useState<DisplayType>("halloween");
+  const [inputSubStep, setInputSubStep] = useState<InputSubStep>(
+    initialSequence ? "loer-flow" : "source-select"
+  );
+  const [vendorStep, setVendorStep] = useState<1 | 2>(1);
 
   // Sequence selection & ownership
   const [selectedSequence, setSelectedSequence] = useState(initialSequence);
   const { isLoggedIn, isLoading: purchasesLoading, hasPurchased } = usePurchasedSequences();
-  const { addItem, isInCart } = useCart();
   const selectedSeq = sequences.find((s) => s.slug === selectedSequence);
   const isAccessible = selectedSeq
     ? selectedSeq.price === 0 || hasPurchased(selectedSeq.id)
     : false;
+
+  // Sequence categories for LOER picker grid
+  const purchasedSeqs = useMemo(
+    () => sequences.filter((s) => s.price > 0 && hasPurchased(s.id)).sort((a, b) => a.title.localeCompare(b.title)),
+    [hasPurchased],
+  );
+  const freeSeqs = useMemo(
+    () => sequences.filter((s) => s.price === 0).sort((a, b) => a.title.localeCompare(b.title)),
+    [],
+  );
 
   const handleSequenceChange = useCallback((slug: string) => {
     setSelectedSequence(slug);
@@ -87,19 +101,6 @@ export default function ModIQTool() {
       setDisplayType(seq.category === "Christmas" ? "christmas" : "halloween");
     }
   }, []);
-
-  const handleAddToCart = useCallback(() => {
-    if (!selectedSeq || selectedSeq.price === 0) return;
-    addItem({
-      id: selectedSeq.id,
-      slug: selectedSeq.slug,
-      title: selectedSeq.title,
-      artist: selectedSeq.artist,
-      price: selectedSeq.price,
-      category: selectedSeq.category,
-      thumbnailUrl: selectedSeq.thumbnailUrl ?? null,
-    });
-  }, [selectedSeq, addItem]);
 
   // Source layout from "other vendor" upload
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -347,6 +348,8 @@ export default function ModIQTool() {
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
     setStep("input");
+    setInputSubStep("source-select");
+    setVendorStep(1);
     setMappingResult(null);
     setProcessingSteps([]);
     setSourceModels([]);
@@ -378,468 +381,732 @@ export default function ModIQTool() {
         </div>
       )}
 
+
       {/* ── Input Step ─────────────────────────────────── */}
       {step === "input" && (
-        <div className="space-y-8 max-w-[860px] mx-auto">
-          {/* Step 1 — MAP FROM */}
-          <div>
-            <div className="flex items-center gap-3 mb-6">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
-                  (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) ||
-                  (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout)
-                    ? "bg-green-500"
-                    : "bg-accent"
-                }`}
-              >
-                {(mapFromMode === "elm-ridge" && selectedSequence && isAccessible) ||
-                (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout) ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  "1"
-                )}
-              </div>
-              <h2 className="text-lg font-semibold text-foreground/60">
-                Where are you mapping{" "}
-                <span className="text-white font-bold">FROM</span>?
-              </h2>
-            </div>
-
-            {/* Radio options */}
-            <div className="space-y-3">
-              {/* ═══ Lights of Elm Ridge ═══ */}
-              <label
-                className={`flex items-start gap-3 rounded-xl p-4 cursor-pointer transition-all ${
-                  mapFromMode === "elm-ridge"
-                    ? "bg-accent/[0.04] border border-accent/20"
-                    : "bg-surface border border-border hover:border-foreground/10"
-                }`}
-                onClick={() => setMapFromMode("elm-ridge")}
-              >
-                <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                  mapFromMode === "elm-ridge" ? "border-accent" : "border-foreground/20"
-                }`}>
-                  {mapFromMode === "elm-ridge" && (
-                    <div className="w-2 h-2 rounded-full bg-accent" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[15px] font-semibold text-foreground">
-                    Lights of Elm Ridge Sequence
-                  </div>
-                  <div className="text-[12px] text-foreground/40 mt-0.5">
-                    Select from your purchased or free sequences
-                  </div>
-                  {mapFromMode === "elm-ridge" && (
-                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                      <SequenceSelector
-                        sequences={sequences}
-                        value={selectedSequence}
-                        onChange={handleSequenceChange}
-                        isLoggedIn={isLoggedIn}
-                        isLoading={purchasesLoading}
-                        hasPurchased={hasPurchased}
-                      />
-                    </div>
-                  )}
-                </div>
-              </label>
-
-              {/* ═══ Other Vendor ═══ */}
-              <label
-                className={`flex items-start gap-3 rounded-xl p-4 cursor-pointer transition-all ${
-                  mapFromMode === "other-vendor"
-                    ? "bg-indigo-500/[0.04] border border-indigo-500/20"
-                    : "bg-surface border border-border hover:border-foreground/10"
-                }`}
-                onClick={() => setMapFromMode("other-vendor")}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setSourceIsDragging(true);
-                  setMapFromMode("other-vendor");
-                }}
-                onDragLeave={() => setSourceIsDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setSourceIsDragging(false);
-                  setMapFromMode("other-vendor");
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleSourceFile(file);
-                }}
-              >
-                <div className={`mt-0.5 w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                  mapFromMode === "other-vendor" ? "border-indigo-500" : "border-foreground/20"
-                }`}>
-                  {mapFromMode === "other-vendor" && (
-                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[15px] font-semibold text-foreground">
-                    Other Vendor
-                  </div>
-                  <div className="text-[12px] text-foreground/40 mt-0.5">
-                    Upload their xlights_rgbeffects.xml
-                  </div>
-                </div>
-                <input
-                  ref={sourceFileInputRef}
-                  type="file"
-                  accept=".xml"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleSourceFile(file);
+        <>
+          {/* ── Source Selection Landing ──────────────────── */}
+          {inputSubStep === "source-select" && (
+            <div className="max-w-[860px] mx-auto space-y-12">
+              {/* Source Selection Cards */}
+              <div className="grid md:grid-cols-5 gap-6">
+                {/* LOER Card — Prominent (3 cols) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMapFromMode("elm-ridge");
+                    setInputSubStep("loer-flow");
                   }}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            {/* Interstitial: sequence not owned */}
-            {mapFromMode === "elm-ridge" && selectedSeq && !isAccessible && (
-              <div className="mt-4 bg-surface rounded-xl border border-border p-6 animate-[slideDown_0.25s_ease-out]">
-                <div className="text-center">
-                  <p className="text-[15px] font-semibold text-foreground mb-1">
-                    {selectedSeq.title}
-                    <span className="text-foreground/40 font-normal"> — {selectedSeq.artist}</span>
-                  </p>
-                  <p className="text-[13px] text-foreground/50 mb-4">
-                    You don&apos;t own this sequence yet.
-                  </p>
-                  {isInCart(selectedSeq.id) ? (
-                    <Link
-                      href="/cart"
-                      className="inline-flex items-center gap-1.5 text-[13px] text-green-400 hover:text-green-300"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                      In Cart — View Cart
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleAddToCart}
-                      className="inline-flex items-center gap-1.5 bg-accent hover:bg-accent/90 text-white text-[13px] font-semibold px-4 py-2 rounded-lg transition-colors"
-                    >
-                      Add to Cart — ${selectedSeq.price.toFixed(2)}
-                    </button>
-                  )}
-                  {!isLoggedIn && !purchasesLoading && (
-                    <p className="text-[11px] text-foreground/30 mt-3">
-                      <Link href="/login?redirect=/modiq" className="text-accent/60 hover:text-accent">
-                        Log in
-                      </Link>{" "}
-                      to see your purchases
-                    </p>
-                  )}
-                  <div className="mt-3">
-                    <Link
-                      href={`/sequences/${selectedSeq.slug}`}
-                      className="text-[12px] text-foreground/30 hover:text-foreground/50"
-                    >
-                      View Sequence &rarr;
-                    </Link>
+                  className="relative md:col-span-3 bg-accent/5 border-2 border-accent rounded-2xl p-8 text-left transition-all hover:scale-[1.02] hover:shadow-[0_8px_32px_rgba(239,68,68,0.15)] group"
+                >
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent text-white text-[11px] font-bold px-3 py-1 rounded-full tracking-wide whitespace-nowrap">
+                    &#9733; RECOMMENDED &#9733;
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* Vendor upload zone — appears below when vendor selected */}
-            {mapFromMode === "other-vendor" && (
-              <div className="mt-3 animate-[slideDown_0.25s_ease-out] space-y-3">
-                {/* Step A: .xsq file (required) */}
-                {!vendorXsqFile ? (
-                  <div onClick={(e) => { e.stopPropagation(); vendorXsqInputRef.current?.click(); }}>
-                    <div
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setVendorXsqIsDragging(true);
-                      }}
-                      onDragLeave={() => setVendorXsqIsDragging(false)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setVendorXsqIsDragging(false);
-                        const file = e.dataTransfer.files[0];
-                        if (file) handleVendorXsqFile(file);
-                      }}
-                      className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
-                        vendorXsqIsDragging
-                          ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
-                          : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
-                      }`}
-                    >
-                      <p className="text-[13px] text-foreground/40">
-                        <span className="text-red-400 font-medium">Required:</span>{" "}
-                        Drop{" "}
-                        <span className="text-foreground/60 font-semibold">.xsq sequence file</span>{" "}
-                        here or click to browse
-                      </p>
-                      <p className="text-[11px] text-foreground/30 mt-1">
-                        Enables smart filtering to only map models with effects
-                      </p>
-                    </div>
-                    <input
-                      ref={vendorXsqInputRef}
-                      type="file"
-                      accept=".xsq"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleVendorXsqFile(file);
-                      }}
+                  <div className="mb-4 mt-2">
+                    <Image
+                      src="/modiq-wordmark-v3-full.png"
+                      alt="Lights of Elm Ridge"
+                      width={140}
+                      height={40}
+                      className="opacity-90"
                     />
                   </div>
-                ) : (
-                  <div className="rounded-xl p-3 bg-green-500/5 border border-green-500/20 flex items-center gap-3">
-                    <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <h3 className="text-lg font-display font-bold text-foreground mb-2">
+                    Lights of Elm Ridge Sequence
+                  </h3>
+                  <p className="text-sm text-foreground/50">
+                    Choose from your purchased or free sequences &mdash; optimized for the best results
+                  </p>
+                  <div className="mt-4 text-accent text-sm font-semibold group-hover:translate-x-1 transition-transform">
+                    Get Started &rarr;
+                  </div>
+                </button>
+
+                {/* Other Vendor Card — Subtle (2 cols) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMapFromMode("other-vendor");
+                    setInputSubStep("vendor-flow");
+                  }}
+                  className="md:col-span-2 bg-surface border border-border rounded-2xl p-8 text-left transition-all hover:border-foreground/20 hover:scale-[1.01] group"
+                >
+                  <div className="mb-4 mt-2">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/30">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="16" y1="13" x2="8" y2="13" />
+                      <line x1="16" y1="17" x2="8" y2="17" />
+                      <polyline points="10 9 9 9 8 9" />
                     </svg>
+                  </div>
+                  <h3 className="text-lg font-display font-bold text-foreground mb-2">
+                    Other Vendor
+                  </h3>
+                  <p className="text-sm text-foreground/50">
+                    Upload a sequence package from another vendor to map to your layout
+                  </p>
+                  <div className="mt-4 text-foreground/40 text-sm font-semibold group-hover:translate-x-1 transition-transform">
+                    Upload Files &rarr;
+                  </div>
+                </button>
+              </div>
+
+              {/* How It Works */}
+              <div className="space-y-6">
+                <h2 className="text-2xl font-display font-bold text-center">
+                  How It Works
+                </h2>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <HowItWorksCard
+                    number="1"
+                    title="Select & Upload"
+                    description="Pick the sequence you purchased and upload your xlights_rgbeffects.xml file from your show folder."
+                  />
+                  <HowItWorksCard
+                    number="2"
+                    title="AI Matching"
+                    description="ModIQ analyzes model types, pixel counts, spatial positions, names, and submodel structures to find the best mapping."
+                  />
+                  <HowItWorksCard
+                    number="3"
+                    title="Download & Import"
+                    description="Get a .xmap file that imports directly into xLights&apos; mapping dialog. Tweak only the few low-confidence matches."
+                  />
+                </div>
+                <div className="text-center text-xs text-foreground/30 pt-6 border-t border-border">
+                  Your files are processed locally in your browser and never uploaded to any server.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── LOER Flow ────────────────────────────────── */}
+          {inputSubStep === "loer-flow" && (
+            <div className="max-w-[860px] mx-auto space-y-8">
+              {/* Flow header */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (selectedSequence && isAccessible) {
+                      setSelectedSequence("");
+                    } else {
+                      setInputSubStep("source-select");
+                      setSelectedSequence("");
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-sm text-foreground/40 hover:text-foreground/70 transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                  {selectedSequence && isAccessible ? "Change Sequence" : "Back to Start"}
+                </button>
+                <span className="text-sm text-foreground/30">
+                  Step {selectedSequence && isAccessible ? "2" : "1"} of 2
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent rounded-full transition-all duration-500"
+                  style={{ width: selectedSequence && isAccessible ? "100%" : "0%" }}
+                />
+              </div>
+
+              {!selectedSequence || !isAccessible ? (
+                /* Step 1: Choose Your Sequence */
+                <div className="space-y-8">
+                  <h2 className="text-xl font-display font-bold text-foreground">
+                    Choose Your Sequence
+                  </h2>
+
+                  {/* Purchased Sequences */}
+                  {isLoggedIn && purchasedSeqs.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40">
+                          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                          <line x1="3" y1="6" x2="21" y2="6" />
+                          <path d="M16 10a4 4 0 0 1-8 0" />
+                        </svg>
+                        <h3 className="text-sm font-bold text-foreground/60 uppercase tracking-wider">
+                          Your Purchased Sequences
+                        </h3>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {purchasedSeqs.map((seq) => (
+                          <button
+                            key={seq.slug}
+                            type="button"
+                            onClick={() => handleSequenceChange(seq.slug)}
+                            className="bg-surface rounded-xl border border-border p-4 text-left hover:border-accent/30 hover:bg-accent/[0.03] transition-all hover:scale-[1.02]"
+                          >
+                            <div className="text-2xl mb-2">{seq.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}</div>
+                            <div className="text-sm font-semibold text-foreground truncate">{seq.title}</div>
+                            <div className="text-xs text-foreground/40 truncate">{seq.artist}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Free Sequences */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-4">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40">
+                        <polyline points="20 12 20 22 4 22 4 12" />
+                        <rect x="2" y="7" width="20" height="5" />
+                        <line x1="12" y1="22" x2="12" y2="7" />
+                        <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+                        <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+                      </svg>
+                      <h3 className="text-sm font-bold text-foreground/60 uppercase tracking-wider">
+                        Free Sequences
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {freeSeqs.map((seq) => (
+                        <button
+                          key={seq.slug}
+                          type="button"
+                          onClick={() => handleSequenceChange(seq.slug)}
+                          className="bg-surface rounded-xl border border-border p-4 text-left hover:border-green-500/30 hover:bg-green-500/[0.03] transition-all hover:scale-[1.02]"
+                        >
+                          <div className="text-2xl mb-2">{seq.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}</div>
+                          <div className="text-sm font-semibold text-foreground truncate">{seq.title}</div>
+                          <div className="text-xs text-foreground/40 truncate">{seq.artist}</div>
+                          <span className="inline-block mt-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-semibold">
+                            FREE
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Login nudge */}
+                  {!isLoggedIn && !purchasesLoading && (
+                    <div className="text-center text-sm text-foreground/40">
+                      <Link href="/login?redirect=/modiq" className="text-accent/70 hover:text-accent">
+                        Log in
+                      </Link>{" "}
+                      to see your purchased sequences
+                    </div>
+                  )}
+
+                  {/* Browse link */}
+                  <div className="text-center">
+                    <Link
+                      href="/sequences"
+                      className="text-sm text-foreground/30 hover:text-foreground/50 transition-colors"
+                    >
+                      Browse All Sequences &rarr;
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                /* Step 2: Upload YOUR Layout */
+                <div className="space-y-6">
+                  {/* Selected sequence badge */}
+                  <div className="bg-accent/[0.04] border border-accent/20 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <div className="text-xl">{selectedSeq?.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] text-foreground truncate">{vendorXsqFile.name}</p>
-                      <p className="text-[11px] text-green-400/70">
-                        {vendorXsqModels?.length ?? 0} active layers detected
-                      </p>
+                      <div className="text-sm font-semibold text-foreground truncate">{selectedSeq?.title}</div>
+                      <div className="text-xs text-foreground/40 truncate">{selectedSeq?.artist}</div>
                     </div>
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setVendorXsqFile(null);
-                        setVendorXsqModels(null);
-                      }}
-                      className="text-foreground/30 hover:text-red-400 text-sm"
+                      onClick={() => setSelectedSequence("")}
+                      className="text-foreground/30 hover:text-foreground/60 text-xs"
                     >
-                      &times;
+                      Change
                     </button>
                   </div>
-                )}
 
-                {/* Step B: xlights_rgbeffects.xml (shows after .xsq uploaded) */}
-                {vendorXsqFile && !sourceFile && (
-                  <div onClick={(e) => { e.stopPropagation(); sourceFileInputRef.current?.click(); }}>
+                  <h2 className="text-xl font-display font-bold text-foreground">
+                    Upload <span className="text-accent">YOUR</span> Layout
+                  </h2>
+
+                  {/* Upload zone */}
+                  {!uploadedFile || !userLayout ? (
                     <div
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setSourceIsDragging(true);
-                      }}
-                      onDragLeave={() => setSourceIsDragging(false)}
                       onDrop={(e) => {
                         e.preventDefault();
-                        setSourceIsDragging(false);
+                        setIsDragging(false);
                         const file = e.dataTransfer.files[0];
-                        if (file) handleSourceFile(file);
+                        if (file) handleFile(file);
                       }}
-                      className={`rounded-xl p-5 text-center cursor-pointer transition-all ${
-                        sourceIsDragging
-                          ? "bg-indigo-500/[0.04] border border-dashed border-indigo-500"
-                          : "bg-white/[0.015] border border-dashed border-[#333] hover:border-indigo-500/30"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`rounded-xl p-7 text-center cursor-pointer transition-all ${
+                        isDragging
+                          ? "bg-accent/[0.04] border-2 border-dashed border-accent"
+                          : "bg-white/[0.015] border-2 border-dashed border-[#262626] hover:border-foreground/20"
                       }`}
                     >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xml"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFile(file);
+                        }}
+                        className="hidden"
+                      />
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mx-auto mb-2 text-foreground/30"
+                      >
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                      </svg>
                       <p className="text-[13px] text-foreground/40">
-                        Drop{" "}
+                        Drop your{" "}
                         <span className="text-foreground/60 font-semibold">
                           xlights_rgbeffects.xml
                         </span>{" "}
                         here or click to browse
                       </p>
-                      <p className="text-[11px] text-foreground/30 mt-1">
-                        From the vendor&apos;s sequence folder (contains model definitions)
+                      <p className="text-[11px] text-foreground/20 mt-1">
+                        Found in your xLights show folder
                       </p>
                     </div>
-                  </div>
-                )}
-
-                {/* Show uploaded layout file */}
-                {vendorXsqFile && sourceFile && sourceLayout && (
-                  <div className="rounded-xl p-3 bg-green-500/5 border border-green-500/20 flex items-center gap-3">
-                    <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] text-foreground truncate">{sourceFile.name}</p>
-                      <p className="text-[11px] text-foreground/40">
-                        {sourceLayout.models.length} models in layout
-                      </p>
+                  ) : (
+                    <div className="bg-accent/[0.04] border border-accent/[0.15] rounded-xl px-4 py-3.5 flex items-center gap-2.5 animate-[slideDown_0.25s_ease-out]">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        className="text-accent flex-shrink-0"
+                      >
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                      </svg>
+                      <span className="text-[13px] text-accent/80 flex-1 truncate">
+                        {uploadedFile.name}
+                      </span>
+                      <span className="text-[11px] text-green-400">
+                        &#10003; {userLayout.modelCount} models found
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUploadedFile(null);
+                          setUserLayout(null);
+                        }}
+                        className="text-foreground/30 hover:text-foreground/60 text-base px-1"
+                      >
+                        &times;
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSourceFile(null);
-                        setSourceLayout(null);
-                      }}
-                      className="text-foreground/30 hover:text-red-400 text-sm"
-                    >
-                      &times;
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
 
-          </div>
+                  {/* Error */}
+                  {error && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+                      {error}
+                    </div>
+                  )}
 
-          {/* Step 2 — YOUR LAYOUT */}
-          <div>
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold text-white transition-colors ${
-                  userLayout ? "bg-green-500" : (mapFromMode === "elm-ridge" && selectedSequence && isAccessible) || (mapFromMode === "other-vendor" && vendorXsqFile && sourceLayout) ? "bg-accent" : "bg-[#262626]"
-                }`}
-              >
-                {userLayout ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                  {/* ModIQ It Button */}
+                  <button
+                    onClick={runMapping}
+                    disabled={!canRun}
+                    className={`w-full py-4 rounded-xl font-display font-bold text-lg transition-all ${
+                      canRun
+                        ? "bg-gradient-to-r from-accent to-red-700 text-white shadow-[0_4px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_8px_32px_rgba(239,68,68,0.3)] hover:-translate-y-[1px]"
+                        : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
+                    }`}
                   >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  "2"
-                )}
-              </div>
-              <h2 className="text-lg font-semibold text-foreground/60">
-                Upload{" "}
-                <span className="text-white font-bold">YOUR</span> layout
-              </h2>
-            </div>
-
-            {!uploadedFile || !userLayout ? (
-              <div
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                  const file = e.dataTransfer.files[0];
-                  if (file) handleFile(file);
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
-                }}
-                onDragLeave={(e) => {
-                  e.preventDefault();
-                  setIsDragging(false);
-                }}
-                onClick={() => fileInputRef.current?.click()}
-                className={`rounded-xl p-7 text-center cursor-pointer transition-all ${
-                  isDragging
-                    ? "bg-accent/[0.04] border-2 border-dashed border-accent"
-                    : "bg-white/[0.015] border-2 border-dashed border-[#262626] hover:border-foreground/20"
-                }`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xml"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFile(file);
-                  }}
-                  className="hidden"
-                />
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mx-auto mb-2 text-foreground/30"
-                >
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
-                  <polyline points="9 22 9 12 15 12 15 22" />
-                </svg>
-                <p className="text-[13px] text-foreground/40">
-                  Drop your{" "}
-                  <span className="text-foreground/60 font-semibold">
-                    xlights_rgbeffects.xml
-                  </span>{" "}
-                  here or click to browse
-                </p>
-                <p className="text-[11px] text-foreground/20 mt-1">
-                  Found in your xLights show folder
-                </p>
-              </div>
-            ) : (
-              <div className="bg-accent/[0.04] border border-accent/[0.15] rounded-xl px-4 py-3.5 flex items-center gap-2.5 animate-[slideDown_0.25s_ease-out]">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  className="text-accent flex-shrink-0"
-                >
-                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
-                  <polyline points="9 22 9 12 15 12 15 22" />
-                </svg>
-                <span className="text-[13px] text-accent/80 flex-1 truncate">
-                  {uploadedFile.name}
-                </span>
-                <span className="text-[11px] text-green-400">
-                  ✓ {userLayout.modelCount} models found
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUploadedFile(null);
-                    setUserLayout(null);
-                  }}
-                  className="text-foreground/30 hover:text-foreground/60 text-base px-1"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
-              {error}
+                    {canRun ? "ModIQ It \u2192" : "ModIQ It"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ModIQ It Button */}
-          <button
-            onClick={runMapping}
-            disabled={!canRun}
-            className={`w-full py-4 rounded-xl font-display font-bold text-lg transition-all ${
-              canRun
-                ? "bg-gradient-to-r from-accent to-red-700 text-white shadow-[0_4px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_8px_32px_rgba(239,68,68,0.3)] hover:-translate-y-[1px]"
-                : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
-            }`}
-          >
-            {canRun ? "ModIQ It \u2192" : "ModIQ It"}
-          </button>
+          {/* ── Other Vendor Flow ─────────────────────────── */}
+          {inputSubStep === "vendor-flow" && (
+            <div className="max-w-[860px] mx-auto space-y-8">
+              {/* Flow header */}
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (vendorStep === 2) {
+                      setVendorStep(1);
+                    } else {
+                      setInputSubStep("source-select");
+                      setVendorStep(1);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 text-sm text-foreground/40 hover:text-foreground/70 transition-colors"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                  {vendorStep === 2 ? "Back" : "Back to Start"}
+                </button>
+                <span className="text-sm text-foreground/30">
+                  Step {vendorStep} of 2
+                </span>
+              </div>
 
-          {/* Keyboard hints */}
-          <p className="text-center text-[11px] text-foreground/15 tracking-wide">
-            Tab: next step · Enter: confirm · Esc: clear
-          </p>
-        </div>
+              {/* Progress bar */}
+              <div className="w-full h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-indigo-500 rounded-full transition-all duration-500"
+                  style={{ width: vendorStep === 1 ? "50%" : "100%" }}
+                />
+              </div>
+
+              {vendorStep === 1 ? (
+                /* Step 1: Upload Vendor's Sequence Files */
+                <div className="space-y-6">
+                  <h2 className="text-xl font-display font-bold text-foreground">
+                    Upload the Vendor&apos;s Sequence Files
+                  </h2>
+
+                  {/* Dual upload zones — side by side */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Vendor Layout (.xml) */}
+                    <div>
+                      <p className="text-xs font-semibold text-foreground/50 uppercase tracking-wider mb-2">
+                        Vendor&apos;s Layout
+                      </p>
+                      {!sourceFile || !sourceLayout ? (
+                        <div
+                          onClick={() => sourceFileInputRef.current?.click()}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setSourceIsDragging(true);
+                          }}
+                          onDragLeave={() => setSourceIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setSourceIsDragging(false);
+                            const file = e.dataTransfer.files[0];
+                            if (file) handleSourceFile(file);
+                          }}
+                          className={`rounded-xl p-6 text-center cursor-pointer transition-all min-h-[140px] flex flex-col items-center justify-center ${
+                            sourceIsDragging
+                              ? "bg-indigo-500/[0.04] border-2 border-dashed border-indigo-500"
+                              : "bg-white/[0.015] border-2 border-dashed border-[#333] hover:border-indigo-500/30"
+                          }`}
+                        >
+                          <input
+                            ref={sourceFileInputRef}
+                            type="file"
+                            accept=".xml"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleSourceFile(file);
+                            }}
+                            className="hidden"
+                          />
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/20 mb-2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                          </svg>
+                          <p className="text-[12px] text-foreground/40">
+                            <span className="text-foreground/60 font-semibold">xlights_rgbeffects.xml</span>
+                          </p>
+                          <p className="text-[10px] text-foreground/25 mt-0.5">
+                            Drop here or click to browse
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl p-4 bg-green-500/5 border border-green-500/20 min-h-[140px] flex items-center gap-3">
+                          <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] text-foreground truncate">{sourceFile.name}</p>
+                            <p className="text-[11px] text-foreground/40">
+                              {sourceLayout.models.length} models in layout
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSourceFile(null);
+                              setSourceLayout(null);
+                            }}
+                            className="text-foreground/30 hover:text-red-400 text-sm"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Vendor Sequence (.xsq) */}
+                    <div>
+                      <p className="text-xs font-semibold text-foreground/50 uppercase tracking-wider mb-2">
+                        Vendor&apos;s Sequence
+                      </p>
+                      {!vendorXsqFile ? (
+                        <div
+                          onClick={() => vendorXsqInputRef.current?.click()}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            setVendorXsqIsDragging(true);
+                          }}
+                          onDragLeave={() => setVendorXsqIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setVendorXsqIsDragging(false);
+                            const file = e.dataTransfer.files[0];
+                            if (file) handleVendorXsqFile(file);
+                          }}
+                          className={`rounded-xl p-6 text-center cursor-pointer transition-all min-h-[140px] flex flex-col items-center justify-center ${
+                            vendorXsqIsDragging
+                              ? "bg-indigo-500/[0.04] border-2 border-dashed border-indigo-500"
+                              : "bg-white/[0.015] border-2 border-dashed border-[#333] hover:border-indigo-500/30"
+                          }`}
+                        >
+                          <input
+                            ref={vendorXsqInputRef}
+                            type="file"
+                            accept=".xsq"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleVendorXsqFile(file);
+                            }}
+                          />
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/20 mb-2">
+                            <polygon points="23 7 16 12 23 17 23 7" />
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                          </svg>
+                          <p className="text-[12px] text-foreground/40">
+                            <span className="text-foreground/60 font-semibold">.xsq sequence file</span>
+                          </p>
+                          <p className="text-[10px] text-foreground/25 mt-0.5">
+                            Drop here or click to browse
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="rounded-xl p-4 bg-green-500/5 border border-green-500/20 min-h-[140px] flex items-center gap-3">
+                          <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] text-foreground truncate">{vendorXsqFile.name}</p>
+                            <p className="text-[11px] text-green-400/70">
+                              {vendorXsqModels?.length ?? 0} active layers detected
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVendorXsqFile(null);
+                              setVendorXsqModels(null);
+                            }}
+                            className="text-foreground/30 hover:text-red-400 text-sm"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Lightbulb hint */}
+                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 flex items-start gap-3">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 flex-shrink-0 mt-0.5">
+                      <path d="M9 18h6" />
+                      <path d="M10 22h4" />
+                      <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+                    </svg>
+                    <p className="text-[13px] text-foreground/50">
+                      Both files should be in the sequence package you downloaded from the vendor.
+                    </p>
+                  </div>
+
+                  {/* Error */}
+                  {error && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {/* Next button */}
+                  <button
+                    type="button"
+                    onClick={() => setVendorStep(2)}
+                    disabled={!vendorXsqFile || !sourceLayout}
+                    className={`w-full py-3.5 rounded-xl font-display font-bold text-base transition-all ${
+                      vendorXsqFile && sourceLayout
+                        ? "bg-indigo-500 text-white hover:bg-indigo-400"
+                        : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
+                    }`}
+                  >
+                    {vendorXsqFile && sourceLayout ? "Next \u2192" : "Upload both files to continue"}
+                  </button>
+                </div>
+              ) : (
+                /* Step 2: Upload YOUR Layout */
+                <div className="space-y-6">
+                  {/* Uploaded vendor files summary */}
+                  <div className="bg-indigo-500/[0.04] border border-indigo-500/20 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <svg className="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-[13px] text-foreground/60 flex-1">
+                      Vendor files ready &mdash; {sourceLayout?.models.length} models, {vendorXsqModels?.length ?? 0} active layers
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setVendorStep(1)}
+                      className="text-foreground/30 hover:text-foreground/60 text-xs"
+                    >
+                      Change
+                    </button>
+                  </div>
+
+                  <h2 className="text-xl font-display font-bold text-foreground">
+                    Upload <span className="text-indigo-400">YOUR</span> Layout
+                  </h2>
+
+                  {/* Upload zone */}
+                  {!uploadedFile || !userLayout ? (
+                    <div
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleFile(file);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`rounded-xl p-7 text-center cursor-pointer transition-all ${
+                        isDragging
+                          ? "bg-indigo-500/[0.04] border-2 border-dashed border-indigo-500"
+                          : "bg-white/[0.015] border-2 border-dashed border-[#262626] hover:border-foreground/20"
+                      }`}
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".xml"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFile(file);
+                        }}
+                        className="hidden"
+                      />
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mx-auto mb-2 text-foreground/30"
+                      >
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                      </svg>
+                      <p className="text-[13px] text-foreground/40">
+                        Drop your{" "}
+                        <span className="text-foreground/60 font-semibold">
+                          xlights_rgbeffects.xml
+                        </span>{" "}
+                        here or click to browse
+                      </p>
+                      <p className="text-[11px] text-foreground/20 mt-1">
+                        Found in your xLights show folder
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="bg-indigo-500/[0.04] border border-indigo-500/[0.15] rounded-xl px-4 py-3.5 flex items-center gap-2.5 animate-[slideDown_0.25s_ease-out]">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        className="text-indigo-400 flex-shrink-0"
+                      >
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                      </svg>
+                      <span className="text-[13px] text-indigo-400/80 flex-1 truncate">
+                        {uploadedFile.name}
+                      </span>
+                      <span className="text-[11px] text-green-400">
+                        &#10003; {userLayout.modelCount} models found
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUploadedFile(null);
+                          setUserLayout(null);
+                        }}
+                        className="text-foreground/30 hover:text-foreground/60 text-base px-1"
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Error */}
+                  {error && (
+                    <div className="bg-red-500/10 border border-red-500/30 rounded-lg px-4 py-3 text-red-400 text-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {/* ModIQ It Button */}
+                  <button
+                    onClick={runMapping}
+                    disabled={!canRun}
+                    className={`w-full py-4 rounded-xl font-display font-bold text-lg transition-all ${
+                      canRun
+                        ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-[0_4px_24px_rgba(99,102,241,0.2)] hover:shadow-[0_8px_32px_rgba(99,102,241,0.3)] hover:-translate-y-[1px]"
+                        : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
+                    }`}
+                  >
+                    {canRun ? "ModIQ It \u2192" : "ModIQ It"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Processing Step ────────────────────────────── */}
@@ -943,36 +1210,6 @@ export default function ModIQTool() {
         />
       )}
 
-      {/* ── How It Works (visible on input step) ───────── */}
-      {step === "input" && (
-        <div className="mt-16 space-y-8 max-w-5xl mx-auto">
-          <h2 className="text-2xl font-display font-bold text-center">
-            How It Works
-          </h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <HowItWorksCard
-              number="1"
-              title="Select & Upload"
-              description="Pick the sequence you purchased and upload your xlights_rgbeffects.xml file from your show folder."
-            />
-            <HowItWorksCard
-              number="2"
-              title="AI Matching"
-              description="ModIQ analyzes model types, pixel counts, spatial positions, names, and submodel structures to find the best mapping."
-            />
-            <HowItWorksCard
-              number="3"
-              title="Download & Import"
-              description="Get a .xmap file that imports directly into xLights' mapping dialog. Tweak only the few low-confidence matches."
-            />
-          </div>
-
-          <div className="text-center text-xs text-foreground/30 pt-8 border-t border-border">
-            Your files are processed locally in your browser and never uploaded
-            to any server.
-          </div>
-        </div>
-      )}
     </div>
   );
 }
