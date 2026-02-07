@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, memo } from "react";
 import type { ParsedModel } from "@/lib/modiq";
 import type { DragItem, DragAndDropHandlers } from "@/hooks/useDragAndDrop";
 import { ConfidenceBadge } from "./ConfidenceBadge";
+import { UsageBadge } from "./UsageBadge";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import { extractFamily } from "@/contexts/MappingPhaseContext";
 import { PANEL_STYLES } from "./panelStyles";
@@ -40,7 +41,7 @@ export interface UniversalSourcePanelProps {
   sourceFilter?: (model: ParsedModel) => boolean;
   /** Names of already-assigned user models */
   assignedNames?: Set<string>;
-  /** Label for the current destination being mapped */
+  /** Label for the current destination being mapped (source item name on left panel) */
   selectedDestLabel?: string;
   /** Pixel count for the source model being mapped (for tooltip comparison) */
   sourcePixelCount?: number;
@@ -48,6 +49,12 @@ export interface UniversalSourcePanelProps {
   onAccept: (userModelName: string) => void;
   /** Drag-and-drop handlers (optional — enables drag support) */
   dnd?: DragAndDropHandlers;
+  /** Reverse mapping: dest model name → set of source layer names mapped to it */
+  destToSourcesMap?: Map<string, Set<string>>;
+  /** Remove a specific source→dest link (for inline de-map from tooltip) */
+  onRemoveLink?: (sourceName: string, destName: string) => void;
+  /** Effect counts per source model name (for usage tooltip display) */
+  sourceEffectCounts?: Map<string, number>;
 }
 
 // ─── Component ──────────────────────────────────────────
@@ -61,6 +68,9 @@ export function UniversalSourcePanel({
   sourcePixelCount,
   onAccept,
   dnd,
+  destToSourcesMap,
+  onRemoveLink,
+  sourceEffectCounts,
 }: UniversalSourcePanelProps) {
   const [search, setSearch] = useState("");
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
@@ -261,6 +271,10 @@ export function UniversalSourcePanel({
                       isAssigned={assignedNames?.has(model.name) ?? false}
                       onAccept={onAccept}
                       dnd={dnd}
+                      destToSourcesMap={destToSourcesMap}
+                      onRemoveLink={onRemoveLink}
+                      sourceEffectCounts={sourceEffectCounts}
+                      currentSourceSelection={selectedDestLabel}
                     />
                   ));
                 }
@@ -284,6 +298,10 @@ export function UniversalSourcePanel({
                             isAssigned={assignedNames?.has(model.name) ?? false}
                             onAccept={onAccept}
                             dnd={dnd}
+                            destToSourcesMap={destToSourcesMap}
+                            onRemoveLink={onRemoveLink}
+                            sourceEffectCounts={sourceEffectCounts}
+                            currentSourceSelection={selectedDestLabel}
                           />
                         ))}
                       </div>
@@ -367,10 +385,14 @@ function FamilyRow({
         </span>
       )}
 
-      {/* In-use count */}
+      {/* In-use count badge */}
       {family.inUseCount > 0 && (
-        <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-400/70 font-semibold flex-shrink-0 tabular-nums">
-          {family.inUseCount} IN USE
+        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 tabular-nums border ${
+          family.inUseCount >= 2
+            ? "bg-red-500/10 text-red-400/70 border-red-500/20"
+            : "bg-amber-500/10 text-amber-400/70 border-amber-500/20"
+        }`}>
+          {family.inUseCount}
         </span>
       )}
 
@@ -487,11 +509,19 @@ const ModelCard = memo(function ModelCard({
   isAssigned,
   onAccept,
   dnd,
+  destToSourcesMap,
+  onRemoveLink,
+  sourceEffectCounts,
+  currentSourceSelection,
 }: {
   model: ParsedModel;
   isAssigned: boolean;
   onAccept: (name: string) => void;
   dnd?: DragAndDropHandlers;
+  destToSourcesMap?: Map<string, Set<string>>;
+  onRemoveLink?: (sourceName: string, destName: string) => void;
+  sourceEffectCounts?: Map<string, number>;
+  currentSourceSelection?: string;
 }) {
   const dragItem = useMemo<DragItem>(
     () => ({ sourceModelName: model.name }),
@@ -519,6 +549,14 @@ const ModelCard = memo(function ModelCard({
     : model.type.toUpperCase().slice(0, 6);
 
   const memberCount = model.memberModels?.length ?? 0;
+
+  // Usage data for this model
+  const mappedSources = destToSourcesMap?.get(model.name);
+  const usageCount = mappedSources?.size ?? 0;
+  const mappedSourceNames = useMemo(
+    () => (mappedSources ? Array.from(mappedSources) : []),
+    [mappedSources],
+  );
 
   return (
     <div
@@ -582,12 +620,17 @@ const ModelCard = memo(function ModelCard({
         </span>
       ) : null}
 
-      {/* In-use badge */}
-      {isAssigned && (
-        <span className="text-[9px] px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 font-semibold flex-shrink-0">
-          IN USE
-        </span>
-      )}
+      {/* Usage badge with tooltip (replaces old "IN USE" text) */}
+      {usageCount > 0 ? (
+        <UsageBadge
+          count={usageCount}
+          mappedSourceNames={mappedSourceNames}
+          sourceEffectCounts={sourceEffectCounts}
+          currentSourceSelection={currentSourceSelection}
+          onRemoveLink={onRemoveLink ? (sourceName) => onRemoveLink(sourceName, model.name) : undefined}
+          onAccept={() => onAccept(model.name)}
+        />
+      ) : null}
     </div>
   );
 });
