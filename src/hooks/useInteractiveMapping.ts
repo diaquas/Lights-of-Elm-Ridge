@@ -159,6 +159,7 @@ export function useInteractiveMapping(
   destModels: ParsedModel[],
   effectTree?: EffectTree | null,
   sequenceSlug?: string,
+  externalEffectCounts?: Record<string, number> | null,
 ): InteractiveMappingState {
   // Core state: dest model name → source model name (or null)
   // Only include auto-mappings that reached a real confidence tier (HIGH/MED/LOW)
@@ -803,7 +804,10 @@ export function useInteractiveMapping(
     if (!effectTree) return { sourceLayerMappings: [] as SourceLayerMapping[], hiddenZeroEffectCount: 0 };
 
     // Get effect counts for current sequence (if available)
-    const effectCounts = sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined;
+    // Use externally provided counts (from vendor .xsq parsing) if available,
+    // otherwise fall back to hardcoded SEQUENCE_EFFECT_COUNTS for elm-ridge mode.
+    const effectCounts = externalEffectCounts
+      ?? (sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined);
 
     const layers: SourceLayerMapping[] = [];
 
@@ -887,7 +891,7 @@ export function useInteractiveMapping(
     }
 
     return { sourceLayerMappings: layers, hiddenZeroEffectCount: 0 };
-  }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers, sequenceSlug]);
+  }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers, sequenceSlug, externalEffectCounts]);
 
   // V3 source-centric stats
   const sourceStats = useMemo(() => {

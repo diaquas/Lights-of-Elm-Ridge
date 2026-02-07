@@ -23,6 +23,7 @@ import {
   findBoostSuggestions,
   findSpinnerBoostSuggestions,
   parseXsqModels,
+  parseXsqEffectCounts,
 } from "@/lib/modiq";
 import type { ParsedLayout, MappingResult, DisplayType, EffectTree } from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
@@ -121,6 +122,7 @@ export default function ModIQTool() {
   // Vendor .xsq sequence file (required for other-vendor mode)
   const [vendorXsqFile, setVendorXsqFile] = useState<File | null>(null);
   const [vendorXsqModels, setVendorXsqModels] = useState<string[] | null>(null);
+  const [vendorEffectCounts, setVendorEffectCounts] = useState<Record<string, number> | null>(null);
   const vendorXsqInputRef = useRef<HTMLInputElement>(null);
   const [vendorXsqIsDragging, setVendorXsqIsDragging] = useState(false);
 
@@ -205,7 +207,9 @@ export default function ModIQTool() {
           setError("No model effects found in this sequence file.");
           return;
         }
+        const effectCnts = parseXsqEffectCounts(content);
         setVendorXsqModels(models);
+        setVendorEffectCounts(effectCnts);
         setVendorXsqFile(file);
       } catch (err) {
         setError(
@@ -346,7 +350,9 @@ export default function ModIQTool() {
       const seqEffectCounts =
         mapFromMode === "elm-ridge" && selectedSequence
           ? getSequenceEffectCounts(selectedSequence)
-          : undefined;
+          : mapFromMode === "other-vendor" && vendorEffectCounts
+            ? vendorEffectCounts
+            : undefined;
       tree = buildEffectTree(allSrcModels, seqModelList, seqEffectCounts);
       srcModels = getActiveSourceModels(allSrcModels, tree);
     } else {
@@ -402,7 +408,7 @@ export default function ModIQTool() {
     }
 
     setStep("results");
-  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq, vendorXsqModels, sessions, selectedSequence, uploadedFile]);
+  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq, vendorXsqModels, vendorEffectCounts, sessions, selectedSequence, uploadedFile]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -1414,6 +1420,7 @@ export default function ModIQTool() {
             sessionIdRef={sessionIdRef}
             sessions={sessions}
             onReset={handleReset}
+            vendorEffectCounts={mapFromMode === "other-vendor" ? vendorEffectCounts : undefined}
             onExported={(fileName, meta) => {
               setExportFileName(fileName);
               setExportDisplayCoverage(meta?.displayCoverage);
@@ -1472,6 +1479,7 @@ function InteractiveResults({
   sessions,
   onReset,
   onExported,
+  vendorEffectCounts,
 }: {
   initialResult: MappingResult;
   sourceModels: ParsedModel[];
@@ -1493,6 +1501,7 @@ function InteractiveResults({
     groupsCoveredChildCount?: number;
     directMappedCount?: number;
   }) => void;
+  vendorEffectCounts?: Record<string, number> | null;
 }) {
   const interactive = useInteractiveMapping(
     initialResult,
@@ -1500,6 +1509,7 @@ function InteractiveResults({
     destModels,
     effectTree,
     selectedSequence,
+    vendorEffectCounts,
   );
 
   // Auto-save mapping state to cloud on meaningful changes
