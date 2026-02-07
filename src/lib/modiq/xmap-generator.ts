@@ -139,7 +139,7 @@ function csvEscape(value: string): string {
  * Columns:
  *   Row, Confidence, Score, Source Model, Source Type, Source Pixels,
  *   Dest Model, Dest Type, Dest Pixels, Reason,
- *   Name, Spatial, Shape, Type, Pixels, Training Comments
+ *   Name, Spatial, Shape, Type, Pixels, Structure, Training Comments
  *
  * Submodel rows appear directly below their parent with "sub" in the Row column.
  * Unused dest models appear at the bottom with "unused" in the Row column.
@@ -167,6 +167,7 @@ export function generateMappingReport(
     "F:Shape",
     "F:Type",
     "F:Pixels",
+    "F:Structure",
     "Correct Dest Model",
     "Training Comments",
   ]);
@@ -197,6 +198,7 @@ export function generateMappingReport(
       m.factors.shape.toFixed(2),
       m.factors.type.toFixed(2),
       m.factors.pixels.toFixed(2),
+      (m.factors.structure ?? 0).toFixed(2),
       "",
       "",
     ]);

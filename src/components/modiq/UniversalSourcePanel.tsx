@@ -18,6 +18,7 @@ interface SuggestionItem {
     shape: number;
     type: number;
     pixels: number;
+    structure: number;
   };
 }
 

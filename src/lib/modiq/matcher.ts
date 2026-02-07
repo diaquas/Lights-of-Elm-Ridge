@@ -1,20 +1,21 @@
 /**
- * ModIQ — Matching Engine (V2)
+ * ModIQ — Matching Engine (V3)
  *
  * Three-phase matching: Groups first, then individual models, then submodels.
  *
- * Scoring priority (updated from community file analysis):
- *   1. Fuzzy Name Match       (40%) — the strongest signal
- *   2. Spatial Position        (25%) — disambiguates duplicates (Arch 1 vs Arch 2)
- *   3. Shape Classification    (15%) — circular, linear, matrix, point, custom
- *   4. Model Type (DisplayAs)  (12%) — xLights universal type
- *   5. Node Count              (8%)  — pixel/node count similarity (drift-tiered)
+ * Scoring priority (V3 — six-factor scoring):
+ *   1. Fuzzy Name Match       (38%) — the strongest signal
+ *   2. Spatial Position        (22%) — disambiguates duplicates (Arch 1 vs Arch 2)
+ *   3. Shape Classification    (13%) — circular, linear, matrix, point, custom
+ *   4. Model Type (DisplayAs)  (10%) — xLights universal type
+ *   5. Node Count              (10%) — pixel/node count similarity (ratio-based)
+ *   6. Structure               (7%)  — submodel count similarity
  *
  * Groups: matched primarily on name + type with boosted confidence.
  * Groups appear at the top of each confidence section.
  *
- * Training-derived rules (V2.1):
- *   - Node count drift tiers: 0→1.0, 1-99→0.5, 100-499→0.25, ≥500→0.0
+ * Training-derived rules (V2.1 → V3 updates):
+ *   - Node count: ratio-based scoring (V3), replaces V2.1 drift tiers
  *   - Moving Head / MH models excluded from matching
  *   - Matrix type-locked: only matches other Matrix types
  *   - "Pixel Pole" treated as synonym for "Pole"
@@ -70,6 +71,7 @@ export interface ModelMapping {
     shape: number;
     type: number;
     pixels: number;
+    structure: number;
   };
   reason: string;
   submodelMappings: SubmodelMapping[];
@@ -88,14 +90,20 @@ export interface MappingResult {
   unusedDestModels: ParsedModel[];
 }
 
-// ─── Weights (new priority order) ───────────────────────────────────
+// ─── Weights (V3 — six-factor scoring) ──────────────────────────────
+//
+// V3 changes:
+//   - Added `structure` factor (7%) for submodel/member count similarity
+//   - Boosted `pixels` from 8% → 10% (now ratio-based, more informative)
+//   - Reduced spatial, shape, type by ~2% each to accommodate new factors
 
 const WEIGHTS = {
-  name: 0.4,
-  spatial: 0.25,
-  shape: 0.15,
-  type: 0.12,
-  pixels: 0.08,
+  name: 0.38,
+  spatial: 0.22,
+  shape: 0.13,
+  type: 0.10,
+  pixels: 0.10,
+  structure: 0.07,
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -819,15 +827,22 @@ function scoreType(source: ParsedModel, dest: ParsedModel): number {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// FACTOR 5: Node Count (8%)
+// FACTOR 5: Node Count (10%) — ratio-based scoring
 // ═══════════════════════════════════════════════════════════════════
 
 /**
- * Node count scoring using drift tiers (from training data):
- *   drift 0       → 1.0
- *   drift 1-99    → 0.5
- *   drift 100-499 → 0.25
- *   drift ≥ 500   → 0.0
+ * Node count scoring using ratio-based approach (V3).
+ *
+ * Uses min/max ratio so a 100px model vs a 200px model gives 0.5 ratio.
+ * Applies a curve that rewards close matches more steeply:
+ *   ratio 1.00       → 1.0  (exact match)
+ *   ratio 0.95+      → 0.95 (nearly identical — e.g. 100 vs 105)
+ *   ratio 0.80+      → 0.80 (close — e.g. 100 vs 125)
+ *   ratio 0.50+      → 0.45 (moderate difference — e.g. 100 vs 200)
+ *   ratio 0.25+      → 0.15 (big difference — e.g. 100 vs 400)
+ *   ratio < 0.25     → 0.0  (enormous difference)
+ *
+ * Old drift-tier approach was too coarse (99 vs 100 was a cliff).
  */
 function scorePixels(source: ParsedModel, dest: ParsedModel): number {
   if (source.isGroup || dest.isGroup) return 0.5;
@@ -837,11 +852,47 @@ function scorePixels(source: ParsedModel, dest: ParsedModel): number {
 
   if (srcPx === 0 || destPx === 0) return 0.5;
 
-  const drift = Math.abs(srcPx - destPx);
-  if (drift === 0) return 1.0;
-  if (drift < 100) return 0.5;
-  if (drift < 500) return 0.25;
+  const ratio = Math.min(srcPx, destPx) / Math.max(srcPx, destPx);
+
+  if (ratio >= 0.95) return 0.9 + ratio * 0.1; // 0.995 → 1.0, 0.95 → 0.995
+  if (ratio >= 0.80) return 0.6 + (ratio - 0.80) * 2.0; // 0.80 → 0.60, 0.95 → 0.90
+  if (ratio >= 0.50) return 0.2 + (ratio - 0.50) * 1.33; // 0.50 → 0.20, 0.80 → 0.60
+  if (ratio >= 0.25) return (ratio - 0.25) * 0.8; // 0.25 → 0.0, 0.50 → 0.20
   return 0.0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FACTOR 6: Structure Score (7%) — submodel & member count similarity
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Structure scoring: compares submodel count and member count
+ * to catch models that look similar but have different internal structure.
+ *
+ * For individual models:  primarily submodel count similarity
+ * For groups:             returns 0.5 (member overlap handled separately)
+ * When both have no submodels/members: neutral 0.5
+ */
+function scoreStructure(source: ParsedModel, dest: ParsedModel): number {
+  if (source.isGroup || dest.isGroup) return 0.5;
+
+  const srcSubs = source.submodels?.length ?? 0;
+  const destSubs = dest.submodels?.length ?? 0;
+
+  // If neither has submodels, neutral — structure doesn't apply
+  if (srcSubs === 0 && destSubs === 0) return 0.5;
+
+  // If one has submodels and the other doesn't, mild penalty
+  if (srcSubs === 0 || destSubs === 0) return 0.2;
+
+  // Both have submodels — compare counts via ratio
+  const subRatio = Math.min(srcSubs, destSubs) / Math.max(srcSubs, destSubs);
+
+  // Exact match is best; close counts are good
+  if (subRatio >= 0.9) return 1.0;   // e.g. 9 vs 10 submodels
+  if (subRatio >= 0.7) return 0.8;   // e.g. 7 vs 10
+  if (subRatio >= 0.5) return 0.5;   // e.g. 5 vs 10
+  return 0.2;                         // very different structure
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1091,7 +1142,7 @@ function computeScore(
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
 ): { score: number; factors: ModelMapping["factors"] } {
-  const zeroFactors = { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 };
+  const zeroFactors = { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 };
 
   // ── Hard exclusions (return 0 immediately) ─────────────
 
@@ -1112,7 +1163,7 @@ function computeScore(
   if (polePair) {
     return {
       score: 1.0,
-      factors: { name: 1.0, spatial: 0.5, shape: 0.5, type: 1.0, pixels: 1.0 },
+      factors: { name: 1.0, spatial: 0.5, shape: 0.5, type: 1.0, pixels: 1.0, structure: 0.5 },
     };
   }
 
@@ -1175,6 +1226,7 @@ function computeScore(
     shape: scoreShape(source, dest),
     type: scoreType(source, dest),
     pixels: scorePixels(source, dest),
+    structure: scoreStructure(source, dest),
   };
 
   // ── Holiday mismatch penalty ───────────────────────────
@@ -1271,11 +1323,12 @@ function computeScore(
     !dest.isGroup
   ) {
     const houseScore =
-      factors.name * 0.25 +
+      factors.name * 0.23 +
       factors.spatial * WEIGHTS.spatial +
       factors.shape * WEIGHTS.shape +
-      factors.type * 0.27 +
-      factors.pixels * WEIGHTS.pixels;
+      factors.type * 0.25 +
+      factors.pixels * WEIGHTS.pixels +
+      factors.structure * WEIGHTS.structure;
     return { score: houseScore, factors };
   }
 
@@ -1284,7 +1337,8 @@ function computeScore(
     factors.spatial * WEIGHTS.spatial +
     factors.shape * WEIGHTS.shape +
     factors.type * WEIGHTS.type +
-    factors.pixels * WEIGHTS.pixels;
+    factors.pixels * WEIGHTS.pixels +
+    factors.structure * WEIGHTS.structure;
 
   // COORDINATE-BASED TIEBREAKER: When base names match but indices differ,
   // position becomes the primary differentiator.
@@ -1297,13 +1351,14 @@ function computeScore(
     const destIdx = extractIndex(dest.name);
     // If base names match well but indices differ, boost spatial weight significantly
     if (srcBase === destBase && srcBase.length > 0 && srcIdx !== destIdx) {
-      // Re-weight: spatial becomes 45%, name drops to 20%
+      // Re-weight: spatial becomes 42%, name drops to 18%
       score =
-        factors.name * 0.20 +
-        factors.spatial * 0.45 +
+        factors.name * 0.18 +
+        factors.spatial * 0.42 +
         factors.shape * WEIGHTS.shape +
         factors.type * WEIGHTS.type +
-        factors.pixels * WEIGHTS.pixels;
+        factors.pixels * WEIGHTS.pixels +
+        factors.structure * WEIGHTS.structure;
     }
   }
 
@@ -1362,10 +1417,16 @@ function generateReason(mapping: ModelMapping): string {
 
   if (factors.pixels >= 0.9 && !sourceModel.isGroup) {
     parts.push("Node count match");
-  } else if (factors.pixels < 0.5 && !sourceModel.isGroup) {
+  } else if (factors.pixels < 0.3 && !sourceModel.isGroup) {
     parts.push(
       `Node count differs (${sourceModel.pixelCount} vs ${destModel.pixelCount})`,
     );
+  }
+
+  if (factors.structure >= 0.9 && !sourceModel.isGroup) {
+    parts.push("Structure match");
+  } else if (factors.structure <= 0.2 && !sourceModel.isGroup) {
+    parts.push("Structure differs");
   }
 
   return parts.join(" · ") || "Best available match";
@@ -1685,6 +1746,7 @@ export function matchModels(
                   shape: scoreShape(src, destMatch),
                   type: scoreType(src, destMatch),
                   pixels: scorePixels(src, destMatch),
+                  structure: scoreStructure(src, destMatch),
                 },
                 reason: `Quantity match (${cls.replace(/_/g, " ")})`,
                 submodelMappings: subMappings,
@@ -1797,6 +1859,7 @@ export function matchModels(
                   shape: 0.5,
                   type: scoreType(src, destMatch),
                   pixels: 0.5,
+                  structure: 0.5,
                 },
                 reason: `Group quantity match (${cls.replace(/_/g, " ")})`,
                 submodelMappings: subMappings,
@@ -1970,7 +2033,7 @@ function greedyMatch(
         destModel: null,
         score: 0,
         confidence: "unmapped",
-        factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0 },
+        factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 },
         reason: "No suitable match found in your layout.",
         submodelMappings: [],
       });
