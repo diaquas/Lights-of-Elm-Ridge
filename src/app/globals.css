@@ -1626,18 +1626,7 @@ html {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-}
-
-.seq-card-dot.blue {
-  background: #3b82f6;
-}
-
-.seq-card-dot.amber {
-  background: #f59e0b;
-}
-
-.seq-card-dot.red {
-  background: #ef4444;
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .seq-card-artist {
