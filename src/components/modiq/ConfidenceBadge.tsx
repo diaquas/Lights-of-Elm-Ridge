@@ -198,7 +198,7 @@ function ReasoningTooltip({
                   /{Math.round(component.maxScore * 100)}
                 </span>
               </div>
-              <p className="text-[10px] text-foreground/30 mt-0.5">{component.description}</p>
+              <p className="text-[10px] text-foreground/40 mt-0.5">{component.description}</p>
             </div>
           ))}
         </div>
@@ -206,7 +206,7 @@ function ReasoningTooltip({
         {/* Why Not Higher */}
         {reasoning.whyNotHigher && reasoning.whyNotHigher.length > 0 && score < 0.85 && (
           <div className="px-4 py-2.5 bg-foreground/3 border-t border-border">
-            <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5">
+            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-1.5">
               Why not higher?
             </div>
             <ul className="space-y-0.5">
@@ -223,7 +223,7 @@ function ReasoningTooltip({
         {/* Pixel Comparison */}
         {reasoning.pixelComparison && (
           <div className="px-4 py-2.5 border-t border-border">
-            <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5">
+            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-1.5">
               Pixel Comparison
             </div>
             <div className="space-y-1">

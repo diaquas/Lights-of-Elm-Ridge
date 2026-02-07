@@ -500,6 +500,7 @@ function SpinnerListCard({
           onSkip();
         }}
         className="absolute top-2 right-2 p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors"
+        aria-label="Skip this group"
         title="Skip this group"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -560,7 +561,7 @@ function SpinnerListCard({
           {/* Best match preview */}
           {topSuggestion && (
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="text-[10px] text-foreground/30">Suggested:</span>
+              <span className="text-[10px] text-foreground/40">Suggested:</span>
               <span className="text-[12px] text-foreground/60 truncate">
                 {topSuggestion.model.name}
               </span>
@@ -578,6 +579,7 @@ function SpinnerListCard({
               onAccept(topSuggestion.model.name);
             }}
             className="p-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors flex-shrink-0"
+            aria-label="Accept suggested match"
             title="Accept suggested match"
           >
             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">

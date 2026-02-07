@@ -188,7 +188,7 @@ export default memo(function InteractiveMappingRow({
         </span>
 
         {/* Metadata */}
-        <span className="text-[11px] text-foreground/30 flex-shrink-0">
+        <span className="text-[11px] text-foreground/40 flex-shrink-0">
           {isDropTarget
             ? "Release to map"
             : selectedSourceModel
@@ -234,6 +234,7 @@ export default memo(function InteractiveMappingRow({
         <button
           type="button"
           data-action="pick"
+          aria-label="Search models"
           aria-haspopup="listbox"
           onClick={(e) => {
             e.stopPropagation();
@@ -342,6 +343,7 @@ export default memo(function InteractiveMappingRow({
             onClear();
           }}
           className="w-6 h-6 flex items-center justify-center rounded text-foreground/20 opacity-0 group-hover:opacity-100 hover:text-red-400 hover:bg-red-500/10 transition-all flex-shrink-0"
+          aria-label="Clear mapping"
           title="Clear mapping"
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

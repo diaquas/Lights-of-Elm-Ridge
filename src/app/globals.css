@@ -6449,4 +6449,14 @@ a.card-item {
   }
   .proc-step-enter { opacity: 1; transform: none; }
   .proc-stat-enter { opacity: 1; transform: none; }
+
+  /* Global: disable non-essential animations and transitions */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

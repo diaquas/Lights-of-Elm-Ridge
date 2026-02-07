@@ -193,6 +193,7 @@ export function UniversalSourcePanel({
           {search && (
             <button
               type="button"
+              aria-label="Clear search"
               onClick={() => setSearch("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60"
             >
@@ -225,7 +226,7 @@ export function UniversalSourcePanel({
         {/* AI Suggestions section */}
         {filteredSuggestions.length > 0 && (
           <div className="px-6 py-3 border-b border-border bg-surface/50">
-            <h4 className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-2">
+            <h4 className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
               AI Suggestions ({filteredSuggestions.length})
             </h4>
             <div className="space-y-1.5">
@@ -245,11 +246,11 @@ export function UniversalSourcePanel({
 
         {/* All Models section — grouped by family */}
         <div className="px-6 py-3">
-          <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-2">
+          <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
             All Models ({filteredModels.length}{hiddenCount > 0 ? `, ${hiddenCount} hidden` : ""})
           </div>
           {modelFamilies.length === 0 ? (
-            <div className="text-center py-8 text-foreground/30">
+            <div className="text-center py-8 text-foreground/40">
               <p className="text-sm">
                 {search
                   ? <>No models matching &ldquo;{search}&rdquo;</>
@@ -404,6 +405,7 @@ function FamilyRow({
           onHide();
         }}
         className="p-0.5 rounded text-foreground/15 hover:text-foreground/40 transition-colors flex-shrink-0"
+        aria-label={`Hide ${family.prefix} family`}
         title={`Hide ${family.prefix} family`}
       >
         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -486,7 +488,7 @@ const SuggestionCard = memo(function SuggestionCard({
         </div>
         <ConfidenceBadge score={sugg.score} reasoning={reasoning} size="sm" />
       </div>
-      <div className="flex items-center gap-2 text-[11px] text-foreground/30 mt-0.5">
+      <div className="flex items-center gap-2 text-[11px] text-foreground/40 mt-0.5">
         {sugg.model.pixelCount ? (
           <span>{sugg.model.pixelCount}px</span>
         ) : null}
