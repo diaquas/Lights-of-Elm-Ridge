@@ -28,6 +28,7 @@ import type { ParsedModel } from "@/lib/modiq";
 import type { BoostSuggestion, SpinnerBoostSuggestion, DisplayCoverage } from "@/lib/modiq";
 import { isDmxModel, getActiveSourceNamesForExport } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
+import { getMockupVideoId } from "@/data/youtube-loader";
 import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
 // useCart removed — cart interstitial no longer on landing page
 import {
@@ -537,18 +538,42 @@ export default function ModIQTool() {
                         </h3>
                       </div>
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {purchasedSeqs.map((seq) => (
-                          <button
-                            key={seq.slug}
-                            type="button"
-                            onClick={() => handleSequenceChange(seq.slug)}
-                            className="bg-surface rounded-xl border border-border p-4 text-left hover:border-accent/30 hover:bg-accent/[0.03] transition-all hover:scale-[1.02]"
-                          >
-                            <div className="text-2xl mb-2">{seq.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}</div>
-                            <div className="text-sm font-semibold text-foreground truncate">{seq.title}</div>
-                            <div className="text-xs text-foreground/40 truncate">{seq.artist}</div>
-                          </button>
-                        ))}
+                        {purchasedSeqs.map((seq) => {
+                          const mockupId = getMockupVideoId(seq.slug);
+                          const thumb = seq.thumbnailUrl
+                            || (mockupId ? `https://img.youtube.com/vi/${mockupId}/maxresdefault.jpg` : null)
+                            || (seq.youtubeId ? `https://img.youtube.com/vi/${seq.youtubeId}/maxresdefault.jpg` : null);
+                          return (
+                            <button
+                              key={seq.slug}
+                              type="button"
+                              onClick={() => handleSequenceChange(seq.slug)}
+                              className="group/card bg-surface rounded-xl border border-border overflow-hidden text-left hover:border-accent/30 transition-all hover:scale-[1.02]"
+                            >
+                              <div className="relative aspect-[4/3] bg-[#111] overflow-hidden">
+                                {thumb ? (
+                                  <Image
+                                    src={thumb}
+                                    alt={seq.title}
+                                    fill
+                                    sizes="(max-width: 768px) 50vw, 25vw"
+                                    className="object-cover transition-transform duration-500 group-hover/card:scale-105"
+                                    loading="lazy"
+                                    unoptimized
+                                  />
+                                ) : (
+                                  <div className="absolute inset-0 flex items-center justify-center text-3xl">
+                                    {seq.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-3">
+                                <div className="text-sm font-semibold text-foreground truncate">{seq.title}</div>
+                                <div className="text-xs text-foreground/40 truncate">{seq.artist}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -568,21 +593,45 @@ export default function ModIQTool() {
                       </h3>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {freeSeqs.map((seq) => (
-                        <button
-                          key={seq.slug}
-                          type="button"
-                          onClick={() => handleSequenceChange(seq.slug)}
-                          className="bg-surface rounded-xl border border-border p-4 text-left hover:border-green-500/30 hover:bg-green-500/[0.03] transition-all hover:scale-[1.02]"
-                        >
-                          <div className="text-2xl mb-2">{seq.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}</div>
-                          <div className="text-sm font-semibold text-foreground truncate">{seq.title}</div>
-                          <div className="text-xs text-foreground/40 truncate">{seq.artist}</div>
-                          <span className="inline-block mt-2 text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-semibold">
-                            FREE
-                          </span>
-                        </button>
-                      ))}
+                      {freeSeqs.map((seq) => {
+                        const mockupId = getMockupVideoId(seq.slug);
+                        const thumb = seq.thumbnailUrl
+                          || (mockupId ? `https://img.youtube.com/vi/${mockupId}/maxresdefault.jpg` : null)
+                          || (seq.youtubeId ? `https://img.youtube.com/vi/${seq.youtubeId}/maxresdefault.jpg` : null);
+                        return (
+                          <button
+                            key={seq.slug}
+                            type="button"
+                            onClick={() => handleSequenceChange(seq.slug)}
+                            className="group/card bg-surface rounded-xl border border-border overflow-hidden text-left hover:border-green-500/30 transition-all hover:scale-[1.02]"
+                          >
+                            <div className="relative aspect-[4/3] bg-[#111] overflow-hidden">
+                              {thumb ? (
+                                <Image
+                                  src={thumb}
+                                  alt={seq.title}
+                                  fill
+                                  sizes="(max-width: 768px) 50vw, 25vw"
+                                  className="object-cover transition-transform duration-500 group-hover/card:scale-105"
+                                  loading="lazy"
+                                  unoptimized
+                                />
+                              ) : (
+                                <div className="absolute inset-0 flex items-center justify-center text-3xl">
+                                  {seq.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}
+                                </div>
+                              )}
+                              <span className="absolute top-2 right-2 text-[10px] bg-green-500/90 text-white px-2 py-0.5 rounded-full font-semibold">
+                                FREE
+                              </span>
+                            </div>
+                            <div className="p-3">
+                              <div className="text-sm font-semibold text-foreground truncate">{seq.title}</div>
+                              <div className="text-xs text-foreground/40 truncate">{seq.artist}</div>
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
