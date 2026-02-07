@@ -6377,3 +6377,76 @@ a.card-item {
     border: 1px solid #ddd;
   }
 }
+
+/* ── Enhanced Processing Screen ─────────────────────────── */
+
+@keyframes proc-progress {
+  from { stroke-dashoffset: var(--proc-circumference); }
+}
+
+@keyframes proc-pulse-ring {
+  0%, 100% { transform: scale(1); opacity: 0.15; }
+  50% { transform: scale(1.08); opacity: 0.35; }
+}
+
+@keyframes proc-step-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes proc-stat-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes proc-counter-bump {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
+@keyframes proc-dot-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+@keyframes proc-check-in {
+  from { transform: scale(0) rotate(-45deg); opacity: 0; }
+  to { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.proc-step-enter {
+  animation: proc-step-in 0.35s ease-out both;
+}
+
+.proc-stat-enter {
+  animation: proc-stat-in 0.4s ease-out both;
+}
+
+.proc-counter-bump {
+  animation: proc-counter-bump 0.3s ease-out;
+}
+
+.proc-check-enter {
+  animation: proc-check-in 0.3s ease-out both;
+}
+
+.proc-pulse-ring {
+  animation: proc-pulse-ring 2s ease-in-out infinite;
+}
+
+.proc-dot-pulse {
+  animation: proc-dot-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proc-step-enter,
+  .proc-stat-enter,
+  .proc-counter-bump,
+  .proc-check-enter,
+  .proc-pulse-ring,
+  .proc-dot-pulse {
+    animation: none !important;
+  }
+  .proc-step-enter { opacity: 1; transform: none; }
+  .proc-stat-enter { opacity: 1; transform: none; }
+}
