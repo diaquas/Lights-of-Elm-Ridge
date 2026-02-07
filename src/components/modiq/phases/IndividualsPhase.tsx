@@ -5,6 +5,8 @@ import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContex
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
+import { MetadataBadges } from "../MetadataBadges";
+import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { useItemFamilies } from "@/hooks/useItemFamilies";
@@ -21,21 +23,10 @@ export function IndividualsPhase() {
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("effects-desc");
 
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
   const mappedItems = phaseItems.filter((item) => item.isMapped);
-
-  const filteredUnmapped = useMemo(() => {
-    if (!search) return unmappedItems;
-    const q = search.toLowerCase();
-    return unmappedItems.filter(
-      (item) =>
-        item.sourceModel.name.toLowerCase().includes(q) ||
-        item.sourceModel.type.toLowerCase().includes(q),
-    );
-  }, [unmappedItems, search]);
-
-  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -58,6 +49,21 @@ export function IndividualsPhase() {
     }
     return map;
   }, [phaseItems, interactive]);
+
+  const filteredUnmapped = useMemo(() => {
+    let items = unmappedItems;
+    if (search) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (item) =>
+          item.sourceModel.name.toLowerCase().includes(q) ||
+          item.sourceModel.type.toLowerCase().includes(q),
+      );
+    }
+    return sortItems(items, sortBy, topSuggestionsMap);
+  }, [unmappedItems, search, sortBy, topSuggestionsMap]);
+
+  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
   // Suggestions for selected item
   const suggestions = useMemo(() => {
@@ -160,19 +166,22 @@ export function IndividualsPhase() {
           </p>
         </div>
 
-        {/* Search */}
+        {/* Search + Sort */}
         <div className={PANEL_STYLES.search.wrapper}>
-          <div className="relative">
-            <svg className={PANEL_STYLES.search.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Filter models..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={PANEL_STYLES.search.input}
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <svg className={PANEL_STYLES.search.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Filter models..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={PANEL_STYLES.search.input}
+              />
+            </div>
+            <SortDropdown value={sortBy} onChange={setSortBy} />
           </div>
         </div>
 
@@ -334,11 +343,9 @@ function ItemCard({
               {item.sourceModel.name}
             </span>
           </div>
-          <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground/30">
-            {item.sourceModel.pixelCount ? (
-              <span>{item.sourceModel.pixelCount}px</span>
-            ) : null}
-            <span>{item.sourceModel.type}</span>
+          <div className="flex items-center gap-2 mt-1">
+            <MetadataBadges item={item} />
+            <span className="text-[10px] text-foreground/25">{item.sourceModel.type}</span>
           </div>
 
           {/* Best match preview */}

@@ -6,6 +6,8 @@ import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
+import { MetadataBadges } from "../MetadataBadges";
+import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { useItemFamilies } from "@/hooks/useItemFamilies";
@@ -23,21 +25,10 @@ export function GroupsPhase() {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("effects-desc");
 
   const unmappedGroups = phaseItems.filter((item) => !item.isMapped);
   const mappedGroups = phaseItems.filter((item) => item.isMapped);
-
-  const filteredUnmapped = useMemo(() => {
-    if (!search) return unmappedGroups;
-    const q = search.toLowerCase();
-    return unmappedGroups.filter(
-      (item) =>
-        item.sourceModel.name.toLowerCase().includes(q) ||
-        item.sourceModel.type.toLowerCase().includes(q),
-    );
-  }, [unmappedGroups, search]);
-
-  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedGroupId);
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -60,6 +51,21 @@ export function GroupsPhase() {
     }
     return map;
   }, [phaseItems, interactive]);
+
+  const filteredUnmapped = useMemo(() => {
+    let items = unmappedGroups;
+    if (search) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (item) =>
+          item.sourceModel.name.toLowerCase().includes(q) ||
+          item.sourceModel.type.toLowerCase().includes(q),
+      );
+    }
+    return sortItems(items, sortBy, topSuggestionsMap);
+  }, [unmappedGroups, search, sortBy, topSuggestionsMap]);
+
+  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedGroupId);
 
   // Suggestions for selected group
   const suggestions = useMemo(() => {
@@ -159,19 +165,22 @@ export function GroupsPhase() {
           </p>
         </div>
 
-        {/* Search */}
+        {/* Search + Sort */}
         <div className={PANEL_STYLES.search.wrapper}>
-          <div className="relative">
-            <svg className={PANEL_STYLES.search.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Filter groups..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={PANEL_STYLES.search.input}
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <svg className={PANEL_STYLES.search.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Filter groups..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={PANEL_STYLES.search.input}
+              />
+            </div>
+            <SortDropdown value={sortBy} onChange={setSortBy} />
           </div>
         </div>
 
@@ -498,11 +507,11 @@ function GroupListCard({
               {group.sourceModel.name}
             </span>
           </div>
-          <div className="flex items-center gap-2 mt-1 text-[11px] text-foreground/40">
-            <span>{group.memberNames.length} members</span>
+          <div className="flex items-center gap-2 mt-1">
+            <MetadataBadges item={group} />
             {group.coveredChildCount > 0 && (
-              <span className="text-teal-400/60">
-                &middot; covers {group.coveredChildCount} children
+              <span className="text-[11px] text-teal-400/60">
+                covers {group.coveredChildCount} children
               </span>
             )}
           </div>
