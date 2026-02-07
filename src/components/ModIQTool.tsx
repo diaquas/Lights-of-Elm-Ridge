@@ -16,6 +16,7 @@ import {
   generateMappingReport,
   downloadMappingReport,
   getSequenceModelList,
+  getSequenceEffectCounts,
   buildEffectTree,
   getActiveSourceModels,
   computeDisplayCoverage,
@@ -340,7 +341,13 @@ export default function ModIQTool() {
     }
 
     if (seqModelList) {
-      tree = buildEffectTree(allSrcModels, seqModelList);
+      // Get effect counts to filter out false-positive groups
+      // (groups that appear in SEQUENCE_MODELS as containers but have 0 direct effects)
+      const seqEffectCounts =
+        mapFromMode === "elm-ridge" && selectedSequence
+          ? getSequenceEffectCounts(selectedSequence)
+          : undefined;
+      tree = buildEffectTree(allSrcModels, seqModelList, seqEffectCounts);
       srcModels = getActiveSourceModels(allSrcModels, tree);
     } else {
       srcModels = allSrcModels;
