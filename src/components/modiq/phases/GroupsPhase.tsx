@@ -6,9 +6,8 @@ import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
-import { MetadataBadges } from "../MetadataBadges";
+import { MetadataBadges, HeroEffectBadge, EffectsCoverageBar } from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
-import { ZeroEffectSection } from "../ZeroEffectSection";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { useItemFamilies } from "@/hooks/useItemFamilies";
@@ -30,16 +29,6 @@ export function GroupsPhase() {
 
   const unmappedGroups = phaseItems.filter((item) => !item.isMapped);
   const mappedGroups = phaseItems.filter((item) => item.isMapped);
-
-  // Split unmapped into with-effects (main list) and zero-effects (collapsed)
-  const unmappedWithEffects = useMemo(
-    () => unmappedGroups.filter((item) => item.effectCount > 0),
-    [unmappedGroups],
-  );
-  const unmappedZeroEffects = useMemo(
-    () => unmappedGroups.filter((item) => item.effectCount === 0),
-    [unmappedGroups],
-  );
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -64,7 +53,7 @@ export function GroupsPhase() {
   }, [phaseItems, interactive]);
 
   const filteredUnmapped = useMemo(() => {
-    let items = unmappedWithEffects;
+    let items = unmappedGroups;
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -74,7 +63,7 @@ export function GroupsPhase() {
       );
     }
     return sortItems(items, sortBy, topSuggestionsMap);
-  }, [unmappedWithEffects, search, sortBy, topSuggestionsMap]);
+  }, [unmappedGroups, search, sortBy, topSuggestionsMap]);
 
   const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedGroupId);
 
@@ -159,12 +148,6 @@ export function GroupsPhase() {
     setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
   };
 
-  const handleSkipAllZeroEffects = useCallback(() => {
-    for (const item of unmappedZeroEffects) {
-      interactive.skipSourceLayer(item.sourceModel.name);
-    }
-  }, [unmappedZeroEffects, interactive]);
-
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left: Group List */}
@@ -177,14 +160,15 @@ export function GroupsPhase() {
             Model Groups
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
-            {unmappedWithEffects.length} groups need matching
-            {unmappedZeroEffects.length > 0 && (
-              <span className="text-foreground/20"> &middot; {unmappedZeroEffects.length} with 0 effects</span>
-            )}
+            {unmappedGroups.length} groups need matching
             {mappedGroups.length > 0 && (
               <span> &middot; {mappedGroups.length} already mapped</span>
             )}
           </p>
+          <EffectsCoverageBar
+            mappedEffects={mappedGroups.reduce((sum, g) => sum + g.effectCount, 0)}
+            totalEffects={phaseItems.reduce((sum, g) => sum + g.effectCount, 0)}
+          />
         </div>
 
         {/* Search + Sort */}
@@ -270,11 +254,11 @@ export function GroupsPhase() {
             })}
           </div>
 
-          <ZeroEffectSection
-            items={unmappedZeroEffects}
-            onSkipAll={handleSkipAllZeroEffects}
-            phaseLabel="groups"
-          />
+          {interactive.hiddenZeroEffectCount > 0 && (
+            <p className="mt-4 text-[11px] text-foreground/25 text-center">
+              {interactive.hiddenZeroEffectCount} model{interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0 effects not shown &mdash; no visual impact in this sequence
+            </p>
+          )}
 
           {mappedGroups.length > 0 && (
             <details className="mt-6">
@@ -500,7 +484,10 @@ function GroupListCard({
         </svg>
       </button>
 
-      <div className="flex items-start gap-2.5 pr-6">
+      <div className="flex items-start gap-2 pr-6">
+        {/* Hero Effect Badge */}
+        <HeroEffectBadge count={group.effectCount} />
+
         {/* Checkbox */}
         <button
           type="button"
@@ -509,7 +496,7 @@ function GroupListCard({
             onCheck();
           }}
           className={`
-            mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0
+            mt-1.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0
             transition-all duration-200
             ${isChecked ? "bg-accent border-accent" : "border-foreground/20 hover:border-foreground/40"}
           `}
@@ -580,6 +567,7 @@ function GroupListCard({
 const GroupListCardMemo = memo(GroupListCard, (prev, next) =>
   prev.group.sourceModel === next.group.sourceModel &&
   prev.group.isMapped === next.group.isMapped &&
+  prev.group.effectCount === next.group.effectCount &&
   prev.group.coveredChildCount === next.group.coveredChildCount &&
   prev.isSelected === next.isSelected &&
   prev.isChecked === next.isChecked &&

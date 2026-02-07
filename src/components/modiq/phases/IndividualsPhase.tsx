@@ -5,9 +5,8 @@ import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContex
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
-import { MetadataBadges } from "../MetadataBadges";
+import { MetadataBadges, HeroEffectBadge, EffectsCoverageBar } from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
-import { ZeroEffectSection } from "../ZeroEffectSection";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { useItemFamilies } from "@/hooks/useItemFamilies";
@@ -28,16 +27,6 @@ export function IndividualsPhase() {
 
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
   const mappedItems = phaseItems.filter((item) => item.isMapped);
-
-  // Split unmapped into with-effects (main list) and zero-effects (collapsed)
-  const unmappedWithEffects = useMemo(
-    () => unmappedItems.filter((item) => item.effectCount > 0),
-    [unmappedItems],
-  );
-  const unmappedZeroEffects = useMemo(
-    () => unmappedItems.filter((item) => item.effectCount === 0),
-    [unmappedItems],
-  );
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -62,7 +51,7 @@ export function IndividualsPhase() {
   }, [phaseItems, interactive]);
 
   const filteredUnmapped = useMemo(() => {
-    let items = unmappedWithEffects;
+    let items = unmappedItems;
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -72,7 +61,7 @@ export function IndividualsPhase() {
       );
     }
     return sortItems(items, sortBy, topSuggestionsMap);
-  }, [unmappedWithEffects, search, sortBy, topSuggestionsMap]);
+  }, [unmappedItems, search, sortBy, topSuggestionsMap]);
 
   const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
@@ -129,12 +118,6 @@ export function IndividualsPhase() {
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
-  const handleSkipAllZeroEffects = useCallback(() => {
-    for (const item of unmappedZeroEffects) {
-      interactive.skipSourceLayer(item.sourceModel.name);
-    }
-  }, [unmappedZeroEffects, interactive]);
-
   // Handle drops on left panel items
   const handleDropOnItem = (sourceName: string, e: React.DragEvent) => {
     e.preventDefault();
@@ -178,14 +161,15 @@ export function IndividualsPhase() {
             Individual Models
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
-            {unmappedWithEffects.length} models need matching
-            {unmappedZeroEffects.length > 0 && (
-              <span className="text-foreground/20"> &middot; {unmappedZeroEffects.length} with 0 effects</span>
-            )}
+            {unmappedItems.length} models need matching
             {mappedItems.length > 0 && (
               <span> &middot; {mappedItems.length} already mapped</span>
             )}
           </p>
+          <EffectsCoverageBar
+            mappedEffects={mappedItems.reduce((sum, i) => sum + i.effectCount, 0)}
+            totalEffects={phaseItems.reduce((sum, i) => sum + i.effectCount, 0)}
+          />
         </div>
 
         {/* Search + Sort */}
@@ -240,11 +224,11 @@ export function IndividualsPhase() {
             })}
           </div>
 
-          <ZeroEffectSection
-            items={unmappedZeroEffects}
-            onSkipAll={handleSkipAllZeroEffects}
-            phaseLabel="models"
-          />
+          {interactive.hiddenZeroEffectCount > 0 && (
+            <p className="mt-4 text-[11px] text-foreground/25 text-center">
+              {interactive.hiddenZeroEffectCount} model{interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0 effects not shown &mdash; no visual impact in this sequence
+            </p>
+          )}
         </div>
       </div>
 
@@ -364,7 +348,10 @@ function ItemCard({
         </svg>
       </button>
 
-      <div className="flex items-start gap-2.5 pr-6">
+      <div className="flex items-start gap-2 pr-6">
+        {/* Hero Effect Badge */}
+        <HeroEffectBadge count={item.effectCount} />
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={PANEL_STYLES.card.title}>
@@ -412,6 +399,7 @@ function ItemCard({
 const ItemCardMemo = memo(ItemCard, (prev, next) =>
   prev.item.sourceModel === next.item.sourceModel &&
   prev.item.isMapped === next.item.isMapped &&
+  prev.item.effectCount === next.item.effectCount &&
   prev.isSelected === next.isSelected &&
   prev.isDropTarget === next.isDropTarget &&
   prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&

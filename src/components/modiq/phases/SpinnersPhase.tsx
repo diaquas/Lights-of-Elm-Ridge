@@ -6,9 +6,8 @@ import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
-import { MetadataBadges } from "../MetadataBadges";
+import { MetadataBadges, HeroEffectBadge, EffectsCoverageBar } from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
-import { ZeroEffectSection } from "../ZeroEffectSection";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { useItemFamilies } from "@/hooks/useItemFamilies";
@@ -42,16 +41,6 @@ export function SpinnersPhase() {
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
   const mappedItems = phaseItems.filter((item) => item.isMapped);
 
-  // Split unmapped into with-effects (main list) and zero-effects (collapsed)
-  const unmappedWithEffects = useMemo(
-    () => unmappedItems.filter((item) => item.effectCount > 0),
-    [unmappedItems],
-  );
-  const unmappedZeroEffects = useMemo(
-    () => unmappedItems.filter((item) => item.effectCount === 0),
-    [unmappedItems],
-  );
-
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
     const map = new Map<string, SourceLayerMapping>();
@@ -75,7 +64,7 @@ export function SpinnersPhase() {
   }, [phaseItems, interactive]);
 
   const filteredUnmapped = useMemo(() => {
-    let items = unmappedWithEffects;
+    let items = unmappedItems;
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -85,7 +74,7 @@ export function SpinnersPhase() {
       );
     }
     return sortItems(items, sortBy, topSuggestionsMap);
-  }, [unmappedWithEffects, search, sortBy, topSuggestionsMap]);
+  }, [unmappedItems, search, sortBy, topSuggestionsMap]);
 
   const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
 
@@ -167,12 +156,6 @@ export function SpinnersPhase() {
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
-  const handleSkipAllZeroEffects = useCallback(() => {
-    for (const item of unmappedZeroEffects) {
-      interactive.skipSourceLayer(item.sourceModel.name);
-    }
-  }, [unmappedZeroEffects, interactive]);
-
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left: Submodel Group List */}
@@ -185,14 +168,15 @@ export function SpinnersPhase() {
             Submodel Groups
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
-            {unmappedWithEffects.length} groups need matching
-            {unmappedZeroEffects.length > 0 && (
-              <span className="text-foreground/20"> &middot; {unmappedZeroEffects.length} with 0 effects</span>
-            )}
+            {unmappedItems.length} groups need matching
             {mappedItems.length > 0 && (
               <span> &middot; {mappedItems.length} already mapped</span>
             )}
           </p>
+          <EffectsCoverageBar
+            mappedEffects={mappedItems.reduce((sum, i) => sum + i.effectCount, 0)}
+            totalEffects={phaseItems.reduce((sum, i) => sum + i.effectCount, 0)}
+          />
         </div>
 
         {/* Search + Sort */}
@@ -278,11 +262,11 @@ export function SpinnersPhase() {
             })}
           </div>
 
-          <ZeroEffectSection
-            items={unmappedZeroEffects}
-            onSkipAll={handleSkipAllZeroEffects}
-            phaseLabel="submodel groups"
-          />
+          {interactive.hiddenZeroEffectCount > 0 && (
+            <p className="mt-4 text-[11px] text-foreground/25 text-center">
+              {interactive.hiddenZeroEffectCount} model{interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0 effects not shown &mdash; no visual impact in this sequence
+            </p>
+          )}
 
           {mappedItems.length > 0 && (
             <details className="mt-6">
@@ -510,7 +494,10 @@ function SpinnerListCard({
         </svg>
       </button>
 
-      <div className="flex items-start gap-2.5 pr-6">
+      <div className="flex items-start gap-2 pr-6">
+        {/* Hero Effect Badge */}
+        <HeroEffectBadge count={item.effectCount} />
+
         {/* Checkbox */}
         <button
           type="button"
@@ -519,7 +506,7 @@ function SpinnerListCard({
             onCheck();
           }}
           className={`
-            mt-0.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0
+            mt-1.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0
             transition-all duration-200
             ${isChecked ? "bg-accent border-accent" : "border-foreground/20 hover:border-foreground/40"}
           `}
@@ -593,6 +580,7 @@ function SpinnerListCard({
 const SpinnerListCardMemo = memo(SpinnerListCard, (prev, next) =>
   prev.item.sourceModel === next.item.sourceModel &&
   prev.item.isMapped === next.item.isMapped &&
+  prev.item.effectCount === next.item.effectCount &&
   prev.isSelected === next.isSelected &&
   prev.isChecked === next.isChecked &&
   prev.isDropTarget === next.isDropTarget &&
