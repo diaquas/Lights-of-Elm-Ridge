@@ -483,6 +483,19 @@ function normalizeName(name: string): string {
   n = n.replace(/^\d{1,3}(\.\d{1,3})*(\.\d+)?(grp|mod|sub)?\s+/i, "");
   // Also strip simple leading "NN " pattern (e.g., "01 ", "15 ")
   n = n.replace(/^\d{1,2}\s+/, "");
+  // Strip channel/universe/port prefixes common in community layouts:
+  //   "CH01 Arch 1" → "Arch 1", "Ch-01 Arch" → "Arch"
+  //   "U1-Arch 1" → "Arch 1", "Univ1 Arch" → "Arch"
+  //   "Port 1 - Arch" → "Arch", "P1S1 - Arch" → "Arch"
+  //   "[1] Arch" → "Arch", "(01) Arch" → "Arch"
+  n = n.replace(/^ch[-.\s]?\d{1,3}\s*/i, "");
+  n = n.replace(/^u(?:niv)?\d{1,3}[-.\s]?\s*/i, "");
+  n = n.replace(/^p\d{1,2}s\d{1,2}\s*[-–]\s*/i, "");
+  n = n.replace(/^port\s*\d{1,2}\s*[-–]\s*/i, "");
+  n = n.replace(/^\[\d{1,3}\]\s*/, "");
+  n = n.replace(/^\(\d{1,3}\)\s*/, "");
+  // Strip "NN - " dash-separated numeric prefix (e.g., "01 - Arch 1")
+  n = n.replace(/^\d{1,2}\s*[-–]\s*/, "");
   // Replace separators with spaces
   n = n.replace(/[-_.\t]+/g, " ");
   // Strip noise words (keep "no" — it's meaningful for group matching)
