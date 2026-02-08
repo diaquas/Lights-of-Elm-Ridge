@@ -1303,15 +1303,40 @@ function getInterchangeClass(model: ParsedModel): string | null {
  * prop — applied as a supplementary score boost.
  */
 const VENDOR_PIXEL_HINTS: Record<number, string> = {
+  // CCC Spinners (Christmas Concepts Corp)
   269: "ccc_spinner_18",
   451: "ccc_spinner_24",
   519: "ccc_spinner_25",
   596: "ccc_spinner_36",
-  640: "ge_flake_640",
-  800: "efl_showstopper",
+  768: "ccc_spinner_36_v2",
   1046: "ccc_spinner_48",
-  1117: "boscoyo_mesmerizer",
+  // Gilbert Engineering (GE) products
+  640: "ge_flake_640",
   1529: "ge_overlord",
+  1200: "ge_rosa_grande",
+  960: "ge_fuzion",
+  1800: "ge_click_click_boom",
+  // EFL Designs
+  800: "efl_showstopper",
+  400: "efl_babyflake",
+  // Boscoyo
+  1117: "boscoyo_mesmerizer",
+  720: "boscoyo_whimsical",
+  // Holiday Coro
+  480: "holidaycoro_24_spinner",
+  // Common matrix sizes (P5/P10 panels)
+  512: "p10_matrix_16x32",
+  1024: "p10_matrix_32x32",
+  2048: "p5_matrix_64x32",
+  4096: "p5_matrix_64x64",
+  // Standard small props (common pixel counts across vendors)
+  50: "standard_small_prop",
+  100: "standard_medium_prop",
+  150: "standard_custom_prop",
+  200: "standard_candy_cane",
+  250: "standard_tree_250",
+  300: "standard_arch_300",
+  500: "standard_outline_500",
 };
 
 function computeScore(
