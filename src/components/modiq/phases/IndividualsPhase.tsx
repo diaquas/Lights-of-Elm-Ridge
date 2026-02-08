@@ -1,11 +1,18 @@
 "use client";
 
 import { useState, useMemo, useCallback, memo } from "react";
-import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
+import {
+  useMappingPhase,
+  findNextUnmapped,
+} from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
-import { MetadataBadges, HeroEffectBadge, EffectsCoverageBar } from "../MetadataBadges";
+import {
+  MetadataBadges,
+  HeroEffectBadge,
+  EffectsCoverageBar,
+} from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
@@ -45,12 +52,15 @@ export function IndividualsPhase() {
   }, [phaseItems]);
 
   const selectedItem = selectedItemId
-    ? phaseItemsByName.get(selectedItemId) ?? null
+    ? (phaseItemsByName.get(selectedItemId) ?? null)
     : null;
 
   // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
   const topSuggestionsMap = useMemo(() => {
-    const map = new Map<string, { model: { name: string }; score: number } | null>();
+    const map = new Map<
+      string,
+      { model: { name: string }; score: number } | null
+    >();
     for (const item of phaseItems) {
       if (item.isMapped) continue;
       const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
@@ -72,12 +82,17 @@ export function IndividualsPhase() {
     return sortItems(items, sortBy, topSuggestionsMap);
   }, [unmappedItems, search, sortBy, topSuggestionsMap]);
 
-  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedItemId);
+  const { families, toggle, isExpanded } = useItemFamilies(
+    filteredUnmapped,
+    selectedItemId,
+  );
 
   // Suggestions for selected item
   const suggestions = useMemo(() => {
     if (!selectedItem) return [];
-    return interactive.getSuggestionsForLayer(selectedItem.sourceModel).slice(0, 10);
+    return interactive
+      .getSuggestionsForLayer(selectedItem.sourceModel)
+      .slice(0, 10);
   }, [interactive, selectedItem]);
 
   // Type filter: exclude all group types from Individuals source panel
@@ -127,6 +142,17 @@ export function IndividualsPhase() {
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
+  const handleSkipFamily = (familyItems: SourceLayerMapping[]) => {
+    for (const item of familyItems) {
+      interactive.skipSourceLayer(item.sourceModel.name);
+    }
+    const skippedNames = new Set(familyItems.map((i) => i.sourceModel.name));
+    const remaining = unmappedItems.filter(
+      (i) => !skippedNames.has(i.sourceModel.name),
+    );
+    setSelectedItemId(remaining[0]?.sourceModel.name ?? null);
+  };
+
   // Handle drops on left panel items
   const handleDropOnItem = (sourceName: string, e: React.DragEvent) => {
     e.preventDefault();
@@ -164,8 +190,18 @@ export function IndividualsPhase() {
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         <div className={PANEL_STYLES.header.wrapper}>
           <h2 className={PANEL_STYLES.header.title}>
-            <svg className="w-5 h-5 text-foreground/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            <svg
+              className="w-5 h-5 text-foreground/60"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+              />
             </svg>
             Individual Models
           </h2>
@@ -176,7 +212,10 @@ export function IndividualsPhase() {
             )}
           </p>
           <EffectsCoverageBar
-            mappedEffects={mappedItems.reduce((sum, i) => sum + i.effectCount, 0)}
+            mappedEffects={mappedItems.reduce(
+              (sum, i) => sum + i.effectCount,
+              0,
+            )}
             totalEffects={phaseItems.reduce((sum, i) => sum + i.effectCount, 0)}
           />
         </div>
@@ -185,8 +224,18 @@ export function IndividualsPhase() {
         <div className={PANEL_STYLES.search.wrapper}>
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
-              <svg className={PANEL_STYLES.search.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg
+                className={PANEL_STYLES.search.icon}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
               <input
                 type="text"
@@ -222,6 +271,7 @@ export function IndividualsPhase() {
                     count={family.items.length}
                     isExpanded={isExpanded(family.prefix)}
                     onToggle={() => toggle(family.prefix)}
+                    onSkipFamily={() => handleSkipFamily(family.items)}
                   />
                   {isExpanded(family.prefix) && (
                     <div className="space-y-1.5 pl-2 mt-1">
@@ -235,7 +285,9 @@ export function IndividualsPhase() {
 
           {interactive.hiddenZeroEffectCount > 0 && (
             <p className="mt-4 text-[11px] text-foreground/25 text-center">
-              {interactive.hiddenZeroEffectCount} model{interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0 effects not shown &mdash; no visual impact in this sequence
+              {interactive.hiddenZeroEffectCount} model
+              {interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0
+              effects not shown &mdash; no visual impact in this sequence
             </p>
           )}
         </div>
@@ -291,8 +343,18 @@ export function IndividualsPhase() {
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground/30">
             <div className="text-center">
-              <svg className="w-10 h-10 mx-auto mb-3 text-foreground/15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              <svg
+                className="w-10 h-10 mx-auto mb-3 text-foreground/15"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                />
               </svg>
               <p className="text-sm">Select a model to see suggestions</p>
             </div>
@@ -334,11 +396,13 @@ function ItemCard({
     <div
       className={`
         relative w-full p-3 rounded-lg text-left transition-all duration-200 cursor-pointer
-        ${isDropTarget
-          ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
-          : isSelected
-            ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
-            : "bg-surface border border-border hover:border-foreground/20"}
+        ${
+          isDropTarget
+            ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
+            : isSelected
+              ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
+              : "bg-surface border border-border hover:border-foreground/20"
+        }
       `}
       onClick={onClick}
       onDragOver={onDragOver}
@@ -357,8 +421,18 @@ function ItemCard({
         aria-label="Skip this model"
         title="Skip this model"
       >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
       </button>
 
@@ -374,7 +448,9 @@ function ItemCard({
           </div>
           <div className="flex items-center gap-2 mt-1">
             <MetadataBadges item={item} />
-            <span className="text-[10px] text-foreground/25">{item.sourceModel.type}</span>
+            <span className="text-[10px] text-foreground/25">
+              {item.sourceModel.type}
+            </span>
           </div>
 
           {/* Best match preview */}
@@ -401,7 +477,11 @@ function ItemCard({
             aria-label="Accept suggested match"
             title="Accept suggested match"
           >
-            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-3.5 h-3.5"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
             </svg>
           </button>
@@ -411,12 +491,14 @@ function ItemCard({
   );
 }
 
-const ItemCardMemo = memo(ItemCard, (prev, next) =>
-  prev.item.sourceModel === next.item.sourceModel &&
-  prev.item.isMapped === next.item.isMapped &&
-  prev.item.effectCount === next.item.effectCount &&
-  prev.isSelected === next.isSelected &&
-  prev.isDropTarget === next.isDropTarget &&
-  prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
-  prev.topSuggestion?.score === next.topSuggestion?.score,
+const ItemCardMemo = memo(
+  ItemCard,
+  (prev, next) =>
+    prev.item.sourceModel === next.item.sourceModel &&
+    prev.item.isMapped === next.item.isMapped &&
+    prev.item.effectCount === next.item.effectCount &&
+    prev.isSelected === next.isSelected &&
+    prev.isDropTarget === next.isDropTarget &&
+    prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
+    prev.topSuggestion?.score === next.topSuggestion?.score,
 );

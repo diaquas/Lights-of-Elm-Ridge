@@ -16,7 +16,7 @@
  *
  * Training-derived rules (V2.1 → V3 updates):
  *   - Node count: ratio-based scoring (V3), replaces V2.1 drift tiers
- *   - Moving Head / MH models excluded from matching
+ *   - Moving Head / MH models isolated: only match other moving heads
  *   - Matrix type-locked: only matches other Matrix types
  *   - "Pixel Pole" treated as synonym for "Pole"
  *   - Floods type-locked: only match other floods
@@ -43,6 +43,8 @@
  *
  * Hard exclusion rules (V2.4):
  *   - DMX models excluded entirely (Pixel2DMX, Fog Machine, DMX Head, DmxGeneral)
+ *   - Moving Head isolation: MH/Moving Head models only match other moving heads
+ *     Detects MH prefix variants (MHR7, MH1), DMX channel names (Gobo, Pan, Tilt, etc.)
  *   - Extreme pixel count drift (≥1000) is a hard zero for non-group models
  */
 
@@ -1075,10 +1077,44 @@ function scoreStructure(source: ParsedModel, dest: ParsedModel): number {
 
 // ─── Hard Exclusion Helpers ────────────────────────────────────────
 
-/** Moving Head / MH models are DMX fixtures, never match to pixel models. */
+/**
+ * Moving Head detection.
+ *
+ * Moving heads are DMX-controlled spotlights (pan/tilt fixtures). They should
+ * ONLY match other moving heads, never pixel-based props.
+ *
+ * Name patterns:
+ *   - "Moving Head ..." / "MovingHead ..."
+ *   - Standalone "MH" word: "MH 1", "MH Left"
+ *   - MH prefix with identifier: "MHR7-Gobo", "MH1-Pan", "MH2"
+ *
+ * DMX channel names (only when model type is DMX):
+ *   - Pan, Tilt, Gobo, Focus, Prism, Shutter, Zoom, Color Wheel, Iris, Strobe
+ */
 function isMovingHead(model: ParsedModel): boolean {
-  const n = model.name.toLowerCase();
-  return /\bm\.?h\b|moving\s*head/i.test(n);
+  const n = model.name;
+
+  // "Moving Head" anywhere in name
+  if (/moving\s*head/i.test(n)) return true;
+
+  // Standalone "MH" as a word (e.g. "MH 1", "MH Left")
+  if (/\bm\.?h\b/i.test(n)) return true;
+
+  // MH prefix with alphanumeric identifier: MHR7, MH1, MH12, MH2R
+  // \bmh followed by optional letters then at least one digit
+  if (/\bmh\w*\d/i.test(n)) return true;
+
+  // DMX-type models with characteristic moving head channel/function names
+  if (model.type === "DMX" || /dmx/i.test(model.displayAs)) {
+    if (
+      /\b(pan|tilt|gobo|focus|prism|shutter|zoom|color\s*wheel|iris|strobe|frost)\b/i.test(
+        n,
+      )
+    )
+      return true;
+  }
+
+  return false;
 }
 
 /**
@@ -1357,12 +1393,18 @@ function computeScore(
   // ── Hard exclusions (return 0 immediately) ─────────────
 
   // Never match against DMX fixtures (Pixel2DMX, Fog Machine, DMX Head, etc.)
-  if (isDmxModel(dest) || isDmxModel(source)) {
+  // Exception: Moving heads are type=DMX but have their own isolation rule below.
+  const srcDmx = isDmxModel(source);
+  const destDmx = isDmxModel(dest);
+  const srcMH = isMovingHead(source);
+  const destMH = isMovingHead(dest);
+  if ((srcDmx && !srcMH) || (destDmx && !destMH)) {
     return { score: 0, factors: zeroFactors };
   }
 
-  // Never match against Moving Head / MH models
-  if (isMovingHead(dest) || isMovingHead(source)) {
+  // Moving Head isolation: moving heads can ONLY match other moving heads.
+  // If one side is MH and the other is not, hard zero.
+  if (srcMH !== destMH) {
     return { score: 0, factors: zeroFactors };
   }
 
@@ -2247,9 +2289,14 @@ export function matchModels(
  * Returns true if the pair should be SKIPPED (incompatible).
  */
 function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
-  // Skip DMX and moving head models
-  if (isDmxModel(dest) || isDmxModel(source)) return true;
-  if (isMovingHead(dest) || isMovingHead(source)) return true;
+  // Skip DMX models (except moving heads, which have their own isolation rule)
+  const srcMH = isMovingHead(source);
+  const destMH = isMovingHead(dest);
+  if ((isDmxModel(source) && !srcMH) || (isDmxModel(dest) && !destMH))
+    return true;
+
+  // Moving Head isolation: skip if exactly one side is a moving head
+  if (srcMH !== destMH) return true;
 
   // Matrix type-lock: matrix only matches matrix (unless both are groups)
   if (isMatrixType(source) !== isMatrixType(dest)) {

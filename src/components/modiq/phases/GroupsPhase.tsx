@@ -1,12 +1,19 @@
 "use client";
 
 import { useState, useMemo, useCallback, memo } from "react";
-import { useMappingPhase, findNextUnmapped } from "@/contexts/MappingPhaseContext";
+import {
+  useMappingPhase,
+  findNextUnmapped,
+} from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
-import { MetadataBadges, HeroEffectBadge, EffectsCoverageBar } from "../MetadataBadges";
+import {
+  MetadataBadges,
+  HeroEffectBadge,
+  EffectsCoverageBar,
+} from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
@@ -47,12 +54,15 @@ export function GroupsPhase() {
   }, [phaseItems]);
 
   const selectedGroup = selectedGroupId
-    ? phaseItemsByName.get(selectedGroupId) ?? null
+    ? (phaseItemsByName.get(selectedGroupId) ?? null)
     : null;
 
   // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
   const topSuggestionsMap = useMemo(() => {
-    const map = new Map<string, { model: { name: string }; score: number } | null>();
+    const map = new Map<
+      string,
+      { model: { name: string }; score: number } | null
+    >();
     for (const item of phaseItems) {
       if (item.isMapped) continue;
       const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
@@ -74,12 +84,17 @@ export function GroupsPhase() {
     return sortItems(items, sortBy, topSuggestionsMap);
   }, [unmappedGroups, search, sortBy, topSuggestionsMap]);
 
-  const { families, toggle, isExpanded } = useItemFamilies(filteredUnmapped, selectedGroupId);
+  const { families, toggle, isExpanded } = useItemFamilies(
+    filteredUnmapped,
+    selectedGroupId,
+  );
 
   // Suggestions for selected group
   const suggestions = useMemo(() => {
     if (!selectedGroup) return [];
-    return interactive.getSuggestionsForLayer(selectedGroup.sourceModel).slice(0, 8);
+    return interactive
+      .getSuggestionsForLayer(selectedGroup.sourceModel)
+      .slice(0, 8);
   }, [interactive, selectedGroup]);
 
   // Type filter: only show model-level groups (not individual models or submodel groups)
@@ -111,10 +126,7 @@ export function GroupsPhase() {
     );
   }
 
-  const handleAcceptGroup = (
-    groupName: string,
-    userModelName: string,
-  ) => {
+  const handleAcceptGroup = (groupName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(groupName, userModelName);
     bulk.checkForPattern(groupName, userModelName);
     setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
@@ -158,14 +170,35 @@ export function GroupsPhase() {
     setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
   };
 
+  const handleSkipFamily = (familyItems: SourceLayerMapping[]) => {
+    for (const item of familyItems) {
+      interactive.skipSourceLayer(item.sourceModel.name);
+    }
+    const skippedNames = new Set(familyItems.map((i) => i.sourceModel.name));
+    const remaining = unmappedGroups.filter(
+      (g) => !skippedNames.has(g.sourceModel.name),
+    );
+    setSelectedGroupId(remaining[0]?.sourceModel.name ?? null);
+  };
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left: Group List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         <div className={PANEL_STYLES.header.wrapper}>
           <h2 className={PANEL_STYLES.header.title}>
-            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            <svg
+              className="w-5 h-5 text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
             </svg>
             Model Groups
           </h2>
@@ -176,7 +209,10 @@ export function GroupsPhase() {
             )}
           </p>
           <EffectsCoverageBar
-            mappedEffects={mappedGroups.reduce((sum, g) => sum + g.effectCount, 0)}
+            mappedEffects={mappedGroups.reduce(
+              (sum, g) => sum + g.effectCount,
+              0,
+            )}
             totalEffects={phaseItems.reduce((sum, g) => sum + g.effectCount, 0)}
           />
         </div>
@@ -185,8 +221,18 @@ export function GroupsPhase() {
         <div className={PANEL_STYLES.search.wrapper}>
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
-              <svg className={PANEL_STYLES.search.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg
+                className={PANEL_STYLES.search.icon}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
               <input
                 type="text"
@@ -217,8 +263,12 @@ export function GroupsPhase() {
                   group={group}
                   isSelected={selectedGroupId === group.sourceModel.name}
                   isChecked={selectedIds.has(group.sourceModel.name)}
-                  isDropTarget={dnd.state.activeDropTarget === group.sourceModel.name}
-                  topSuggestion={topSuggestionsMap.get(group.sourceModel.name) ?? null}
+                  isDropTarget={
+                    dnd.state.activeDropTarget === group.sourceModel.name
+                  }
+                  topSuggestion={
+                    topSuggestionsMap.get(group.sourceModel.name) ?? null
+                  }
                   onClick={() => setSelectedGroupId(group.sourceModel.name)}
                   onCheck={() => {
                     setSelectedIds((prev) => {
@@ -237,8 +287,12 @@ export function GroupsPhase() {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
                   }}
-                  onDragEnter={() => dnd.handleDragEnter(group.sourceModel.name)}
-                  onDragLeave={() => dnd.handleDragLeave(group.sourceModel.name)}
+                  onDragEnter={() =>
+                    dnd.handleDragEnter(group.sourceModel.name)
+                  }
+                  onDragLeave={() =>
+                    dnd.handleDragLeave(group.sourceModel.name)
+                  }
                   onDrop={(e) => handleDropOnGroup(group.sourceModel.name, e)}
                 />
               );
@@ -253,6 +307,7 @@ export function GroupsPhase() {
                     count={family.items.length}
                     isExpanded={isExpanded(family.prefix)}
                     onToggle={() => toggle(family.prefix)}
+                    onSkipFamily={() => handleSkipFamily(family.items)}
                   />
                   {isExpanded(family.prefix) && (
                     <div className="space-y-2 pl-2 mt-1">
@@ -266,7 +321,9 @@ export function GroupsPhase() {
 
           {interactive.hiddenZeroEffectCount > 0 && (
             <p className="mt-4 text-[11px] text-foreground/25 text-center">
-              {interactive.hiddenZeroEffectCount} model{interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0 effects not shown &mdash; no visual impact in this sequence
+              {interactive.hiddenZeroEffectCount} model
+              {interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0
+              effects not shown &mdash; no visual impact in this sequence
             </p>
           )}
 
@@ -282,7 +339,9 @@ export function GroupsPhase() {
                     className="p-3 rounded-lg bg-green-500/5 border border-green-500/15"
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>
+                      <span
+                        className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}
+                      >
                         GRP
                       </span>
                       <span className="text-[13px] text-foreground/60 truncate">
@@ -313,7 +372,9 @@ export function GroupsPhase() {
             {/* Group Info Header — compact, same height as left */}
             <div className={PANEL_STYLES.header.wrapper}>
               <div className="flex items-center gap-2">
-                <span className={`px-1.5 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.GRP} rounded`}>
+                <span
+                  className={`px-1.5 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.GRP} rounded`}
+                >
                   GRP
                 </span>
                 <h3 className="text-sm font-semibold text-foreground truncate">
@@ -339,7 +400,10 @@ export function GroupsPhase() {
                 selectedDestLabel={selectedGroup.sourceModel.name}
                 sourcePixelCount={selectedGroup.sourceModel.pixelCount}
                 onAccept={(userModelName) =>
-                  handleAcceptGroup(selectedGroup.sourceModel.name, userModelName)
+                  handleAcceptGroup(
+                    selectedGroup.sourceModel.name,
+                    userModelName,
+                  )
                 }
                 dnd={dnd}
                 destToSourcesMap={interactive.destToSourcesMap}
@@ -362,8 +426,18 @@ export function GroupsPhase() {
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground/30">
             <div className="text-center">
-              <svg className="w-10 h-10 mx-auto mb-3 text-foreground/15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              <svg
+                className="w-10 h-10 mx-auto mb-3 text-foreground/15"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                />
               </svg>
               <p className="text-sm">Select a group to see suggestions</p>
             </div>
@@ -414,7 +488,12 @@ function CollapsibleMembers({ members }: { members: string[] }) {
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
       {expanded && (
@@ -464,16 +543,17 @@ function GroupListCard({
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
 }) {
-
   return (
     <div
       className={`
         relative p-3 rounded-lg border transition-all duration-200 cursor-pointer
-        ${isDropTarget
-          ? "bg-accent/10 border-accent/50 ring-2 ring-accent/30"
-          : isSelected
-            ? "bg-accent/5 border-accent/30 ring-1 ring-accent/20"
-            : "bg-surface border-border hover:border-foreground/20"}
+        ${
+          isDropTarget
+            ? "bg-accent/10 border-accent/50 ring-2 ring-accent/30"
+            : isSelected
+              ? "bg-accent/5 border-accent/30 ring-1 ring-accent/20"
+              : "bg-surface border-border hover:border-foreground/20"
+        }
       `}
       onClick={onClick}
       onDragOver={onDragOver}
@@ -492,8 +572,18 @@ function GroupListCard({
         aria-label="Skip this group"
         title="Skip this group"
       >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <svg
+          className="w-3.5 h-3.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
       </button>
 
@@ -515,7 +605,11 @@ function GroupListCard({
           `}
         >
           {isChecked && (
-            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <svg
+              className="w-2.5 h-2.5 text-white"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
               <path
                 fillRule="evenodd"
                 d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
@@ -528,7 +622,9 @@ function GroupListCard({
         {/* Group Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>
+            <span
+              className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}
+            >
               GRP
             </span>
             <span className={PANEL_STYLES.card.title}>
@@ -568,7 +664,11 @@ function GroupListCard({
             aria-label="Accept suggested match"
             title="Accept suggested match"
           >
-            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="w-3.5 h-3.5"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
             </svg>
           </button>
@@ -578,14 +678,16 @@ function GroupListCard({
   );
 }
 
-const GroupListCardMemo = memo(GroupListCard, (prev, next) =>
-  prev.group.sourceModel === next.group.sourceModel &&
-  prev.group.isMapped === next.group.isMapped &&
-  prev.group.effectCount === next.group.effectCount &&
-  prev.group.coveredChildCount === next.group.coveredChildCount &&
-  prev.isSelected === next.isSelected &&
-  prev.isChecked === next.isChecked &&
-  prev.isDropTarget === next.isDropTarget &&
-  prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
-  prev.topSuggestion?.score === next.topSuggestion?.score,
+const GroupListCardMemo = memo(
+  GroupListCard,
+  (prev, next) =>
+    prev.group.sourceModel === next.group.sourceModel &&
+    prev.group.isMapped === next.group.isMapped &&
+    prev.group.effectCount === next.group.effectCount &&
+    prev.group.coveredChildCount === next.group.coveredChildCount &&
+    prev.isSelected === next.isSelected &&
+    prev.isChecked === next.isChecked &&
+    prev.isDropTarget === next.isDropTarget &&
+    prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
+    prev.topSuggestion?.score === next.topSuggestion?.score,
 );
