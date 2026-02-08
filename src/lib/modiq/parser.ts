@@ -69,14 +69,19 @@ const TYPE_MAP: Record<string, string> = {
   arches: "Arch",
   "tree 360": "Tree",
   "tree flat": "Tree",
+  "tree 180": "Tree",
+  "tree 270": "Tree",
   spinner: "Spinner",
   matrix: "Matrix",
   "vert matrix": "Matrix",
+  "horiz matrix": "Matrix",
   custom: "Custom",
   "single line": "Line",
   "poly line": "Line",
   star: "Star",
   circle: "Circle",
+  sphere: "Circle",
+  cube: "Matrix",
   "candy cane": "Candy Cane",
   "candy canes": "Candy Cane",
   "window frame": "Window",
@@ -84,6 +89,8 @@ const TYPE_MAP: Record<string, string> = {
   dmxgeneral: "DMX",
   dmxmovinghead: "DMX",
   dmxmovinghead3d: "DMX",
+  "dmx flood": "DMX",
+  "dmx servo": "DMX",
   image: "Image",
   "channel block": "Channel Block",
   wreaths: "Wreath",
@@ -94,35 +101,46 @@ const TYPE_MAP: Record<string, string> = {
  */
 function inferTypeFromName(name: string): string {
   const lower = name.toLowerCase();
+  // Ordered by specificity: more specific patterns first to avoid
+  // false positives (e.g., "mega tree" before "tree")
   const patterns: [RegExp, string][] = [
+    [/mega.?tree/i, "Mega Tree"],
+    [/pixel.?forest/i, "Pixel Forest"],
+    [/spiral.?tree|firework/i, "Spiral Tree"],
     [/spider/i, "Spider"],
-    [/bat/i, "Bat"],
+    [/\bbat\b/i, "Bat"],
     [/tomb(stone)?/i, "Tombstone"],
     [/pumpkin/i, "Pumpkin"],
     [/ghost/i, "Ghost"],
     [/skull/i, "Skull"],
     [/skeleton/i, "Skeleton"],
-    [/spinner|showstopper|overlord/i, "Spinner"],
+    [/witch/i, "Custom"],
+    [/spinner|showstopper|overlord|fuzion|starburst|spinarcy/i, "Spinner"],
     [/arch/i, "Arch"],
+    [/snowman|frosty/i, "Custom"],
+    [/\bdeer\b|reindeer/i, "Custom"],
+    [/\bangel\b/i, "Custom"],
+    [/nutcracker/i, "Custom"],
     [/tree/i, "Tree"],
-    [/matrix|panel|p5|p10/i, "Matrix"],
-    [/star/i, "Star"],
+    [/matrix|panel|\bp5\b|\bp10\b|\bp2\.5\b/i, "Matrix"],
+    [/\bnet\b|\bmesh\b/i, "Matrix"],
+    [/globe|ball|sphere/i, "Circle"],
+    [/\bstar\b/i, "Star"],
     [/snowflake|flake/i, "Snowflake"],
     [/wreath|rosa/i, "Wreath"],
-    [/candy.?cane|cane/i, "Candy Cane"],
+    [/candy.?cane|\bcane\b/i, "Candy Cane"],
     [/icicle/i, "Icicles"],
     [/window/i, "Window"],
-    [/flood/i, "Flood"],
-    [/pole/i, "Pole"],
+    [/flood|wash/i, "Flood"],
+    [/\bpole\b/i, "Pole"],
     [/fence/i, "Fence"],
-    [/bulb|singing/i, "Singing Face"],
+    [/bulb|singing|pimp/i, "Singing Face"],
     [/tune.?to|radio/i, "Sign"],
-    [/present|gift/i, "Present"],
-    [/firework|spiral/i, "Spiral Tree"],
-    [/mega.?tree/i, "Mega Tree"],
-    [/pixel.?forest/i, "Pixel Forest"],
-    [/driveway|outline/i, "Outline"],
-    [/eave|roofline/i, "Roofline"],
+    [/present|gift|\bbox\b/i, "Present"],
+    [/\bbow\b/i, "Custom"],
+    [/driveway|outline|border/i, "Outline"],
+    [/eave|roofline|gutter/i, "Roofline"],
+    [/stake|\brod\b/i, "Pole"],
   ];
 
   for (const [pattern, type] of patterns) {
@@ -241,8 +259,8 @@ function estimateSubmodelPixels(rangeData: string): number {
  * Only includes patterns that are unambiguous.
  */
 const SUBMODEL_GROUP_PREFIXES = [
-  "S - ",              // Showstopper convention: "S - Big Hearts", "S - Rings"
-  "Spinners - ",       // Generic spinner submodel groups
+  "S - ", // Showstopper convention: "S - Big Hearts", "S - Rings"
+  "Spinners - ", // Generic spinner submodel groups
 ];
 
 /**
@@ -250,19 +268,19 @@ const SUBMODEL_GROUP_PREFIXES = [
  * These alone do NOT indicate SUBMODEL_GROUP (e.g., "PPD Wreath GRP" is MODEL_GROUP).
  */
 const SPINNER_VENDOR_PREFIXES = [
-  "PPD",               // PPD spinners
-  "GE SpinReel",       // Gilbert Engineering SpinReel
-  "GE SpinArchy",      // Gilbert Engineering SpinArchy
+  "PPD", // PPD spinners
+  "GE SpinReel", // Gilbert Engineering SpinReel
+  "GE SpinArchy", // Gilbert Engineering SpinArchy
   "GE Grand Illusion", // Gilbert Engineering Grand Illusion
-  "GE Rosa",           // Gilbert Engineering Rosa Grande
-  "GE CC Boom",        // Gilbert Engineering Click Click Boom
-  "GE Overlord",       // Gilbert Engineering Overlord
-  "GE Fuzion",         // Gilbert Engineering Fuzion
-  "GE Click Click",    // Gilbert Engineering Click Click Boom alt
-  "GE Preying",        // Gilbert Engineering Preying Spider
-  "EFL",               // EFL spinner
-  "CCC",               // Christmas Concepts Corp
-  "Boscoyo",           // Boscoyo
+  "GE Rosa", // Gilbert Engineering Rosa Grande
+  "GE CC Boom", // Gilbert Engineering Click Click Boom
+  "GE Overlord", // Gilbert Engineering Overlord
+  "GE Fuzion", // Gilbert Engineering Fuzion
+  "GE Click Click", // Gilbert Engineering Click Click Boom alt
+  "GE Preying", // Gilbert Engineering Preying Spider
+  "EFL", // EFL spinner
+  "CCC", // Christmas Concepts Corp
+  "Boscoyo", // Boscoyo
 ];
 
 /**
@@ -270,22 +288,38 @@ const SPINNER_VENDOR_PREFIXES = [
  * When combined with a vendor prefix, these indicate SUBMODEL_GROUP.
  */
 const SUBMODEL_ELEMENT_KEYWORDS = [
-  "Spokes", "Spoke",
-  "Rings", "Ring",
-  "Arms", "Arm",
-  "Petals", "Petal",
-  "Flowers", "Flower",
-  "Hearts", "Heart",
-  "Circles", "Circle",
-  "Spirals", "Spiral",
-  "Balls", "Ball",
-  "Ribbons", "Ribbon",
-  "Triangles", "Triangle",
-  "Diamonds", "Diamond",
-  "Scallops", "Scallop",
-  "Feathers", "Feather",
-  "Stars", "Star",
-  "Arrows", "Arrow",
+  "Spokes",
+  "Spoke",
+  "Rings",
+  "Ring",
+  "Arms",
+  "Arm",
+  "Petals",
+  "Petal",
+  "Flowers",
+  "Flower",
+  "Hearts",
+  "Heart",
+  "Circles",
+  "Circle",
+  "Spirals",
+  "Spiral",
+  "Balls",
+  "Ball",
+  "Ribbons",
+  "Ribbon",
+  "Triangles",
+  "Triangle",
+  "Diamonds",
+  "Diamond",
+  "Scallops",
+  "Scallop",
+  "Feathers",
+  "Feather",
+  "Stars",
+  "Star",
+  "Arrows",
+  "Arrow",
   "Outline",
   "Center",
   "Outer",
@@ -294,13 +328,17 @@ const SUBMODEL_ELEMENT_KEYWORDS = [
   "Odd",
   "Swirl",
   "Willow",
-  "Saucers", "Saucer",
-  "Bows", "Bow",
+  "Saucers",
+  "Saucer",
+  "Bows",
+  "Bow",
   "Leaf",
   "Iris",
   "Chalice",
-  "Torches", "Torch",
-  "Hooks", "Hook",
+  "Torches",
+  "Torch",
+  "Hooks",
+  "Hook",
   "Stigma",
   "Thelma",
   "Snarfle",
@@ -312,13 +350,14 @@ const SUBMODEL_ELEMENT_KEYWORDS = [
   "Spaceship",
   "Arrowhead",
   "Windmill",
-  "Cone", "Cones",
+  "Cone",
+  "Cones",
   "Finger",
   "Piece of Work",
   "Pull My Finger",
   "Off Limits",
   // Positional qualifiers when combined with vendor prefixes
-  "All",     // "GE Rosa Grande Spokes All GRP"
+  "All", // "GE Rosa Grande Spokes All GRP"
 ];
 
 /**
@@ -326,11 +365,11 @@ const SUBMODEL_ELEMENT_KEYWORDS = [
  * rather than submodels of a single prop.
  */
 const MODEL_GROUP_PATTERNS = [
-  /^All\s*-\s*.*-\s*GRP$/i,       // "All - Arches - GRP", "All - Poles - GRP"
-  /^All\s+\w+s(?:\s|$)/i,         // "All Arches", "All Poles" (plural nouns)
-  /^\d+\s+All\s+/i,               // "10 All Arches", "6 All Tombstones"
-  /^GROUP\s*-/i,                  // "GROUP - All Ghosts"
-  /^FOLDER\s*-/i,                 // "FOLDER - Rosa Tomb Groups"
+  /^All\s*-\s*.*-\s*GRP$/i, // "All - Arches - GRP", "All - Poles - GRP"
+  /^All\s+\w+s(?:\s|$)/i, // "All Arches", "All Poles" (plural nouns)
+  /^\d+\s+All\s+/i, // "10 All Arches", "6 All Tombstones"
+  /^GROUP\s*-/i, // "GROUP - All Ghosts"
+  /^FOLDER\s*-/i, // "FOLDER - Rosa Tomb Groups"
 ];
 
 /**
@@ -340,14 +379,14 @@ function hasVendorPlusElement(groupName: string): boolean {
   const upperName = groupName.toUpperCase();
 
   // Check if name has a known vendor prefix
-  const hasVendorPrefix = SPINNER_VENDOR_PREFIXES.some(prefix =>
-    upperName.startsWith(prefix.toUpperCase())
+  const hasVendorPrefix = SPINNER_VENDOR_PREFIXES.some((prefix) =>
+    upperName.startsWith(prefix.toUpperCase()),
   );
 
   if (!hasVendorPrefix) return false;
 
   // Check if name also contains an element keyword
-  const hasElement = SUBMODEL_ELEMENT_KEYWORDS.some(keyword => {
+  const hasElement = SUBMODEL_ELEMENT_KEYWORDS.some((keyword) => {
     const keywordUpper = keyword.toUpperCase();
     // Must be a word boundary match (not part of product name)
     const regex = new RegExp(`\\b${keywordUpper}\\b`);
@@ -404,8 +443,8 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bTwist\b/i,
     /\bSpiral\s*All\b/i,
     /\bWillow\b/i,
-    /\bWhirliwig\b/i,      // GE Grand Illusion Whirliwig
-    /\bHooks?\b/i,         // GE Grand Illusion Hook CCW/CW
+    /\bWhirliwig\b/i, // GE Grand Illusion Whirliwig
+    /\bHooks?\b/i, // GE Grand Illusion Hook CCW/CW
   ],
   // FLORALS: Flower-like decorative elements
   // Cross-vendor equivalent: Flower ≈ Petal ≈ Heart ≈ Star ≈ Leaf ≈ Angel
@@ -421,7 +460,7 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bFloral\b/i,
     /\bDiamonds?\b/i,
     /\bBows?\b/i,
-    /\bAngels?\b/i,         // GE SpinReel Max Angels
+    /\bAngels?\b/i, // GE SpinReel Max Angels
   ],
   // SCALLOPS: Curved decorative borders and cascading patterns
   // Cross-vendor equivalent: Scallop ≈ Ribbon ≈ Wave ≈ Arc ≈ Curve ≈ Arch ≈ Cascading
@@ -432,7 +471,7 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bArcs?\b/i,
     /\bCurves?\b/i,
     /\bArch\b/i,
-    /\bCascading\b/i,       // S - Cascading Arches, S - Cascading Petal
+    /\bCascading\b/i, // S - Cascading Arches, S - Cascading Petal
   ],
   // TRIANGLES: Triangular geometric elements
   // Cross-vendor equivalent: Triangle ≈ Wedge ≈ Segment ≈ Trident ≈ Arrow
@@ -440,8 +479,8 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bTriangles?\b/i,
     /\bWedges?\b/i,
     /\bSegments?\b/i,
-    /\bTridents?\b/i,       // S - Trident
-    /\bArrowheads?\b/i,     // Arrow-shaped elements (distinct from spoke arrows)
+    /\bTridents?\b/i, // S - Trident
+    /\bArrowheads?\b/i, // Arrow-shaped elements (distinct from spoke arrows)
   ],
   // EFFECTS: Animated effect patterns
   // Cross-vendor equivalent: Firework ≈ Cascade ≈ Burst ≈ Explosion ≈ Flash ≈ Snowflake
@@ -451,7 +490,7 @@ const SEMANTIC_CATEGORY_PATTERNS: Record<string, RegExp[]> = {
     /\bExplosion\b/i,
     /\bFlash\b/i,
     /\bSparkle\b/i,
-    /\bSnowflakes?\b/i,     // S - Snowflakes (effect pattern, not prop type)
+    /\bSnowflakes?\b/i, // S - Snowflakes (effect pattern, not prop type)
   ],
   // OUTLINE: Perimeter/outline elements (lower priority - often structural)
   outline: [
@@ -530,11 +569,11 @@ const KNOWN_SPINNER_PROPS: string[] = [
  * These are the spinner product family names that precede the element name.
  */
 const VENDOR_PRODUCT_PREFIXES: RegExp[] = [
-  /^GE\s+SpinReel\s+Max\s*/i,     // "GE SpinReel Max Ribbons" → "Ribbons"
-  /^GE\s+Spin\s+Reel\s+Max\s*/i,  // "GE Spin Reel Max Ribbons" → "Ribbons"
-  /^GE\s+Grand\s+Illusion\s*/i,   // "GE Grand Illusion Hook" → "Hook"
-  /^Grand\s+Illusion\s*/i,        // "Grand Illusion Hook" → "Hook"
-  /^GE\s+Rosa\s+Grande\s*/i,      // "GE Rosa Grande Spokes" → "Spokes"
+  /^GE\s+SpinReel\s+Max\s*/i, // "GE SpinReel Max Ribbons" → "Ribbons"
+  /^GE\s+Spin\s+Reel\s+Max\s*/i, // "GE Spin Reel Max Ribbons" → "Ribbons"
+  /^GE\s+Grand\s+Illusion\s*/i, // "GE Grand Illusion Hook" → "Hook"
+  /^Grand\s+Illusion\s*/i, // "Grand Illusion Hook" → "Hook"
+  /^GE\s+Rosa\s+Grande\s*/i, // "GE Rosa Grande Spokes" → "Spokes"
   /^GE\s+Click\s+Click\s+Boom\s*/i,
   /^GE\s+Overlord\s*/i,
   /^GE\s+Fuzion\s*/i,
@@ -547,8 +586,8 @@ const VENDOR_PRODUCT_PREFIXES: RegExp[] = [
   /^GE\s+Star\s+Gazer\s*/i,
   /^GE\s+Dragonfly\s*/i,
   /^GE\s+Lightspeed\s*/i,
-  /^Showstopper\s*/i,             // "Showstopper Rings" → "Rings"
-  /^PPD\s+Wreath\s*/i,            // "PPD Wreath Hearts" → "Hearts"
+  /^Showstopper\s*/i, // "Showstopper Rings" → "Rings"
+  /^PPD\s+Wreath\s*/i, // "PPD Wreath Hearts" → "Hearts"
   /^EFL\s+Wreath\s*/i,
   /^MegaSpin(?:ner)?\s*/i,
   /^ChromaFlake\s*/i,
@@ -568,10 +607,10 @@ function extractSemanticName(groupName: string): string {
   let name = groupName;
 
   // Strip common prefixes first
-  name = name.replace(/^S\s*-\s*/i, "");           // "S - Big Hearts" → "Big Hearts"
-  name = name.replace(/^Spinners?\s*-\s*/i, "");   // "Spinner - Rings" → "Rings"
-  name = name.replace(/^Spin\s*-\s*/i, "");        // "Spin - Spokes" → "Spokes"
-  name = name.replace(/^All\s+/i, "");             // "All Rings" → "Rings"
+  name = name.replace(/^S\s*-\s*/i, ""); // "S - Big Hearts" → "Big Hearts"
+  name = name.replace(/^Spinners?\s*-\s*/i, ""); // "Spinner - Rings" → "Rings"
+  name = name.replace(/^Spin\s*-\s*/i, ""); // "Spin - Spokes" → "Spokes"
+  name = name.replace(/^All\s+/i, ""); // "All Rings" → "Rings"
 
   // Strip vendor product prefixes
   for (const prefix of VENDOR_PRODUCT_PREFIXES) {
@@ -579,9 +618,9 @@ function extractSemanticName(groupName: string): string {
   }
 
   // Strip common suffixes
-  name = name.replace(/\s+GRP$/i, "");             // "Hearts GRP" → "Hearts"
-  name = name.replace(/\s+Group$/i, "");           // "Hearts Group" → "Hearts"
-  name = name.replace(/\s+All$/i, "");             // "Rings All" → "Rings"
+  name = name.replace(/\s+GRP$/i, ""); // "Hearts GRP" → "Hearts"
+  name = name.replace(/\s+Group$/i, ""); // "Hearts Group" → "Hearts"
+  name = name.replace(/\s+All$/i, ""); // "Rings All" → "Rings"
 
   return name.trim();
 }
@@ -592,8 +631,8 @@ function extractSemanticName(groupName: string): string {
  */
 function isKnownSpinnerProp(groupName: string): boolean {
   const upperName = groupName.toUpperCase();
-  return KNOWN_SPINNER_PROPS.some(prop =>
-    upperName.includes(prop.toUpperCase())
+  return KNOWN_SPINNER_PROPS.some((prop) =>
+    upperName.includes(prop.toUpperCase()),
   );
 }
 
@@ -602,9 +641,10 @@ function isKnownSpinnerProp(groupName: string): boolean {
  * Uses the xLights type system: `/` → submodel, ` GRP` suffix → group, else → model.
  * Detects all four group types: MODEL_GROUP, SUBMODEL_GROUP, META_GROUP, MIXED_GROUP.
  */
-function classifyGroupFromMembers(
-  memberModels: string[]
-): { groupType: GroupType; parentModels: string[] } {
+function classifyGroupFromMembers(memberModels: string[]): {
+  groupType: GroupType;
+  parentModels: string[];
+} {
   if (memberModels.length === 0) {
     return { groupType: "MODEL_GROUP", parentModels: [] };
   }
@@ -685,7 +725,9 @@ function getSemanticCategory(groupName: string): string | undefined {
   const namesToCheck = [groupName, semanticName];
 
   for (const name of namesToCheck) {
-    for (const [category, patterns] of Object.entries(SEMANTIC_CATEGORY_PATTERNS)) {
+    for (const [category, patterns] of Object.entries(
+      SEMANTIC_CATEGORY_PATTERNS,
+    )) {
       for (const pattern of patterns) {
         if (pattern.test(name)) {
           return category;
@@ -707,8 +749,12 @@ function getSemanticCategory(groupName: string): string | undefined {
  */
 export function classifyGroup(
   groupName: string,
-  memberModels: string[]
-): { groupType: GroupType; parentModels?: string[]; semanticCategory?: string } {
+  memberModels: string[],
+): {
+  groupType: GroupType;
+  parentModels?: string[];
+  semanticCategory?: string;
+} {
   // Name-based detection first: spinner product groups always win
   const nameType = classifyGroupByName(groupName);
   if (nameType === "SUBMODEL_GROUP") {
@@ -737,7 +783,10 @@ export function classifyGroup(
   }
 
   // META_GROUP and MIXED_GROUP are detected purely from members
-  if (memberAnalysis.groupType === "META_GROUP" || memberAnalysis.groupType === "MIXED_GROUP") {
+  if (
+    memberAnalysis.groupType === "META_GROUP" ||
+    memberAnalysis.groupType === "MIXED_GROUP"
+  ) {
     return { groupType: memberAnalysis.groupType };
   }
 
@@ -864,8 +913,7 @@ export function parseRgbEffectsXml(
       parseFloat(el.getAttribute("WorldPosY") || "") ||
       parseFloat(el.getAttribute("centrey") || "") ||
       0;
-    const worldPosZ =
-      parseFloat(el.getAttribute("WorldPosZ") || "") || 0;
+    const worldPosZ = parseFloat(el.getAttribute("WorldPosZ") || "") || 0;
 
     // Parse aliases (groups can have aliases too)
     const aliasEls = el.querySelectorAll("Aliases > alias");

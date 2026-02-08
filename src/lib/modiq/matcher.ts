@@ -101,8 +101,8 @@ const WEIGHTS = {
   name: 0.38,
   spatial: 0.22,
   shape: 0.13,
-  type: 0.10,
-  pixels: 0.10,
+  type: 0.1,
+  pixels: 0.1,
   structure: 0.07,
 };
 
@@ -315,16 +315,60 @@ const PROP_KEYWORDS = [
  * Maps each variant to a shared canonical form.
  */
 const EQUIVALENT_BASES: Record<string, string> = {
+  // Horizontal structural elements
   eave: "structural_horizontal",
   eaves: "structural_horizontal",
   horizontal: "structural_horizontal",
   horizontals: "structural_horizontal",
+  roofline: "structural_horizontal",
+  gutter: "structural_horizontal",
+  // Vertical structural elements
   vert: "structural_vertical",
   verts: "structural_vertical",
   vertical: "structural_vertical",
   verticals: "structural_vertical",
   verticle: "structural_vertical",
   verticl: "structural_vertical",
+  // Outline/border elements
+  outline: "structural_outline",
+  border: "structural_outline",
+  trim: "structural_outline",
+  perimeter: "structural_outline",
+  // Arch props
+  arch: "prop_arch",
+  archway: "prop_arch",
+  arc: "prop_arch",
+  // Candy cane props
+  cane: "prop_cane",
+  candycane: "prop_cane",
+  "candy cane": "prop_cane",
+  // Mega tree props
+  megatree: "prop_megatree",
+  "mega tree": "prop_megatree",
+  // Pole/pixel pole props
+  pole: "prop_pole",
+  "pixel pole": "prop_pole",
+  // Spinner/pinwheel props
+  spinner: "prop_spinner",
+  pinwheel: "prop_spinner",
+  // Wreath props
+  wreath: "prop_wreath",
+  rosa: "prop_wreath",
+  // Flood/wash lights
+  flood: "prop_flood",
+  wash: "prop_flood",
+  // Stake/rod props
+  stake: "prop_stake",
+  rod: "prop_stake",
+  // Snowflake props
+  snowflake: "prop_snowflake",
+  flake: "prop_snowflake",
+  chromaflake: "prop_snowflake",
+  // Driveway/sidewalk props
+  driveway: "structural_pathway",
+  sidewalk: "structural_pathway",
+  walkway: "structural_pathway",
+  pathway: "structural_pathway",
 };
 
 /**
@@ -337,15 +381,99 @@ function canonicalBase(base: string): string {
 }
 
 /**
+ * Simple English singularization for xLights model names.
+ * Handles common plural patterns found in community layouts.
+ * Intentionally conservative to avoid false positives
+ * (e.g., "bus" should not become "bu").
+ */
+const SINGULAR_EXCEPTIONS = new Set([
+  "icicles",
+  "christmas",
+  "canvas",
+  "bus",
+  "gas",
+  "plus",
+  "atlas",
+  "lens",
+  "class",
+  "glass",
+  "grass",
+  "cross",
+  "moss",
+]);
+
+function singularize(word: string): string {
+  if (word.length <= 2) return word;
+  if (SINGULAR_EXCEPTIONS.has(word)) return word;
+
+  // "arches" → "arch", "bushes" → "bush", "witches" → "witch"
+  if (
+    word.endsWith("ches") ||
+    word.endsWith("shes") ||
+    word.endsWith("xes") ||
+    word.endsWith("sses") ||
+    word.endsWith("zzes")
+  ) {
+    return word.slice(0, -2);
+  }
+  // "icicles" handled by exception; "circles" → "circle", "poles" → "pole"
+  if (word.endsWith("les") && word.length > 4) {
+    return word.slice(0, -1);
+  }
+  // "tombstones" → "tombstone", "canes" → "cane", "lines" → "line"
+  if (
+    word.endsWith("nes") ||
+    word.endsWith("tes") ||
+    word.endsWith("ves") ||
+    word.endsWith("zes") ||
+    word.endsWith("res") ||
+    word.endsWith("ges") ||
+    word.endsWith("ces") ||
+    word.endsWith("ses") ||
+    word.endsWith("pes") ||
+    word.endsWith("des") ||
+    word.endsWith("kes")
+  ) {
+    return word.slice(0, -1);
+  }
+  // "spiders" → "spider", "stars" → "star", "floods" → "flood"
+  // But NOT words ending in "ss" (class, grass, etc.)
+  if (word.endsWith("s") && !word.endsWith("ss") && !word.endsWith("us")) {
+    return word.slice(0, -1);
+  }
+  return word;
+}
+
+/**
+ * Split camelCase and PascalCase compound words into separate tokens.
+ * "MegaTree" → "Mega Tree", "CandyCane" → "Candy Cane",
+ * "RoofLine" → "Roof Line", "PixelPole" → "Pixel Pole"
+ *
+ * Preserves uppercase acronyms: "DMXHead" → "DMX Head", "GEFuzion" → "GE Fuzion"
+ */
+function splitCompoundWords(name: string): string {
+  return (
+    name
+      // Insert space before uppercase letter preceded by lowercase: "MegaTree" → "Mega Tree"
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      // Insert space between uppercase run and following uppercase+lowercase: "DMXHead" → "DMX Head"
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+  );
+}
+
+/**
  * Normalize a model name for comparison:
+ * - split camelCase/PascalCase compound words
  * - lowercase
  * - strip separators to spaces
  * - strip version prefixes (various formats from vendors)
  * - strip common noise words (all, group, grp, my, the, model, mod)
+ * - singularize tokens (arches → arch, trees → tree)
  * - strip trailing numeric indices for base-name comparison
  */
 function normalizeName(name: string): string {
-  let n = name.toLowerCase();
+  // Split compound words before lowercasing (needs case info)
+  let n = splitCompoundWords(name).toLowerCase();
   // Strip version-prefix patterns from various vendors:
   //   "01.11 Garage Peak" → "Garage Peak"
   //   "02.14.0Grp FLOODS" → "FLOODS"
@@ -355,10 +483,25 @@ function normalizeName(name: string): string {
   n = n.replace(/^\d{1,3}(\.\d{1,3})*(\.\d+)?(grp|mod|sub)?\s+/i, "");
   // Also strip simple leading "NN " pattern (e.g., "01 ", "15 ")
   n = n.replace(/^\d{1,2}\s+/, "");
+  // Strip channel/universe/port prefixes common in community layouts:
+  //   "CH01 Arch 1" → "Arch 1", "Ch-01 Arch" → "Arch"
+  //   "U1-Arch 1" → "Arch 1", "Univ1 Arch" → "Arch"
+  //   "Port 1 - Arch" → "Arch", "P1S1 - Arch" → "Arch"
+  //   "[1] Arch" → "Arch", "(01) Arch" → "Arch"
+  n = n.replace(/^ch[-.\s]?\d{1,3}\s*/i, "");
+  n = n.replace(/^u(?:niv)?\d{1,3}[-.\s]?\s*/i, "");
+  n = n.replace(/^p\d{1,2}s\d{1,2}\s*[-–]\s*/i, "");
+  n = n.replace(/^port\s*\d{1,2}\s*[-–]\s*/i, "");
+  n = n.replace(/^\[\d{1,3}\]\s*/, "");
+  n = n.replace(/^\(\d{1,3}\)\s*/, "");
+  // Strip "NN - " dash-separated numeric prefix (e.g., "01 - Arch 1")
+  n = n.replace(/^\d{1,2}\s*[-–]\s*/, "");
   // Replace separators with spaces
   n = n.replace(/[-_.\t]+/g, " ");
   // Strip noise words (keep "no" — it's meaningful for group matching)
   n = n.replace(/\b(all|group|grp|my|the|model|mod|everything|but)\b/gi, "");
+  // Singularize each token to normalize plurals
+  n = n.split(/\s+/).map(singularize).join(" ");
   // Collapse whitespace
   n = n.replace(/\s+/g, " ").trim();
   return n;
@@ -401,7 +544,27 @@ export function clearTokenCache(): void {
 }
 
 /**
- * Tokenize a normalized name, expanding synonyms.
+ * Expand a single token through synonym chains (forward + reverse).
+ * Returns all reachable synonyms for the token.
+ */
+function expandToken(tok: string): string[] {
+  const result: string[] = [tok];
+  // Forward lookup: "ss" → ["showstopper"]
+  const syns = SYNONYMS[tok];
+  if (syns) {
+    for (const s of syns) result.push(s);
+  }
+  // Reverse lookup: "showstopper" → "ss"
+  const reverseKey = REVERSE_SYNONYMS.get(tok);
+  if (reverseKey) result.push(reverseKey);
+  return result;
+}
+
+/**
+ * Tokenize a normalized name, expanding synonyms with 2-pass resolution.
+ * Pass 1: expand each raw token's direct synonyms.
+ * Pass 2: expand any new single-word tokens added in pass 1 to catch
+ *          abbreviation chains (e.g., "ss" → "showstopper" → "show stopper").
  * Uses pre-computed REVERSE_SYNONYMS for O(1) reverse lookup.
  * Results are cached for repeated lookups of the same name.
  */
@@ -411,16 +574,21 @@ function tokenize(normalized: string): Set<string> {
 
   const rawTokens = normalized.split(/\s+/).filter(Boolean);
   const expanded = new Set<string>();
+
+  // Pass 1: direct expansion
   for (const tok of rawTokens) {
-    expanded.add(tok);
-    // Add synonym expansions (forward lookup)
-    const syns = SYNONYMS[tok];
-    if (syns) {
-      for (const s of syns) expanded.add(s);
+    for (const e of expandToken(tok)) expanded.add(e);
+  }
+
+  // Pass 2: expand any new single-word tokens from pass 1
+  // This catches chains like "ss" → "showstopper" → then "showstopper"
+  // also maps to "show stopper" or other variants.
+  // Only expand tokens that weren't in the original raw set.
+  const pass1Tokens = [...expanded];
+  for (const tok of pass1Tokens) {
+    if (!rawTokens.includes(tok) && !tok.includes(" ")) {
+      for (const e of expandToken(tok)) expanded.add(e);
     }
-    // Reverse lookup: O(1) via pre-computed map
-    const reverseKey = REVERSE_SYNONYMS.get(tok);
-    if (reverseKey) expanded.add(reverseKey);
   }
 
   tokenCache.set(normalized, expanded);
@@ -540,7 +708,10 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
     const srcSemanticTokens = tokenizeName(source.name);
     const destSemanticTokens = tokenizeName(dest.name);
     if (srcSemanticTokens.length > 0 && destSemanticTokens.length > 0) {
-      const synScore = calculateSynonymBoost(srcSemanticTokens, destSemanticTokens);
+      const synScore = calculateSynonymBoost(
+        srcSemanticTokens,
+        destSemanticTokens,
+      );
       if (synScore > 0.4) {
         semanticBoost = synScore * 0.25;
       }
@@ -765,13 +936,13 @@ function scoreShape(source: ParsedModel, dest: ParsedModel): number {
 
   if (srcShape === destShape) return 1.0;
 
-  // Partial matches for related shapes
+  // Partial matches for related shapes (0.4 for loosely related)
   const related: Record<Shape, Shape[]> = {
-    circular: ["custom"],
-    linear: ["custom"],
+    circular: ["custom", "point"],
+    linear: ["custom", "triangle"],
     matrix: ["custom"],
-    triangle: ["custom"],
-    point: ["custom"],
+    triangle: ["custom", "linear"],
+    point: ["custom", "circular"],
     custom: ["circular", "linear", "matrix", "triangle", "point"],
   };
 
@@ -786,30 +957,33 @@ function scoreShape(source: ParsedModel, dest: ParsedModel): number {
 
 const RELATED_TYPES: Record<string, string[]> = {
   Tree: ["Mega Tree", "Spiral Tree"],
-  "Mega Tree": ["Tree"],
-  "Spiral Tree": ["Tree"],
-  Arch: ["Candy Cane"],
-  "Candy Cane": ["Arch"],
-  Spinner: ["Wreath", "Snowflake"],
-  Wreath: ["Spinner"],
+  "Mega Tree": ["Tree", "Spiral Tree"],
+  "Spiral Tree": ["Tree", "Mega Tree"],
+  Arch: ["Candy Cane", "Line"],
+  "Candy Cane": ["Arch", "Line"],
+  Spinner: ["Wreath", "Snowflake", "Circle"],
+  Wreath: ["Spinner", "Circle"],
+  Circle: ["Wreath", "Spinner"],
   Spider: ["Custom"],
   Bat: ["Custom"],
   Tombstone: ["Custom"],
   Pumpkin: ["Custom", "Ghost"],
   Ghost: ["Custom", "Pumpkin"],
-  Matrix: [],
-  Fence: [],
-  Sign: [],
-  Line: ["Roofline", "Outline", "Flood"],
-  Roofline: ["Line"],
+  Matrix: ["Fence"],
+  Fence: ["Matrix", "Pixel Forest"],
+  Sign: ["Matrix"],
+  Line: ["Roofline", "Outline", "Flood", "Pole"],
+  Roofline: ["Line", "Outline"],
   Outline: ["Line", "Roofline"],
   Pole: ["Line"],
   Flood: ["Line"],
+  Icicles: ["Line", "Roofline"],
   Window: [],
   "Pixel Forest": ["Matrix", "Fence"],
   "Singing Face": ["Custom"],
-  Star: ["Snowflake"],
-  Snowflake: ["Star", "Spinner"],
+  Star: ["Snowflake", "Circle"],
+  Snowflake: ["Star", "Spinner", "Wreath"],
+  Present: ["Custom"],
   Group: [],
 };
 
@@ -855,8 +1029,8 @@ function scorePixels(source: ParsedModel, dest: ParsedModel): number {
   const ratio = Math.min(srcPx, destPx) / Math.max(srcPx, destPx);
 
   if (ratio >= 0.95) return 0.9 + ratio * 0.1; // 0.995 → 1.0, 0.95 → 0.995
-  if (ratio >= 0.80) return 0.6 + (ratio - 0.80) * 2.0; // 0.80 → 0.60, 0.95 → 0.90
-  if (ratio >= 0.50) return 0.2 + (ratio - 0.50) * 1.33; // 0.50 → 0.20, 0.80 → 0.60
+  if (ratio >= 0.8) return 0.6 + (ratio - 0.8) * 2.0; // 0.80 → 0.60, 0.95 → 0.90
+  if (ratio >= 0.5) return 0.2 + (ratio - 0.5) * 1.33; // 0.50 → 0.20, 0.80 → 0.60
   if (ratio >= 0.25) return (ratio - 0.25) * 0.8; // 0.25 → 0.0, 0.50 → 0.20
   return 0.0;
 }
@@ -889,10 +1063,10 @@ function scoreStructure(source: ParsedModel, dest: ParsedModel): number {
   const subRatio = Math.min(srcSubs, destSubs) / Math.max(srcSubs, destSubs);
 
   // Exact match is best; close counts are good
-  if (subRatio >= 0.9) return 1.0;   // e.g. 9 vs 10 submodels
-  if (subRatio >= 0.7) return 0.8;   // e.g. 7 vs 10
-  if (subRatio >= 0.5) return 0.5;   // e.g. 5 vs 10
-  return 0.2;                         // very different structure
+  if (subRatio >= 0.9) return 1.0; // e.g. 9 vs 10 submodels
+  if (subRatio >= 0.7) return 0.8; // e.g. 7 vs 10
+  if (subRatio >= 0.5) return 0.5; // e.g. 5 vs 10
+  return 0.2; // very different structure
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -976,7 +1150,11 @@ function isLargeSpinner(model: ParsedModel): boolean {
     return true;
   }
   // Name-based detection for common spinner/wreath products
-  if (/\b(spinner|showstopper|fuzion|rosa|overlord|wreath|starburst|click\s*click\s*boom|grand\s*illusion|shape\s*shifter|king|spinarcy|mesmerizer|boscoyo|mega\s*spinner|radiation)\b/i.test(n)) {
+  if (
+    /\b(spinner|showstopper|fuzion|rosa|overlord|wreath|starburst|click\s*click\s*boom|grand\s*illusion|shape\s*shifter|king|spinarcy|mesmerizer|boscoyo|mega\s*spinner|radiation)\b/i.test(
+      n,
+    )
+  ) {
     return true;
   }
   return false;
@@ -1125,15 +1303,40 @@ function getInterchangeClass(model: ParsedModel): string | null {
  * prop — applied as a supplementary score boost.
  */
 const VENDOR_PIXEL_HINTS: Record<number, string> = {
+  // CCC Spinners (Christmas Concepts Corp)
   269: "ccc_spinner_18",
   451: "ccc_spinner_24",
   519: "ccc_spinner_25",
   596: "ccc_spinner_36",
-  640: "ge_flake_640",
-  800: "efl_showstopper",
+  768: "ccc_spinner_36_v2",
   1046: "ccc_spinner_48",
-  1117: "boscoyo_mesmerizer",
+  // Gilbert Engineering (GE) products
+  640: "ge_flake_640",
   1529: "ge_overlord",
+  1200: "ge_rosa_grande",
+  960: "ge_fuzion",
+  1800: "ge_click_click_boom",
+  // EFL Designs
+  800: "efl_showstopper",
+  400: "efl_babyflake",
+  // Boscoyo
+  1117: "boscoyo_mesmerizer",
+  720: "boscoyo_whimsical",
+  // Holiday Coro
+  480: "holidaycoro_24_spinner",
+  // Common matrix sizes (P5/P10 panels)
+  512: "p10_matrix_16x32",
+  1024: "p10_matrix_32x32",
+  2048: "p5_matrix_64x32",
+  4096: "p5_matrix_64x64",
+  // Standard small props (common pixel counts across vendors)
+  50: "standard_small_prop",
+  100: "standard_medium_prop",
+  150: "standard_custom_prop",
+  200: "standard_candy_cane",
+  250: "standard_tree_250",
+  300: "standard_arch_300",
+  500: "standard_outline_500",
 };
 
 function computeScore(
@@ -1142,7 +1345,14 @@ function computeScore(
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
 ): { score: number; factors: ModelMapping["factors"] } {
-  const zeroFactors = { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 };
+  const zeroFactors = {
+    name: 0,
+    spatial: 0,
+    shape: 0,
+    type: 0,
+    pixels: 0,
+    structure: 0,
+  };
 
   // ── Hard exclusions (return 0 immediately) ─────────────
 
@@ -1163,7 +1373,14 @@ function computeScore(
   if (polePair) {
     return {
       score: 1.0,
-      factors: { name: 1.0, spatial: 0.5, shape: 0.5, type: 1.0, pixels: 1.0, structure: 0.5 },
+      factors: {
+        name: 1.0,
+        spatial: 0.5,
+        shape: 0.5,
+        type: 1.0,
+        pixels: 1.0,
+        structure: 0.5,
+      },
     };
   }
 
@@ -1177,8 +1394,10 @@ function computeScore(
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
       // Check if both are large spinners (500+ pixels each)
       const bothLargeSpinners =
-        isLargeSpinner(source) && isLargeSpinner(dest) &&
-        srcPx >= 500 && destPx >= 500;
+        isLargeSpinner(source) &&
+        isLargeSpinner(dest) &&
+        srcPx >= 500 &&
+        destPx >= 500;
       if (!bothLargeSpinners) {
         return { score: 0, factors: zeroFactors };
       }
@@ -1229,6 +1448,20 @@ function computeScore(
     structure: scoreStructure(source, dest),
   };
 
+  // ── Relaxed pixel scoring for same-type/same-name models ──
+  // When models clearly match by name AND type, pixel count differences
+  // should be penalized much less — a 50px arch and 100px arch are the
+  // same prop, just different sizes. Floor the pixel factor at 0.5 so
+  // pixel drift doesn't drag these obvious matches into medium/low tiers.
+  if (
+    !source.isGroup &&
+    !dest.isGroup &&
+    factors.name >= 0.85 &&
+    factors.type >= 0.7
+  ) {
+    factors.pixels = Math.max(factors.pixels, 0.5);
+  }
+
   // ── Holiday mismatch penalty ───────────────────────────
   // If source is clearly Halloween and dest is clearly Christmas (or vice
   // versa), zero out the score for holiday-specific indicator models.
@@ -1252,7 +1485,8 @@ function computeScore(
   // SUBMODEL_GROUP groups should ONLY match other SUBMODEL_GROUP groups.
   // They should NEVER match regular models or MODEL_GROUP/META_GROUP/MIXED_GROUP groups.
   // This is the highest priority rule for spinner submodel groups.
-  const srcIsSubmodelGrp = source.isGroup && source.groupType === "SUBMODEL_GROUP";
+  const srcIsSubmodelGrp =
+    source.isGroup && source.groupType === "SUBMODEL_GROUP";
   const destIsSubmodelGrp = dest.isGroup && dest.groupType === "SUBMODEL_GROUP";
 
   if (srcIsSubmodelGrp && !destIsSubmodelGrp) {
@@ -1391,8 +1625,8 @@ function computeScore(
 
 function scoreToConfidence(score: number): Confidence {
   if (score >= 0.85) return "high";
-  if (score >= 0.60) return "medium";
-  if (score >= 0.40) return "low";
+  if (score >= 0.6) return "medium";
+  if (score >= 0.4) return "low";
   return "unmapped";
 }
 
@@ -1758,6 +1992,99 @@ export function matchModels(
     }
   }
 
+  // ── Phase 3c: Surplus-to-spatial matching (many-to-one) ──
+  // When source has more instances of a prop than the user (e.g., source
+  // has 8 arches but user has 5), the surplus source models are still
+  // unmapped after greedy matching. Map them to the spatially nearest
+  // already-matched dest model of the same type. This ensures effects
+  // from surplus source models don't disappear — they get routed to the
+  // user's closest available prop. The xmap format supports many-to-one.
+  const stillUnmappedIndividuals = allMappings
+    .filter((m) => m.destModel === null && !m.sourceModel.isGroup)
+    .map((m) => m.sourceModel);
+
+  if (stillUnmappedIndividuals.length > 0) {
+    // Build a map of base-name → already-matched dest models
+    const matchedDestsByBase = new Map<
+      string,
+      { destModel: ParsedModel; score: number }[]
+    >();
+    for (const m of allMappings) {
+      if (!m.destModel || m.sourceModel.isGroup) continue;
+      const srcBase = baseName(m.sourceModel.name);
+      if (srcBase.length === 0) continue;
+      if (!matchedDestsByBase.has(srcBase)) matchedDestsByBase.set(srcBase, []);
+      matchedDestsByBase.get(srcBase)!.push({
+        destModel: m.destModel,
+        score: m.score,
+      });
+    }
+
+    for (const src of stillUnmappedIndividuals) {
+      const srcBase = baseName(src.name);
+      if (srcBase.length === 0) continue;
+
+      // Also check canonical base for wider matching (e.g., "eave" → "structural_horizontal")
+      const srcCanonical = canonicalBase(srcBase);
+      let candidates = matchedDestsByBase.get(srcBase);
+      if (!candidates) {
+        // Try canonical base: find any base whose canonical form matches
+        for (const [base, dests] of matchedDestsByBase) {
+          if (
+            canonicalBase(base) === srcCanonical &&
+            srcCanonical !== srcBase
+          ) {
+            candidates = dests;
+            break;
+          }
+        }
+      }
+
+      if (!candidates || candidates.length === 0) continue;
+
+      // Pick the spatially closest dest model
+      let bestDest: ParsedModel | null = null;
+      let bestDist = Infinity;
+      for (const { destModel } of candidates) {
+        const dx = src.worldPosX - destModel.worldPosX;
+        const dy = src.worldPosY - destModel.worldPosY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestDest = destModel;
+        }
+      }
+
+      if (bestDest) {
+        const subMappings = mapSubmodels(src, bestDest);
+        // Score is capped at medium confidence (0.65) since this is a
+        // many-to-one fallback — the user should review these
+        const fallbackScore = 0.65;
+        const mappingIdx = allMappings.findIndex(
+          (m) => m.sourceModel === src && m.destModel === null,
+        );
+        if (mappingIdx >= 0) {
+          allMappings[mappingIdx] = {
+            sourceModel: src,
+            destModel: bestDest,
+            score: fallbackScore,
+            confidence: "medium",
+            factors: {
+              name: scoreName(src, bestDest),
+              spatial: scoreSpatial(src, bestDest, sourceBounds, destBounds),
+              shape: scoreShape(src, bestDest),
+              type: scoreType(src, bestDest),
+              pixels: scorePixels(src, bestDest),
+              structure: scoreStructure(src, bestDest),
+            },
+            reason: "Surplus → nearest same-type prop",
+            submodelMappings: subMappings,
+          };
+        }
+      }
+    }
+  }
+
   // ── Phase 3b: Group-level interchangeability matching ──
   // Same cross-prop class matching applied to unmapped groups.
   // e.g. "All - Mini Pumpkins - GRP" → "GROUP - All Ghosts" when both
@@ -1937,8 +2264,10 @@ function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
       // Allow large spinners to pass through
       const bothLargeSpinners =
-        isLargeSpinner(source) && isLargeSpinner(dest) &&
-        srcPx >= 500 && destPx >= 500;
+        isLargeSpinner(source) &&
+        isLargeSpinner(dest) &&
+        srcPx >= 500 &&
+        destPx >= 500;
       if (!bothLargeSpinners) {
         return true;
       }
@@ -2033,7 +2362,14 @@ function greedyMatch(
         destModel: null,
         score: 0,
         confidence: "unmapped",
-        factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 },
+        factors: {
+          name: 0,
+          spatial: 0,
+          shape: 0,
+          type: 0,
+          pixels: 0,
+          structure: 0,
+        },
         reason: "No suitable match found in your layout.",
         submodelMappings: [],
       });
