@@ -401,7 +401,25 @@ function singularize(word: string): string {
 }
 
 /**
+ * Split camelCase and PascalCase compound words into separate tokens.
+ * "MegaTree" → "Mega Tree", "CandyCane" → "Candy Cane",
+ * "RoofLine" → "Roof Line", "PixelPole" → "Pixel Pole"
+ *
+ * Preserves uppercase acronyms: "DMXHead" → "DMX Head", "GEFuzion" → "GE Fuzion"
+ */
+function splitCompoundWords(name: string): string {
+  return (
+    name
+      // Insert space before uppercase letter preceded by lowercase: "MegaTree" → "Mega Tree"
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      // Insert space between uppercase run and following uppercase+lowercase: "DMXHead" → "DMX Head"
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+  );
+}
+
+/**
  * Normalize a model name for comparison:
+ * - split camelCase/PascalCase compound words
  * - lowercase
  * - strip separators to spaces
  * - strip version prefixes (various formats from vendors)
@@ -410,7 +428,8 @@ function singularize(word: string): string {
  * - strip trailing numeric indices for base-name comparison
  */
 function normalizeName(name: string): string {
-  let n = name.toLowerCase();
+  // Split compound words before lowercasing (needs case info)
+  let n = splitCompoundWords(name).toLowerCase();
   // Strip version-prefix patterns from various vendors:
   //   "01.11 Garage Peak" → "Garage Peak"
   //   "02.14.0Grp FLOODS" → "FLOODS"
