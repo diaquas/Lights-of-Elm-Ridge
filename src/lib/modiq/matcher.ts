@@ -911,13 +911,13 @@ function scoreShape(source: ParsedModel, dest: ParsedModel): number {
 
   if (srcShape === destShape) return 1.0;
 
-  // Partial matches for related shapes
+  // Partial matches for related shapes (0.4 for loosely related)
   const related: Record<Shape, Shape[]> = {
-    circular: ["custom"],
-    linear: ["custom"],
+    circular: ["custom", "point"],
+    linear: ["custom", "triangle"],
     matrix: ["custom"],
-    triangle: ["custom"],
-    point: ["custom"],
+    triangle: ["custom", "linear"],
+    point: ["custom", "circular"],
     custom: ["circular", "linear", "matrix", "triangle", "point"],
   };
 
@@ -932,30 +932,33 @@ function scoreShape(source: ParsedModel, dest: ParsedModel): number {
 
 const RELATED_TYPES: Record<string, string[]> = {
   Tree: ["Mega Tree", "Spiral Tree"],
-  "Mega Tree": ["Tree"],
-  "Spiral Tree": ["Tree"],
-  Arch: ["Candy Cane"],
-  "Candy Cane": ["Arch"],
-  Spinner: ["Wreath", "Snowflake"],
-  Wreath: ["Spinner"],
+  "Mega Tree": ["Tree", "Spiral Tree"],
+  "Spiral Tree": ["Tree", "Mega Tree"],
+  Arch: ["Candy Cane", "Line"],
+  "Candy Cane": ["Arch", "Line"],
+  Spinner: ["Wreath", "Snowflake", "Circle"],
+  Wreath: ["Spinner", "Circle"],
+  Circle: ["Wreath", "Spinner"],
   Spider: ["Custom"],
   Bat: ["Custom"],
   Tombstone: ["Custom"],
   Pumpkin: ["Custom", "Ghost"],
   Ghost: ["Custom", "Pumpkin"],
-  Matrix: [],
-  Fence: [],
-  Sign: [],
-  Line: ["Roofline", "Outline", "Flood"],
-  Roofline: ["Line"],
+  Matrix: ["Fence"],
+  Fence: ["Matrix", "Pixel Forest"],
+  Sign: ["Matrix"],
+  Line: ["Roofline", "Outline", "Flood", "Pole"],
+  Roofline: ["Line", "Outline"],
   Outline: ["Line", "Roofline"],
   Pole: ["Line"],
   Flood: ["Line"],
+  Icicles: ["Line", "Roofline"],
   Window: [],
   "Pixel Forest": ["Matrix", "Fence"],
   "Singing Face": ["Custom"],
-  Star: ["Snowflake"],
-  Snowflake: ["Star", "Spinner"],
+  Star: ["Snowflake", "Circle"],
+  Snowflake: ["Star", "Spinner", "Wreath"],
+  Present: ["Custom"],
   Group: [],
 };
 
