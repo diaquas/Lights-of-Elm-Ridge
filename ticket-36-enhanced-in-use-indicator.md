@@ -70,7 +70,31 @@ Current "IN USE" badge tells you something is mapped, but:
 
 ## 🔧 Implementation
 
-### 1. Usage Count Badge
+### Solution: Popover Instead of Tooltip
+
+The key insight: **Tooltips are for info, Popovers are for actions.**
+
+Since we need clickable actions, we should use a **Popover** (stays open until dismissed) rather than a **Tooltip** (disappears on mouse leave).
+
+```tsx
+// ❌ WRONG - Tooltip disappears before you can click
+<Tooltip>
+  <TooltipTrigger><Badge>[2]</Badge></TooltipTrigger>
+  <TooltipContent>
+    <Button>De-map</Button>  {/* Can't click this! */}
+  </TooltipContent>
+</Tooltip>
+
+// ✅ CORRECT - Popover stays open for interaction
+<Popover>
+  <PopoverTrigger><Badge>[2]</Badge></PopoverTrigger>
+  <PopoverContent>
+    <Button>De-map</Button>  {/* Clickable! */}
+  </PopoverContent>
+</Popover>
+```
+
+### 1. Usage Badge with Popover
 
 ```tsx
 interface UsageInfo {
@@ -102,94 +126,195 @@ function UsageBadge({ usage }: { usage: UsageInfo }) {
 }
 ```
 
-### 2. Hover Tooltip with Mapping Details
+### 2. Popover with Mapping Details (Clickable!)
 
 ```tsx
-function UsageTooltip({ 
+function UsagePopover({ 
   usage, 
   sequenceItemName,
   currentSelection,
   onDeMap,
   onReMap
-}: UsageTooltipProps) {
+}: UsagePopoverProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  
   return (
-    <TooltipProvider>
-      <Tooltip delayDuration={200}>
-        <TooltipTrigger asChild>
-          <div className="cursor-pointer">
-            <UsageBadge usage={usage} />
-          </div>
-        </TooltipTrigger>
-        
-        <TooltipContent 
-          side="left" 
-          align="start"
-          className="w-72 p-0"
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button 
+          className="cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(true);
+          }}
         >
-          <div className="p-3">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-              Mapped To ({usage.count})
-            </h4>
-            
-            {/* List of items using this sequence item */}
-            <div className="space-y-1">
-              {usage.mappedTo.map(ref => (
-                <div 
-                  key={ref.itemName}
-                  className="flex items-center justify-between p-2 rounded bg-muted/50 group"
-                >
-                  <div className="flex-1 min-w-0">
-                    <span className="font-medium text-sm truncate block">
-                      {ref.itemName}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {ref.effectCount} effects
-                    </span>
-                  </div>
-                  
-                  {/* De-map button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 
-                             hover:bg-destructive/20 hover:text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeMap(ref.itemName, sequenceItemName);
-                    }}
-                    title={`Remove mapping from ${ref.itemName}`}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <UsageBadge usage={usage} />
+        </button>
+      </PopoverTrigger>
+      
+      <PopoverContent 
+        side="left" 
+        align="start"
+        className="w-72 p-0"
+        onInteractOutside={() => setIsOpen(false)}
+      >
+        <div className="p-3">
+          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+            Mapped To ({usage.count})
+          </h4>
           
-          {/* Re-map action (if something is selected on left) */}
-          {currentSelection && (
-            <>
-              <Separator />
-              <div className="p-3">
+          {/* List of items using this sequence item */}
+          <div className="space-y-1">
+            {usage.mappedTo.map(ref => (
+              <div 
+                key={ref.itemName}
+                className="flex items-center justify-between p-2 rounded bg-muted/50"
+              >
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-sm truncate block">
+                    {ref.itemName}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {ref.effectCount} effects
+                  </span>
+                </div>
+                
+                {/* De-map button - ALWAYS VISIBLE since popover stays open */}
                 <Button
+                  variant="ghost"
                   size="sm"
-                  className="w-full"
+                  className="h-7 w-7 p-0 hover:bg-destructive/20 hover:text-destructive"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onReMap(currentSelection, sequenceItemName);
+                    onDeMap(ref.itemName, sequenceItemName);
+                    // Close popover if no more mappings
+                    if (usage.count <= 1) {
+                      setIsOpen(false);
+                    }
                   }}
+                  title={`Remove mapping from ${ref.itemName}`}
                 >
-                  Map to "{currentSelection}" instead
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
-            </>
-          )}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+            ))}
+          </div>
+        </div>
+        
+        {/* Re-map action (if something is selected on left) */}
+        {currentSelection && (
+          <>
+            <Separator />
+            <div className="p-3">
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReMap(currentSelection, sequenceItemName);
+                  setIsOpen(false);
+                }}
+              >
+                Map to "{currentSelection}" instead
+              </Button>
+            </div>
+          </>
+        )}
+        
+        {/* Close button for clarity */}
+        <Separator />
+        <div className="p-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-muted-foreground"
+            onClick={() => setIsOpen(false)}
+          >
+            Close
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 ```
+
+### Alternative: Hover-to-Open, Click-to-Pin
+
+If you want hover preview but click for actions:
+
+```tsx
+function UsageIndicator({ usage, ...props }: UsageIndicatorProps) {
+  const [isPinned, setIsPinned] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
+  
+  const isOpen = isPinned || isHovering;
+  
+  return (
+    <Popover open={isOpen} onOpenChange={setIsPinned}>
+      <PopoverTrigger asChild>
+        <button
+          onMouseEnter={() => setIsHovering(true)}
+          onMouseLeave={() => {
+            // Small delay before closing on mouse leave
+            setTimeout(() => {
+              if (!isPinned) setIsHovering(false);
+            }, 150);
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsPinned(true);  // Pin it open on click
+          }}
+        >
+          <UsageBadge usage={usage} />
+        </button>
+      </PopoverTrigger>
+      
+      <PopoverContent
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => {
+          if (!isPinned) setIsHovering(false);
+        }}
+        onInteractOutside={() => {
+          setIsPinned(false);
+          setIsHovering(false);
+        }}
+      >
+        {/* Content with actions */}
+        {isPinned && (
+          <p className="text-xs text-muted-foreground mb-2">
+            Click outside to close
+          </p>
+        )}
+        {/* ... rest of content */}
+      </PopoverContent>
+    </Popover>
+  );
+}
+```
+
+### Recommended Approach: Simple Popover (Click to Open)
+
+For clarity and mobile-friendliness, **click-to-open is best**:
+
+```tsx
+// Simple, clear, works everywhere
+<Popover>
+  <PopoverTrigger>
+    <Badge className="cursor-pointer">[2]</Badge>
+  </PopoverTrigger>
+  <PopoverContent>
+    {/* Actions are fully clickable */}
+  </PopoverContent>
+</Popover>
+```
+
+**Why click-to-open wins:**
+1. ✅ Works on mobile (no hover)
+2. ✅ Clear mental model (click = open, click outside = close)
+3. ✅ No race conditions with mouse movement
+4. ✅ User explicitly chose to see details
+5. ✅ All buttons are clickable
 
 ### 3. Track Reverse Mappings
 
@@ -306,9 +431,9 @@ function SequenceItemRow({
           {item.pixelCount}px
         </span>
         
-        {/* Usage indicator with tooltip */}
+        {/* Usage indicator with POPOVER (not tooltip) */}
         {usage.count > 0 && (
-          <UsageTooltip
+          <UsagePopover
             usage={usage}
             sequenceItemName={item.name}
             currentSelection={currentSelection}
@@ -381,14 +506,17 @@ function useMappingActions(
 | 1 | `[1]` | Orange | Used once |
 | 2+ | `[2]` | Red | Used multiple times (unusual) |
 
-### Tooltip Content
+### Popover Content (Click to Open)
 
 ```
+        Click [2] badge
+              │
+              ▼
 ┌─────────────────────────────────────────┐
 │  MAPPED TO (2)                          │
 │                                         │
 │  ┌─────────────────────────────────┐   │
-│  │ Main Matrix              [✕]    │   │  ← Hover shows X
+│  │ Main Matrix              [✕]    │   │  ← X always visible
 │  │ 847 effects                     │   │
 │  └─────────────────────────────────┘   │
 │  ┌─────────────────────────────────┐   │
@@ -398,9 +526,25 @@ function useMappingActions(
 │                                         │
 │  ───────────────────────────────────── │
 │                                         │
-│  [Map to "Spider 6" instead]            │  ← Only if left item selected
+│  [Map to "Spider 6" instead]            │  ← If left item selected
+│                                         │
+│  ───────────────────────────────────── │
+│  [Close]                                │
 │                                         │
 └─────────────────────────────────────────┘
+        Click outside or Close to dismiss
+```
+
+### Interaction Flow
+
+```
+1. User sees [2] badge on "Matrix-2"
+2. User clicks [2] → Popover opens
+3. User sees "Main Matrix" and "Backup Display" are mapped here
+4. User clicks [✕] next to "Main Matrix" → Mapping removed
+5. Badge updates to [1]
+6. User clicks "Map to Spider 6 instead" → New mapping created
+7. Popover closes automatically
 ```
 
 ## ✅ Acceptance Criteria
@@ -409,23 +553,33 @@ function useMappingActions(
 - [ ] Shows count instead of "IN USE"
 - [ ] Color coded (orange for 1, red for 2+)
 - [ ] Hidden when count is 0
+- [ ] Clickable (cursor: pointer)
 
-### Hover Tooltip:
+### Popover (NOT Tooltip):
+- [ ] Opens on click (not hover)
+- [ ] Stays open until dismissed
 - [ ] Shows list of items mapped to this sequence item
 - [ ] Shows effect count for each mapped item
-- [ ] Each item has X button to de-map
-- [ ] X button appears on hover of row
+- [ ] Each item has visible X button to de-map
+- [ ] Has explicit Close button
+- [ ] Closes on click outside
 
 ### De-map Action:
 - [ ] Click X removes mapping immediately
 - [ ] Toast confirms removal with Undo option
 - [ ] Usage count updates instantly
 - [ ] Left panel item becomes "unmapped" again
+- [ ] Popover closes if count drops to 0
 
 ### Re-map Action:
 - [ ] If left item is selected, shows "Map to X instead" button
 - [ ] Click re-maps: removes from old, adds to new
 - [ ] Works in one click (no back-and-forth)
+- [ ] Popover closes after re-map
+
+### Mobile/Touch:
+- [ ] Works on touch devices (click-based, no hover)
+- [ ] Popover positioned correctly on small screens
 
 ### State Management:
 - [ ] Reverse mapping tracked (seq item → user items)
