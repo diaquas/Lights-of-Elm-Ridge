@@ -1939,6 +1939,99 @@ export function matchModels(
     }
   }
 
+  // ── Phase 3c: Surplus-to-spatial matching (many-to-one) ──
+  // When source has more instances of a prop than the user (e.g., source
+  // has 8 arches but user has 5), the surplus source models are still
+  // unmapped after greedy matching. Map them to the spatially nearest
+  // already-matched dest model of the same type. This ensures effects
+  // from surplus source models don't disappear — they get routed to the
+  // user's closest available prop. The xmap format supports many-to-one.
+  const stillUnmappedIndividuals = allMappings
+    .filter((m) => m.destModel === null && !m.sourceModel.isGroup)
+    .map((m) => m.sourceModel);
+
+  if (stillUnmappedIndividuals.length > 0) {
+    // Build a map of base-name → already-matched dest models
+    const matchedDestsByBase = new Map<
+      string,
+      { destModel: ParsedModel; score: number }[]
+    >();
+    for (const m of allMappings) {
+      if (!m.destModel || m.sourceModel.isGroup) continue;
+      const srcBase = baseName(m.sourceModel.name);
+      if (srcBase.length === 0) continue;
+      if (!matchedDestsByBase.has(srcBase)) matchedDestsByBase.set(srcBase, []);
+      matchedDestsByBase.get(srcBase)!.push({
+        destModel: m.destModel,
+        score: m.score,
+      });
+    }
+
+    for (const src of stillUnmappedIndividuals) {
+      const srcBase = baseName(src.name);
+      if (srcBase.length === 0) continue;
+
+      // Also check canonical base for wider matching (e.g., "eave" → "structural_horizontal")
+      const srcCanonical = canonicalBase(srcBase);
+      let candidates = matchedDestsByBase.get(srcBase);
+      if (!candidates) {
+        // Try canonical base: find any base whose canonical form matches
+        for (const [base, dests] of matchedDestsByBase) {
+          if (
+            canonicalBase(base) === srcCanonical &&
+            srcCanonical !== srcBase
+          ) {
+            candidates = dests;
+            break;
+          }
+        }
+      }
+
+      if (!candidates || candidates.length === 0) continue;
+
+      // Pick the spatially closest dest model
+      let bestDest: ParsedModel | null = null;
+      let bestDist = Infinity;
+      for (const { destModel } of candidates) {
+        const dx = src.worldPosX - destModel.worldPosX;
+        const dy = src.worldPosY - destModel.worldPosY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestDest = destModel;
+        }
+      }
+
+      if (bestDest) {
+        const subMappings = mapSubmodels(src, bestDest);
+        // Score is capped at medium confidence (0.65) since this is a
+        // many-to-one fallback — the user should review these
+        const fallbackScore = 0.65;
+        const mappingIdx = allMappings.findIndex(
+          (m) => m.sourceModel === src && m.destModel === null,
+        );
+        if (mappingIdx >= 0) {
+          allMappings[mappingIdx] = {
+            sourceModel: src,
+            destModel: bestDest,
+            score: fallbackScore,
+            confidence: "medium",
+            factors: {
+              name: scoreName(src, bestDest),
+              spatial: scoreSpatial(src, bestDest, sourceBounds, destBounds),
+              shape: scoreShape(src, bestDest),
+              type: scoreType(src, bestDest),
+              pixels: scorePixels(src, bestDest),
+              structure: scoreStructure(src, bestDest),
+            },
+            reason: "Surplus → nearest same-type prop",
+            submodelMappings: subMappings,
+          };
+        }
+      }
+    }
+  }
+
   // ── Phase 3b: Group-level interchangeability matching ──
   // Same cross-prop class matching applied to unmapped groups.
   // e.g. "All - Mini Pumpkins - GRP" → "GROUP - All Ghosts" when both
