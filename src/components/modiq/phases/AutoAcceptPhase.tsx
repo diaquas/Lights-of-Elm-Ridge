@@ -8,7 +8,7 @@ import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import type { ModelMapping } from "@/lib/modiq";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
-const GREEN_THRESHOLD = 0.90;
+const GREEN_THRESHOLD = 0.9;
 
 // ─── Type helpers ────────────────────────────────────────
 
@@ -33,7 +33,6 @@ export function AutoAcceptPhase() {
     goToNextPhase,
     interactive,
     scoreMap,
-    overallProgress,
     reassignFromAutoAccept,
     registerOnContinue,
   } = useMappingPhase();
@@ -47,7 +46,12 @@ export function AutoAcceptPhase() {
   const suggestions = useMemo(() => {
     const map = new Map<
       string,
-      { name: string; score: number; pixelCount: number | undefined; factors: ModelMapping["factors"] }
+      {
+        name: string;
+        score: number;
+        pixelCount: number | undefined;
+        factors: ModelMapping["factors"];
+      }
     >();
     for (const item of phaseItems) {
       const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
@@ -95,8 +99,7 @@ export function AutoAcceptPhase() {
     );
 
     const groups = accepted.filter(
-      (i) =>
-        i.isGroup && i.sourceModel.groupType !== "SUBMODEL_GROUP",
+      (i) => i.isGroup && i.sourceModel.groupType !== "SUBMODEL_GROUP",
     );
     const hdGroups = accepted.filter(
       (i) => i.sourceModel.groupType === "SUBMODEL_GROUP",
@@ -115,17 +118,54 @@ export function AutoAcceptPhase() {
         yellowCount: yellow.length,
         greenAccepted: greenAccepted.length,
         yellowAccepted: yellowAccepted.length,
-        overallTotal: overallProgress.total,
         groups: groups.length,
         models: models.length,
         hdGroups: hdGroups.length,
-        coveragePercent:
-          overallProgress.total > 0
-            ? Math.round((accepted.length / overallProgress.total) * 100)
-            : 0,
       },
     };
-  }, [phaseItems, rejectedNames, scoreMap, overallProgress.total]);
+  }, [phaseItems, rejectedNames, scoreMap]);
+
+  // Preview coverage metrics for accepted items (before they're actually mapped)
+  const coveragePreview = useMemo(() => {
+    const accepted = phaseItems.filter(
+      (i) => !rejectedNames.has(i.sourceModel.name),
+    );
+
+    // Effects: sum of effectCount for accepted items vs all effects
+    const acceptedEffects = accepted.reduce((sum, i) => sum + i.effectCount, 0);
+    const totalEffects = interactive.effectsCoverage.total;
+    const effectsPercent =
+      totalEffects > 0 ? Math.round((acceptedEffects / totalEffects) * 100) : 0;
+
+    // Display: unique user models that would light up
+    const uniqueDest = new Set<string>();
+    for (const item of accepted) {
+      const sugg = suggestions.get(item.sourceModel.name);
+      if (sugg) uniqueDest.add(sugg.name);
+    }
+    const displayTotal = interactive.displayCoverage.total;
+    const displayPercent =
+      displayTotal > 0 ? Math.round((uniqueDest.size / displayTotal) * 100) : 0;
+
+    return {
+      effects: {
+        covered: acceptedEffects,
+        total: totalEffects,
+        percent: effectsPercent,
+      },
+      display: {
+        covered: uniqueDest.size,
+        total: displayTotal,
+        percent: displayPercent,
+      },
+    };
+  }, [
+    phaseItems,
+    rejectedNames,
+    interactive.effectsCoverage.total,
+    interactive.displayCoverage.total,
+    suggestions,
+  ]);
 
   // Search filter
   const filterBySearch = (items: SourceLayerMapping[]) => {
@@ -169,7 +209,15 @@ export function AutoAcceptPhase() {
     // Clear override before navigating so other phases use default behavior
     registerOnContinue(null);
     goToNextPhase();
-  }, [phaseItems, rejectedNames, suggestions, interactive, reassignFromAutoAccept, registerOnContinue, goToNextPhase]);
+  }, [
+    phaseItems,
+    rejectedNames,
+    suggestions,
+    interactive,
+    reassignFromAutoAccept,
+    registerOnContinue,
+    goToNextPhase,
+  ]);
 
   // Register the custom continue handler so the top nav button triggers it
   useEffect(() => {
@@ -191,7 +239,15 @@ export function AutoAcceptPhase() {
   // User came back — everything already mapped
   const unmappedCount = phaseItems.filter((i) => !i.isMapped).length;
   if (unmappedCount === 0) {
-    return <AllDoneView items={phaseItems} scoreMap={scoreMap} suggestions={suggestions} overallTotal={overallProgress.total} />;
+    return (
+      <AllDoneView
+        items={phaseItems}
+        scoreMap={scoreMap}
+        suggestions={suggestions}
+        displayCoverage={interactive.displayCoverage}
+        effectsCoverage={interactive.effectsCoverage}
+      />
+    );
   }
 
   return (
@@ -220,29 +276,145 @@ export function AutoAcceptPhase() {
                 {stats.accepted} Items Auto-Matched
               </h2>
               <p className="text-[13px] text-foreground/50">
-                {stats.groups > 0 && <>{stats.groups} Group{stats.groups !== 1 && "s"} &middot; </>}
+                {stats.groups > 0 && (
+                  <>
+                    {stats.groups} Group{stats.groups !== 1 && "s"}{" "}
+                    &middot;{" "}
+                  </>
+                )}
                 {stats.models} Model{stats.models !== 1 && "s"}
-                {stats.hdGroups > 0 && <> &middot; {stats.hdGroups} HD Group{stats.hdGroups !== 1 && "s"}</>}
+                {stats.hdGroups > 0 && (
+                  <>
+                    {" "}
+                    &middot; {stats.hdGroups} HD Group
+                    {stats.hdGroups !== 1 && "s"}
+                  </>
+                )}
               </p>
             </div>
           </div>
 
-          {/* Coverage Bar */}
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-sm font-medium text-foreground/60">
-                Display Coverage
-              </span>
-              <span className="text-lg font-bold text-green-400">
-                {stats.coveragePercent}%
-              </span>
+          {/* Dual Coverage Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Your Display */}
+            <div
+              className={`rounded-xl border p-4 text-center ${
+                coveragePreview.display.percent >= 80
+                  ? "border-green-500/30 bg-green-500/5"
+                  : "border-amber-500/30 bg-amber-500/5"
+              }`}
+            >
+              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
+                Your Display
+              </div>
+              <div
+                className={`text-3xl font-bold mb-1 ${
+                  coveragePreview.display.percent >= 80
+                    ? "text-green-400"
+                    : "text-amber-400"
+                }`}
+              >
+                {coveragePreview.display.percent}%
+              </div>
+              <div className="h-2 bg-foreground/10 rounded-full overflow-hidden mb-2">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    coveragePreview.display.percent >= 80
+                      ? "bg-green-500"
+                      : "bg-amber-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(coveragePreview.display.percent, 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-foreground/40">
+                <span className="font-semibold text-foreground/60">
+                  {coveragePreview.display.covered}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-foreground/60">
+                  {coveragePreview.display.total}
+                </span>{" "}
+                models active
+              </p>
             </div>
-            <CoverageBar
-              greenCount={stats.greenAccepted}
-              yellowCount={stats.yellowAccepted}
-              total={stats.overallTotal}
-            />
+
+            {/* Sequence Effects */}
+            <div
+              className={`rounded-xl border p-4 text-center ${
+                coveragePreview.effects.percent >= 70
+                  ? "border-blue-500/30 bg-blue-500/5"
+                  : "border-amber-500/30 bg-amber-500/5"
+              }`}
+            >
+              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
+                Sequence Effects
+              </div>
+              <div
+                className={`text-3xl font-bold mb-1 ${
+                  coveragePreview.effects.percent >= 70
+                    ? "text-blue-400"
+                    : "text-amber-400"
+                }`}
+              >
+                {coveragePreview.effects.percent}%
+              </div>
+              <div className="h-2 bg-foreground/10 rounded-full overflow-hidden mb-2">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    coveragePreview.effects.percent >= 70
+                      ? "bg-blue-500"
+                      : "bg-amber-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(coveragePreview.effects.percent, 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-foreground/40">
+                <span className="font-semibold text-foreground/60">
+                  {coveragePreview.effects.covered.toLocaleString()}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-foreground/60">
+                  {coveragePreview.effects.total.toLocaleString()}
+                </span>{" "}
+                effects captured
+              </p>
+            </div>
           </div>
+
+          {/* Match Quality Bar */}
+          {stats.accepted > 0 && (
+            <div className="mt-3">
+              <div className="flex justify-between text-[10px] text-foreground/40 mb-1">
+                <span>Match Quality</span>
+                <span>
+                  {stats.greenAccepted} high &middot; {stats.yellowAccepted}{" "}
+                  review
+                </span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden bg-foreground/10 flex">
+                {stats.greenAccepted > 0 && (
+                  <div
+                    className="bg-green-500 transition-all duration-500"
+                    style={{
+                      width: `${(stats.greenAccepted / stats.accepted) * 100}%`,
+                    }}
+                  />
+                )}
+                {stats.yellowAccepted > 0 && (
+                  <div
+                    className="bg-amber-400 transition-all duration-500"
+                    style={{
+                      width: `${(stats.yellowAccepted / stats.accepted) * 100}%`,
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -315,69 +487,6 @@ export function AutoAcceptPhase() {
           )}
         </div>
       </div>
-
-    </div>
-  );
-}
-
-// ─── Coverage Bar ────────────────────────────────────────
-
-function CoverageBar({
-  greenCount,
-  yellowCount,
-  total,
-}: {
-  greenCount: number;
-  yellowCount: number;
-  total: number;
-}) {
-  if (total === 0) return null;
-  const greenPct = (greenCount / total) * 100;
-  const yellowPct = (yellowCount / total) * 100;
-  const uncoveredPct = Math.max(0, 100 - greenPct - yellowPct);
-
-  return (
-    <div className="space-y-1.5">
-      <div className="h-5 rounded-full overflow-hidden bg-foreground/10 flex">
-        {greenPct > 0 && (
-          <div
-            className="bg-green-500 flex items-center justify-center text-[10px] text-white font-semibold transition-all duration-500"
-            style={{ width: `${greenPct}%` }}
-          >
-            {greenPct > 12 && greenCount}
-          </div>
-        )}
-        {yellowPct > 0 && (
-          <div
-            className="bg-amber-400 flex items-center justify-center text-[10px] text-amber-900 font-semibold transition-all duration-500"
-            style={{ width: `${yellowPct}%` }}
-          >
-            {yellowPct > 8 && yellowCount}
-          </div>
-        )}
-        {uncoveredPct > 0 && (
-          <div
-            className="bg-foreground/5 flex items-center justify-center text-[10px] text-foreground/30 transition-all duration-500"
-            style={{ width: `${uncoveredPct}%` }}
-          >
-            {uncoveredPct > 12 && `${Math.round(uncoveredPct)}%`}
-          </div>
-        )}
-      </div>
-      <div className="flex justify-between text-[10px] text-foreground/40">
-        <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-green-500" />
-          {greenCount} green ({Math.round(greenPct)}%)
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-amber-400" />
-          {yellowCount} yellow ({Math.round(yellowPct)}%)
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded-sm bg-foreground/10" />
-          uncovered
-        </span>
-      </div>
     </div>
   );
 }
@@ -404,7 +513,15 @@ function CollapsibleSection({
   badge: string;
   items: SourceLayerMapping[];
   rejectedNames: Set<string>;
-  suggestions: Map<string, { name: string; score: number; pixelCount: number | undefined; factors: ModelMapping["factors"] }>;
+  suggestions: Map<
+    string,
+    {
+      name: string;
+      score: number;
+      pixelCount: number | undefined;
+      factors: ModelMapping["factors"];
+    }
+  >;
   scoreMap: Map<string, number>;
   onToggleReject: (name: string) => void;
   searchActive: boolean;
@@ -487,7 +604,14 @@ function AutoMatchRow({
 }: {
   item: SourceLayerMapping;
   isRejected: boolean;
-  suggestion: { name: string; score: number; pixelCount: number | undefined; factors: ModelMapping["factors"] } | undefined;
+  suggestion:
+    | {
+        name: string;
+        score: number;
+        pixelCount: number | undefined;
+        factors: ModelMapping["factors"];
+      }
+    | undefined;
   score: number;
   onToggle: () => void;
 }) {
@@ -501,7 +625,10 @@ function AutoMatchRow({
             suggestion.factors,
             score,
             item.sourceModel.pixelCount && suggestion.pixelCount
-              ? { source: item.sourceModel.pixelCount, dest: suggestion.pixelCount }
+              ? {
+                  source: item.sourceModel.pixelCount,
+                  dest: suggestion.pixelCount,
+                }
               : undefined,
           )
         : undefined,
@@ -583,21 +710,27 @@ function AllDoneView({
   items,
   scoreMap,
   suggestions,
-  overallTotal,
+  displayCoverage,
+  effectsCoverage,
 }: {
   items: SourceLayerMapping[];
   scoreMap: Map<string, number>;
-  suggestions: Map<string, { name: string; score: number; pixelCount: number | undefined; factors: ModelMapping["factors"] }>;
-  overallTotal: number;
+  suggestions: Map<
+    string,
+    {
+      name: string;
+      score: number;
+      pixelCount: number | undefined;
+      factors: ModelMapping["factors"];
+    }
+  >;
+  displayCoverage: { covered: number; total: number; percent: number };
+  effectsCoverage: { covered: number; total: number; percent: number };
 }) {
-  const greenItems = items.filter(
+  const greenCount = items.filter(
     (i) => (scoreMap.get(i.sourceModel.name) ?? 0) >= GREEN_THRESHOLD,
-  );
-  const yellowItems = items.filter(
-    (i) => (scoreMap.get(i.sourceModel.name) ?? 0) < GREEN_THRESHOLD,
-  );
-  const coveragePercent =
-    overallTotal > 0 ? Math.round((items.length / overallTotal) * 100) : 0;
+  ).length;
+  const yellowCount = items.length - greenCount;
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -605,8 +738,18 @@ function AllDoneView({
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center gap-4 mb-4">
             <div className="h-12 w-12 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
-              <svg className="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <svg
+                className="w-6 h-6 text-green-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
               </svg>
             </div>
             <div>
@@ -619,21 +762,126 @@ function AllDoneView({
             </div>
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-sm font-medium text-foreground/60">
-                Display Coverage
-              </span>
-              <span className="text-lg font-bold text-green-400">
-                {coveragePercent}%
-              </span>
+          {/* Dual Coverage Cards */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Your Display */}
+            <div
+              className={`rounded-xl border p-4 text-center ${
+                displayCoverage.percent >= 80
+                  ? "border-green-500/30 bg-green-500/5"
+                  : "border-amber-500/30 bg-amber-500/5"
+              }`}
+            >
+              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
+                Your Display
+              </div>
+              <div
+                className={`text-3xl font-bold mb-1 ${
+                  displayCoverage.percent >= 80
+                    ? "text-green-400"
+                    : "text-amber-400"
+                }`}
+              >
+                {displayCoverage.percent}%
+              </div>
+              <div className="h-2 bg-foreground/10 rounded-full overflow-hidden mb-2">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    displayCoverage.percent >= 80
+                      ? "bg-green-500"
+                      : "bg-amber-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(displayCoverage.percent, 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-foreground/40">
+                <span className="font-semibold text-foreground/60">
+                  {displayCoverage.covered}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-foreground/60">
+                  {displayCoverage.total}
+                </span>{" "}
+                models active
+              </p>
             </div>
-            <CoverageBar
-              greenCount={greenItems.length}
-              yellowCount={yellowItems.length}
-              total={overallTotal}
-            />
+
+            {/* Sequence Effects */}
+            <div
+              className={`rounded-xl border p-4 text-center ${
+                effectsCoverage.percent >= 70
+                  ? "border-blue-500/30 bg-blue-500/5"
+                  : "border-amber-500/30 bg-amber-500/5"
+              }`}
+            >
+              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
+                Sequence Effects
+              </div>
+              <div
+                className={`text-3xl font-bold mb-1 ${
+                  effectsCoverage.percent >= 70
+                    ? "text-blue-400"
+                    : "text-amber-400"
+                }`}
+              >
+                {effectsCoverage.percent}%
+              </div>
+              <div className="h-2 bg-foreground/10 rounded-full overflow-hidden mb-2">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    effectsCoverage.percent >= 70
+                      ? "bg-blue-500"
+                      : "bg-amber-500"
+                  }`}
+                  style={{
+                    width: `${Math.min(effectsCoverage.percent, 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-foreground/40">
+                <span className="font-semibold text-foreground/60">
+                  {effectsCoverage.covered.toLocaleString()}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-foreground/60">
+                  {effectsCoverage.total.toLocaleString()}
+                </span>{" "}
+                effects captured
+              </p>
+            </div>
           </div>
+
+          {/* Match Quality Bar */}
+          {items.length > 0 && (
+            <div className="mt-3">
+              <div className="flex justify-between text-[10px] text-foreground/40 mb-1">
+                <span>Match Quality</span>
+                <span>
+                  {greenCount} high &middot; {yellowCount} review
+                </span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden bg-foreground/10 flex">
+                {greenCount > 0 && (
+                  <div
+                    className="bg-green-500 transition-all duration-500"
+                    style={{
+                      width: `${(greenCount / items.length) * 100}%`,
+                    }}
+                  />
+                )}
+                {yellowCount > 0 && (
+                  <div
+                    className="bg-amber-400 transition-all duration-500"
+                    style={{
+                      width: `${(yellowCount / items.length) * 100}%`,
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -648,7 +896,10 @@ function AllDoneView({
                     sugg.factors,
                     score,
                     item.sourceModel.pixelCount && sugg.pixelCount
-                      ? { source: item.sourceModel.pixelCount, dest: sugg.pixelCount }
+                      ? {
+                          source: item.sourceModel.pixelCount,
+                          dest: sugg.pixelCount,
+                        }
                       : undefined,
                   )
                 : undefined;
@@ -680,7 +931,11 @@ function AllDoneView({
                   >
                     {getTypeLabel(item)}
                   </span>
-                  <ConfidenceBadge score={score} reasoning={reasoning} size="sm" />
+                  <ConfidenceBadge
+                    score={score}
+                    reasoning={reasoning}
+                    size="sm"
+                  />
                 </div>
               );
             })}
