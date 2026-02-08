@@ -46,6 +46,17 @@
  *   - Moving Head isolation: MH/Moving Head models only match other moving heads
  *     Detects MH prefix variants (MHR7, MH1), DMX channel names (Gobo, Pan, Tilt, etc.)
  *   - Extreme pixel count drift (≥1000) is a hard zero for non-group models
+ *
+ * Algorithm tuning (V3.1 — Ticket 38):
+ *   - HIGH confidence threshold lowered from 0.85 → 0.80
+ *   - Dynamic name weight: boost to 55% for near-exact name matches (≥0.95)
+ *   - Spatial reweight guard: only applies when spatial factor > 0.1
+ *   - Index normalization: strip zero-padded indices ("Arch 01" → "Arch 1")
+ *   - Pixel floor raised from 0.5 → 0.6 for same-name/same-type matches
+ *   - Fuzzy index bonus: +0.10 when base name AND index both match exactly
+ *   - Quantity penalty softened from 0.70x → 0.80x
+ *   - Expanded synonyms (~40 new entries: colors, strands, holidays, etc.)
+ *   - Expanded equivalent bases (~20 new entries: stars, trees, icicles, etc.)
  */
 
 import type { ParsedModel } from "./parser";
@@ -151,7 +162,7 @@ const SYNONYMS: Record<string, string[]> = {
   boaw: ["wreath"],
   // Spanish-English translations (comprehensive)
   tumba: ["tombstone", "tomb", "tumbas"],
-  tombstone: ["tumba", "tumbas", "tomb"],
+  tombstone: ["tumba", "tumbas", "tomb", "rip"],
   contorno: ["outline", "contornos"],
   outline: ["contorno", "contornos"],
   estrella: ["star", "estrellas"],
@@ -200,6 +211,53 @@ const SYNONYMS: Record<string, string[]> = {
   mt: ["mega tree", "megatree"],
   mh: ["moving head", "movinghead"],
   ppd: ["wreath"],
+  // Color variants (common LED color names used interchangeably)
+  rgb: ["pixel", "pixels"],
+  ww: ["warm white", "warmwhite"],
+  cw: ["cool white", "coolwhite"],
+  nw: ["neutral white"],
+  "warm white": ["ww"],
+  "cool white": ["cw"],
+  // Group/collection terms
+  cluster: ["group", "bunch"],
+  bunch: ["cluster", "group"],
+  set: ["group", "collection"],
+  row: ["line", "strip"],
+  // Strand/string terms (common in icicle and rope light naming)
+  strand: ["string", "strip", "run"],
+  string: ["strand", "strip", "run"],
+  strip: ["strand", "string", "run"],
+  run: ["strand", "string"],
+  icicle: ["icicles", "drip", "drips"],
+  drip: ["icicle", "icicles", "drips"],
+  // Holiday prop swaps (additional)
+  pumpkin: ["calabaza", "jack o lantern", "jackolantern"],
+  skull: ["skeleton", "calavera"],
+  skeleton: ["skull", "calavera"],
+  bat: ["murcielago", "bats"],
+  spider: ["araña", "spiders"],
+  ghost: ["fantasma", "ghosts"],
+  // Tree variants
+  tree: ["arbol", "arboles"],
+  "spiral tree": ["firework", "fireworks", "inverted tree"],
+  "mini tree": ["mini trees", "small tree"],
+  // Star variants
+  star: ["estrella", "estrellas", "stars"],
+  starburst: ["star burst", "explosion"],
+  // Matrix/grid terms
+  matrix: ["grid", "panel"],
+  grid: ["matrix", "panel"],
+  panel: ["matrix", "grid"],
+  // Window terms
+  window: ["windows", "frame"],
+  frame: ["window", "border"],
+  // Bulb/globe terms
+  bulb: ["globe", "orb", "ball"],
+  globe: ["bulb", "orb", "ball"],
+  // Roof/fascia terms
+  fascia: ["roofline", "eave", "gutter"],
+  soffit: ["eave", "roofline"],
+  gutter: ["roofline", "eave", "fascia"],
 };
 
 /**
@@ -371,6 +429,37 @@ const EQUIVALENT_BASES: Record<string, string> = {
   sidewalk: "structural_pathway",
   walkway: "structural_pathway",
   pathway: "structural_pathway",
+  // Star props
+  star: "prop_star",
+  starburst: "prop_star",
+  "star burst": "prop_star",
+  // Tree props
+  tree: "prop_tree",
+  "mini tree": "prop_tree",
+  // Icicle/drip props
+  icicle: "prop_icicle",
+  drip: "prop_icicle",
+  icicles: "prop_icicle",
+  drips: "prop_icicle",
+  // Window/frame elements
+  window: "structural_window",
+  frame: "structural_window",
+  // Strand/string elements
+  strand: "prop_strand",
+  string: "prop_strand",
+  run: "prop_strand",
+  // Matrix/grid elements
+  matrix: "prop_matrix",
+  grid: "prop_matrix",
+  panel: "prop_matrix",
+  // Tombstone/grave elements
+  tombstone: "prop_tombstone",
+  tomb: "prop_tombstone",
+  tumba: "prop_tombstone",
+  // Bulb/globe elements
+  bulb: "prop_bulb",
+  globe: "prop_bulb",
+  orb: "prop_bulb",
 };
 
 /**
@@ -504,6 +593,9 @@ function normalizeName(name: string): string {
   n = n.replace(/\b(all|group|grp|my|the|model|mod|everything|but)\b/gi, "");
   // Singularize each token to normalize plurals
   n = n.split(/\s+/).map(singularize).join(" ");
+  // Normalize zero-padded indices: "arch 01" → "arch 1", "tree 003" → "tree 3"
+  // Preserves non-index numbers like pixel counts embedded mid-name
+  n = n.replace(/\b0+(\d+)\b/g, "$1");
   // Collapse whitespace
   n = n.replace(/\s+/g, " ").trim();
   return n;
@@ -1493,7 +1585,7 @@ function computeScore(
   // ── Relaxed pixel scoring for same-type/same-name models ──
   // When models clearly match by name AND type, pixel count differences
   // should be penalized much less — a 50px arch and 100px arch are the
-  // same prop, just different sizes. Floor the pixel factor at 0.5 so
+  // same prop, just different sizes. Floor the pixel factor at 0.6 so
   // pixel drift doesn't drag these obvious matches into medium/low tiers.
   if (
     !source.isGroup &&
@@ -1501,7 +1593,7 @@ function computeScore(
     factors.name >= 0.85 &&
     factors.type >= 0.7
   ) {
-    factors.pixels = Math.max(factors.pixels, 0.5);
+    factors.pixels = Math.max(factors.pixels, 0.6);
   }
 
   // ── Holiday mismatch penalty ───────────────────────────
@@ -1608,10 +1700,17 @@ function computeScore(
     return { score: houseScore, factors };
   }
 
+  // Dynamic name weight boost: when name factor is near-exact (>=0.95),
+  // the name alone is a very strong signal. Boost name weight from 38% → 55%
+  // and reduce spatial (22→12%) + shape (13→6%) to let the name dominate.
+  const nameWeight = factors.name >= 0.95 ? 0.55 : WEIGHTS.name;
+  const spatialWeight = factors.name >= 0.95 ? 0.12 : WEIGHTS.spatial;
+  const shapeWeight = factors.name >= 0.95 ? 0.06 : WEIGHTS.shape;
+
   let score =
-    factors.name * WEIGHTS.name +
-    factors.spatial * WEIGHTS.spatial +
-    factors.shape * WEIGHTS.shape +
+    factors.name * nameWeight +
+    factors.spatial * spatialWeight +
+    factors.shape * shapeWeight +
     factors.type * WEIGHTS.type +
     factors.pixels * WEIGHTS.pixels +
     factors.structure * WEIGHTS.structure;
@@ -1625,8 +1724,15 @@ function computeScore(
     const destBase = baseName(dest.name);
     const srcIdx = extractIndex(source.name);
     const destIdx = extractIndex(dest.name);
-    // If base names match well but indices differ, boost spatial weight significantly
-    if (srcBase === destBase && srcBase.length > 0 && srcIdx !== destIdx) {
+    // If base names match well but indices differ, boost spatial weight significantly.
+    // Guard: only reweight when spatial data is meaningful (>0.1) — if both models
+    // lack coordinates, boosting spatial to 42% would just amplify noise.
+    if (
+      srcBase === destBase &&
+      srcBase.length > 0 &&
+      srcIdx !== destIdx &&
+      factors.spatial > 0.1
+    ) {
       // Re-weight: spatial becomes 42%, name drops to 18%
       score =
         factors.name * 0.18 +
@@ -1635,6 +1741,18 @@ function computeScore(
         factors.type * WEIGHTS.type +
         factors.pixels * WEIGHTS.pixels +
         factors.structure * WEIGHTS.structure;
+    }
+
+    // FUZZY INDEX BONUS: When base names match AND indices align,
+    // reward the exact index match with +0.10 bonus.
+    // e.g., "Arch 3" ↔ "Arch 3" gets boosted over "Arch 3" ↔ "Arch 5"
+    if (
+      srcBase === destBase &&
+      srcBase.length > 0 &&
+      srcIdx >= 0 &&
+      srcIdx === destIdx
+    ) {
+      score = Math.min(1.0, score + 0.1);
     }
   }
 
@@ -1666,7 +1784,7 @@ function computeScore(
 }
 
 function scoreToConfidence(score: number): Confidence {
-  if (score >= 0.85) return "high";
+  if (score >= 0.8) return "high";
   if (score >= 0.6) return "medium";
   if (score >= 0.4) return "low";
   return "unmapped";
@@ -1993,13 +2111,13 @@ export function matchModels(
             }
           }
 
-          // After 0.7x penalty, finalScore must reach LOW (0.40) to be useful.
-          // Pre-penalty threshold: 0.40 / 0.7 ≈ 0.58
-          if (bestIdx >= 0 && bestScore > 0.57) {
+          // After 0.8x penalty, finalScore must reach LOW (0.40) to be useful.
+          // Pre-penalty threshold: 0.40 / 0.8 = 0.50
+          if (bestIdx >= 0 && bestScore > 0.49) {
             usedDestInClass.add(bestIdx);
             const destMatch = sortedDest[bestIdx];
-            // Penalize cross-prop matches (cap at 0.7x original)
-            const finalScore = bestScore * 0.7;
+            // Penalize cross-prop matches (cap at 0.8x original)
+            const finalScore = bestScore * 0.8;
             const confidence = scoreToConfidence(finalScore);
             const subMappings = mapSubmodels(src, destMatch);
 
