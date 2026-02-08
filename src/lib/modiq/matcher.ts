@@ -315,16 +315,60 @@ const PROP_KEYWORDS = [
  * Maps each variant to a shared canonical form.
  */
 const EQUIVALENT_BASES: Record<string, string> = {
+  // Horizontal structural elements
   eave: "structural_horizontal",
   eaves: "structural_horizontal",
   horizontal: "structural_horizontal",
   horizontals: "structural_horizontal",
+  roofline: "structural_horizontal",
+  gutter: "structural_horizontal",
+  // Vertical structural elements
   vert: "structural_vertical",
   verts: "structural_vertical",
   vertical: "structural_vertical",
   verticals: "structural_vertical",
   verticle: "structural_vertical",
   verticl: "structural_vertical",
+  // Outline/border elements
+  outline: "structural_outline",
+  border: "structural_outline",
+  trim: "structural_outline",
+  perimeter: "structural_outline",
+  // Arch props
+  arch: "prop_arch",
+  archway: "prop_arch",
+  arc: "prop_arch",
+  // Candy cane props
+  cane: "prop_cane",
+  candycane: "prop_cane",
+  "candy cane": "prop_cane",
+  // Mega tree props
+  megatree: "prop_megatree",
+  "mega tree": "prop_megatree",
+  // Pole/pixel pole props
+  pole: "prop_pole",
+  "pixel pole": "prop_pole",
+  // Spinner/pinwheel props
+  spinner: "prop_spinner",
+  pinwheel: "prop_spinner",
+  // Wreath props
+  wreath: "prop_wreath",
+  rosa: "prop_wreath",
+  // Flood/wash lights
+  flood: "prop_flood",
+  wash: "prop_flood",
+  // Stake/rod props
+  stake: "prop_stake",
+  rod: "prop_stake",
+  // Snowflake props
+  snowflake: "prop_snowflake",
+  flake: "prop_snowflake",
+  chromaflake: "prop_snowflake",
+  // Driveway/sidewalk props
+  driveway: "structural_pathway",
+  sidewalk: "structural_pathway",
+  walkway: "structural_pathway",
+  pathway: "structural_pathway",
 };
 
 /**
