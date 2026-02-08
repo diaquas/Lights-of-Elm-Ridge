@@ -5,33 +5,93 @@ import { PHASE_CONFIG, UPLOAD_STEP } from "@/types/mappingPhases";
 
 const PHASE_ICONS: Record<string, React.ReactNode> = {
   upload: (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+      />
     </svg>
   ),
   auto: (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M13 10V3L4 14h7v7l9-11h-7z"
+      />
     </svg>
   ),
   groups: (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+      />
     </svg>
   ),
   individuals: (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 6h16M4 10h16M4 14h16M4 18h16"
+      />
     </svg>
   ),
   spinners: (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+      />
     </svg>
   ),
   review: (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+      />
     </svg>
   ),
 };
@@ -47,12 +107,10 @@ const CHECK_ICON = (
 );
 
 export function PhaseStepper() {
-  const {
-    currentPhase,
-    setCurrentPhase,
-    overallProgress,
-    phaseCounts,
-  } = useMappingPhase();
+  const { currentPhase, setCurrentPhase, phaseCounts, interactive } =
+    useMappingPhase();
+
+  const { effectsCoverage } = interactive;
 
   const currentIndex = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
 
@@ -116,17 +174,18 @@ export function PhaseStepper() {
         })}
       </div>
 
-      {/* Overall Progress */}
+      {/* Effects Coverage */}
       <div className="flex items-center gap-3 text-sm">
-        <span className="text-foreground/50">
-          {overallProgress.completed}/{overallProgress.total} mapped
-        </span>
-        <div className="w-24 h-2 bg-foreground/10 rounded-full overflow-hidden">
+        <span className="text-foreground/50">Effects Coverage</span>
+        <div className="w-28 h-2 bg-foreground/10 rounded-full overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 ease-out"
-            style={{ width: `${overallProgress.percentage}%` }}
+            style={{ width: `${effectsCoverage.percent}%` }}
           />
         </div>
+        <span className="font-bold text-foreground tabular-nums">
+          {effectsCoverage.percent}%
+        </span>
       </div>
     </div>
   );

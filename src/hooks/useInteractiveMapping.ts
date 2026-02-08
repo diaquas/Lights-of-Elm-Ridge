@@ -142,6 +142,10 @@ export interface InteractiveMappingState {
   hiddenZeroEffectCount: number;
   /** Find next unmapped source layer */
   nextUnmappedLayer: () => string | null;
+  /** Effects-weighted coverage: what % of sequence effects are mapped to user models */
+  effectsCoverage: { covered: number; total: number; percent: number };
+  /** User display coverage: what % of user's layout models have received mappings */
+  displayCoverage: { covered: number; total: number; percent: number };
   /** Serialize mapping state for session recovery */
   getSerializedState: () => {
     assignments: Record<string, string | null>;
@@ -1021,6 +1025,34 @@ export function useInteractiveMapping(
     };
   }, [sourceLayerMappings]);
 
+  // Effects-weighted coverage: what % of sequence visual effects are mapped
+  const effectsCoverage = useMemo(() => {
+    let total = 0;
+    let covered = 0;
+    for (const sl of sourceLayerMappings) {
+      if (sl.isSkipped) continue;
+      total += sl.effectCount;
+      if (sl.isMapped) covered += sl.effectCount;
+    }
+    const percent = total > 0 ? Math.round((covered / total) * 100) : 100;
+    return { covered, total, percent };
+  }, [sourceLayerMappings]);
+
+  // User display coverage: what % of the user's layout models are receiving effects
+  const displayCoverage = useMemo(() => {
+    // Total user models (excluding DMX and skipped dest models)
+    const eligibleDest = destModels.filter(
+      (m) => !isDmxModel(m) && !skippedDestModels.has(m.name),
+    );
+    const total = eligibleDest.length;
+    // Count how many user models have at least one source layer mapped to them
+    const covered = eligibleDest.filter((m) =>
+      assignedUserModelNames.has(m.name),
+    ).length;
+    const percent = total > 0 ? Math.round((covered / total) * 100) : 100;
+    return { covered, total, percent };
+  }, [destModels, assignedUserModelNames, skippedDestModels]);
+
   // V3 actions — many-to-many
 
   /** Add a link from user model to source layer (additive, never replaces) */
@@ -1280,6 +1312,8 @@ export function useInteractiveMapping(
     coveragePercentage: sourceStats.pct,
     hiddenZeroEffectCount,
     nextUnmappedLayer,
+    effectsCoverage,
+    displayCoverage,
 
     // Destination-side skipping
     skippedDestModels,

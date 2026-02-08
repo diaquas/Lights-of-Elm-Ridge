@@ -25,9 +25,18 @@ import {
   parseXsqModels,
   parseXsqEffectCounts,
 } from "@/lib/modiq";
-import type { ParsedLayout, MappingResult, DisplayType, EffectTree } from "@/lib/modiq";
+import type {
+  ParsedLayout,
+  MappingResult,
+  DisplayType,
+  EffectTree,
+} from "@/lib/modiq";
 import type { ParsedModel } from "@/lib/modiq";
-import type { BoostSuggestion, SpinnerBoostSuggestion, DisplayCoverage } from "@/lib/modiq";
+import type {
+  BoostSuggestion,
+  SpinnerBoostSuggestion,
+  DisplayCoverage,
+} from "@/lib/modiq";
 import { isDmxModel, getActiveSourceNamesForExport } from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
 import { getMockupVideoId } from "@/data/youtube-loader";
@@ -47,7 +56,9 @@ import DraggableUserCard from "@/components/modiq/DraggableUserCard";
 import ExportDialog from "@/components/modiq/ExportDialog";
 import CoverageBoostPrompt from "@/components/modiq/CoverageBoostPrompt";
 import PostExportScreen from "@/components/modiq/PostExportScreen";
-import CascadeToastContainer, { useCascadeToasts } from "@/components/modiq/CascadeToast";
+import CascadeToastContainer, {
+  useCascadeToasts,
+} from "@/components/modiq/CascadeToast";
 import { MappingPhaseProvider } from "@/contexts/MappingPhaseContext";
 import { PhaseStepper } from "@/components/modiq/PhaseStepper";
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
@@ -83,13 +94,17 @@ export default function ModIQTool() {
   const [mapFromMode, setMapFromMode] = useState<MapFromMode>("elm-ridge");
   const [displayType, setDisplayType] = useState<DisplayType>("halloween");
   const [inputSubStep, setInputSubStep] = useState<InputSubStep>(
-    initialSequence ? "loer-flow" : "source-select"
+    initialSequence ? "loer-flow" : "source-select",
   );
   const [vendorStep, setVendorStep] = useState<1 | 2>(1);
 
   // Sequence selection & ownership
   const [selectedSequence, setSelectedSequence] = useState(initialSequence);
-  const { isLoggedIn, isLoading: purchasesLoading, hasPurchased } = usePurchasedSequences();
+  const {
+    isLoggedIn,
+    isLoading: purchasesLoading,
+    hasPurchased,
+  } = usePurchasedSequences();
   const selectedSeq = sequences.find((s) => s.slug === selectedSequence);
   const isAccessible = selectedSeq
     ? selectedSeq.price === 0 || hasPurchased(selectedSeq.id)
@@ -97,11 +112,17 @@ export default function ModIQTool() {
 
   // Sequence categories for LOER picker grid
   const purchasedSeqs = useMemo(
-    () => sequences.filter((s) => s.price > 0 && hasPurchased(s.id)).sort((a, b) => a.title.localeCompare(b.title)),
+    () =>
+      sequences
+        .filter((s) => s.price > 0 && hasPurchased(s.id))
+        .sort((a, b) => a.title.localeCompare(b.title)),
     [hasPurchased],
   );
   const freeSeqs = useMemo(
-    () => sequences.filter((s) => s.price === 0).sort((a, b) => a.title.localeCompare(b.title)),
+    () =>
+      sequences
+        .filter((s) => s.price === 0)
+        .sort((a, b) => a.title.localeCompare(b.title)),
     [],
   );
 
@@ -122,7 +143,10 @@ export default function ModIQTool() {
   // Vendor .xsq sequence file (required for other-vendor mode)
   const [vendorXsqFile, setVendorXsqFile] = useState<File | null>(null);
   const [vendorXsqModels, setVendorXsqModels] = useState<string[] | null>(null);
-  const [vendorEffectCounts, setVendorEffectCounts] = useState<Record<string, number> | null>(null);
+  const [vendorEffectCounts, setVendorEffectCounts] = useState<Record<
+    string,
+    number
+  > | null>(null);
   const vendorXsqInputRef = useRef<HTMLInputElement>(null);
   const [vendorXsqIsDragging, setVendorXsqIsDragging] = useState(false);
 
@@ -153,11 +177,18 @@ export default function ModIQTool() {
   // Export state
   const [exportFileName, setExportFileName] = useState("");
   // Boost state (passed from InteractiveResults to PostExportScreen)
-  const [exportDisplayCoverage, setExportDisplayCoverage] = useState<number | undefined>(undefined);
-  const [exportSequenceCoverage, setExportSequenceCoverage] = useState<{ mapped: number; total: number } | undefined>(undefined);
-  const [exportBoostLines, setExportBoostLines] = useState<{ userGroupName: string; sourceGroupName: string }[]>([]);
+  const [exportDisplayCoverage, setExportDisplayCoverage] = useState<
+    number | undefined
+  >(undefined);
+  const [exportSequenceCoverage, setExportSequenceCoverage] = useState<
+    { mapped: number; total: number } | undefined
+  >(undefined);
+  const [exportBoostLines, setExportBoostLines] = useState<
+    { userGroupName: string; sourceGroupName: string }[]
+  >([]);
   const [exportGroupsMapped, setExportGroupsMapped] = useState<number>(0);
-  const [exportGroupsCoveredChildren, setExportGroupsCoveredChildren] = useState<number>(0);
+  const [exportGroupsCoveredChildren, setExportGroupsCoveredChildren] =
+    useState<number>(0);
   const [exportDirectMapped, setExportDirectMapped] = useState<number>(0);
 
   // ─── Save States / Session Recovery ────────────────────
@@ -263,9 +294,15 @@ export default function ModIQTool() {
 
     setStep("processing");
     setError("");
-    setProcessingStats({ layoutModels: userLayout.modelCount, sequenceModels: 0, matchesFound: 0, progress: 0 });
+    setProcessingStats({
+      layoutModels: userLayout.modelCount,
+      sequenceModels: 0,
+      matchesFound: 0,
+      progress: 0,
+    });
 
-    const displayLabel = displayType === "halloween" ? "Halloween" : "Christmas";
+    const displayLabel =
+      displayType === "halloween" ? "Halloween" : "Christmas";
     const seqTitle =
       mapFromMode === "elm-ridge" && selectedSeq
         ? `${selectedSeq.title} — ${displayLabel}`
@@ -364,7 +401,8 @@ export default function ModIQTool() {
 
     if (hasEffectData && tree) {
       // Update the effect tree step label with results
-      steps[si].label = `Effect tree: ${tree.summary.effectiveMappingItems} active layers from ${tree.summary.totalModelsInLayout} models`;
+      steps[si].label =
+        `Effect tree: ${tree.summary.effectiveMappingItems} active layers from ${tree.summary.totalModelsInLayout} models`;
       await delay(300);
     }
 
@@ -397,7 +435,8 @@ export default function ModIQTool() {
       sessions
         .createSession({
           sourceType: mapFromMode,
-          sequenceSlug: mapFromMode === "elm-ridge" ? selectedSequence || null : null,
+          sequenceSlug:
+            mapFromMode === "elm-ridge" ? selectedSequence || null : null,
           sequenceTitle: seqTitle,
           layoutFilename: uploadedFile?.name ?? "layout.xml",
           totalCount: srcModels.length,
@@ -408,7 +447,19 @@ export default function ModIQTool() {
     }
 
     setStep("results");
-  }, [userLayout, mapFromMode, sourceLayout, sourceFile, displayType, selectedSeq, vendorXsqModels, vendorEffectCounts, sessions, selectedSequence, uploadedFile]);
+  }, [
+    userLayout,
+    mapFromMode,
+    sourceLayout,
+    sourceFile,
+    displayType,
+    selectedSeq,
+    vendorXsqModels,
+    vendorEffectCounts,
+    sessions,
+    selectedSequence,
+    uploadedFile,
+  ]);
 
   // ─── Reset ──────────────────────────────────────────────
   const handleReset = useCallback(() => {
@@ -447,55 +498,71 @@ export default function ModIQTool() {
         </div>
       )}
 
-
       {/* ── Session Recovery Banner ──────────────────────── */}
-      {step === "input" && inputSubStep === "source-select" && sessions.activeSession && (
-        <div className="max-w-[860px] mx-auto mb-8">
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 flex items-center gap-5">
-            <div className="h-12 w-12 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-              <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-foreground">
-                Incomplete Session Found
-              </h3>
-              <p className="text-[13px] text-foreground/50 mt-0.5">
-                {sessions.activeSession.sequence_title} &middot;{" "}
-                {sessions.activeSession.mapped_count} of {sessions.activeSession.total_count} mapped
-                ({sessions.activeSession.coverage_percent}%)
-              </p>
-              <div className="mt-2 h-1.5 rounded-full bg-foreground/10 overflow-hidden max-w-xs">
-                <div
-                  className="h-full rounded-full bg-amber-400 transition-all"
-                  style={{ width: `${sessions.activeSession.coverage_percent}%` }}
-                />
+      {step === "input" &&
+        inputSubStep === "source-select" &&
+        sessions.activeSession && (
+          <div className="max-w-[860px] mx-auto mb-8">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-5 flex items-center gap-5">
+              <div className="h-12 w-12 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                <svg
+                  className="w-6 h-6 text-amber-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-foreground">
+                  Incomplete Session Found
+                </h3>
+                <p className="text-[13px] text-foreground/50 mt-0.5">
+                  {sessions.activeSession.sequence_title} &middot;{" "}
+                  {sessions.activeSession.mapped_count} of{" "}
+                  {sessions.activeSession.total_count} mapped (
+                  {sessions.activeSession.coverage_percent}%)
+                </p>
+                <div className="mt-2 h-1.5 rounded-full bg-foreground/10 overflow-hidden max-w-xs">
+                  <div
+                    className="h-full rounded-full bg-amber-400 transition-all"
+                    style={{
+                      width: `${sessions.activeSession.coverage_percent}%`,
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() =>
+                    sessions.abandonSession(sessions.activeSession!.id)
+                  }
+                  className="px-3 py-1.5 text-[12px] text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // TODO: implement full state restoration from session data
+                    // For now, just abandon and start fresh
+                    sessions.abandonSession(sessions.activeSession!.id);
+                  }}
+                  className="px-4 py-1.5 text-[12px] font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
+                >
+                  Resume
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => sessions.abandonSession(sessions.activeSession!.id)}
-                className="px-3 py-1.5 text-[12px] text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
-              >
-                Discard
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  // TODO: implement full state restoration from session data
-                  // For now, just abandon and start fresh
-                  sessions.abandonSession(sessions.activeSession!.id);
-                }}
-                className="px-4 py-1.5 text-[12px] font-semibold text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
-              >
-                Resume
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* ── Input Step ─────────────────────────────────── */}
       {step === "input" && (
@@ -530,7 +597,8 @@ export default function ModIQTool() {
                     Lights of Elm Ridge Sequence
                   </h3>
                   <p className="text-sm text-foreground/50">
-                    Choose from your purchased or free sequences &mdash; optimized for the best results
+                    Choose from your purchased or free sequences &mdash;
+                    optimized for the best results
                   </p>
                   <div className="mt-4 text-accent text-sm font-semibold group-hover:translate-x-1 transition-transform">
                     Get Started &rarr;
@@ -547,7 +615,17 @@ export default function ModIQTool() {
                   className="md:col-span-2 bg-surface border border-border rounded-2xl p-8 text-left transition-all hover:border-foreground/20 hover:scale-[1.01] group"
                 >
                   <div className="mb-4 mt-2">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/30">
+                    <svg
+                      width="36"
+                      height="36"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-foreground/30"
+                    >
                       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                       <polyline points="14 2 14 8 20 8" />
                       <line x1="16" y1="13" x2="8" y2="13" />
@@ -559,7 +637,8 @@ export default function ModIQTool() {
                     Other Vendor
                   </h3>
                   <p className="text-sm text-foreground/50">
-                    Upload a sequence package from another vendor to map to your layout
+                    Upload a sequence package from another vendor to map to your
+                    layout
                   </p>
                   <div className="mt-4 text-foreground/40 text-sm font-semibold group-hover:translate-x-1 transition-transform">
                     Upload Files &rarr;
@@ -586,11 +665,12 @@ export default function ModIQTool() {
                   <HowItWorksCard
                     number="3"
                     title="Download & Import"
-                    description="Get a .xmap file that imports directly into xLights&apos; mapping dialog. Tweak only the few low-confidence matches."
+                    description="Get a .xmap file that imports directly into xLights' mapping dialog. Tweak only the few low-confidence matches."
                   />
                 </div>
                 <div className="text-center text-xs text-foreground/30 pt-6 border-t border-border">
-                  Your files are processed locally in your browser and never uploaded to any server.
+                  Your files are processed locally in your browser and never
+                  uploaded to any server.
                 </div>
               </div>
             </div>
@@ -613,10 +693,21 @@ export default function ModIQTool() {
                   }}
                   className="inline-flex items-center gap-1.5 text-sm text-foreground/40 hover:text-foreground/70 transition-colors"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <polyline points="15 18 9 12 15 6" />
                   </svg>
-                  {selectedSequence && isAccessible ? "Change Sequence" : "Back to Start"}
+                  {selectedSequence && isAccessible
+                    ? "Change Sequence"
+                    : "Back to Start"}
                 </button>
                 <span className="text-sm text-foreground/30">
                   Step {selectedSequence && isAccessible ? "2" : "1"} of 2
@@ -627,7 +718,9 @@ export default function ModIQTool() {
               <div className="w-full h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
                 <div
                   className="h-full bg-accent rounded-full transition-all duration-500"
-                  style={{ width: selectedSequence && isAccessible ? "100%" : "0%" }}
+                  style={{
+                    width: selectedSequence && isAccessible ? "100%" : "0%",
+                  }}
                 />
               </div>
 
@@ -642,7 +735,17 @@ export default function ModIQTool() {
                   {isLoggedIn && purchasedSeqs.length > 0 && (
                     <div>
                       <div className="flex items-center gap-2 mb-4">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-foreground/40"
+                        >
                           <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                           <line x1="3" y1="6" x2="21" y2="6" />
                           <path d="M16 10a4 4 0 0 1-8 0" />
@@ -654,9 +757,14 @@ export default function ModIQTool() {
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         {purchasedSeqs.map((seq) => {
                           const mockupId = getMockupVideoId(seq.slug);
-                          const thumb = seq.thumbnailUrl
-                            || (mockupId ? `https://img.youtube.com/vi/${mockupId}/maxresdefault.jpg` : null)
-                            || (seq.youtubeId ? `https://img.youtube.com/vi/${seq.youtubeId}/maxresdefault.jpg` : null);
+                          const thumb =
+                            seq.thumbnailUrl ||
+                            (mockupId
+                              ? `https://img.youtube.com/vi/${mockupId}/maxresdefault.jpg`
+                              : null) ||
+                            (seq.youtubeId
+                              ? `https://img.youtube.com/vi/${seq.youtubeId}/maxresdefault.jpg`
+                              : null);
                           return (
                             <button
                               key={seq.slug}
@@ -677,13 +785,19 @@ export default function ModIQTool() {
                                   />
                                 ) : (
                                   <div className="absolute inset-0 flex items-center justify-center text-3xl">
-                                    {seq.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}
+                                    {seq.category === "Halloween"
+                                      ? "\uD83C\uDF83"
+                                      : "\uD83C\uDF84"}
                                   </div>
                                 )}
                               </div>
                               <div className="p-3">
-                                <div className="text-sm font-semibold text-foreground truncate">{seq.title}</div>
-                                <div className="text-xs text-foreground/40 truncate">{seq.artist}</div>
+                                <div className="text-sm font-semibold text-foreground truncate">
+                                  {seq.title}
+                                </div>
+                                <div className="text-xs text-foreground/40 truncate">
+                                  {seq.artist}
+                                </div>
                               </div>
                             </button>
                           );
@@ -695,7 +809,17 @@ export default function ModIQTool() {
                   {/* Free Sequences */}
                   <div>
                     <div className="flex items-center gap-2 mb-4">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/40">
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-foreground/40"
+                      >
                         <polyline points="20 12 20 22 4 22 4 12" />
                         <rect x="2" y="7" width="20" height="5" />
                         <line x1="12" y1="22" x2="12" y2="7" />
@@ -709,9 +833,14 @@ export default function ModIQTool() {
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       {freeSeqs.map((seq) => {
                         const mockupId = getMockupVideoId(seq.slug);
-                        const thumb = seq.thumbnailUrl
-                          || (mockupId ? `https://img.youtube.com/vi/${mockupId}/maxresdefault.jpg` : null)
-                          || (seq.youtubeId ? `https://img.youtube.com/vi/${seq.youtubeId}/maxresdefault.jpg` : null);
+                        const thumb =
+                          seq.thumbnailUrl ||
+                          (mockupId
+                            ? `https://img.youtube.com/vi/${mockupId}/maxresdefault.jpg`
+                            : null) ||
+                          (seq.youtubeId
+                            ? `https://img.youtube.com/vi/${seq.youtubeId}/maxresdefault.jpg`
+                            : null);
                         return (
                           <button
                             key={seq.slug}
@@ -732,7 +861,9 @@ export default function ModIQTool() {
                                 />
                               ) : (
                                 <div className="absolute inset-0 flex items-center justify-center text-3xl">
-                                  {seq.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}
+                                  {seq.category === "Halloween"
+                                    ? "\uD83C\uDF83"
+                                    : "\uD83C\uDF84"}
                                 </div>
                               )}
                               <span className="absolute top-2 right-2 text-[10px] bg-green-500/90 text-white px-2 py-0.5 rounded-full font-semibold">
@@ -740,8 +871,12 @@ export default function ModIQTool() {
                               </span>
                             </div>
                             <div className="p-3">
-                              <div className="text-sm font-semibold text-foreground truncate">{seq.title}</div>
-                              <div className="text-xs text-foreground/40 truncate">{seq.artist}</div>
+                              <div className="text-sm font-semibold text-foreground truncate">
+                                {seq.title}
+                              </div>
+                              <div className="text-xs text-foreground/40 truncate">
+                                {seq.artist}
+                              </div>
                             </div>
                           </button>
                         );
@@ -752,7 +887,10 @@ export default function ModIQTool() {
                   {/* Login nudge */}
                   {!isLoggedIn && !purchasesLoading && (
                     <div className="text-center text-sm text-foreground/40">
-                      <Link href="/login?redirect=/modiq" className="text-accent/70 hover:text-accent">
+                      <Link
+                        href="/login?redirect=/modiq"
+                        className="text-accent/70 hover:text-accent"
+                      >
                         Log in
                       </Link>{" "}
                       to see your purchased sequences
@@ -774,10 +912,18 @@ export default function ModIQTool() {
                 <div className="space-y-6">
                   {/* Selected sequence badge */}
                   <div className="bg-accent/[0.04] border border-accent/20 rounded-xl px-4 py-3 flex items-center gap-3">
-                    <div className="text-xl">{selectedSeq?.category === "Halloween" ? "\uD83C\uDF83" : "\uD83C\uDF84"}</div>
+                    <div className="text-xl">
+                      {selectedSeq?.category === "Halloween"
+                        ? "\uD83C\uDF83"
+                        : "\uD83C\uDF84"}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-foreground truncate">{selectedSeq?.title}</div>
-                      <div className="text-xs text-foreground/40 truncate">{selectedSeq?.artist}</div>
+                      <div className="text-sm font-semibold text-foreground truncate">
+                        {selectedSeq?.title}
+                      </div>
+                      <div className="text-xs text-foreground/40 truncate">
+                        {selectedSeq?.artist}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -902,7 +1048,15 @@ export default function ModIQTool() {
                         : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
                     }`}
                   >
-                    {canRun ? <>Mod<span className="text-white/90">:</span>IQ It &rarr;</> : <>Mod<span className="text-white/40">:</span>IQ It</>}
+                    {canRun ? (
+                      <>
+                        Mod<span className="text-white/90">:</span>IQ It &rarr;
+                      </>
+                    ) : (
+                      <>
+                        Mod<span className="text-white/40">:</span>IQ It
+                      </>
+                    )}
                   </button>
                 </div>
               )}
@@ -926,7 +1080,16 @@ export default function ModIQTool() {
                   }}
                   className="inline-flex items-center gap-1.5 text-sm text-foreground/40 hover:text-foreground/70 transition-colors"
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <polyline points="15 18 9 12 15 6" />
                   </svg>
                   {vendorStep === 2 ? "Back" : "Back to Start"}
@@ -988,12 +1151,24 @@ export default function ModIQTool() {
                             }}
                             className="hidden"
                           />
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/20 mb-2">
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-foreground/20 mb-2"
+                          >
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                             <polyline points="14 2 14 8 20 8" />
                           </svg>
                           <p className="text-[12px] text-foreground/40">
-                            <span className="text-foreground/60 font-semibold">xlights_rgbeffects.xml</span>
+                            <span className="text-foreground/60 font-semibold">
+                              xlights_rgbeffects.xml
+                            </span>
                           </p>
                           <p className="text-[10px] text-foreground/25 mt-0.5">
                             Drop here or click to browse
@@ -1001,11 +1176,23 @@ export default function ModIQTool() {
                         </div>
                       ) : (
                         <div className="rounded-xl p-4 bg-green-500/5 border border-green-500/20 min-h-[140px] flex items-center gap-3">
-                          <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          <svg
+                            className="w-5 h-5 text-green-400 flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
                           </svg>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-foreground truncate">{sourceFile.name}</p>
+                            <p className="text-[13px] text-foreground truncate">
+                              {sourceFile.name}
+                            </p>
                             <p className="text-[11px] text-foreground/40">
                               {sourceLayout.models.length} models in layout
                             </p>
@@ -1059,12 +1246,31 @@ export default function ModIQTool() {
                               if (file) handleVendorXsqFile(file);
                             }}
                           />
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-foreground/20 mb-2">
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="text-foreground/20 mb-2"
+                          >
                             <polygon points="23 7 16 12 23 17 23 7" />
-                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                            <rect
+                              x="1"
+                              y="5"
+                              width="15"
+                              height="14"
+                              rx="2"
+                              ry="2"
+                            />
                           </svg>
                           <p className="text-[12px] text-foreground/40">
-                            <span className="text-foreground/60 font-semibold">.xsq sequence file</span>
+                            <span className="text-foreground/60 font-semibold">
+                              .xsq sequence file
+                            </span>
                           </p>
                           <p className="text-[10px] text-foreground/25 mt-0.5">
                             Drop here or click to browse
@@ -1072,13 +1278,26 @@ export default function ModIQTool() {
                         </div>
                       ) : (
                         <div className="rounded-xl p-4 bg-green-500/5 border border-green-500/20 min-h-[140px] flex items-center gap-3">
-                          <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          <svg
+                            className="w-5 h-5 text-green-400 flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M5 13l4 4L19 7"
+                            />
                           </svg>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-foreground truncate">{vendorXsqFile.name}</p>
+                            <p className="text-[13px] text-foreground truncate">
+                              {vendorXsqFile.name}
+                            </p>
                             <p className="text-[11px] text-green-400/70">
-                              {vendorXsqModels?.length ?? 0} active layers detected
+                              {vendorXsqModels?.length ?? 0} active layers
+                              detected
                             </p>
                           </div>
                           <button
@@ -1098,13 +1317,24 @@ export default function ModIQTool() {
 
                   {/* Lightbulb hint */}
                   <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 flex items-start gap-3">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 flex-shrink-0 mt-0.5">
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-amber-400 flex-shrink-0 mt-0.5"
+                    >
                       <path d="M9 18h6" />
                       <path d="M10 22h4" />
                       <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
                     </svg>
                     <p className="text-[13px] text-foreground/50">
-                      Both files should be in the sequence package you downloaded from the vendor.
+                      Both files should be in the sequence package you
+                      downloaded from the vendor.
                     </p>
                   </div>
 
@@ -1126,7 +1356,9 @@ export default function ModIQTool() {
                         : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
                     }`}
                   >
-                    {vendorXsqFile && sourceLayout ? "Next \u2192" : "Upload both files to continue"}
+                    {vendorXsqFile && sourceLayout
+                      ? "Next \u2192"
+                      : "Upload both files to continue"}
                   </button>
                 </div>
               ) : (
@@ -1134,11 +1366,22 @@ export default function ModIQTool() {
                 <div className="space-y-6">
                   {/* Uploaded vendor files summary */}
                   <div className="bg-accent/[0.04] border border-accent/20 rounded-xl px-4 py-3 flex items-center gap-3">
-                    <svg className="w-4 h-4 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="w-4 h-4 text-accent flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                     <span className="text-[13px] text-foreground/60 flex-1">
-                      Vendor files ready &mdash; {sourceLayout?.models.length} models, {vendorXsqModels?.length ?? 0} active layers
+                      Vendor files ready &mdash; {sourceLayout?.models.length}{" "}
+                      models, {vendorXsqModels?.length ?? 0} active layers
                     </span>
                     <button
                       type="button"
@@ -1263,7 +1506,15 @@ export default function ModIQTool() {
                         : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
                     }`}
                   >
-                    {canRun ? <>Mod<span className="text-white/90">:</span>IQ It &rarr;</> : <>Mod<span className="text-white/40">:</span>IQ It</>}
+                    {canRun ? (
+                      <>
+                        Mod<span className="text-white/90">:</span>IQ It &rarr;
+                      </>
+                    ) : (
+                      <>
+                        Mod<span className="text-white/40">:</span>IQ It
+                      </>
+                    )}
                   </button>
                 </div>
               )}
@@ -1283,26 +1534,37 @@ export default function ModIQTool() {
               {/* Track */}
               <svg className="w-full h-full -rotate-90" viewBox="0 0 160 160">
                 <circle
-                  cx="80" cy="80" r="70"
+                  cx="80"
+                  cy="80"
+                  r="70"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="6"
                   className="text-border"
                 />
                 <circle
-                  cx="80" cy="80" r="70"
+                  cx="80"
+                  cy="80"
+                  r="70"
                   fill="none"
                   strokeWidth="6"
                   strokeLinecap="round"
                   stroke="url(#proc-grad)"
                   style={{
                     strokeDasharray: 2 * Math.PI * 70,
-                    strokeDashoffset: 2 * Math.PI * 70 * (1 - processingStats.progress / 100),
+                    strokeDashoffset:
+                      2 * Math.PI * 70 * (1 - processingStats.progress / 100),
                     transition: "stroke-dashoffset 0.5s ease-out",
                   }}
                 />
                 <defs>
-                  <linearGradient id="proc-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <linearGradient
+                    id="proc-grad"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="0%"
+                  >
                     <stop offset="0%" stopColor="#ef4444" />
                     <stop offset="100%" stopColor="#22c55e" />
                   </linearGradient>
@@ -1310,8 +1572,12 @@ export default function ModIQTool() {
               </svg>
               {/* Center content */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold font-display text-foreground">{processingStats.progress}%</span>
-                <span className="text-xs text-foreground/40 mt-0.5">processing</span>
+                <span className="text-3xl font-bold font-display text-foreground">
+                  {processingStats.progress}%
+                </span>
+                <span className="text-xs text-foreground/40 mt-0.5">
+                  processing
+                </span>
               </div>
             </div>
             <h2 className="text-xl font-display font-bold text-foreground">
@@ -1322,39 +1588,90 @@ export default function ModIQTool() {
           {/* ── Live Statistics Cards ── */}
           <div className="grid grid-cols-3 gap-3 mb-6">
             {/* Layout models */}
-            <div className="proc-stat-enter bg-surface rounded-xl border border-border p-4 text-center" style={{ animationDelay: "0s" }}>
+            <div
+              className="proc-stat-enter bg-surface rounded-xl border border-border p-4 text-center"
+              style={{ animationDelay: "0s" }}
+            >
               <div className="flex justify-center mb-2">
-                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                <svg
+                  className="w-5 h-5 text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
+                  />
                 </svg>
               </div>
-              <div className="text-2xl font-bold text-foreground font-display">{processingStats.layoutModels}</div>
-              <div className="text-[11px] text-foreground/40 mt-0.5">Your Models</div>
+              <div className="text-2xl font-bold text-foreground font-display">
+                {processingStats.layoutModels}
+              </div>
+              <div className="text-[11px] text-foreground/40 mt-0.5">
+                Your Models
+              </div>
             </div>
             {/* Matches found — highlighted */}
-            <div className="proc-stat-enter bg-surface rounded-xl border border-accent/30 p-4 text-center relative overflow-hidden" style={{ animationDelay: "0.1s" }}>
+            <div
+              className="proc-stat-enter bg-surface rounded-xl border border-accent/30 p-4 text-center relative overflow-hidden"
+              style={{ animationDelay: "0.1s" }}
+            >
               <div className="absolute inset-0 bg-accent/5" />
               <div className="relative">
                 <div className="flex justify-center mb-2">
-                  <svg className="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-1.027a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.343 8.07" />
+                  <svg
+                    className="w-5 h-5 text-accent"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-1.027a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.343 8.07"
+                    />
                   </svg>
                 </div>
-                <div className={`text-2xl font-bold text-accent font-display ${processingStats.matchesFound > 0 ? "proc-counter-bump" : ""}`}>
+                <div
+                  className={`text-2xl font-bold text-accent font-display ${processingStats.matchesFound > 0 ? "proc-counter-bump" : ""}`}
+                >
                   {processingStats.matchesFound}
                 </div>
-                <div className="text-[11px] text-foreground/40 mt-0.5">Matches Found</div>
+                <div className="text-[11px] text-foreground/40 mt-0.5">
+                  Matches Found
+                </div>
               </div>
             </div>
             {/* Sequence models */}
-            <div className="proc-stat-enter bg-surface rounded-xl border border-border p-4 text-center" style={{ animationDelay: "0.2s" }}>
+            <div
+              className="proc-stat-enter bg-surface rounded-xl border border-border p-4 text-center"
+              style={{ animationDelay: "0.2s" }}
+            >
               <div className="flex justify-center mb-2">
-                <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-2.625 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0118 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 016 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125M18 13.125c0-.621.504-1.125 1.125-1.125M6 13.125v1.5c0 .621-.504 1.125-1.125 1.125M6 13.125C6 12.504 5.496 12 4.875 12m-1.5 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5" />
+                <svg
+                  className="w-5 h-5 text-green-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-2.625 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0118 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 016 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125M18 13.125c0-.621.504-1.125 1.125-1.125M6 13.125v1.5c0 .621-.504 1.125-1.125 1.125M6 13.125C6 12.504 5.496 12 4.875 12m-1.5 0h1.5m-1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5c0-.621.504-1.125 1.125-1.125m1.5 0c-.621 0-1.125-.504-1.125-1.125v-1.5"
+                  />
                 </svg>
               </div>
-              <div className="text-2xl font-bold text-foreground font-display">{processingStats.sequenceModels}</div>
-              <div className="text-[11px] text-foreground/40 mt-0.5">Sequence Models</div>
+              <div className="text-2xl font-bold text-foreground font-display">
+                {processingStats.sequenceModels}
+              </div>
+              <div className="text-[11px] text-foreground/40 mt-0.5">
+                Sequence Models
+              </div>
             </div>
           </div>
 
@@ -1369,8 +1686,18 @@ export default function ModIQTool() {
                 >
                   {ps.status === "done" && (
                     <div className="w-6 h-6 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0 proc-check-enter">
-                      <svg className="w-3.5 h-3.5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      <svg
+                        className="w-3.5 h-3.5 text-green-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M5 13l4 4L19 7"
+                        />
                       </svg>
                     </div>
                   )}
@@ -1381,7 +1708,10 @@ export default function ModIQTool() {
                   )}
                   {ps.status === "pending" && (
                     <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
-                      <div className="w-2 h-2 rounded-full bg-foreground/20 proc-dot-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
+                      <div
+                        className="w-2 h-2 rounded-full bg-foreground/20 proc-dot-pulse"
+                        style={{ animationDelay: `${i * 0.2}s` }}
+                      />
                     </div>
                   )}
                   <span
@@ -1411,23 +1741,35 @@ export default function ModIQTool() {
             initialResult={mappingResult}
             sourceModels={sourceModels}
             destModels={userLayout.models}
-            selectedSequence={mapFromMode === "elm-ridge" ? selectedSequence || ELM_RIDGE_LAYOUT_ID : ELM_RIDGE_LAYOUT_ID}
+            selectedSequence={
+              mapFromMode === "elm-ridge"
+                ? selectedSequence || ELM_RIDGE_LAYOUT_ID
+                : ELM_RIDGE_LAYOUT_ID
+            }
             mapFromMode={mapFromMode}
             displayType={displayType}
             sourceFileName={sourceFile?.name}
             effectTree={effectTree}
-            xsqFilename={mapFromMode === "other-vendor" && vendorXsqFile ? vendorXsqFile.name : selectedSequence || "sequence"}
+            xsqFilename={
+              mapFromMode === "other-vendor" && vendorXsqFile
+                ? vendorXsqFile.name
+                : selectedSequence || "sequence"
+            }
             sessionIdRef={sessionIdRef}
             sessions={sessions}
             onReset={handleReset}
-            vendorEffectCounts={mapFromMode === "other-vendor" ? vendorEffectCounts : undefined}
+            vendorEffectCounts={
+              mapFromMode === "other-vendor" ? vendorEffectCounts : undefined
+            }
             onExported={(fileName, meta) => {
               setExportFileName(fileName);
               setExportDisplayCoverage(meta?.displayCoverage);
               setExportSequenceCoverage(meta?.sequenceCoverage);
               setExportBoostLines(meta?.boostLines ?? []);
               setExportGroupsMapped(meta?.groupsMappedCount ?? 0);
-              setExportGroupsCoveredChildren(meta?.groupsCoveredChildCount ?? 0);
+              setExportGroupsCoveredChildren(
+                meta?.groupsCoveredChildCount ?? 0,
+              );
               setExportDirectMapped(meta?.directMappedCount ?? 0);
               setStep("exported");
             }}
@@ -1456,7 +1798,6 @@ export default function ModIQTool() {
           directMappedCount={exportDirectMapped}
         />
       )}
-
     </div>
   );
 }
@@ -1493,14 +1834,17 @@ function InteractiveResults({
   sessionIdRef: React.RefObject<string | null>;
   sessions: ReturnType<typeof useModiqSessions>;
   onReset: () => void;
-  onExported: (fileName: string, meta?: {
-    displayCoverage?: number;
-    sequenceCoverage?: { mapped: number; total: number };
-    boostLines?: { userGroupName: string; sourceGroupName: string }[];
-    groupsMappedCount?: number;
-    groupsCoveredChildCount?: number;
-    directMappedCount?: number;
-  }) => void;
+  onExported: (
+    fileName: string,
+    meta?: {
+      displayCoverage?: number;
+      sequenceCoverage?: { mapped: number; total: number };
+      boostLines?: { userGroupName: string; sourceGroupName: string }[];
+      groupsMappedCount?: number;
+      groupsCoveredChildCount?: number;
+      directMappedCount?: number;
+    },
+  ) => void;
   vendorEffectCounts?: Record<string, number> | null;
 }) {
   const interactive = useInteractiveMapping(
@@ -1517,15 +1861,19 @@ function InteractiveResults({
     const sid = sessionIdRef.current;
     if (!sid) return;
     const state = interactive.getSerializedState();
-    sessions.saveSession(sid, { ...state, autoAcceptRejected: [] }, {
-      mappedCount: interactive.mappedLayerCount,
-      coveragePercent: Math.round(interactive.coveragePercentage),
-      currentPhase: "mapping",
-    });
+    sessions.saveSession(
+      sid,
+      { ...state, autoAcceptRejected: [] },
+      {
+        mappedCount: interactive.mappedLayerCount,
+        coveragePercent: interactive.effectsCoverage.percent,
+        currentPhase: "mapping",
+      },
+    );
   }, [
     interactive.mappedLayerCount,
     interactive.skippedLayerCount,
-    interactive.coveragePercentage,
+    interactive.effectsCoverage.percent,
     interactive.getSerializedState,
     sessions,
     sessionIdRef,
@@ -1545,7 +1893,8 @@ function InteractiveResults({
       const layer = interactive.sourceLayerMappings.find(
         (sl) => sl.sourceModel.name === sourceName,
       );
-      const willResolve = layer?.isGroup && layer.coveredChildCount > 0 && !layer.isMapped;
+      const willResolve =
+        layer?.isGroup && layer.coveredChildCount > 0 && !layer.isMapped;
 
       // Do the assignment
       interactive.assignUserModelToLayer(sourceName, destName);
@@ -1560,10 +1909,17 @@ function InteractiveResults({
 
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showBoostPrompt, setShowBoostPrompt] = useState(false);
-  const [boostDisplayCoverage, setBoostDisplayCoverage] = useState<DisplayCoverage | null>(null);
-  const [boostGroupSuggestions, setBoostGroupSuggestions] = useState<BoostSuggestion[]>([]);
-  const [boostSpinnerSuggestions, setBoostSpinnerSuggestions] = useState<SpinnerBoostSuggestion[]>([]);
-  const [focusedSourceLayer, setFocusedSourceLayer] = useState<string | null>(null);
+  const [boostDisplayCoverage, setBoostDisplayCoverage] =
+    useState<DisplayCoverage | null>(null);
+  const [boostGroupSuggestions, setBoostGroupSuggestions] = useState<
+    BoostSuggestion[]
+  >([]);
+  const [boostSpinnerSuggestions, setBoostSpinnerSuggestions] = useState<
+    SpinnerBoostSuggestion[]
+  >([]);
+  const [focusedSourceLayer, setFocusedSourceLayer] = useState<string | null>(
+    null,
+  );
 
   // Left panel sections open state
   const [showMappedSection, setShowMappedSection] = useState(false);
@@ -1577,22 +1933,19 @@ function InteractiveResults({
 
   const seqTitle = useMemo(() => {
     if (mapFromMode === "elm-ridge") {
-      const displayLabel = displayType === "halloween" ? "Halloween" : "Christmas";
+      const displayLabel =
+        displayType === "halloween" ? "Halloween" : "Christmas";
       return `${ELM_RIDGE_LAYOUT_TITLE} (${displayLabel})`;
     }
     return sourceFileName || "Source Layout";
   }, [mapFromMode, sourceFileName, displayType]);
 
-  // Calculate coverage percentage for export button styling
-  const coveragePercent = useMemo(() => {
-    const effective = interactive.totalSourceLayers - interactive.skippedLayerCount;
-    if (effective === 0) return 100;
-    return (interactive.mappedLayerCount / effective) * 100;
-  }, [interactive.totalSourceLayers, interactive.skippedLayerCount, interactive.mappedLayerCount]);
+  // Coverage percentage — now uses display coverage (user-centric)
+  const coveragePercent = interactive.displayCoverage.percent;
 
-  // Export button style based on coverage
+  // Export button style based on display coverage (no scary "remaining" counts)
   const exportButtonStyle = useMemo(() => {
-    if (coveragePercent >= 100) {
+    if (coveragePercent >= 90) {
       return {
         className: "bg-green-500 text-white hover:bg-green-600",
         label: "Export",
@@ -1601,20 +1954,21 @@ function InteractiveResults({
     } else if (coveragePercent >= 50) {
       return {
         className: "bg-amber-500 text-white hover:bg-amber-600",
-        label: `Export (${interactive.unmappedLayerCount} remaining)`,
+        label: "Export",
         icon: false,
       };
     } else {
       return {
         className: "bg-zinc-600 text-zinc-300 hover:bg-zinc-500",
-        label: `Export Partial (${interactive.unmappedLayerCount} remaining)`,
+        label: "Export",
         icon: false,
       };
     }
-  }, [coveragePercent, interactive.unmappedLayerCount]);
+  }, [coveragePercent]);
 
   // Group source layers by status and sort unmapped by best match score
   const { unmappedLayers, mappedLayers, skippedLayers } =
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     useMemo(() => {
       const unmapped: SourceLayerMapping[] = [];
       const mapped: SourceLayerMapping[] = [];
@@ -1668,6 +2022,7 @@ function InteractiveResults({
     tier: ConfidenceTier;
   }
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const mappedByConfidence = useMemo(() => {
     const result: Record<ConfidenceTier, MappedLayerWithConfidence[]> = {
       high: [],
@@ -1684,7 +2039,9 @@ function InteractiveResults({
       let tier: ConfidenceTier = "manual";
 
       if (firstAssigned) {
-        const match = suggestions.find((s) => s.model.name === firstAssigned.name);
+        const match = suggestions.find(
+          (s) => s.model.name === firstAssigned.name,
+        );
         if (match) {
           confidence = match.score;
           if (confidence >= 0.7) tier = "high";
@@ -1725,7 +2082,12 @@ function InteractiveResults({
   );
 
   // Right panel: user models partitioned by mapped status
-  const { unmappedUserGroups, unmappedUserModels, mappedUserGroups, mappedUserModels } = useMemo(() => {
+  const {
+    unmappedUserGroups,
+    unmappedUserModels,
+    mappedUserGroups,
+    mappedUserModels,
+  } = useMemo(() => {
     const uGroups: ParsedModel[] = [];
     const uModels: ParsedModel[] = [];
     const mGroups: ParsedModel[] = [];
@@ -1734,9 +2096,15 @@ function InteractiveResults({
 
     for (const m of destModels) {
       if (isDmxModel(m)) continue;
-      if (q && !m.name.toLowerCase().includes(q) && !m.type.toLowerCase().includes(q)) continue;
+      if (
+        q &&
+        !m.name.toLowerCase().includes(q) &&
+        !m.type.toLowerCase().includes(q)
+      )
+        continue;
 
-      const isMapped = interactive.destToSourcesMap.has(m.name) &&
+      const isMapped =
+        interactive.destToSourcesMap.has(m.name) &&
         (interactive.destToSourcesMap.get(m.name)?.size ?? 0) > 0;
 
       if (m.isGroup) {
@@ -1777,9 +2145,14 @@ function InteractiveResults({
           (s) => s.sourceModel.name === focusedSourceLayer,
         );
         if (sl) {
-          const suggestions = interactive.getSuggestionsForLayer(sl.sourceModel);
+          const suggestions = interactive.getSuggestionsForLayer(
+            sl.sourceModel,
+          );
           if (suggestions.length > 0) {
-            assignWithCascadeFeedback(focusedSourceLayer, suggestions[0].model.name);
+            assignWithCascadeFeedback(
+              focusedSourceLayer,
+              suggestions[0].model.name,
+            );
             setFocusedSourceLayer(null);
           }
         }
@@ -1819,36 +2192,49 @@ function InteractiveResults({
   );
 
   // Export handlers
-  const doExport = useCallback((boostLines?: { userGroupName: string; sourceGroupName: string }[]) => {
-    const result = interactive.toMappingResult();
-    // Only export mappings for source layers that have effects (reduces red rows in xLights)
-    const activeSourceNames = effectTree ? getActiveSourceNamesForExport(effectTree) : undefined;
-    const xmapContent = generateXmap(result, seqTitle, activeSourceNames);
-    downloadXmap(xmapContent, xsqFilename);
-    const baseName = xsqFilename.replace(/\.xsq$/i, "");
-    const fileName = `modiq_${baseName}.xmap`;
-    telemetry.trackAction({
-      sequenceSlug: selectedSequence,
-      action: "export",
-      previousMapping: null,
-      aiConfidence: null,
-      aiSuggested: null,
-      method: "dropdown_pick",
-    });
-    // Compute final display coverage for post-export screen
-    const finalCoverage = computeDisplayCoverage(destModels, interactive.destToSourcesMap, isDmxModel);
-    onExported(fileName, {
-      displayCoverage: finalCoverage.percentage,
-      sequenceCoverage: {
-        mapped: interactive.mappedLayerCount,
-        total: interactive.totalSourceLayers,
-      },
-      boostLines: boostLines ?? [],
-      groupsMappedCount: interactive.groupsMappedCount,
-      groupsCoveredChildCount: interactive.groupsCoveredChildCount,
-      directMappedCount: interactive.directMappedCount,
-    });
-  }, [interactive, seqTitle, xsqFilename, selectedSequence, telemetry, onExported, destModels, effectTree]);
+  const doExport = useCallback(
+    (boostLines?: { userGroupName: string; sourceGroupName: string }[]) => {
+      const result = interactive.toMappingResult();
+      // Only export mappings for source layers that have effects (reduces red rows in xLights)
+      const activeSourceNames = effectTree
+        ? getActiveSourceNamesForExport(effectTree)
+        : undefined;
+      const xmapContent = generateXmap(result, seqTitle, activeSourceNames);
+      downloadXmap(xmapContent, xsqFilename);
+      const baseName = xsqFilename.replace(/\.xsq$/i, "");
+      const fileName = `modiq_${baseName}.xmap`;
+      telemetry.trackAction({
+        sequenceSlug: selectedSequence,
+        action: "export",
+        previousMapping: null,
+        aiConfidence: null,
+        aiSuggested: null,
+        method: "dropdown_pick",
+      });
+      // Use the interactive hook's user-centric display coverage
+      onExported(fileName, {
+        displayCoverage: interactive.displayCoverage.percent,
+        sequenceCoverage: {
+          mapped: interactive.mappedLayerCount,
+          total: interactive.totalSourceLayers,
+        },
+        boostLines: boostLines ?? [],
+        groupsMappedCount: interactive.groupsMappedCount,
+        groupsCoveredChildCount: interactive.groupsCoveredChildCount,
+        directMappedCount: interactive.directMappedCount,
+      });
+    },
+    [
+      interactive,
+      seqTitle,
+      xsqFilename,
+      selectedSequence,
+      telemetry,
+      onExported,
+      destModels,
+      effectTree,
+    ],
+  );
 
   const handleExport = useCallback(() => {
     if (interactive.unmappedLayerCount > 0) {
@@ -1856,7 +2242,11 @@ function InteractiveResults({
       return;
     }
     // Check for boost opportunities (display coverage gaps)
-    const coverage = computeDisplayCoverage(destModels, interactive.destToSourcesMap, isDmxModel);
+    const coverage = computeDisplayCoverage(
+      destModels,
+      interactive.destToSourcesMap,
+      isDmxModel,
+    );
     if (coverage.unmappedUserGroups.length > 0) {
       // Build source->dests map from dest->sources (invert the map)
       const sourceDestLinks = new Map<string, Set<string>>();
@@ -1923,12 +2313,19 @@ function InteractiveResults({
 
   // Boost prompt: accept selected suggestions, apply mappings, then export
   const handleBoostAcceptAndExport = useCallback(
-    (acceptedGroups: BoostSuggestion[], acceptedSpinners: SpinnerBoostSuggestion[]) => {
-      const boostLines: { userGroupName: string; sourceGroupName: string }[] = [];
+    (
+      acceptedGroups: BoostSuggestion[],
+      acceptedSpinners: SpinnerBoostSuggestion[],
+    ) => {
+      const boostLines: { userGroupName: string; sourceGroupName: string }[] =
+        [];
 
       // Apply group boost: create many-to-one links
       for (const s of acceptedGroups) {
-        interactive.assignUserModelToLayer(s.sourceGroup.name, s.userGroup.name);
+        interactive.assignUserModelToLayer(
+          s.sourceGroup.name,
+          s.userGroup.name,
+        );
         boostLines.push({
           userGroupName: s.userGroup.name,
           sourceGroupName: s.sourceGroup.name,
@@ -1937,7 +2334,10 @@ function InteractiveResults({
 
       // Apply spinner boost: create many-to-one links
       for (const s of acceptedSpinners) {
-        interactive.assignUserModelToLayer(s.sourceModel.name, s.userModel.name);
+        interactive.assignUserModelToLayer(
+          s.sourceModel.name,
+          s.userModel.name,
+        );
         boostLines.push({
           userGroupName: s.userModel.name,
           sourceGroupName: s.sourceModel.name,
@@ -1958,633 +2358,840 @@ function InteractiveResults({
 
   return (
     <MappingPhaseProvider interactive={interactive}>
-    <div className="space-y-0">
-      {/* ── V4 Phased Wizard Header ─────────────────────── */}
-      <div className="sticky top-0 z-40 bg-background/95 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 mb-4">
-        <div className="max-w-7xl mx-auto">
-          {/* Title Bar */}
-          <div className="flex items-center justify-between py-2.5 border-b border-border">
-            <div className="flex items-center gap-3 min-w-0">
-              <h2 className="text-[15px] font-display font-bold flex-shrink-0">
-                Mod<span className="text-accent">:</span><span className="text-accent">IQ</span>
-              </h2>
-              <span className="text-[13px] text-foreground/50 truncate">
-                {seqTitle} &rarr; Your Layout
-              </span>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {interactive.canUndo && (
-                <button
-                  type="button"
-                  onClick={interactive.undo}
-                  className="hidden sm:block text-xs px-2.5 py-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
-                >
-                  Undo
-                </button>
-              )}
-              <button
-                onClick={handleExport}
-                className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${exportButtonStyle.className}`}
-              >
-                {exportButtonStyle.icon && (
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+      <div className="space-y-0">
+        {/* ── V4 Phased Wizard Header ─────────────────────── */}
+        <div className="sticky top-0 z-40 bg-background/95 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 mb-4">
+          <div className="max-w-7xl mx-auto">
+            {/* Title Bar */}
+            <div className="flex items-center justify-between py-2.5 border-b border-border">
+              <div className="flex items-center gap-3 min-w-0">
+                <h2 className="text-[15px] font-display font-bold flex-shrink-0">
+                  Mod<span className="text-accent">:</span>
+                  <span className="text-accent">IQ</span>
+                </h2>
+                <span className="text-[13px] text-foreground/50 truncate">
+                  {seqTitle} &rarr; Your Layout
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {interactive.canUndo && (
+                  <button
+                    type="button"
+                    onClick={interactive.undo}
+                    className="hidden sm:block text-xs px-2.5 py-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
+                  >
+                    Undo
+                  </button>
                 )}
-                {exportButtonStyle.label}
-              </button>
-            </div>
-          </div>
-
-          {/* Phase Stepper */}
-          <PhaseStepper />
-        </div>
-      </div>
-
-      {/* ── V4 Phase Content ─────────────────────────────── */}
-      <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[calc(100vh-11rem)]">
-        <PhaseNavigation />
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <PhaseContainer
-            reviewProps={{
-              onExport: handleExport,
-              onExportReport: handleExportReport,
-              onReset: onReset,
-              seqTitle,
-              coveragePercent,
-            }}
-          />
-        </div>
-      </div>
-
-      {/* V3 legacy layout preserved below for backwards compat — hidden in V4 */}
-      <div className="hidden">
-      {/* ── Two-Panel Layout (V3: 60/40 split) ────────── */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_380px] items-start">
-        {/* ═══ Left Panel: Sequence Layers (The Task List) ═══ */}
-        <div className="min-w-0 flex flex-col lg:max-h-[calc(100vh-8.5rem)]">
-          {/* Intro + filter */}
-          <div className="flex items-center gap-2 mb-2 flex-shrink-0">
-            <div className="relative flex-1">
-              <svg
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Filter layers..."
-                value={leftSearch}
-                onChange={(e) => setLeftSearch(e.target.value)}
-                className="w-full text-[12px] pl-8 pr-3 py-1.5 h-8 rounded bg-surface border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
-              />
-            </div>
-          </div>
-
-          {/* Scrollable sections */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
-            {/* ─── NEEDS MAPPING (sorted by match confidence) ─────────────────────────── */}
-            {unmappedLayers.length > 0 && (
-              <div className="bg-surface rounded-lg border border-amber-500/30 ring-1 ring-amber-500/10 overflow-hidden">
-                <div className="px-3 h-9 flex items-center gap-2 bg-amber-500/5">
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">
-                    NEEDS MAPPING
-                  </span>
-                  <span className="text-[13px] font-bold text-foreground">
-                    {unmappedLayers.length}
-                  </span>
-                </div>
-
-                <div className="border-t border-border">
-                  <div className="px-3 py-1.5 text-[11px] text-foreground/40 bg-surface-light border-b border-border">
-                    Sorted by match confidence — work top to bottom for best results.
-                  </div>
-
-                  {/* Single sorted list by match score */}
-                  <div className="space-y-0 divide-y divide-border/30">
-                    {filterLayers(unmappedLayers).map((sl) => (
-                      <SourceLayerRow
-                        key={sl.sourceModel.name}
-                        layer={sl}
-                        isFocused={focusedSourceLayer === sl.sourceModel.name}
-                        onFocus={() => setFocusedSourceLayer(sl.sourceModel.name)}
-                        onDrop={handleLayerDrop}
-                        onAcceptSuggestion={handleAcceptSuggestion}
-                        onSkip={() => interactive.skipSourceLayer(sl.sourceModel.name)}
-                        onClear={() => interactive.clearLayerMapping(sl.sourceModel.name)}
-                        onRemoveLink={interactive.removeLinkFromLayer}
-                        getSuggestions={() => interactive.getSuggestionsForLayer(sl.sourceModel)}
-                        isDragActive={dnd.state.isDragging}
-                        draggedModelName={dnd.state.dragItem?.sourceModelName}
-                        onDragEnter={dnd.handleDragEnter}
-                        onDragLeave={dnd.handleDragLeave}
+                <button
+                  onClick={handleExport}
+                  className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${exportButtonStyle.className}`}
+                >
+                  {exportButtonStyle.icon && (
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
                       />
-                    ))}
-                  </div>
+                    </svg>
+                  )}
+                  {exportButtonStyle.label}
+                </button>
+              </div>
+            </div>
+
+            {/* Phase Stepper */}
+            <PhaseStepper />
+          </div>
+        </div>
+
+        {/* ── V4 Phase Content ─────────────────────────────── */}
+        <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[calc(100vh-11rem)]">
+          <PhaseNavigation />
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <PhaseContainer
+              reviewProps={{
+                onExport: handleExport,
+                onExportReport: handleExportReport,
+                onReset: onReset,
+                seqTitle,
+                coveragePercent,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* V3 legacy layout preserved below for backwards compat — hidden in V4 */}
+        <div className="hidden">
+          {/* ── Two-Panel Layout (V3: 60/40 split) ────────── */}
+          <div className="grid gap-4 lg:grid-cols-[1fr_380px] items-start">
+            {/* ═══ Left Panel: Sequence Layers (The Task List) ═══ */}
+            <div className="min-w-0 flex flex-col lg:max-h-[calc(100vh-8.5rem)]">
+              {/* Intro + filter */}
+              <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+                <div className="relative flex-1">
+                  <svg
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Filter layers..."
+                    value={leftSearch}
+                    onChange={(e) => setLeftSearch(e.target.value)}
+                    className="w-full text-[12px] pl-8 pr-3 py-1.5 h-8 rounded bg-surface border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+                  />
                 </div>
               </div>
-            )}
 
-            {/* ─── MAPPED with confidence tiers ────────────────────────────────── */}
-            {mappedLayers.length > 0 && (
-              <div className="bg-surface rounded-lg border border-border overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowMappedSection(!showMappedSection)}
-                  className="w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors"
-                >
-                  <span className="w-2 h-2 rounded-full bg-green-400" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-green-400">
-                    MAPPED
-                  </span>
-                  <span className="text-[13px] font-bold text-foreground">
-                    {mappedLayers.length}
-                  </span>
-                  <svg
-                    className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${showMappedSection ? "rotate-180" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showMappedSection && (
-                  <div className="border-t border-border">
-                    {/* HIGH CONFIDENCE (≥70%) */}
-                    {mappedByConfidence.high.length > 0 && (
-                      <div className="border-b border-border/30">
-                        <button
-                          type="button"
-                          onClick={() => setShowHighTier(!showHighTier)}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-green-500"
-                        >
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-green-400">
-                            High Confidence
-                          </span>
-                          <span className="text-[11px] text-foreground/50">≥70%</span>
-                          <span className="text-[12px] font-bold text-foreground/70">
-                            {mappedByConfidence.high.length}
-                          </span>
-                          <svg
-                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showHighTier ? "rotate-180" : ""}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {showHighTier && (
-                          <div className="divide-y divide-border/20">
-                            {mappedByConfidence.high.map(({ layer, confidence }) => (
-                              <MappedItemRow
-                                key={layer.sourceModel.name}
-                                layer={layer}
-                                confidence={confidence}
-                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
-                                onRemoveLink={interactive.removeLinkFromLayer}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+              {/* Scrollable sections */}
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-1.5">
+                {/* ─── NEEDS MAPPING (sorted by match confidence) ─────────────────────────── */}
+                {unmappedLayers.length > 0 && (
+                  <div className="bg-surface rounded-lg border border-amber-500/30 ring-1 ring-amber-500/10 overflow-hidden">
+                    <div className="px-3 h-9 flex items-center gap-2 bg-amber-500/5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-400">
+                        NEEDS MAPPING
+                      </span>
+                      <span className="text-[13px] font-bold text-foreground">
+                        {unmappedLayers.length}
+                      </span>
+                    </div>
 
-                    {/* MEDIUM CONFIDENCE (40-69%) */}
-                    {mappedByConfidence.medium.length > 0 && (
-                      <div className="border-b border-border/30">
-                        <button
-                          type="button"
-                          onClick={() => setShowMediumTier(!showMediumTier)}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-amber-500"
-                        >
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                            Medium Confidence
-                          </span>
-                          <span className="text-[11px] text-foreground/50">40-69%</span>
-                          <span className="text-[12px] font-bold text-foreground/70">
-                            {mappedByConfidence.medium.length}
-                          </span>
-                          <svg
-                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showMediumTier ? "rotate-180" : ""}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {showMediumTier && (
-                          <div className="divide-y divide-border/20">
-                            {mappedByConfidence.medium.map(({ layer, confidence }) => (
-                              <MappedItemRow
-                                key={layer.sourceModel.name}
-                                layer={layer}
-                                confidence={confidence}
-                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
-                                onRemoveLink={interactive.removeLinkFromLayer}
-                              />
-                            ))}
-                          </div>
-                        )}
+                    <div className="border-t border-border">
+                      <div className="px-3 py-1.5 text-[11px] text-foreground/40 bg-surface-light border-b border-border">
+                        Sorted by match confidence — work top to bottom for best
+                        results.
                       </div>
-                    )}
 
-                    {/* LOW CONFIDENCE (<40%) */}
-                    {mappedByConfidence.low.length > 0 && (
-                      <div className="border-b border-border/30">
-                        <button
-                          type="button"
-                          onClick={() => setShowLowTier(!showLowTier)}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-zinc-500"
-                        >
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                            Low Confidence
-                          </span>
-                          <span className="text-[11px] text-foreground/50">&lt;40%</span>
-                          <span className="text-[12px] font-bold text-foreground/70">
-                            {mappedByConfidence.low.length}
-                          </span>
-                          <svg
-                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showLowTier ? "rotate-180" : ""}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {showLowTier && (
-                          <div className="divide-y divide-border/20">
-                            {mappedByConfidence.low.map(({ layer, confidence }) => (
-                              <MappedItemRow
-                                key={layer.sourceModel.name}
-                                layer={layer}
-                                confidence={confidence}
-                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
-                                onRemoveLink={interactive.removeLinkFromLayer}
-                              />
-                            ))}
-                          </div>
-                        )}
+                      {/* Single sorted list by match score */}
+                      <div className="space-y-0 divide-y divide-border/30">
+                        {filterLayers(unmappedLayers).map((sl) => (
+                          <SourceLayerRow
+                            key={sl.sourceModel.name}
+                            layer={sl}
+                            isFocused={
+                              focusedSourceLayer === sl.sourceModel.name
+                            }
+                            onFocus={() =>
+                              setFocusedSourceLayer(sl.sourceModel.name)
+                            }
+                            onDrop={handleLayerDrop}
+                            onAcceptSuggestion={handleAcceptSuggestion}
+                            onSkip={() =>
+                              interactive.skipSourceLayer(sl.sourceModel.name)
+                            }
+                            onClear={() =>
+                              interactive.clearLayerMapping(sl.sourceModel.name)
+                            }
+                            onRemoveLink={interactive.removeLinkFromLayer}
+                            getSuggestions={() =>
+                              interactive.getSuggestionsForLayer(sl.sourceModel)
+                            }
+                            isDragActive={dnd.state.isDragging}
+                            draggedModelName={
+                              dnd.state.dragItem?.sourceModelName
+                            }
+                            onDragEnter={dnd.handleDragEnter}
+                            onDragLeave={dnd.handleDragLeave}
+                          />
+                        ))}
                       </div>
-                    )}
-
-                    {/* MANUAL (user-dragged with no algorithmic match) */}
-                    {mappedByConfidence.manual.length > 0 && (
-                      <div>
-                        <button
-                          type="button"
-                          onClick={() => setShowManualTier(!showManualTier)}
-                          className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-teal-500"
-                        >
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-teal-400">
-                            Manual
-                          </span>
-                          <span className="text-[11px] text-foreground/50">user mapped</span>
-                          <span className="text-[12px] font-bold text-foreground/70">
-                            {mappedByConfidence.manual.length}
-                          </span>
-                          <svg
-                            className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showManualTier ? "rotate-180" : ""}`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {showManualTier && (
-                          <div className="divide-y divide-border/20">
-                            {mappedByConfidence.manual.map(({ layer }) => (
-                              <MappedItemRow
-                                key={layer.sourceModel.name}
-                                layer={layer}
-                                confidence={-1}
-                                onClear={() => interactive.clearLayerMapping(layer.sourceModel.name)}
-                                onRemoveLink={interactive.removeLinkFromLayer}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* ─── SKIPPED ───────────────────────────────── */}
-            {skippedLayers.length > 0 && (
-              <div className="bg-surface rounded-lg border border-border overflow-hidden opacity-60">
-                <button
-                  type="button"
-                  onClick={() => setShowSkippedSection(!showSkippedSection)}
-                  className="w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors"
-                >
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/20">
-                    SKIPPED
-                  </span>
-                  <span className="text-[13px] font-bold text-foreground/40">
-                    {skippedLayers.length}
-                  </span>
-                  <svg
-                    className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${showSkippedSection ? "rotate-180" : ""}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {showSkippedSection && (
-                  <div className="border-t border-border">
-                    {skippedLayers.map((sl) => (
-                      <div
-                        key={sl.sourceModel.name}
-                        className="px-3 py-1.5 flex items-center justify-between border-b border-border/30 last:border-b-0"
+                {/* ─── MAPPED with confidence tiers ────────────────────────────────── */}
+                {mappedLayers.length > 0 && (
+                  <div className="bg-surface rounded-lg border border-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setShowMappedSection(!showMappedSection)}
+                      className="w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-green-400" />
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-green-400">
+                        MAPPED
+                      </span>
+                      <span className="text-[13px] font-bold text-foreground">
+                        {mappedLayers.length}
+                      </span>
+                      <svg
+                        className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${showMappedSection ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                       >
-                        <span className="text-[13px] text-foreground/30 line-through truncate">
-                          {sl.sourceModel.name}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => interactive.unskipSourceLayer(sl.sourceModel.name)}
-                          className="text-[10px] text-accent/60 hover:text-accent px-2 py-0.5 rounded"
-                        >
-                          unskip
-                        </button>
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+                    {showMappedSection && (
+                      <div className="border-t border-border">
+                        {/* HIGH CONFIDENCE (≥70%) */}
+                        {mappedByConfidence.high.length > 0 && (
+                          <div className="border-b border-border/30">
+                            <button
+                              type="button"
+                              onClick={() => setShowHighTier(!showHighTier)}
+                              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-green-500"
+                            >
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-green-400">
+                                High Confidence
+                              </span>
+                              <span className="text-[11px] text-foreground/50">
+                                ≥70%
+                              </span>
+                              <span className="text-[12px] font-bold text-foreground/70">
+                                {mappedByConfidence.high.length}
+                              </span>
+                              <svg
+                                className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showHighTier ? "rotate-180" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </button>
+                            {showHighTier && (
+                              <div className="divide-y divide-border/20">
+                                {mappedByConfidence.high.map(
+                                  ({ layer, confidence }) => (
+                                    <MappedItemRow
+                                      key={layer.sourceModel.name}
+                                      layer={layer}
+                                      confidence={confidence}
+                                      onClear={() =>
+                                        interactive.clearLayerMapping(
+                                          layer.sourceModel.name,
+                                        )
+                                      }
+                                      onRemoveLink={
+                                        interactive.removeLinkFromLayer
+                                      }
+                                    />
+                                  ),
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* MEDIUM CONFIDENCE (40-69%) */}
+                        {mappedByConfidence.medium.length > 0 && (
+                          <div className="border-b border-border/30">
+                            <button
+                              type="button"
+                              onClick={() => setShowMediumTier(!showMediumTier)}
+                              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-amber-500"
+                            >
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                                Medium Confidence
+                              </span>
+                              <span className="text-[11px] text-foreground/50">
+                                40-69%
+                              </span>
+                              <span className="text-[12px] font-bold text-foreground/70">
+                                {mappedByConfidence.medium.length}
+                              </span>
+                              <svg
+                                className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showMediumTier ? "rotate-180" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </button>
+                            {showMediumTier && (
+                              <div className="divide-y divide-border/20">
+                                {mappedByConfidence.medium.map(
+                                  ({ layer, confidence }) => (
+                                    <MappedItemRow
+                                      key={layer.sourceModel.name}
+                                      layer={layer}
+                                      confidence={confidence}
+                                      onClear={() =>
+                                        interactive.clearLayerMapping(
+                                          layer.sourceModel.name,
+                                        )
+                                      }
+                                      onRemoveLink={
+                                        interactive.removeLinkFromLayer
+                                      }
+                                    />
+                                  ),
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* LOW CONFIDENCE (<40%) */}
+                        {mappedByConfidence.low.length > 0 && (
+                          <div className="border-b border-border/30">
+                            <button
+                              type="button"
+                              onClick={() => setShowLowTier(!showLowTier)}
+                              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-zinc-500"
+                            >
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                                Low Confidence
+                              </span>
+                              <span className="text-[11px] text-foreground/50">
+                                &lt;40%
+                              </span>
+                              <span className="text-[12px] font-bold text-foreground/70">
+                                {mappedByConfidence.low.length}
+                              </span>
+                              <svg
+                                className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showLowTier ? "rotate-180" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </button>
+                            {showLowTier && (
+                              <div className="divide-y divide-border/20">
+                                {mappedByConfidence.low.map(
+                                  ({ layer, confidence }) => (
+                                    <MappedItemRow
+                                      key={layer.sourceModel.name}
+                                      layer={layer}
+                                      confidence={confidence}
+                                      onClear={() =>
+                                        interactive.clearLayerMapping(
+                                          layer.sourceModel.name,
+                                        )
+                                      }
+                                      onRemoveLink={
+                                        interactive.removeLinkFromLayer
+                                      }
+                                    />
+                                  ),
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* MANUAL (user-dragged with no algorithmic match) */}
+                        {mappedByConfidence.manual.length > 0 && (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => setShowManualTier(!showManualTier)}
+                              className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-light transition-colors border-l-2 border-teal-500"
+                            >
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-teal-400">
+                                Manual
+                              </span>
+                              <span className="text-[11px] text-foreground/50">
+                                user mapped
+                              </span>
+                              <span className="text-[12px] font-bold text-foreground/70">
+                                {mappedByConfidence.manual.length}
+                              </span>
+                              <svg
+                                className={`w-2.5 h-2.5 text-foreground/30 transition-transform ml-auto ${showManualTier ? "rotate-180" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </button>
+                            {showManualTier && (
+                              <div className="divide-y divide-border/20">
+                                {mappedByConfidence.manual.map(({ layer }) => (
+                                  <MappedItemRow
+                                    key={layer.sourceModel.name}
+                                    layer={layer}
+                                    confidence={-1}
+                                    onClear={() =>
+                                      interactive.clearLayerMapping(
+                                        layer.sourceModel.name,
+                                      )
+                                    }
+                                    onRemoveLink={
+                                      interactive.removeLinkFromLayer
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )}
+                  </div>
+                )}
+
+                {/* ─── SKIPPED ───────────────────────────────── */}
+                {skippedLayers.length > 0 && (
+                  <div className="bg-surface rounded-lg border border-border overflow-hidden opacity-60">
+                    <button
+                      type="button"
+                      onClick={() => setShowSkippedSection(!showSkippedSection)}
+                      className="w-full px-3 h-9 flex items-center gap-2 hover:bg-surface-light transition-colors"
+                    >
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/20">
+                        SKIPPED
+                      </span>
+                      <span className="text-[13px] font-bold text-foreground/40">
+                        {skippedLayers.length}
+                      </span>
+                      <svg
+                        className={`w-3 h-3 text-foreground/40 transition-transform ml-auto ${showSkippedSection ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      </svg>
+                    </button>
+                    {showSkippedSection && (
+                      <div className="border-t border-border">
+                        {skippedLayers.map((sl) => (
+                          <div
+                            key={sl.sourceModel.name}
+                            className="px-3 py-1.5 flex items-center justify-between border-b border-border/30 last:border-b-0"
+                          >
+                            <span className="text-[13px] text-foreground/30 line-through truncate">
+                              {sl.sourceModel.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                interactive.unskipSourceLayer(
+                                  sl.sourceModel.name,
+                                )
+                              }
+                              className="text-[10px] text-accent/60 hover:text-accent px-2 py-0.5 rounded"
+                            >
+                              unskip
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* All done state */}
+                {unmappedLayers.length === 0 && mappedLayers.length > 0 && (
+                  <div className="bg-green-500/5 border border-green-500/20 rounded-lg px-4 py-6 text-center">
+                    <div className="text-green-400 text-lg font-display font-bold mb-1">
+                      Full sequence coverage!
+                    </div>
+                    <p className="text-[13px] text-foreground/50">
+                      All {interactive.mappedLayerCount} sequence layers have a
+                      destination in your layout.
+                    </p>
                   </div>
                 )}
               </div>
-            )}
+            </div>
 
-            {/* All done state */}
-            {unmappedLayers.length === 0 && mappedLayers.length > 0 && (
-              <div className="bg-green-500/5 border border-green-500/20 rounded-lg px-4 py-6 text-center">
-                <div className="text-green-400 text-lg font-display font-bold mb-1">
-                  Full sequence coverage!
+            {/* ═══ Right Panel: Your Models (The Answer Pool) ═══ */}
+            <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-8.5rem)] overflow-hidden">
+              <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-full max-h-[calc(100vh-8.5rem)]">
+                {/* Header */}
+                <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
+                  <h3 className="font-display font-bold text-[15px]">
+                    Your Models
+                  </h3>
+                  <p className="text-[11px] text-foreground/40 mt-0.5">
+                    {unmappedUserGroups.length +
+                      unmappedUserModels.length +
+                      mappedUserGroups.length +
+                      mappedUserModels.length}{" "}
+                    models &middot; Drag or click to link
+                  </p>
                 </div>
-                <p className="text-[13px] text-foreground/50">
-                  All {interactive.mappedLayerCount} sequence layers have a destination in your layout.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* ═══ Right Panel: Your Models (The Answer Pool) ═══ */}
-        <div className="lg:sticky lg:top-24 self-start lg:max-h-[calc(100vh-8.5rem)] overflow-hidden">
-          <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-full max-h-[calc(100vh-8.5rem)]">
-            {/* Header */}
-            <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
-              <h3 className="font-display font-bold text-[15px]">Your Models</h3>
-              <p className="text-[11px] text-foreground/40 mt-0.5">
-                {unmappedUserGroups.length + unmappedUserModels.length + mappedUserGroups.length + mappedUserModels.length} models &middot; Drag or click to link
-              </p>
-            </div>
+                {/* Search */}
+                <div className="px-3 py-2 border-b border-border flex-shrink-0">
+                  <input
+                    type="text"
+                    placeholder="Search your models..."
+                    value={rightSearch}
+                    onChange={(e) => setRightSearch(e.target.value)}
+                    className="w-full text-[12px] px-2.5 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+                  />
+                </div>
 
-            {/* Search */}
-            <div className="px-3 py-2 border-b border-border flex-shrink-0">
-              <input
-                type="text"
-                placeholder="Search your models..."
-                value={rightSearch}
-                onChange={(e) => setRightSearch(e.target.value)}
-                className="w-full text-[12px] px-2.5 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
-              />
-            </div>
+                {/* Cards area - stable list of available targets */}
+                <div className="flex-1 overflow-y-auto">
+                  {/* ═══ UNMAPPED Section (expanded by default) ═══ */}
+                  {(unmappedUserGroups.length > 0 ||
+                    unmappedUserModels.length > 0) && (
+                    <div className="border-b border-border/50">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowUnmappedUserSection(!showUnmappedUserSection)
+                        }
+                        className="w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-green-400/80 bg-green-500/10 sticky top-0 z-10 flex items-center justify-between hover:bg-green-500/15 transition-colors"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                            />
+                          </svg>
+                          Unmapped (
+                          {unmappedUserGroups.length +
+                            unmappedUserModels.length}
+                          )
+                        </span>
+                        <svg
+                          className={`w-3.5 h-3.5 transition-transform ${showUnmappedUserSection ? "rotate-180" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                      {showUnmappedUserSection && (
+                        <div>
+                          {/* Unmapped Groups */}
+                          {unmappedUserGroups.length > 0 && (
+                            <div>
+                              <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-foreground/30 bg-surface-light/50">
+                                Groups ({unmappedUserGroups.length})
+                              </div>
+                              <div className="px-2 py-1">
+                                {unmappedUserGroups.map((m) => (
+                                  <DraggableUserCard
+                                    key={m.name}
+                                    model={m}
+                                    onDragStart={dnd.handleDragStart}
+                                    onDragEnd={dnd.handleDragEnd}
+                                    getDragDataTransfer={
+                                      dnd.getDragDataTransfer
+                                    }
+                                    onClickAssign={
+                                      focusedSourceLayer
+                                        ? () =>
+                                            assignWithCascadeFeedback(
+                                              focusedSourceLayer,
+                                              m.name,
+                                            )
+                                        : undefined
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {/* Unmapped Models */}
+                          {unmappedUserModels.length > 0 && (
+                            <div>
+                              <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-foreground/30 bg-surface-light/50">
+                                Models ({unmappedUserModels.length})
+                              </div>
+                              <div className="px-2 py-1">
+                                {unmappedUserModels.map((m) => (
+                                  <DraggableUserCard
+                                    key={m.name}
+                                    model={m}
+                                    onDragStart={dnd.handleDragStart}
+                                    onDragEnd={dnd.handleDragEnd}
+                                    getDragDataTransfer={
+                                      dnd.getDragDataTransfer
+                                    }
+                                    onClickAssign={
+                                      focusedSourceLayer
+                                        ? () =>
+                                            assignWithCascadeFeedback(
+                                              focusedSourceLayer,
+                                              m.name,
+                                            )
+                                        : undefined
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-            {/* Cards area - stable list of available targets */}
-            <div className="flex-1 overflow-y-auto">
-              {/* ═══ UNMAPPED Section (expanded by default) ═══ */}
-              {(unmappedUserGroups.length > 0 || unmappedUserModels.length > 0) && (
-                <div className="border-b border-border/50">
-                  <button
-                    type="button"
-                    onClick={() => setShowUnmappedUserSection(!showUnmappedUserSection)}
-                    className="w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-green-400/80 bg-green-500/10 sticky top-0 z-10 flex items-center justify-between hover:bg-green-500/15 transition-colors"
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      Unmapped ({unmappedUserGroups.length + unmappedUserModels.length})
-                    </span>
-                    <svg className={`w-3.5 h-3.5 transition-transform ${showUnmappedUserSection ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showUnmappedUserSection && (
+                  {/* ═══ ALREADY MAPPED Section (collapsed by default) ═══ */}
+                  {(mappedUserGroups.length > 0 ||
+                    mappedUserModels.length > 0) && (
                     <div>
-                      {/* Unmapped Groups */}
-                      {unmappedUserGroups.length > 0 && (
-                        <div>
-                          <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-foreground/30 bg-surface-light/50">
-                            Groups ({unmappedUserGroups.length})
-                          </div>
-                          <div className="px-2 py-1">
-                            {unmappedUserGroups.map((m) => (
-                              <DraggableUserCard
-                                key={m.name}
-                                model={m}
-                                onDragStart={dnd.handleDragStart}
-                                onDragEnd={dnd.handleDragEnd}
-                                getDragDataTransfer={dnd.getDragDataTransfer}
-                                onClickAssign={focusedSourceLayer ? () => assignWithCascadeFeedback(focusedSourceLayer, m.name) : undefined}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {/* Unmapped Models */}
-                      {unmappedUserModels.length > 0 && (
-                        <div>
-                          <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-foreground/30 bg-surface-light/50">
-                            Models ({unmappedUserModels.length})
-                          </div>
-                          <div className="px-2 py-1">
-                            {unmappedUserModels.map((m) => (
-                              <DraggableUserCard
-                                key={m.name}
-                                model={m}
-                                onDragStart={dnd.handleDragStart}
-                                onDragEnd={dnd.handleDragEnd}
-                                getDragDataTransfer={dnd.getDragDataTransfer}
-                                onClickAssign={focusedSourceLayer ? () => assignWithCascadeFeedback(focusedSourceLayer, m.name) : undefined}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* ═══ ALREADY MAPPED Section (collapsed by default) ═══ */}
-              {(mappedUserGroups.length > 0 || mappedUserModels.length > 0) && (
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setShowMappedUserSection(!showMappedUserSection)}
-                    className="w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10 flex items-center justify-between hover:bg-surface-light/80 transition-colors"
-                  >
-                    <span>Already Mapped ({mappedUserGroups.length + mappedUserModels.length})</span>
-                    <svg className={`w-3.5 h-3.5 transition-transform ${showMappedUserSection ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {showMappedUserSection && (
-                    <div className="opacity-60">
-                      {/* Mapped Groups */}
-                      {mappedUserGroups.length > 0 && (
-                        <div>
-                          <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-foreground/30 bg-surface-light/50">
-                            Groups ({mappedUserGroups.length})
-                          </div>
-                          <div className="px-2 py-1">
-                            {mappedUserGroups.map((m) => (
-                              <DraggableUserCard
-                                key={m.name}
-                                model={m}
-                                onDragStart={dnd.handleDragStart}
-                                onDragEnd={dnd.handleDragEnd}
-                                getDragDataTransfer={dnd.getDragDataTransfer}
-                                assignedSources={interactive.destToSourcesMap.get(m.name)}
-                                onRemoveLink={interactive.removeLinkFromLayer}
-                                onClickAssign={focusedSourceLayer ? () => assignWithCascadeFeedback(focusedSourceLayer, m.name) : undefined}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {/* Mapped Models */}
-                      {mappedUserModels.length > 0 && (
-                        <div>
-                          <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-foreground/30 bg-surface-light/50">
-                            Models ({mappedUserModels.length})
-                          </div>
-                          <div className="px-2 py-1">
-                            {mappedUserModels.map((m) => (
-                              <DraggableUserCard
-                                key={m.name}
-                                model={m}
-                                onDragStart={dnd.handleDragStart}
-                                onDragEnd={dnd.handleDragEnd}
-                                getDragDataTransfer={dnd.getDragDataTransfer}
-                                assignedSources={interactive.destToSourcesMap.get(m.name)}
-                                onRemoveLink={interactive.removeLinkFromLayer}
-                                onClickAssign={focusedSourceLayer ? () => assignWithCascadeFeedback(focusedSourceLayer, m.name) : undefined}
-                              />
-                            ))}
-                          </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowMappedUserSection(!showMappedUserSection)
+                        }
+                        className="w-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10 flex items-center justify-between hover:bg-surface-light/80 transition-colors"
+                      >
+                        <span>
+                          Already Mapped (
+                          {mappedUserGroups.length + mappedUserModels.length})
+                        </span>
+                        <svg
+                          className={`w-3.5 h-3.5 transition-transform ${showMappedUserSection ? "rotate-180" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                      {showMappedUserSection && (
+                        <div className="opacity-60">
+                          {/* Mapped Groups */}
+                          {mappedUserGroups.length > 0 && (
+                            <div>
+                              <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-foreground/30 bg-surface-light/50">
+                                Groups ({mappedUserGroups.length})
+                              </div>
+                              <div className="px-2 py-1">
+                                {mappedUserGroups.map((m) => (
+                                  <DraggableUserCard
+                                    key={m.name}
+                                    model={m}
+                                    onDragStart={dnd.handleDragStart}
+                                    onDragEnd={dnd.handleDragEnd}
+                                    getDragDataTransfer={
+                                      dnd.getDragDataTransfer
+                                    }
+                                    assignedSources={interactive.destToSourcesMap.get(
+                                      m.name,
+                                    )}
+                                    onRemoveLink={
+                                      interactive.removeLinkFromLayer
+                                    }
+                                    onClickAssign={
+                                      focusedSourceLayer
+                                        ? () =>
+                                            assignWithCascadeFeedback(
+                                              focusedSourceLayer,
+                                              m.name,
+                                            )
+                                        : undefined
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {/* Mapped Models */}
+                          {mappedUserModels.length > 0 && (
+                            <div>
+                              <div className="px-3 py-1 text-[9px] font-semibold uppercase tracking-wider text-foreground/30 bg-surface-light/50">
+                                Models ({mappedUserModels.length})
+                              </div>
+                              <div className="px-2 py-1">
+                                {mappedUserModels.map((m) => (
+                                  <DraggableUserCard
+                                    key={m.name}
+                                    model={m}
+                                    onDragStart={dnd.handleDragStart}
+                                    onDragEnd={dnd.handleDragEnd}
+                                    getDragDataTransfer={
+                                      dnd.getDragDataTransfer
+                                    }
+                                    assignedSources={interactive.destToSourcesMap.get(
+                                      m.name,
+                                    )}
+                                    onRemoveLink={
+                                      interactive.removeLinkFromLayer
+                                    }
+                                    onClickAssign={
+                                      focusedSourceLayer
+                                        ? () =>
+                                            assignWithCascadeFeedback(
+                                              focusedSourceLayer,
+                                              m.name,
+                                            )
+                                        : undefined
+                                    }
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* Summary */}
-              {interactive.assignedUserModelNames.size > 0 && (
-                <div className="px-3 py-1.5 text-[10px] text-foreground/25 text-center border-t border-border/50">
-                  {interactive.assignedUserModelNames.size} of {unmappedUserGroups.length + unmappedUserModels.length + mappedUserGroups.length + mappedUserModels.length} models linked
+                  {/* Summary */}
+                  {interactive.assignedUserModelNames.size > 0 && (
+                    <div className="px-3 py-1.5 text-[10px] text-foreground/25 text-center border-t border-border/50">
+                      {interactive.assignedUserModelNames.size} of{" "}
+                      {unmappedUserGroups.length +
+                        unmappedUserModels.length +
+                        mappedUserGroups.length +
+                        mappedUserModels.length}{" "}
+                      models linked
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
+
+          {/* Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 mt-6">
+            <button
+              onClick={handleExport}
+              className={`flex-1 py-3.5 rounded-xl font-display font-bold text-base transition-colors flex items-center justify-center gap-2 ${
+                coveragePercent >= 90
+                  ? "bg-green-500 hover:bg-green-600 text-white"
+                  : coveragePercent >= 50
+                    ? "bg-amber-500 hover:bg-amber-600 text-white"
+                    : "bg-zinc-600 hover:bg-zinc-500 text-zinc-300"
+              }`}
+            >
+              {coveragePercent >= 90 && (
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              )}
+              Download .xmap File
+            </button>
+            <button
+              onClick={handleExportReport}
+              className="px-5 py-3.5 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-colors"
+            >
+              Export Report (.csv)
+            </button>
+            <button
+              onClick={onReset}
+              className="px-5 py-3.5 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-colors"
+            >
+              Start Over
+            </button>
+          </div>
+
+          {/* Keyboard shortcuts */}
+          <div className="flex items-center justify-center gap-4 text-[10px] text-foreground/25 py-1.5">
+            <span>Tab: next unmapped</span>
+            <span>&middot;</span>
+            <span>Enter: accept suggestion</span>
+            <span>&middot;</span>
+            <span>S: skip</span>
+            <span>&middot;</span>
+            <span>Ctrl+Z: undo</span>
+          </div>
         </div>
+        {/* end hidden V3 legacy layout */}
+
+        {/* Export Warning Dialog */}
+        {showExportDialog && (
+          <ExportDialog
+            unmappedNames={unmappedLayers.map((sl) => sl.sourceModel.name)}
+            onExportAnyway={handleExportAnyway}
+            onSkipAllAndExport={handleSkipAllAndExport}
+            onKeepMapping={handleKeepMapping}
+          />
+        )}
+
+        {showBoostPrompt && boostDisplayCoverage && (
+          <CoverageBoostPrompt
+            displayCoverage={boostDisplayCoverage}
+            sequenceCoverage={{
+              mapped: interactive.mappedLayerCount,
+              total: interactive.totalSourceLayers,
+            }}
+            groupSuggestions={boostGroupSuggestions}
+            spinnerSuggestions={boostSpinnerSuggestions}
+            destModels={destModels}
+            onAcceptAndExport={handleBoostAcceptAndExport}
+            onSkipAndExport={handleBoostSkipAndExport}
+            onKeepMapping={handleKeepMapping}
+          />
+        )}
+
+        {/* Cascade feedback toasts */}
+        <CascadeToastContainer toasts={toasts} onDismiss={dismissToast} />
       </div>
-
-      {/* Actions */}
-      <div className="flex flex-col sm:flex-row gap-3 mt-6">
-        <button
-          onClick={handleExport}
-          className={`flex-1 py-3.5 rounded-xl font-display font-bold text-base transition-colors flex items-center justify-center gap-2 ${
-            coveragePercent >= 100
-              ? "bg-green-500 hover:bg-green-600 text-white"
-              : coveragePercent >= 50
-                ? "bg-amber-500 hover:bg-amber-600 text-white"
-                : "bg-zinc-600 hover:bg-zinc-500 text-zinc-300"
-          }`}
-        >
-          {coveragePercent >= 100 && (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          )}
-          {coveragePercent >= 100
-            ? "Download Mapping File (.xmap)"
-            : `Download Mapping File (${interactive.unmappedLayerCount} remaining)`}
-        </button>
-        <button
-          onClick={handleExportReport}
-          className="px-5 py-3.5 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-colors"
-        >
-          Export Report (.csv)
-        </button>
-        <button
-          onClick={onReset}
-          className="px-5 py-3.5 rounded-xl font-medium text-foreground/60 hover:text-foreground bg-surface border border-border hover:bg-surface-light transition-colors"
-        >
-          Start Over
-        </button>
-      </div>
-
-      {/* Keyboard shortcuts */}
-      <div className="flex items-center justify-center gap-4 text-[10px] text-foreground/25 py-1.5">
-        <span>Tab: next unmapped</span>
-        <span>&middot;</span>
-        <span>Enter: accept suggestion</span>
-        <span>&middot;</span>
-        <span>S: skip</span>
-        <span>&middot;</span>
-        <span>Ctrl+Z: undo</span>
-      </div>
-      </div>{/* end hidden V3 legacy layout */}
-
-      {/* Export Warning Dialog */}
-      {showExportDialog && (
-        <ExportDialog
-          unmappedNames={unmappedLayers.map((sl) => sl.sourceModel.name)}
-          onExportAnyway={handleExportAnyway}
-          onSkipAllAndExport={handleSkipAllAndExport}
-          onKeepMapping={handleKeepMapping}
-        />
-      )}
-
-      {showBoostPrompt && boostDisplayCoverage && (
-        <CoverageBoostPrompt
-          displayCoverage={boostDisplayCoverage}
-          sequenceCoverage={{
-            mapped: interactive.mappedLayerCount,
-            total: interactive.totalSourceLayers,
-          }}
-          groupSuggestions={boostGroupSuggestions}
-          spinnerSuggestions={boostSpinnerSuggestions}
-          destModels={destModels}
-          onAcceptAndExport={handleBoostAcceptAndExport}
-          onSkipAndExport={handleBoostSkipAndExport}
-          onKeepMapping={handleKeepMapping}
-        />
-      )}
-
-      {/* Cascade feedback toasts */}
-      <CascadeToastContainer toasts={toasts} onDismiss={dismissToast} />
-    </div>
     </MappingPhaseProvider>
   );
 }
@@ -2609,7 +3216,8 @@ function MappedItemRow({
   const isExpandable = hasMultipleDests || hasResolvedChildren;
 
   // Confidence badge styling
-  const confidencePercent = confidence >= 0 ? Math.round(confidence * 100) : null;
+  const confidencePercent =
+    confidence >= 0 ? Math.round(confidence * 100) : null;
   const confidenceColor =
     confidence >= 0.7
       ? "text-green-400"
@@ -2626,17 +3234,33 @@ function MappedItemRow({
         className={`px-3 py-2 flex items-center gap-2 ${isExpandable ? "cursor-pointer hover:bg-surface-light" : ""}`}
         onClick={isExpandable ? () => setIsExpanded(!isExpanded) : undefined}
       >
-        <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        <svg
+          className="w-4 h-4 text-green-400 flex-shrink-0"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 13l4 4L19 7"
+          />
         </svg>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             {layer.isGroup && (
-              <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">GRP</span>
+              <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">
+                GRP
+              </span>
             )}
-            <span className="text-[13px] text-foreground truncate">{layer.sourceModel.name}</span>
+            <span className="text-[13px] text-foreground truncate">
+              {layer.sourceModel.name}
+            </span>
             {confidencePercent !== null && (
-              <span className={`text-[10px] ${confidenceColor} opacity-70`}>{confidencePercent}%</span>
+              <span className={`text-[10px] ${confidenceColor} opacity-70`}>
+                {confidencePercent}%
+              </span>
             )}
             {isExpandable && (
               <svg
@@ -2645,14 +3269,21 @@ function MappedItemRow({
                 stroke="currentColor"
                 viewBox="0 0 24 24"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             )}
           </div>
           <div className="text-[11px] text-foreground/40 truncate">
             &rarr; Your &quot;{layer.assignedUserModels[0]?.name}&quot;
             {hasMultipleDests && (
-              <span className="text-teal-400/60 ml-1">+{layer.assignedUserModels.length - 1}</span>
+              <span className="text-teal-400/60 ml-1">
+                +{layer.assignedUserModels.length - 1}
+              </span>
             )}
             {hasResolvedChildren && (
               <span className="text-teal-400/60 ml-1">
@@ -2680,11 +3311,20 @@ function MappedItemRow({
           {/* Multiple destinations */}
           {hasMultipleDests && (
             <div>
-              <div className="text-foreground/40 mb-1">Mapped to {layer.assignedUserModels.length} models:</div>
+              <div className="text-foreground/40 mb-1">
+                Mapped to {layer.assignedUserModels.length} models:
+              </div>
               {layer.assignedUserModels.map((m, i) => (
-                <div key={m.name} className="flex items-center gap-2 py-0.5 pl-2 border-l-2 border-foreground/10">
-                  <span className="text-foreground/30 w-4 tabular-nums">{i + 1}.</span>
-                  <span className="text-foreground/60 truncate flex-1">{m.name}</span>
+                <div
+                  key={m.name}
+                  className="flex items-center gap-2 py-0.5 pl-2 border-l-2 border-foreground/10"
+                >
+                  <span className="text-foreground/30 w-4 tabular-nums">
+                    {i + 1}.
+                  </span>
+                  <span className="text-foreground/60 truncate flex-1">
+                    {m.name}
+                  </span>
                   <span className="text-foreground/30">{m.pixelCount}px</span>
                   <button
                     type="button"
@@ -2702,11 +3342,26 @@ function MappedItemRow({
           {/* Resolved children for groups */}
           {hasResolvedChildren && layer.membersWithoutEffects.length > 0 && (
             <div>
-              <div className="text-foreground/40 mb-1">Children auto-resolved:</div>
+              <div className="text-foreground/40 mb-1">
+                Children auto-resolved:
+              </div>
               {layer.membersWithoutEffects.map((child) => (
-                <div key={child} className="flex items-center gap-2 py-0.5 text-green-400/70">
-                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <div
+                  key={child}
+                  className="flex items-center gap-2 py-0.5 text-green-400/70"
+                >
+                  <svg
+                    className="w-3 h-3 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                   <span className="truncate">{child}</span>
                 </div>
@@ -2717,11 +3372,26 @@ function MappedItemRow({
           {/* Children with individual effects (if any) */}
           {layer.membersWithEffects.length > 0 && (
             <div>
-              <div className="text-amber-400/60 mb-1">Children needing separate mapping:</div>
+              <div className="text-amber-400/60 mb-1">
+                Children needing separate mapping:
+              </div>
               {layer.membersWithEffects.map((child) => (
-                <div key={child} className="flex items-center gap-2 py-0.5 text-amber-400/60">
-                  <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                <div
+                  key={child}
+                  className="flex items-center gap-2 py-0.5 text-amber-400/60"
+                >
+                  <svg
+                    className="w-3 h-3 flex-shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 10V3L4 14h7v7l9-11h-7z"
+                    />
                   </svg>
                   <span className="truncate">{child}</span>
                 </div>
