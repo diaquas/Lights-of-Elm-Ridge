@@ -56,6 +56,9 @@ export function SpinnersPhase() {
 
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
   const mappedItems = phaseItems.filter((item) => item.isMapped);
+  const skippedItems = interactive.sourceLayerMappings.filter(
+    (l) => l.isSkipped,
+  );
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -363,6 +366,35 @@ export function SpinnersPhase() {
               </div>
             </details>
           )}
+
+          {skippedItems.length > 0 && (
+            <details className="mt-4">
+              <summary className="text-[11px] text-foreground/25 cursor-pointer hover:text-foreground/40">
+                {skippedItems.length} skipped
+              </summary>
+              <div className="mt-2 space-y-1">
+                {skippedItems.map((item) => (
+                  <div
+                    key={item.sourceModel.name}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-foreground/[0.02] border border-border/50 opacity-60"
+                  >
+                    <span className="text-[12px] text-foreground/40 truncate flex-1 min-w-0">
+                      {item.sourceModel.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        interactive.unskipSourceLayer(item.sourceModel.name)
+                      }
+                      className="text-[10px] text-accent/50 hover:text-accent transition-colors flex-shrink-0"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       </div>
 
@@ -413,6 +445,10 @@ export function SpinnersPhase() {
                 destToSourcesMap={interactive.destToSourcesMap}
                 onRemoveLink={interactive.removeLinkFromLayer}
                 sourceEffectCounts={sourceEffectCounts}
+                skippedDestModels={interactive.skippedDestModels}
+                onSkipDest={interactive.skipDestModel}
+                onUnskipDest={interactive.unskipDestModel}
+                onUnskipAllDest={interactive.unskipAllDestModels}
               />
             </div>
 

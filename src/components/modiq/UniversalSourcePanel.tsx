@@ -55,6 +55,14 @@ export interface UniversalSourcePanelProps {
   onRemoveLink?: (sourceName: string, destName: string) => void;
   /** Effect counts per source model name (for usage tooltip display) */
   sourceEffectCounts?: Map<string, number>;
+  /** Set of destination model names that have been skipped */
+  skippedDestModels?: Set<string>;
+  /** Skip a destination model (hide from suggestions + all-models list) */
+  onSkipDest?: (destName: string) => void;
+  /** Restore a single skipped destination model */
+  onUnskipDest?: (destName: string) => void;
+  /** Restore all skipped destination models */
+  onUnskipAllDest?: () => void;
 }
 
 // ─── Component ──────────────────────────────────────────
@@ -71,17 +79,33 @@ export function UniversalSourcePanel({
   destToSourcesMap,
   onRemoveLink,
   sourceEffectCounts,
+  skippedDestModels,
+  onSkipDest,
+  onUnskipDest,
+  onUnskipAllDest,
 }: UniversalSourcePanelProps) {
   const [search, setSearch] = useState("");
-  const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
-  const [hiddenFamilies, setHiddenFamilies] = useState<Set<string>>(new Set());
+  const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(
+    new Set(),
+  );
 
-  // Available models = filtered + not already assigned
+  // Available models = filtered + not skipped
   const availableModels = useMemo(() => {
     let models = allModels;
     if (sourceFilter) models = models.filter(sourceFilter);
+    if (skippedDestModels && skippedDestModels.size > 0) {
+      models = models.filter((m) => !skippedDestModels.has(m.name));
+    }
     return models;
-  }, [allModels, sourceFilter]);
+  }, [allModels, sourceFilter, skippedDestModels]);
+
+  // Skipped models list (for the restore section)
+  const skippedModels = useMemo(() => {
+    if (!skippedDestModels || skippedDestModels.size === 0) return [];
+    let models = allModels;
+    if (sourceFilter) models = models.filter(sourceFilter);
+    return models.filter((m) => skippedDestModels.has(m.name));
+  }, [allModels, sourceFilter, skippedDestModels]);
 
   // Suggestion model names (for deduplication in "all models" list)
   const suggestionNames = useMemo(
@@ -106,8 +130,7 @@ export function UniversalSourcePanel({
     const q = search.toLowerCase();
     return availableModels.filter(
       (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.type.toLowerCase().includes(q),
+        m.name.toLowerCase().includes(q) || m.type.toLowerCase().includes(q),
     );
   }, [search, availableModels]);
 
@@ -127,7 +150,9 @@ export function UniversalSourcePanel({
 
     const families: ModelFamily[] = [];
     for (const [prefix, models] of familyMap) {
-      const inUseCount = models.filter((m) => assignedNames?.has(m.name)).length;
+      const inUseCount = models.filter((m) =>
+        assignedNames?.has(m.name),
+      ).length;
       families.push({
         prefix,
         models,
@@ -148,22 +173,13 @@ export function UniversalSourcePanel({
     });
   }, []);
 
-  const hideFamily = useCallback((prefix: string) => {
-    setHiddenFamilies((prev) => new Set([...prev, prefix]));
-    setExpandedFamilies((prev) => {
-      const next = new Set(prev);
-      next.delete(prefix);
-      return next;
-    });
-  }, []);
-
-  const hiddenCount = useMemo(() => {
-    let count = 0;
-    for (const f of modelFamilies) {
-      if (hiddenFamilies.has(f.prefix)) count += f.models.length;
-    }
-    return count;
-  }, [modelFamilies, hiddenFamilies]);
+  const skipFamily = useCallback(
+    (familyModels: ParsedModel[]) => {
+      if (!onSkipDest) return;
+      for (const m of familyModels) onSkipDest(m.name);
+    },
+    [onSkipDest],
+  );
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -247,22 +263,25 @@ export function UniversalSourcePanel({
         {/* All Models section — grouped by family */}
         <div className="px-6 py-3">
           <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
-            All Models ({filteredModels.length}{hiddenCount > 0 ? `, ${hiddenCount} hidden` : ""})
+            All Models ({filteredModels.length}
+            {skippedModels.length > 0
+              ? `, ${skippedModels.length} skipped`
+              : ""}
+            )
           </div>
           {modelFamilies.length === 0 ? (
             <div className="text-center py-8 text-foreground/40">
               <p className="text-sm">
-                {search
-                  ? <>No models matching &ldquo;{search}&rdquo;</>
-                  : "No models available"}
+                {search ? (
+                  <>No models matching &ldquo;{search}&rdquo;</>
+                ) : (
+                  "No models available"
+                )}
               </p>
             </div>
           ) : (
             <div className="space-y-1">
               {modelFamilies.map((family) => {
-                // Hidden families — skip entirely
-                if (!search && hiddenFamilies.has(family.prefix)) return null;
-
                 // Single item or searching — render flat
                 if (family.models.length === 1 || search) {
                   return family.models.map((model) => (
@@ -271,6 +290,7 @@ export function UniversalSourcePanel({
                       model={model}
                       isAssigned={assignedNames?.has(model.name) ?? false}
                       onAccept={onAccept}
+                      onSkip={onSkipDest}
                       dnd={dnd}
                       destToSourcesMap={destToSourcesMap}
                       onRemoveLink={onRemoveLink}
@@ -288,7 +308,9 @@ export function UniversalSourcePanel({
                       family={family}
                       isExpanded={isExpanded}
                       onToggle={() => toggleFamily(family.prefix)}
-                      onHide={() => hideFamily(family.prefix)}
+                      onSkipFamily={
+                        onSkipDest ? () => skipFamily(family.models) : undefined
+                      }
                     />
                     {isExpanded && (
                       <div className="space-y-0.5 pl-3 pb-1 ml-1 border-l border-border/30">
@@ -298,6 +320,7 @@ export function UniversalSourcePanel({
                             model={model}
                             isAssigned={assignedNames?.has(model.name) ?? false}
                             onAccept={onAccept}
+                            onSkip={onSkipDest}
                             dnd={dnd}
                             destToSourcesMap={destToSourcesMap}
                             onRemoveLink={onRemoveLink}
@@ -313,15 +336,13 @@ export function UniversalSourcePanel({
             </div>
           )}
 
-          {/* Show hidden families restore link */}
-          {hiddenFamilies.size > 0 && !search && (
-            <button
-              type="button"
-              onClick={() => setHiddenFamilies(new Set())}
-              className="mt-3 text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors"
-            >
-              Show {hiddenFamilies.size} hidden group{hiddenFamilies.size > 1 ? "s" : ""} ({hiddenCount} models)
-            </button>
+          {/* Skipped Items section */}
+          {skippedModels.length > 0 && !search && (
+            <SkippedDestSection
+              skippedModels={skippedModels}
+              onRestore={onUnskipDest}
+              onRestoreAll={onUnskipAllDest}
+            />
           )}
         </div>
       </div>
@@ -335,12 +356,12 @@ function FamilyRow({
   family,
   isExpanded,
   onToggle,
-  onHide,
+  onSkipFamily,
 }: {
   family: ModelFamily;
   isExpanded: boolean;
   onToggle: () => void;
-  onHide: () => void;
+  onSkipFamily?: () => void;
 }) {
   return (
     <div
@@ -362,7 +383,12 @@ function FamilyRow({
           stroke="currentColor"
           viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
         </svg>
 
         <span className="text-[12px] font-medium truncate text-foreground/70">
@@ -388,30 +414,44 @@ function FamilyRow({
 
       {/* In-use count badge */}
       {family.inUseCount > 0 && (
-        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 tabular-nums border ${
-          family.inUseCount >= 2
-            ? "bg-red-500/10 text-red-400/70 border-red-500/20"
-            : "bg-amber-500/10 text-amber-400/70 border-amber-500/20"
-        }`}>
+        <span
+          className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 tabular-nums border ${
+            family.inUseCount >= 2
+              ? "bg-red-500/10 text-red-400/70 border-red-500/20"
+              : "bg-amber-500/10 text-amber-400/70 border-amber-500/20"
+          }`}
+        >
           {family.inUseCount}
         </span>
       )}
 
-      {/* Hide/dismiss button */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onHide();
-        }}
-        className="p-0.5 rounded text-foreground/15 hover:text-foreground/40 transition-colors flex-shrink-0"
-        aria-label={`Hide ${family.prefix} family`}
-        title={`Hide ${family.prefix} family`}
-      >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+      {/* Skip family button */}
+      {onSkipFamily && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSkipFamily();
+          }}
+          className="p-0.5 rounded text-foreground/15 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+          aria-label={`Skip all ${family.models.length} in ${family.prefix}`}
+          title={`Skip all ${family.models.length} in ${family.prefix}`}
+        >
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -469,9 +509,11 @@ const SuggestionCard = memo(function SuggestionCard({
       onClick={() => onAccept(sugg.model.name)}
       className={`
         w-full p-2.5 rounded-lg text-left transition-all duration-200
-        ${isBest
-          ? "bg-accent/8 border border-accent/25 hover:border-accent/40"
-          : "bg-foreground/3 border border-border hover:border-foreground/20"}
+        ${
+          isBest
+            ? "bg-accent/8 border border-accent/25 hover:border-accent/40"
+            : "bg-foreground/3 border border-border hover:border-foreground/20"
+        }
         ${dnd ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
       `}
     >
@@ -489,9 +531,7 @@ const SuggestionCard = memo(function SuggestionCard({
         <ConfidenceBadge score={sugg.score} reasoning={reasoning} size="sm" />
       </div>
       <div className="flex items-center gap-2 text-[11px] text-foreground/40 mt-0.5">
-        {sugg.model.pixelCount ? (
-          <span>{sugg.model.pixelCount}px</span>
-        ) : null}
+        {sugg.model.pixelCount ? <span>{sugg.model.pixelCount}px</span> : null}
         <span>{sugg.model.type}</span>
         {memberCount > 0 && (
           <>
@@ -510,6 +550,7 @@ const ModelCard = memo(function ModelCard({
   model,
   isAssigned,
   onAccept,
+  onSkip,
   dnd,
   destToSourcesMap,
   onRemoveLink,
@@ -519,6 +560,7 @@ const ModelCard = memo(function ModelCard({
   model: ParsedModel;
   isAssigned: boolean;
   onAccept: (name: string) => void;
+  onSkip?: (name: string) => void;
   dnd?: DragAndDropHandlers;
   destToSourcesMap?: Map<string, Set<string>>;
   onRemoveLink?: (sourceName: string, destName: string) => void;
@@ -600,15 +642,23 @@ const ModelCard = memo(function ModelCard({
       )}
 
       {/* Type badge — with hierarchy icon for SUB */}
-      <span className={`text-[9px] px-1 py-0.5 rounded flex-shrink-0 uppercase tracking-wide ${
-        typeLabel === "SUB"
-          ? "bg-purple-500/10 text-purple-400"
-          : typeLabel === "GRP"
-            ? "bg-blue-500/10 text-blue-400"
-            : "bg-foreground/5 text-foreground/30"
-      }`}>
+      <span
+        className={`text-[9px] px-1 py-0.5 rounded flex-shrink-0 uppercase tracking-wide ${
+          typeLabel === "SUB"
+            ? "bg-purple-500/10 text-purple-400"
+            : typeLabel === "GRP"
+              ? "bg-blue-500/10 text-blue-400"
+              : "bg-foreground/5 text-foreground/30"
+        }`}
+      >
         {typeLabel === "SUB" && (
-          <svg className="w-2 h-2 inline-block mr-0.5 -mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}>
+          <svg
+            className="w-2 h-2 inline-block mr-0.5 -mt-px"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+          >
             <path strokeLinecap="round" d="M9 3v12m0 0H5m4 0h4" />
           </svg>
         )}
@@ -622,17 +672,125 @@ const ModelCard = memo(function ModelCard({
         </span>
       ) : null}
 
-      {/* Usage badge with tooltip (replaces old "IN USE" text) */}
+      {/* Usage badge with popover */}
       {usageCount > 0 ? (
         <UsageBadge
           count={usageCount}
           mappedSourceNames={mappedSourceNames}
           sourceEffectCounts={sourceEffectCounts}
           currentSourceSelection={currentSourceSelection}
-          onRemoveLink={onRemoveLink ? (sourceName) => onRemoveLink(sourceName, model.name) : undefined}
+          onRemoveLink={
+            onRemoveLink
+              ? (sourceName) => onRemoveLink(sourceName, model.name)
+              : undefined
+          }
           onAccept={() => onAccept(model.name)}
         />
       ) : null}
+
+      {/* Skip button */}
+      {onSkip && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSkip(model.name);
+          }}
+          className="p-0.5 rounded text-foreground/15 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+          aria-label={`Skip ${model.name}`}
+          title={`Skip ${model.name}`}
+        >
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      )}
     </div>
   );
 });
+
+// ─── Skipped Destination Items Section ───────────────────
+
+function SkippedDestSection({
+  skippedModels,
+  onRestore,
+  onRestoreAll,
+}: {
+  skippedModels: ParsedModel[];
+  onRestore?: (name: string) => void;
+  onRestoreAll?: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mt-4 border-t border-border/50 pt-3">
+      <button
+        type="button"
+        onClick={() => setExpanded((p) => !p)}
+        className="flex items-center gap-2 text-[11px] text-foreground/30 hover:text-foreground/50 transition-colors"
+      >
+        <svg
+          className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
+        </svg>
+        Skipped Items ({skippedModels.length})
+      </button>
+
+      {expanded && (
+        <div className="mt-2 space-y-1">
+          {skippedModels.map((model) => (
+            <div
+              key={model.name}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-foreground/[0.02] border border-border/50 opacity-60"
+            >
+              <span className="text-[12px] text-foreground/50 truncate flex-1 min-w-0">
+                {model.name}
+              </span>
+              <span className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 text-foreground/20 flex-shrink-0 uppercase">
+                {model.type.toUpperCase().slice(0, 6)}
+              </span>
+              {onRestore && (
+                <button
+                  type="button"
+                  onClick={() => onRestore(model.name)}
+                  className="text-[10px] text-accent/60 hover:text-accent transition-colors flex-shrink-0"
+                >
+                  Restore
+                </button>
+              )}
+            </div>
+          ))}
+
+          {onRestoreAll && skippedModels.length > 1 && (
+            <button
+              type="button"
+              onClick={onRestoreAll}
+              className="mt-1 text-[10px] text-accent/40 hover:text-accent/70 transition-colors"
+            >
+              Restore all {skippedModels.length} skipped items
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
