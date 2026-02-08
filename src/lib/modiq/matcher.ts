@@ -1395,6 +1395,20 @@ function computeScore(
     structure: scoreStructure(source, dest),
   };
 
+  // ── Relaxed pixel scoring for same-type/same-name models ──
+  // When models clearly match by name AND type, pixel count differences
+  // should be penalized much less — a 50px arch and 100px arch are the
+  // same prop, just different sizes. Floor the pixel factor at 0.5 so
+  // pixel drift doesn't drag these obvious matches into medium/low tiers.
+  if (
+    !source.isGroup &&
+    !dest.isGroup &&
+    factors.name >= 0.85 &&
+    factors.type >= 0.7
+  ) {
+    factors.pixels = Math.max(factors.pixels, 0.5);
+  }
+
   // ── Holiday mismatch penalty ───────────────────────────
   // If source is clearly Halloween and dest is clearly Christmas (or vice
   // versa), zero out the score for holiday-specific indicator models.
