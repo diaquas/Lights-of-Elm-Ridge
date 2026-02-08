@@ -109,7 +109,10 @@ export interface InteractiveMappingState {
   // ── V3 source-first (the primary UI view) ──
   sourceLayerMappings: SourceLayerMapping[];
   /** Add a link from user model to source layer (additive, many-to-one) */
-  assignUserModelToLayer: (sourceLayerName: string, userModelName: string) => void;
+  assignUserModelToLayer: (
+    sourceLayerName: string,
+    userModelName: string,
+  ) => void;
   /** Remove a specific link from a source layer to a user model */
   removeLinkFromLayer: (sourceName: string, destName: string) => void;
   /** Clear ALL user model links for a source layer */
@@ -119,7 +122,9 @@ export interface InteractiveMappingState {
   /** Unskip a source layer */
   unskipSourceLayer: (sourceLayerName: string) => void;
   /** Get ranked user model suggestions for a source layer */
-  getSuggestionsForLayer: (sourceModel: ParsedModel) => ReturnType<typeof suggestMatchesForSource>;
+  getSuggestionsForLayer: (
+    sourceModel: ParsedModel,
+  ) => ReturnType<typeof suggestMatchesForSource>;
   /** Set of user model names currently assigned to any source layer */
   assignedUserModelNames: Set<string>;
   /** Inverse map: dest name → set of source names it's linked to (for right panel indicators) */
@@ -144,12 +149,22 @@ export interface InteractiveMappingState {
     overrides: string[];
     sourceDestLinks: Record<string, string[]>;
   };
+
+  // ── Destination-side skipping ──
+  /** Set of destination (user) model names skipped by the user */
+  skippedDestModels: Set<string>;
+  /** Skip a destination model (hide from suggestions and all-models list) */
+  skipDestModel: (destName: string) => void;
+  /** Restore a skipped destination model */
+  unskipDestModel: (destName: string) => void;
+  /** Restore all skipped destination models */
+  unskipAllDestModels: () => void;
 }
 
 /** Items at or above this score bypass pre-mapping so they can be reviewed
  *  in the Auto-Accept phase first. Must match AUTO_ACCEPT_THRESHOLD in
  *  MappingPhaseContext.tsx. */
-const AUTO_ACCEPT_SCORE_THRESHOLD = 0.70;
+const AUTO_ACCEPT_SCORE_THRESHOLD = 0.7;
 
 // ─── Hook ───────────────────────────────────────────────
 
@@ -170,7 +185,11 @@ export function useInteractiveMapping(
       if (!initialResult) return new Map();
       const map = new Map<string, string | null>();
       for (const m of initialResult.mappings) {
-        if (m.destModel && m.confidence !== "unmapped" && m.score < AUTO_ACCEPT_SCORE_THRESHOLD) {
+        if (
+          m.destModel &&
+          m.confidence !== "unmapped" &&
+          m.score < AUTO_ACCEPT_SCORE_THRESHOLD
+        ) {
           map.set(m.destModel.name, m.sourceModel.name);
         }
       }
@@ -198,7 +217,11 @@ export function useInteractiveMapping(
     if (!initialResult) return new Map();
     const map = new Map<string, Set<string>>();
     for (const m of initialResult.mappings) {
-      if (m.destModel && m.confidence !== "unmapped" && m.score < AUTO_ACCEPT_SCORE_THRESHOLD) {
+      if (
+        m.destModel &&
+        m.confidence !== "unmapped" &&
+        m.score < AUTO_ACCEPT_SCORE_THRESHOLD
+      ) {
         const set = map.get(m.sourceModel.name) ?? new Set();
         set.add(m.destModel.name);
         map.set(m.sourceModel.name, set);
@@ -400,8 +423,19 @@ export function useInteractiveMapping(
     const skippedSize = skipped.size;
     const total = destModels.length;
     const effective = total - skippedSize;
-    const pct = effective > 0 ? Math.round((mapped / effective) * 1000) / 10 : 0;
-    return { mapped, high, medium, low, unmapped, covered, skippedSize, total, pct };
+    const pct =
+      effective > 0 ? Math.round((mapped / effective) * 1000) / 10 : 0;
+    return {
+      mapped,
+      high,
+      medium,
+      low,
+      unmapped,
+      covered,
+      skippedSize,
+      total,
+      pct,
+    };
   }, [destMappings, skipped, destModels.length]);
 
   const mappedCount = stats.mapped;
@@ -521,6 +555,7 @@ export function useInteractiveMapping(
     [assignments],
   );
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const undo = useCallback(() => {
     setUndoStack((stack) => {
       if (stack.length === 0) return stack;
@@ -638,7 +673,11 @@ export function useInteractiveMapping(
               usedDestNames.add(destName);
               const autoMapping = autoMappingByDest.get(dest.name);
               const isOverride = overrides.has(dest.name);
-              if (autoMapping && !isOverride && autoMapping.sourceModel.name === src.name) {
+              if (
+                autoMapping &&
+                !isOverride &&
+                autoMapping.sourceModel.name === src.name
+              ) {
                 mappings.push(autoMapping);
               } else {
                 const subs = mapSubmodels(src, dest);
@@ -647,7 +686,14 @@ export function useInteractiveMapping(
                   destModel: dest,
                   score: 0.6,
                   confidence: "medium",
-                  factors: { name: 0.6, spatial: 0.5, shape: 0.5, type: 0.5, pixels: 0.5, structure: 0.5 },
+                  factors: {
+                    name: 0.6,
+                    spatial: 0.5,
+                    shape: 0.5,
+                    type: 0.5,
+                    pixels: 0.5,
+                    structure: 0.5,
+                  },
                   reason: "Manual mapping",
                   submodelMappings: subs,
                 });
@@ -660,7 +706,14 @@ export function useInteractiveMapping(
             destModel: null,
             score: 0,
             confidence: "unmapped",
-            factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 },
+            factors: {
+              name: 0,
+              spatial: 0,
+              shape: 0,
+              type: 0,
+              pixels: 0,
+              structure: 0,
+            },
             reason: "No suitable match found in your layout.",
             submodelMappings: [],
           });
@@ -691,7 +744,14 @@ export function useInteractiveMapping(
               destModel: dest,
               score: 0.6,
               confidence: "medium",
-              factors: { name: 0.6, spatial: 0.5, shape: 0.5, type: 0.5, pixels: 0.5, structure: 0.5 },
+              factors: {
+                name: 0.6,
+                spatial: 0.5,
+                shape: 0.5,
+                type: 0.5,
+                pixels: 0.5,
+                structure: 0.5,
+              },
               reason: "Manual mapping",
               submodelMappings: subs,
             });
@@ -702,7 +762,14 @@ export function useInteractiveMapping(
             destModel: null,
             score: 0,
             confidence: "unmapped",
-            factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 },
+            factors: {
+              name: 0,
+              spatial: 0,
+              shape: 0,
+              type: 0,
+              pixels: 0,
+              structure: 0,
+            },
             reason: "No suitable match found in your layout.",
             submodelMappings: [],
           });
@@ -773,6 +840,11 @@ export function useInteractiveMapping(
     new Set(),
   );
 
+  // Skipped destination (user) models — hidden from suggestions and all-models list
+  const [skippedDestModels, setSkippedDestModels] = useState<Set<string>>(
+    new Set(),
+  );
+
   // Derived: source → Set<destName> (from sourceDestLinks — already the right shape)
   // Inverse: dest → Set<sourceName> (for right panel assignment indicators)
   const destToSourcesMap = useMemo(() => {
@@ -801,13 +873,18 @@ export function useInteractiveMapping(
   // Build source-layer mappings from effect tree
   // Zero-effect items are filtered out — they have no visual impact and don't need mapping
   const { sourceLayerMappings, hiddenZeroEffectCount } = useMemo(() => {
-    if (!effectTree) return { sourceLayerMappings: [] as SourceLayerMapping[], hiddenZeroEffectCount: 0 };
+    if (!effectTree)
+      return {
+        sourceLayerMappings: [] as SourceLayerMapping[],
+        hiddenZeroEffectCount: 0,
+      };
 
     // Get effect counts for current sequence (if available)
     // Use externally provided counts (from vendor .xsq parsing) if available,
     // otherwise fall back to hardcoded SEQUENCE_EFFECT_COUNTS for elm-ridge mode.
-    const effectCounts = externalEffectCounts
-      ?? (sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined);
+    const effectCounts =
+      externalEffectCounts ??
+      (sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined);
 
     const layers: SourceLayerMapping[] = [];
 
@@ -891,7 +968,14 @@ export function useInteractiveMapping(
     }
 
     return { sourceLayerMappings: layers, hiddenZeroEffectCount: 0 };
-  }, [effectTree, sourceDestLinks, destByName, skippedSourceLayers, sequenceSlug, externalEffectCounts]);
+  }, [
+    effectTree,
+    sourceDestLinks,
+    destByName,
+    skippedSourceLayers,
+    sequenceSlug,
+    externalEffectCounts,
+  ]);
 
   // V3 source-centric stats
   const sourceStats = useMemo(() => {
@@ -941,6 +1025,7 @@ export function useInteractiveMapping(
 
   /** Add a link from user model to source layer (additive, never replaces) */
   const assignUserModelToLayer = useCallback(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     (sourceLayerName: string, userModelName: string) => {
       // Check if this exact link already exists (no-op for duplicates)
       const existing = sourceDestLinks.get(sourceLayerName);
@@ -951,7 +1036,11 @@ export function useInteractiveMapping(
       startTransition(() => {
         setUndoStack((s) => [
           ...s,
-          { type: "v3_addLink", sourceName: sourceLayerName, destName: userModelName },
+          {
+            type: "v3_addLink",
+            sourceName: sourceLayerName,
+            destName: userModelName,
+          },
         ]);
         setSourceDestLinks((prev) => {
           const next = new Map(prev);
@@ -1042,6 +1131,7 @@ export function useInteractiveMapping(
   );
 
   const skipSourceLayer = useCallback(
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     (sourceLayerName: string) => {
       const existing = sourceDestLinks.get(sourceLayerName);
       const prevDests = existing ? Array.from(existing) : [];
@@ -1074,12 +1164,29 @@ export function useInteractiveMapping(
     [sourceDestLinks],
   );
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const unskipSourceLayer = useCallback((sourceLayerName: string) => {
     setSkippedSourceLayers((prev) => {
       const next = new Set(prev);
       next.delete(sourceLayerName);
       return next;
     });
+  }, []);
+
+  const skipDestModel = useCallback((destName: string) => {
+    setSkippedDestModels((prev) => new Set(prev).add(destName));
+  }, []);
+
+  const unskipDestModel = useCallback((destName: string) => {
+    setSkippedDestModels((prev) => {
+      const next = new Set(prev);
+      next.delete(destName);
+      return next;
+    });
+  }, []);
+
+  const unskipAllDestModels = useCallback(() => {
+    setSkippedDestModels(new Set());
   }, []);
 
   // Full-pool suggestion cache: scored once per source model, never invalidated.
@@ -1105,10 +1212,14 @@ export function useInteractiveMapping(
         );
         fullSuggestionCacheRef.current.set(cacheKey, fullResults);
       }
-      // Filter out currently-assigned user models at read time (cheap O(k) filter)
-      return fullResults.filter((s) => !assignedUserModelNames.has(s.model.name));
+      // Filter out currently-assigned and skipped user models at read time
+      return fullResults.filter(
+        (s) =>
+          !assignedUserModelNames.has(s.model.name) &&
+          !skippedDestModels.has(s.model.name),
+      );
     },
-    [destModels, sourceModels, assignedUserModelNames],
+    [destModels, sourceModels, assignedUserModelNames, skippedDestModels],
   );
 
   // V3 navigation: find next unmapped source layer
@@ -1170,6 +1281,12 @@ export function useInteractiveMapping(
     hiddenZeroEffectCount,
     nextUnmappedLayer,
 
+    // Destination-side skipping
+    skippedDestModels,
+    skipDestModel,
+    unskipDestModel,
+    unskipAllDestModels,
+
     /** Serialize mapping state for session recovery */
     getSerializedState: useCallback(
       () => ({
@@ -1177,7 +1294,10 @@ export function useInteractiveMapping(
         skipped: Array.from(skipped),
         overrides: Array.from(overrides),
         sourceDestLinks: Object.fromEntries(
-          Array.from(sourceDestLinks.entries()).map(([k, v]) => [k, Array.from(v)]),
+          Array.from(sourceDestLinks.entries()).map(([k, v]) => [
+            k,
+            Array.from(v),
+          ]),
         ),
       }),
       [assignments, skipped, overrides, sourceDestLinks],
