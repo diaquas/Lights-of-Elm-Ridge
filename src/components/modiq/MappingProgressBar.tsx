@@ -3,7 +3,7 @@
 import { memo } from "react";
 
 interface MappingProgressBarProps {
-  /** V3 source-first mode (sequence coverage) */
+  /** V3 source-first mode (effects coverage) */
   mode?: "v3" | "v2";
   // V3 props
   mappedLayerCount?: number;
@@ -24,7 +24,9 @@ interface MappingProgressBarProps {
   percentage?: number;
 }
 
-export default memo(function MappingProgressBar(props: MappingProgressBarProps) {
+export default memo(function MappingProgressBar(
+  props: MappingProgressBarProps,
+) {
   const mode = props.mode ?? "v2";
 
   if (mode === "v3") {
@@ -51,7 +53,7 @@ function V3Bar({
 
   return (
     <div>
-      {/* Headline: "X/Y sequence layers mapped" */}
+      {/* Headline: effects coverage */}
       <div className="flex items-baseline gap-1.5 mb-2">
         <span className="text-[28px] font-extrabold leading-none tabular-nums">
           {mappedLayerCount}
@@ -60,7 +62,7 @@ function V3Bar({
           /{effective}
         </span>
         <span className="text-[13px] text-foreground/50 ml-0.5">
-          sequence layers mapped
+          effects layers covered
         </span>
         {skippedLayerCount > 0 && (
           <span className="text-[11px] text-foreground/30 ml-1">
@@ -99,7 +101,8 @@ function V3Bar({
             groups
             {groupsCoveredChildCount > 0 && (
               <span className="text-foreground/30">
-                {" "}(covering {groupsCoveredChildCount} models)
+                {" "}
+                (covering {groupsCoveredChildCount} models)
               </span>
             )}
           </span>
@@ -113,7 +116,7 @@ function V3Bar({
         {unmappedLayerCount > 0 && (
           <span className="text-foreground/40">
             <span className="font-bold tabular-nums">{unmappedLayerCount}</span>{" "}
-            unmapped
+            unused
           </span>
         )}
       </div>
@@ -135,8 +138,7 @@ function V2Bar({
   const unmappedCount = effectiveTotal - mappedCount;
 
   const highPct = effectiveTotal > 0 ? (highCount / effectiveTotal) * 100 : 0;
-  const medPct =
-    effectiveTotal > 0 ? (mediumCount / effectiveTotal) * 100 : 0;
+  const medPct = effectiveTotal > 0 ? (mediumCount / effectiveTotal) * 100 : 0;
   const lowPct = effectiveTotal > 0 ? (lowCount / effectiveTotal) * 100 : 0;
   const coveredPct =
     effectiveTotal > 0 ? (coveredByGroupCount / effectiveTotal) * 100 : 0;
