@@ -544,7 +544,27 @@ export function clearTokenCache(): void {
 }
 
 /**
- * Tokenize a normalized name, expanding synonyms.
+ * Expand a single token through synonym chains (forward + reverse).
+ * Returns all reachable synonyms for the token.
+ */
+function expandToken(tok: string): string[] {
+  const result: string[] = [tok];
+  // Forward lookup: "ss" → ["showstopper"]
+  const syns = SYNONYMS[tok];
+  if (syns) {
+    for (const s of syns) result.push(s);
+  }
+  // Reverse lookup: "showstopper" → "ss"
+  const reverseKey = REVERSE_SYNONYMS.get(tok);
+  if (reverseKey) result.push(reverseKey);
+  return result;
+}
+
+/**
+ * Tokenize a normalized name, expanding synonyms with 2-pass resolution.
+ * Pass 1: expand each raw token's direct synonyms.
+ * Pass 2: expand any new single-word tokens added in pass 1 to catch
+ *          abbreviation chains (e.g., "ss" → "showstopper" → "show stopper").
  * Uses pre-computed REVERSE_SYNONYMS for O(1) reverse lookup.
  * Results are cached for repeated lookups of the same name.
  */
@@ -554,16 +574,21 @@ function tokenize(normalized: string): Set<string> {
 
   const rawTokens = normalized.split(/\s+/).filter(Boolean);
   const expanded = new Set<string>();
+
+  // Pass 1: direct expansion
   for (const tok of rawTokens) {
-    expanded.add(tok);
-    // Add synonym expansions (forward lookup)
-    const syns = SYNONYMS[tok];
-    if (syns) {
-      for (const s of syns) expanded.add(s);
+    for (const e of expandToken(tok)) expanded.add(e);
+  }
+
+  // Pass 2: expand any new single-word tokens from pass 1
+  // This catches chains like "ss" → "showstopper" → then "showstopper"
+  // also maps to "show stopper" or other variants.
+  // Only expand tokens that weren't in the original raw set.
+  const pass1Tokens = [...expanded];
+  for (const tok of pass1Tokens) {
+    if (!rawTokens.includes(tok) && !tok.includes(" ")) {
+      for (const e of expandToken(tok)) expanded.add(e);
     }
-    // Reverse lookup: O(1) via pre-computed map
-    const reverseKey = REVERSE_SYNONYMS.get(tok);
-    if (reverseKey) expanded.add(reverseKey);
   }
 
   tokenCache.set(normalized, expanded);
