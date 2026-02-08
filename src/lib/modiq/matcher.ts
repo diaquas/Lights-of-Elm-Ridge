@@ -101,8 +101,8 @@ const WEIGHTS = {
   name: 0.38,
   spatial: 0.22,
   shape: 0.13,
-  type: 0.10,
-  pixels: 0.10,
+  type: 0.1,
+  pixels: 0.1,
   structure: 0.07,
 };
 
@@ -337,11 +337,76 @@ function canonicalBase(base: string): string {
 }
 
 /**
+ * Simple English singularization for xLights model names.
+ * Handles common plural patterns found in community layouts.
+ * Intentionally conservative to avoid false positives
+ * (e.g., "bus" should not become "bu").
+ */
+const SINGULAR_EXCEPTIONS = new Set([
+  "icicles",
+  "christmas",
+  "canvas",
+  "bus",
+  "gas",
+  "plus",
+  "atlas",
+  "lens",
+  "class",
+  "glass",
+  "grass",
+  "cross",
+  "moss",
+]);
+
+function singularize(word: string): string {
+  if (word.length <= 2) return word;
+  if (SINGULAR_EXCEPTIONS.has(word)) return word;
+
+  // "arches" → "arch", "bushes" → "bush", "witches" → "witch"
+  if (
+    word.endsWith("ches") ||
+    word.endsWith("shes") ||
+    word.endsWith("xes") ||
+    word.endsWith("sses") ||
+    word.endsWith("zzes")
+  ) {
+    return word.slice(0, -2);
+  }
+  // "icicles" handled by exception; "circles" → "circle", "poles" → "pole"
+  if (word.endsWith("les") && word.length > 4) {
+    return word.slice(0, -1);
+  }
+  // "tombstones" → "tombstone", "canes" → "cane", "lines" → "line"
+  if (
+    word.endsWith("nes") ||
+    word.endsWith("tes") ||
+    word.endsWith("ves") ||
+    word.endsWith("zes") ||
+    word.endsWith("res") ||
+    word.endsWith("ges") ||
+    word.endsWith("ces") ||
+    word.endsWith("ses") ||
+    word.endsWith("pes") ||
+    word.endsWith("des") ||
+    word.endsWith("kes")
+  ) {
+    return word.slice(0, -1);
+  }
+  // "spiders" → "spider", "stars" → "star", "floods" → "flood"
+  // But NOT words ending in "ss" (class, grass, etc.)
+  if (word.endsWith("s") && !word.endsWith("ss") && !word.endsWith("us")) {
+    return word.slice(0, -1);
+  }
+  return word;
+}
+
+/**
  * Normalize a model name for comparison:
  * - lowercase
  * - strip separators to spaces
  * - strip version prefixes (various formats from vendors)
  * - strip common noise words (all, group, grp, my, the, model, mod)
+ * - singularize tokens (arches → arch, trees → tree)
  * - strip trailing numeric indices for base-name comparison
  */
 function normalizeName(name: string): string {
@@ -359,6 +424,8 @@ function normalizeName(name: string): string {
   n = n.replace(/[-_.\t]+/g, " ");
   // Strip noise words (keep "no" — it's meaningful for group matching)
   n = n.replace(/\b(all|group|grp|my|the|model|mod|everything|but)\b/gi, "");
+  // Singularize each token to normalize plurals
+  n = n.split(/\s+/).map(singularize).join(" ");
   // Collapse whitespace
   n = n.replace(/\s+/g, " ").trim();
   return n;
@@ -540,7 +607,10 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
     const srcSemanticTokens = tokenizeName(source.name);
     const destSemanticTokens = tokenizeName(dest.name);
     if (srcSemanticTokens.length > 0 && destSemanticTokens.length > 0) {
-      const synScore = calculateSynonymBoost(srcSemanticTokens, destSemanticTokens);
+      const synScore = calculateSynonymBoost(
+        srcSemanticTokens,
+        destSemanticTokens,
+      );
       if (synScore > 0.4) {
         semanticBoost = synScore * 0.25;
       }
@@ -855,8 +925,8 @@ function scorePixels(source: ParsedModel, dest: ParsedModel): number {
   const ratio = Math.min(srcPx, destPx) / Math.max(srcPx, destPx);
 
   if (ratio >= 0.95) return 0.9 + ratio * 0.1; // 0.995 → 1.0, 0.95 → 0.995
-  if (ratio >= 0.80) return 0.6 + (ratio - 0.80) * 2.0; // 0.80 → 0.60, 0.95 → 0.90
-  if (ratio >= 0.50) return 0.2 + (ratio - 0.50) * 1.33; // 0.50 → 0.20, 0.80 → 0.60
+  if (ratio >= 0.8) return 0.6 + (ratio - 0.8) * 2.0; // 0.80 → 0.60, 0.95 → 0.90
+  if (ratio >= 0.5) return 0.2 + (ratio - 0.5) * 1.33; // 0.50 → 0.20, 0.80 → 0.60
   if (ratio >= 0.25) return (ratio - 0.25) * 0.8; // 0.25 → 0.0, 0.50 → 0.20
   return 0.0;
 }
@@ -889,10 +959,10 @@ function scoreStructure(source: ParsedModel, dest: ParsedModel): number {
   const subRatio = Math.min(srcSubs, destSubs) / Math.max(srcSubs, destSubs);
 
   // Exact match is best; close counts are good
-  if (subRatio >= 0.9) return 1.0;   // e.g. 9 vs 10 submodels
-  if (subRatio >= 0.7) return 0.8;   // e.g. 7 vs 10
-  if (subRatio >= 0.5) return 0.5;   // e.g. 5 vs 10
-  return 0.2;                         // very different structure
+  if (subRatio >= 0.9) return 1.0; // e.g. 9 vs 10 submodels
+  if (subRatio >= 0.7) return 0.8; // e.g. 7 vs 10
+  if (subRatio >= 0.5) return 0.5; // e.g. 5 vs 10
+  return 0.2; // very different structure
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -976,7 +1046,11 @@ function isLargeSpinner(model: ParsedModel): boolean {
     return true;
   }
   // Name-based detection for common spinner/wreath products
-  if (/\b(spinner|showstopper|fuzion|rosa|overlord|wreath|starburst|click\s*click\s*boom|grand\s*illusion|shape\s*shifter|king|spinarcy|mesmerizer|boscoyo|mega\s*spinner|radiation)\b/i.test(n)) {
+  if (
+    /\b(spinner|showstopper|fuzion|rosa|overlord|wreath|starburst|click\s*click\s*boom|grand\s*illusion|shape\s*shifter|king|spinarcy|mesmerizer|boscoyo|mega\s*spinner|radiation)\b/i.test(
+      n,
+    )
+  ) {
     return true;
   }
   return false;
@@ -1142,7 +1216,14 @@ function computeScore(
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
 ): { score: number; factors: ModelMapping["factors"] } {
-  const zeroFactors = { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 };
+  const zeroFactors = {
+    name: 0,
+    spatial: 0,
+    shape: 0,
+    type: 0,
+    pixels: 0,
+    structure: 0,
+  };
 
   // ── Hard exclusions (return 0 immediately) ─────────────
 
@@ -1163,7 +1244,14 @@ function computeScore(
   if (polePair) {
     return {
       score: 1.0,
-      factors: { name: 1.0, spatial: 0.5, shape: 0.5, type: 1.0, pixels: 1.0, structure: 0.5 },
+      factors: {
+        name: 1.0,
+        spatial: 0.5,
+        shape: 0.5,
+        type: 1.0,
+        pixels: 1.0,
+        structure: 0.5,
+      },
     };
   }
 
@@ -1177,8 +1265,10 @@ function computeScore(
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
       // Check if both are large spinners (500+ pixels each)
       const bothLargeSpinners =
-        isLargeSpinner(source) && isLargeSpinner(dest) &&
-        srcPx >= 500 && destPx >= 500;
+        isLargeSpinner(source) &&
+        isLargeSpinner(dest) &&
+        srcPx >= 500 &&
+        destPx >= 500;
       if (!bothLargeSpinners) {
         return { score: 0, factors: zeroFactors };
       }
@@ -1252,7 +1342,8 @@ function computeScore(
   // SUBMODEL_GROUP groups should ONLY match other SUBMODEL_GROUP groups.
   // They should NEVER match regular models or MODEL_GROUP/META_GROUP/MIXED_GROUP groups.
   // This is the highest priority rule for spinner submodel groups.
-  const srcIsSubmodelGrp = source.isGroup && source.groupType === "SUBMODEL_GROUP";
+  const srcIsSubmodelGrp =
+    source.isGroup && source.groupType === "SUBMODEL_GROUP";
   const destIsSubmodelGrp = dest.isGroup && dest.groupType === "SUBMODEL_GROUP";
 
   if (srcIsSubmodelGrp && !destIsSubmodelGrp) {
@@ -1391,8 +1482,8 @@ function computeScore(
 
 function scoreToConfidence(score: number): Confidence {
   if (score >= 0.85) return "high";
-  if (score >= 0.60) return "medium";
-  if (score >= 0.40) return "low";
+  if (score >= 0.6) return "medium";
+  if (score >= 0.4) return "low";
   return "unmapped";
 }
 
@@ -1937,8 +2028,10 @@ function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
       // Allow large spinners to pass through
       const bothLargeSpinners =
-        isLargeSpinner(source) && isLargeSpinner(dest) &&
-        srcPx >= 500 && destPx >= 500;
+        isLargeSpinner(source) &&
+        isLargeSpinner(dest) &&
+        srcPx >= 500 &&
+        destPx >= 500;
       if (!bothLargeSpinners) {
         return true;
       }
@@ -2033,7 +2126,14 @@ function greedyMatch(
         destModel: null,
         score: 0,
         confidence: "unmapped",
-        factors: { name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0 },
+        factors: {
+          name: 0,
+          spatial: 0,
+          shape: 0,
+          type: 0,
+          pixels: 0,
+          structure: 0,
+        },
         reason: "No suitable match found in your layout.",
         submodelMappings: [],
       });
