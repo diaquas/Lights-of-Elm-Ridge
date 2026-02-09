@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useRef, startTransition } from "react";
 import type {
   MappingResult,
   ModelMapping,
+  SacrificeInfo,
   Confidence,
   SubmodelMapping,
   EffectTree,
@@ -157,6 +158,8 @@ export interface InteractiveMappingState {
   effectsCoverage: { covered: number; total: number; percent: number };
   /** User display coverage: what % of user's layout models have received mappings */
   displayCoverage: { covered: number; total: number; percent: number };
+  /** Sacrifice info from optimal assignment (items not assigned to their best match) */
+  sacrifices: SacrificeInfo[];
   /** Sequence-wide effect analysis (types, categories, impact scores) */
   sequenceAnalysis: SequenceEffectAnalysis | null;
   /** High-impact unmapped effects (hidden gems) */
@@ -805,6 +808,7 @@ export function useInteractiveMapping(
 
     return {
       mappings,
+      sacrifices: [],
       totalSource: sourceModels.length,
       totalDest: destModels.length,
       mappedCount: mapped.length,
@@ -1405,6 +1409,7 @@ export function useInteractiveMapping(
     nextUnmappedLayer,
     effectsCoverage,
     displayCoverage,
+    sacrifices: initialResult?.sacrifices ?? [],
     sequenceAnalysis,
     hiddenGems,
     getEffectContext,
