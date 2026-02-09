@@ -1055,9 +1055,25 @@ export function useInteractiveMapping(
       (m) => !isDmxModel(m) && !skippedDestModels.has(m.name),
     );
     const total = eligibleDest.length;
-    // Count how many user models have at least one source layer mapped to them
+
+    // Build set of "covered" user model names:
+    // 1. Directly assigned user models
+    // 2. Children of assigned user groups (mapping a group covers its members)
+    const coveredNames = new Set(assignedUserModelNames);
+    for (const dm of destModels) {
+      if (
+        dm.isGroup &&
+        dm.memberModels.length > 0 &&
+        assignedUserModelNames.has(dm.name)
+      ) {
+        for (const memberName of dm.memberModels) {
+          coveredNames.add(memberName);
+        }
+      }
+    }
+
     const covered = eligibleDest.filter((m) =>
-      assignedUserModelNames.has(m.name),
+      coveredNames.has(m.name),
     ).length;
     const percent = total > 0 ? Math.round((covered / total) * 100) : 100;
     return { covered, total, percent };
