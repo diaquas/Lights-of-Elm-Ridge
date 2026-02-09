@@ -42,7 +42,9 @@ export function AutoAcceptPhase() {
   const [yellowOpen, setYellowOpen] = useState(true);
   const [greenOpen, setGreenOpen] = useState(false);
 
-  // Build top-suggestion map for each item
+  // Build top-suggestion map for each item using greedy assignment.
+  // Each destination model can only be used once — once claimed by the
+  // highest-scoring source, subsequent sources fall back to their next-best.
   const suggestions = useMemo(() => {
     const map = new Map<
       string,
@@ -53,19 +55,35 @@ export function AutoAcceptPhase() {
         factors: ModelMapping["factors"];
       }
     >();
-    for (const item of phaseItems) {
+
+    // Sort items by score descending so the best matches get first pick
+    const sortedItems = [...phaseItems].sort((a, b) => {
+      const sa = scoreMap.get(a.sourceModel.name) ?? 0;
+      const sb = scoreMap.get(b.sourceModel.name) ?? 0;
+      return sb - sa;
+    });
+
+    const usedDests = new Set<string>();
+
+    for (const item of sortedItems) {
       const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
-      if (suggs.length > 0) {
-        map.set(item.sourceModel.name, {
-          name: suggs[0].model.name,
-          score: suggs[0].score,
-          pixelCount: suggs[0].model.pixelCount,
-          factors: suggs[0].factors,
-        });
+      // Find the best suggestion whose destination hasn't been claimed yet
+      for (const sugg of suggs) {
+        if (!usedDests.has(sugg.model.name)) {
+          usedDests.add(sugg.model.name);
+          map.set(item.sourceModel.name, {
+            name: sugg.model.name,
+            score: sugg.score,
+            pixelCount: sugg.model.pixelCount,
+            factors: sugg.factors,
+          });
+          break;
+        }
       }
     }
+
     return map;
-  }, [phaseItems, interactive]);
+  }, [phaseItems, interactive, scoreMap]);
 
   // Split into green (90%+) and yellow (70-89%) groups
   const { greenItems, yellowItems, stats } = useMemo(() => {
