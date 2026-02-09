@@ -17,6 +17,14 @@ import {
   isDmxModel,
   getSequenceEffectCounts,
   getSequenceEffectTypeCounts,
+  analyzeSequenceEffects,
+  findHiddenGems,
+  getEffectSuggestionContext,
+} from "@/lib/modiq";
+import type {
+  SequenceEffectAnalysis,
+  HiddenGem,
+  EffectSuggestionContext,
 } from "@/lib/modiq";
 
 // ─── Types ──────────────────────────────────────────────
@@ -149,6 +157,12 @@ export interface InteractiveMappingState {
   effectsCoverage: { covered: number; total: number; percent: number };
   /** User display coverage: what % of user's layout models have received mappings */
   displayCoverage: { covered: number; total: number; percent: number };
+  /** Sequence-wide effect analysis (types, categories, impact scores) */
+  sequenceAnalysis: SequenceEffectAnalysis | null;
+  /** High-impact unmapped effects (hidden gems) */
+  hiddenGems: HiddenGem[];
+  /** Get effect suggestion context for a specific source model */
+  getEffectContext: (modelName: string) => EffectSuggestionContext | null;
   /** Serialize mapping state for session recovery */
   getSerializedState: () => {
     assignments: Record<string, string | null>;
@@ -1288,6 +1302,39 @@ export function useInteractiveMapping(
     return null;
   }, [sourceLayerMappings]);
 
+  // Sequence effect analysis: types, categories, impact scores
+  const sequenceAnalysis = useMemo((): SequenceEffectAnalysis | null => {
+    const effectCounts =
+      externalEffectCounts ??
+      (sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined);
+    const effectTypeMap = sequenceSlug
+      ? getSequenceEffectTypeCounts(sequenceSlug)
+      : undefined;
+
+    if (!effectCounts && !effectTypeMap) return null;
+
+    return analyzeSequenceEffects(effectTypeMap ?? {}, effectCounts ?? {});
+  }, [sequenceSlug, externalEffectCounts]);
+
+  // Hidden gems: high-impact unmapped effects
+  const hiddenGems = useMemo((): HiddenGem[] => {
+    if (!sequenceAnalysis) return [];
+    const mappedNames = new Set<string>();
+    for (const sl of sourceLayerMappings) {
+      if (sl.isMapped) mappedNames.add(sl.sourceModel.name);
+    }
+    return findHiddenGems(sequenceAnalysis, mappedNames);
+  }, [sequenceAnalysis, sourceLayerMappings]);
+
+  // Get effect context for a specific source model
+  const getEffectContext = useCallback(
+    (modelName: string): EffectSuggestionContext | null => {
+      if (!sequenceAnalysis) return null;
+      return getEffectSuggestionContext(modelName, sequenceAnalysis);
+    },
+    [sequenceAnalysis],
+  );
+
   return {
     // V2 dest-centric
     destMappings,
@@ -1338,6 +1385,9 @@ export function useInteractiveMapping(
     nextUnmappedLayer,
     effectsCoverage,
     displayCoverage,
+    sequenceAnalysis,
+    hiddenGems,
+    getEffectContext,
 
     // Destination-side skipping
     skippedDestModels,

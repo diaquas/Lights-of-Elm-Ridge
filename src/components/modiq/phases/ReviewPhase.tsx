@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
+import PostMappingAdvisor from "../PostMappingAdvisor";
+import FinalCheckNotice from "../FinalCheckNotice";
+import CoverageProgressBar from "../CoverageProgressBar";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export interface ReviewPhaseProps {
@@ -22,7 +25,8 @@ export function ReviewPhase({
 }: ReviewPhaseProps) {
   const { interactive, phaseCounts } = useMappingPhase();
 
-  const { displayCoverage, effectsCoverage } = interactive;
+  const { displayCoverage, effectsCoverage, hiddenGems } = interactive;
+  const [finalCheckDismissed, setFinalCheckDismissed] = useState(false);
 
   const { mappedLayers, unmappedLayers } = useMemo(() => {
     const mapped: SourceLayerMapping[] = [];
@@ -145,6 +149,16 @@ export function ReviewPhase({
             />
           </div>
 
+          {/* ═══ Dual Coverage Progress ═══ */}
+          <div className="bg-surface rounded-xl border border-border p-6 mb-6">
+            <CoverageProgressBar
+              displayCoveragePercent={displayCoverage.percent}
+              effectsCoveragePercent={effectsCoverage.percent}
+              displayCoverage={displayCoverage}
+              effectsCoverage={effectsCoverage}
+            />
+          </div>
+
           {/* ═══ Effects Impact ═══ */}
           <div className="bg-surface rounded-xl border border-border p-6 mb-6">
             <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-4">
@@ -177,6 +191,26 @@ export function ReviewPhase({
                 </p>
               </div>
             )}
+          </div>
+
+          {/* ═══ Final Check — Unmapped Premium Effects (Ticket 47) ═══ */}
+          <div className="mb-6">
+            <FinalCheckNotice
+              hiddenGems={hiddenGems}
+              dismissed={finalCheckDismissed}
+              onDismiss={() => setFinalCheckDismissed(true)}
+            />
+          </div>
+
+          {/* ═══ Mapping Advisor (Ticket 45) ═══ */}
+          <div className="mb-6">
+            <PostMappingAdvisor
+              displayCoveragePercent={displayCoverage.percent}
+              effectsCoveragePercent={effectsCoverage.percent}
+              hiddenGems={hiddenGems}
+              totalUserModels={displayCoverage.total}
+              coveredUserModels={displayCoverage.covered}
+            />
           </div>
 
           {/* ═══ Mapping Source ═══ */}
