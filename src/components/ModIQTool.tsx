@@ -50,7 +50,6 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useMappingTelemetry } from "@/hooks/useMappingTelemetry";
 import MappingProgressBar from "@/components/modiq/MappingProgressBar";
-import PersistentProgressTracker from "@/components/modiq/PersistentProgressTracker";
 import SourceLayerRow from "@/components/modiq/SourceLayerRow";
 import DraggableUserCard from "@/components/modiq/DraggableUserCard";
 // SequenceSelector no longer used — LOER flow uses grid picker
@@ -61,7 +60,7 @@ import CascadeToastContainer, {
   useCascadeToasts,
 } from "@/components/modiq/CascadeToast";
 import { MappingPhaseProvider } from "@/contexts/MappingPhaseContext";
-import { PhaseStepper } from "@/components/modiq/PhaseStepper";
+import { ProgressTrackerProvider } from "@/components/modiq/ProgressTrackerProvider";
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
 import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
 import { useModiqSessions } from "@/hooks/useModiqSessions";
@@ -2408,17 +2407,8 @@ function InteractiveResults({
               </div>
             </div>
 
-            {/* Phase Stepper + Persistent Progress Tracker */}
-            <div className="flex items-center justify-between gap-4">
-              <PhaseStepper />
-              <PersistentProgressTracker
-                displayCoverage={interactive.displayCoverage}
-                effectsCoverage={interactive.effectsCoverage}
-                currentPhase="mapping"
-                phaseProgress={{ completed: interactive.mappedLayerCount, total: interactive.totalSourceLayers }}
-                visible={true}
-              />
-            </div>
+            {/* Phase Stepper + Progress Tracker */}
+            <ProgressTrackerProvider />
           </div>
         </div>
 
