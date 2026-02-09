@@ -244,10 +244,13 @@ const SYNONYMS: Record<string, string[]> = {
   // Star variants
   star: ["estrella", "estrellas", "stars"],
   starburst: ["star burst", "explosion"],
-  // Matrix/grid terms
-  matrix: ["grid", "panel"],
-  grid: ["matrix", "panel"],
-  panel: ["matrix", "grid"],
+  // Matrix/grid terms (all treated as synonymous matrix-family names)
+  matrix: ["grid", "panel", "p5", "p10", "virtual matrix"],
+  grid: ["matrix", "panel", "p5", "p10"],
+  panel: ["matrix", "grid", "p5", "p10"],
+  p5: ["matrix", "panel", "p10", "grid", "virtual matrix"],
+  p10: ["matrix", "panel", "p5", "grid", "virtual matrix"],
+  "virtual matrix": ["matrix", "panel", "p5", "p10", "grid"],
   // Window terms
   window: ["windows", "frame"],
   frame: ["window", "border"],
@@ -342,6 +345,8 @@ const PROP_KEYWORDS = [
   "matrix",
   "mega",
   "megatree",
+  "p5",
+  "p10",
   "mini",
   "outline",
   "panel",
@@ -448,10 +453,14 @@ const EQUIVALENT_BASES: Record<string, string> = {
   strand: "prop_strand",
   string: "prop_strand",
   run: "prop_strand",
-  // Matrix/grid elements
+  // Matrix/grid elements (P5, P10, Virtual Matrix all canonicalize to same type)
   matrix: "prop_matrix",
   grid: "prop_matrix",
   panel: "prop_matrix",
+  p5: "prop_matrix",
+  p10: "prop_matrix",
+  "virtual matrix": "prop_matrix",
+  screen: "prop_matrix",
   // Tombstone/grave elements
   tombstone: "prop_tombstone",
   tomb: "prop_tombstone",
@@ -748,6 +757,18 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
       return 1.0; // Same singing face number
     }
     return 0.85; // Both singing — rank by nodes/submodels
+  }
+
+  // Matrix-family affinity: Matrix, Virtual Matrix, P5, P10, Panel, Screen
+  // are all synonymous. When both models are matrix types, boost strongly so
+  // matrix models almost never suggest non-matrix matches.
+  if (isMatrixType(source) && isMatrixType(dest)) {
+    const srcIdx = extractIndex(source.name);
+    const destIdx = extractIndex(dest.name);
+    if (srcIdx !== -1 && destIdx !== -1 && srcIdx === destIdx) {
+      return 1.0; // Same matrix number (e.g. "Matrix 1" ↔ "P5 1")
+    }
+    return 0.85; // Both matrix-family — rank by pixels/structure
   }
 
   // Tokenized overlap with synonym expansion
@@ -1250,12 +1271,15 @@ function isPolePair(a: ParsedModel, b: ParsedModel): boolean {
   return true;
 }
 
-/** Check if a model is a Matrix type. */
+/** Check if a model is a Matrix type.
+ *  Recognizes: Matrix, Virtual Matrix, P5, P10, Panel, Screen, Grid */
 function isMatrixType(model: ParsedModel): boolean {
   const da = model.displayAs.toLowerCase();
   const n = model.name.toLowerCase();
   return (
-    da.includes("matrix") || model.type === "Matrix" || /\bmatrix\b/i.test(n)
+    da.includes("matrix") ||
+    model.type === "Matrix" ||
+    /\b(matrix|virtual\s*matrix|p5|p10|panel|screen)\b/i.test(n)
   );
 }
 

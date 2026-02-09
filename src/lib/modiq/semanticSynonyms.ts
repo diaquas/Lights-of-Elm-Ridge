@@ -64,8 +64,8 @@ export const SEMANTIC_SYNONYMS: string[][] = [
   ["spinner", "spinners", "pinwheel", "wheel"],
   ["showstopper", "show stopper", "ss"],
 
-  // Matrix synonyms
-  ["matrix", "panel", "screen", "display", "grid"],
+  // Matrix synonyms (all matrix-family names are interchangeable)
+  ["matrix", "panel", "screen", "display", "grid", "p5", "p10", "virtual matrix"],
 
   // Mega tree synonyms
   ["mega tree", "megatree", "mega", "large tree", "big tree"],
