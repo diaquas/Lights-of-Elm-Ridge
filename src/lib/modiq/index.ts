@@ -94,3 +94,25 @@ export type {
   SpinnerBoostSuggestion,
   DisplayCoverage,
 } from "./boost-matcher";
+
+export {
+  analyzeModelEffects,
+  analyzeSequenceEffects,
+  getEffectCategory,
+  getEffectImpactWeight,
+  getEffectCategoryLabel,
+  isSignatureEffect,
+  findHiddenGems,
+  getEffectSuggestionContext,
+  SIGNATURE_EFFECTS,
+} from "./effect-analysis";
+export type {
+  EffectCategory,
+  EffectTypeInfo,
+  ModelEffectAnalysis,
+  SequenceEffectAnalysis,
+  EffectCoverageMetrics,
+  EffectPropMismatch,
+  HiddenGem,
+  EffectSuggestionContext,
+} from "./effect-analysis";

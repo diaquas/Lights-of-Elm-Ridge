@@ -2511,6 +2511,7 @@ function InteractiveResults({
                             }
                             onDragEnter={dnd.handleDragEnter}
                             onDragLeave={dnd.handleDragLeave}
+                            effectContext={interactive.getEffectContext(sl.sourceModel.name)}
                           />
                         ))}
                       </div>
