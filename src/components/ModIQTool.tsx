@@ -60,7 +60,7 @@ import CascadeToastContainer, {
   useCascadeToasts,
 } from "@/components/modiq/CascadeToast";
 import { MappingPhaseProvider } from "@/contexts/MappingPhaseContext";
-import { PhaseStepper } from "@/components/modiq/PhaseStepper";
+import { ProgressTrackerProvider } from "@/components/modiq/ProgressTrackerProvider";
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
 import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
 import { useModiqSessions } from "@/hooks/useModiqSessions";
@@ -2407,8 +2407,8 @@ function InteractiveResults({
               </div>
             </div>
 
-            {/* Phase Stepper */}
-            <PhaseStepper />
+            {/* Phase Stepper + Progress Tracker */}
+            <ProgressTrackerProvider />
           </div>
         </div>
 

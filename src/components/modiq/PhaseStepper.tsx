@@ -2,6 +2,8 @@
 
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { PHASE_CONFIG, UPLOAD_STEP } from "@/types/mappingPhases";
+import type { ProgressTrackerState } from "@/hooks/useProgressTracker";
+import { CompactProgressTracker } from "./CompactProgressTracker";
 
 const PHASE_ICONS: Record<string, React.ReactNode> = {
   upload: (
@@ -106,11 +108,14 @@ const CHECK_ICON = (
   </svg>
 );
 
-export function PhaseStepper() {
-  const { currentPhase, setCurrentPhase, phaseCounts, interactive } =
-    useMappingPhase();
+interface PhaseStepperProps {
+  progressState?: ProgressTrackerState;
+  onOpenProgressModal?: () => void;
+}
 
-  const { effectsCoverage } = interactive;
+export function PhaseStepper({ progressState, onOpenProgressModal }: PhaseStepperProps = {}) {
+  const { currentPhase, setCurrentPhase, phaseCounts } =
+    useMappingPhase();
 
   const currentIndex = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
 
@@ -174,19 +179,13 @@ export function PhaseStepper() {
         })}
       </div>
 
-      {/* Effects Coverage */}
-      <div className="flex items-center gap-3 text-sm">
-        <span className="text-foreground/50">Effects Coverage</span>
-        <div className="w-28 h-2 bg-foreground/10 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-green-500 to-emerald-400 transition-all duration-500 ease-out"
-            style={{ width: `${effectsCoverage.percent}%` }}
-          />
-        </div>
-        <span className="font-bold text-foreground tabular-nums">
-          {effectsCoverage.percent}%
-        </span>
-      </div>
+      {/* Progress Tracker (replaces old Effects Coverage bar) */}
+      {progressState && onOpenProgressModal ? (
+        <CompactProgressTracker
+          state={progressState}
+          onOpenModal={onOpenProgressModal}
+        />
+      ) : null}
     </div>
   );
 }
