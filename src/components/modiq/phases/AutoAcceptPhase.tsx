@@ -41,6 +41,7 @@ export function AutoAcceptPhase() {
   const [search, setSearch] = useState("");
   const [yellowOpen, setYellowOpen] = useState(true);
   const [greenOpen, setGreenOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   // Build top-suggestion map for each item using greedy assignment.
   // Each destination model can only be used once — once claimed by the
@@ -269,14 +270,15 @@ export function AutoAcceptPhase() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* ── Success Banner ───────────────────────────── */}
-      <div className="px-8 py-5 flex-shrink-0 border-b border-border">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="h-12 w-12 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
+    <div className="flex flex-col">
+      {/* ── Compact Header ────────────────────────────── */}
+      <div className="px-6 pt-3 pb-3 flex-shrink-0 border-b border-border">
+        <div className="max-w-3xl mx-auto">
+          {/* Title row */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-9 w-9 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
               <svg
-                className="w-6 h-6 text-green-400"
+                className="w-5 h-5 text-green-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -289,11 +291,11 @@ export function AutoAcceptPhase() {
                 />
               </svg>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-foreground">
                 {stats.accepted} Items Auto-Matched
               </h2>
-              <p className="text-[13px] text-foreground/50">
+              <p className="text-xs text-foreground/50">
                 {stats.groups > 0 && (
                   <>
                     {stats.groups} Group{stats.groups !== 1 && "s"}{" "}
@@ -312,164 +314,198 @@ export function AutoAcceptPhase() {
             </div>
           </div>
 
-          {/* Dual Coverage Cards */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Your Display */}
-            <div
-              className={`rounded-xl border p-4 text-center ${
-                coveragePreview.display.percent >= 80
-                  ? "border-green-500/30 bg-green-500/5"
-                  : "border-amber-500/30 bg-amber-500/5"
-              }`}
-            >
-              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
-                Your Display
-              </div>
-              <div
-                className={`text-3xl font-bold mb-1 ${
-                  coveragePreview.display.percent >= 80
-                    ? "text-green-400"
-                    : "text-amber-400"
-                }`}
+          {/* Collapsible Summary Bar */}
+          <button
+            type="button"
+            onClick={() => setSummaryOpen(!summaryOpen)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-foreground/5 hover:bg-foreground/[0.07] rounded-lg transition-colors mb-2"
+          >
+            <div className="flex items-center gap-3 text-xs">
+              <svg
+                className={`w-3 h-3 text-foreground/40 transition-transform ${summaryOpen ? "rotate-90" : ""}`}
+                fill="currentColor"
+                viewBox="0 0 20 20"
               >
-                {coveragePreview.display.percent}%
-              </div>
-              <div className="h-2 bg-foreground/10 rounded-full overflow-hidden mb-2">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    coveragePreview.display.percent >= 80
-                      ? "bg-green-500"
-                      : "bg-amber-500"
-                  }`}
-                  style={{
-                    width: `${Math.min(coveragePreview.display.percent, 100)}%`,
-                  }}
+                <path
+                  fillRule="evenodd"
+                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+                  clipRule="evenodd"
                 />
-              </div>
-              <p className="text-[11px] text-foreground/40">
-                <span className="font-semibold text-foreground/60">
-                  {coveragePreview.display.covered}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-foreground/60">
-                  {coveragePreview.display.total}
-                </span>{" "}
-                models active
-              </p>
+              </svg>
+              <span className="font-medium text-foreground/60">
+                Match Quality
+              </span>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-500/15 text-green-400">
+                {stats.greenAccepted} high
+              </span>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">
+                {stats.yellowAccepted} review
+              </span>
+              <span className="text-foreground/20">|</span>
+              <span className="text-foreground/40 tabular-nums">
+                {coveragePreview.display.percent}% display &middot;{" "}
+                {coveragePreview.effects.percent}% effects
+              </span>
             </div>
-
-            {/* Sequence Effects */}
-            <div
-              className={`rounded-xl border p-4 text-center ${
-                coveragePreview.effects.percent >= 70
-                  ? "border-blue-500/30 bg-blue-500/5"
-                  : "border-amber-500/30 bg-amber-500/5"
-              }`}
-            >
-              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
-                Sequence Effects
-              </div>
-              <div
-                className={`text-3xl font-bold mb-1 ${
-                  coveragePreview.effects.percent >= 70
-                    ? "text-blue-400"
-                    : "text-amber-400"
-                }`}
-              >
-                {coveragePreview.effects.percent}%
-              </div>
-              <div className="h-2 bg-foreground/10 rounded-full overflow-hidden mb-2">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    coveragePreview.effects.percent >= 70
-                      ? "bg-blue-500"
-                      : "bg-amber-500"
-                  }`}
-                  style={{
-                    width: `${Math.min(coveragePreview.effects.percent, 100)}%`,
-                  }}
-                />
-              </div>
-              <p className="text-[11px] text-foreground/40">
-                <span className="font-semibold text-foreground/60">
-                  {coveragePreview.effects.covered.toLocaleString()}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-foreground/60">
-                  {coveragePreview.effects.total.toLocaleString()}
-                </span>{" "}
-                effects captured
-              </p>
-            </div>
-          </div>
-
-          {/* Match Quality Bar */}
-          {stats.accepted > 0 && (
-            <div className="mt-3">
-              <div className="flex justify-between text-[10px] text-foreground/40 mb-1">
-                <span>Match Quality</span>
-                <span>
-                  {stats.greenAccepted} high &middot; {stats.yellowAccepted}{" "}
-                  review
-                </span>
-              </div>
-              <div className="h-2 rounded-full overflow-hidden bg-foreground/10 flex">
-                {stats.greenAccepted > 0 && (
-                  <div
-                    className="bg-green-500 transition-all duration-500"
-                    style={{
-                      width: `${(stats.greenAccepted / stats.accepted) * 100}%`,
-                    }}
-                  />
-                )}
-                {stats.yellowAccepted > 0 && (
-                  <div
-                    className="bg-amber-400 transition-all duration-500"
-                    style={{
-                      width: `${(stats.yellowAccepted / stats.accepted) * 100}%`,
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Instructions + Search ───────────────────── */}
-      <div className="px-8 pt-4 pb-2 flex-shrink-0">
-        <div className="max-w-2xl mx-auto">
-          <p className="text-sm text-foreground/50 mb-3">
-            Uncheck any items you&apos;d prefer to map manually:
-          </p>
-          <div className="relative">
             <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground/30"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+              className={`w-3.5 h-3.5 text-foreground/30 transition-transform ${summaryOpen ? "rotate-180" : ""}`}
+              viewBox="0 0 20 20"
+              fill="currentColor"
             >
               <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                fillRule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clipRule="evenodd"
               />
             </svg>
-            <input
-              type="text"
-              placeholder="Search matches..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-sm pl-9 pr-3 py-2 rounded-lg bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
-            />
+          </button>
+
+          {/* Expanded Summary Details */}
+          {summaryOpen && (
+            <div className="mb-2 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {/* Your Display */}
+                <div
+                  className={`rounded-lg border p-3 text-center ${
+                    coveragePreview.display.percent >= 80
+                      ? "border-green-500/30 bg-green-500/5"
+                      : "border-amber-500/30 bg-amber-500/5"
+                  }`}
+                >
+                  <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1">
+                    Your Display
+                  </div>
+                  <div
+                    className={`text-2xl font-bold mb-1 ${
+                      coveragePreview.display.percent >= 80
+                        ? "text-green-400"
+                        : "text-amber-400"
+                    }`}
+                  >
+                    {coveragePreview.display.percent}%
+                  </div>
+                  <div className="h-1.5 bg-foreground/10 rounded-full overflow-hidden mb-1">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        coveragePreview.display.percent >= 80
+                          ? "bg-green-500"
+                          : "bg-amber-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(coveragePreview.display.percent, 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-foreground/40">
+                    {coveragePreview.display.covered} / {coveragePreview.display.total} models
+                  </p>
+                </div>
+
+                {/* Sequence Effects */}
+                <div
+                  className={`rounded-lg border p-3 text-center ${
+                    coveragePreview.effects.percent >= 70
+                      ? "border-blue-500/30 bg-blue-500/5"
+                      : "border-amber-500/30 bg-amber-500/5"
+                  }`}
+                >
+                  <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1">
+                    Sequence Effects
+                  </div>
+                  <div
+                    className={`text-2xl font-bold mb-1 ${
+                      coveragePreview.effects.percent >= 70
+                        ? "text-blue-400"
+                        : "text-amber-400"
+                    }`}
+                  >
+                    {coveragePreview.effects.percent}%
+                  </div>
+                  <div className="h-1.5 bg-foreground/10 rounded-full overflow-hidden mb-1">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        coveragePreview.effects.percent >= 70
+                          ? "bg-blue-500"
+                          : "bg-amber-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(coveragePreview.effects.percent, 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-foreground/40">
+                    {coveragePreview.effects.covered.toLocaleString()} / {coveragePreview.effects.total.toLocaleString()} effects
+                  </p>
+                </div>
+              </div>
+
+              {/* Match Quality Bar */}
+              {stats.accepted > 0 && (
+                <div>
+                  <div className="flex justify-between text-[10px] text-foreground/40 mb-1">
+                    <span>Match Quality</span>
+                    <span>
+                      {stats.greenAccepted} high &middot;{" "}
+                      {stats.yellowAccepted} review
+                    </span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden bg-foreground/10 flex">
+                    {stats.greenAccepted > 0 && (
+                      <div
+                        className="bg-green-500 transition-all duration-500"
+                        style={{
+                          width: `${(stats.greenAccepted / stats.accepted) * 100}%`,
+                        }}
+                      />
+                    )}
+                    {stats.yellowAccepted > 0 && (
+                      <div
+                        className="bg-amber-400 transition-all duration-500"
+                        style={{
+                          width: `${(stats.yellowAccepted / stats.accepted) * 100}%`,
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Search + instruction inline */}
+          <div className="flex items-center gap-3">
+            <p className="text-xs text-foreground/40 shrink-0">
+              Uncheck to map manually:
+            </p>
+            <div className="relative flex-1">
+              <svg
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── Scrollable Sections ─────────────────────── */}
-      <div className="flex-1 overflow-y-auto px-8 py-3">
-        <div className="max-w-2xl mx-auto space-y-2">
+      {/* ── Match List — fixed tall height ─────────────── */}
+      <div className="h-[900px] min-h-[600px] overflow-y-auto px-6 py-2">
+        <div className="max-w-3xl mx-auto space-y-2">
           {/* Yellow Section — Needs Review (default OPEN) */}
           {yellowItems.length > 0 && (
             <CollapsibleSection
@@ -561,7 +597,7 @@ function CollapsibleSection({
       <button
         type="button"
         onClick={onToggle}
-        className={`w-full px-4 py-3 ${headerBg} ${headerHover} flex items-center justify-between transition-colors`}
+        className={`w-full px-3 py-2 ${headerBg} ${headerHover} flex items-center justify-between transition-colors`}
       >
         <div className="flex items-center gap-2">
           <svg
@@ -655,7 +691,7 @@ function AutoMatchRow({
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-foreground/[0.02] ${
+      className={`flex items-center gap-2 px-3 py-1.5 min-h-[36px] transition-colors hover:bg-foreground/[0.02] ${
         isRejected ? "opacity-40" : ""
       }`}
     >
@@ -663,7 +699,7 @@ function AutoMatchRow({
       <button
         type="button"
         onClick={onToggle}
-        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+        className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
           isAccepted
             ? "bg-green-500 border-green-500"
             : "border-foreground/20 hover:border-foreground/40"
@@ -671,7 +707,7 @@ function AutoMatchRow({
       >
         {isAccepted && (
           <svg
-            className="w-3 h-3 text-white"
+            className="w-2.5 h-2.5 text-white"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -685,13 +721,13 @@ function AutoMatchRow({
       </button>
 
       {/* Source name */}
-      <span className="text-[13px] font-medium text-foreground truncate flex-1 min-w-0">
+      <span className="text-xs font-medium text-foreground truncate flex-1 min-w-0">
         {item.sourceModel.name}
       </span>
 
       {/* Arrow */}
       <svg
-        className="w-4 h-4 text-foreground/20 flex-shrink-0"
+        className="w-3 h-3 text-foreground/20 flex-shrink-0"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -705,13 +741,13 @@ function AutoMatchRow({
       </svg>
 
       {/* Dest name */}
-      <span className="text-[13px] text-foreground/50 truncate flex-1 min-w-0 text-right">
-        {suggestion?.name ?? "—"}
+      <span className="text-xs text-foreground/50 truncate flex-1 min-w-0 text-right">
+        {suggestion?.name ?? "\u2014"}
       </span>
 
       {/* Type badge */}
       <span
-        className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${typeBadgeClass}`}
+        className={`text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${typeBadgeClass}`}
       >
         {typeLabel}
       </span>
@@ -751,13 +787,13 @@ function AllDoneView({
   const yellowCount = items.length - greenCount;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="px-8 py-6 flex-shrink-0 border-b border-border">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="h-12 w-12 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
+    <div className="flex flex-col">
+      <div className="px-6 pt-3 pb-3 flex-shrink-0 border-b border-border">
+        <div className="max-w-3xl mx-auto">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="h-9 w-9 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
               <svg
-                className="w-6 h-6 text-green-400"
+                className="w-5 h-5 text-green-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -770,141 +806,38 @@ function AllDoneView({
                 />
               </svg>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-foreground">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-foreground">
                 Auto-Matches Complete!
               </h2>
-              <p className="text-[13px] text-foreground/50">
+              <p className="text-xs text-foreground/50">
                 {items.length} items confirmed
               </p>
             </div>
           </div>
 
-          {/* Dual Coverage Cards */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Your Display */}
-            <div
-              className={`rounded-xl border p-4 text-center ${
-                displayCoverage.percent >= 80
-                  ? "border-green-500/30 bg-green-500/5"
-                  : "border-amber-500/30 bg-amber-500/5"
-              }`}
-            >
-              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
-                Your Display
-              </div>
-              <div
-                className={`text-3xl font-bold mb-1 ${
-                  displayCoverage.percent >= 80
-                    ? "text-green-400"
-                    : "text-amber-400"
-                }`}
-              >
-                {displayCoverage.percent}%
-              </div>
-              <div className="h-2 bg-foreground/10 rounded-full overflow-hidden mb-2">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    displayCoverage.percent >= 80
-                      ? "bg-green-500"
-                      : "bg-amber-500"
-                  }`}
-                  style={{
-                    width: `${Math.min(displayCoverage.percent, 100)}%`,
-                  }}
-                />
-              </div>
-              <p className="text-[11px] text-foreground/40">
-                <span className="font-semibold text-foreground/60">
-                  {displayCoverage.covered}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-foreground/60">
-                  {displayCoverage.total}
-                </span>{" "}
-                models active
-              </p>
-            </div>
-
-            {/* Sequence Effects */}
-            <div
-              className={`rounded-xl border p-4 text-center ${
-                effectsCoverage.percent >= 70
-                  ? "border-blue-500/30 bg-blue-500/5"
-                  : "border-amber-500/30 bg-amber-500/5"
-              }`}
-            >
-              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
-                Sequence Effects
-              </div>
-              <div
-                className={`text-3xl font-bold mb-1 ${
-                  effectsCoverage.percent >= 70
-                    ? "text-blue-400"
-                    : "text-amber-400"
-                }`}
-              >
-                {effectsCoverage.percent}%
-              </div>
-              <div className="h-2 bg-foreground/10 rounded-full overflow-hidden mb-2">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    effectsCoverage.percent >= 70
-                      ? "bg-blue-500"
-                      : "bg-amber-500"
-                  }`}
-                  style={{
-                    width: `${Math.min(effectsCoverage.percent, 100)}%`,
-                  }}
-                />
-              </div>
-              <p className="text-[11px] text-foreground/40">
-                <span className="font-semibold text-foreground/60">
-                  {effectsCoverage.covered.toLocaleString()}
-                </span>{" "}
-                of{" "}
-                <span className="font-semibold text-foreground/60">
-                  {effectsCoverage.total.toLocaleString()}
-                </span>{" "}
-                effects captured
-              </p>
-            </div>
+          {/* Inline coverage + quality summary */}
+          <div className="flex items-center gap-3 px-3 py-2 bg-foreground/5 rounded-lg text-xs mb-2">
+            <span className="text-foreground/40 tabular-nums">
+              {displayCoverage.percent}% display
+            </span>
+            <span className="text-foreground/20">&middot;</span>
+            <span className="text-foreground/40 tabular-nums">
+              {effectsCoverage.percent}% effects
+            </span>
+            <span className="text-foreground/20">|</span>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-500/15 text-green-400">
+              {greenCount} high
+            </span>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">
+              {yellowCount} review
+            </span>
           </div>
-
-          {/* Match Quality Bar */}
-          {items.length > 0 && (
-            <div className="mt-3">
-              <div className="flex justify-between text-[10px] text-foreground/40 mb-1">
-                <span>Match Quality</span>
-                <span>
-                  {greenCount} high &middot; {yellowCount} review
-                </span>
-              </div>
-              <div className="h-2 rounded-full overflow-hidden bg-foreground/10 flex">
-                {greenCount > 0 && (
-                  <div
-                    className="bg-green-500 transition-all duration-500"
-                    style={{
-                      width: `${(greenCount / items.length) * 100}%`,
-                    }}
-                  />
-                )}
-                {yellowCount > 0 && (
-                  <div
-                    className="bg-amber-400 transition-all duration-500"
-                    style={{
-                      width: `${(yellowCount / items.length) * 100}%`,
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 py-3">
-        <div className="max-w-2xl mx-auto bg-surface rounded-xl border border-border overflow-hidden">
+      <div className="h-[900px] min-h-[600px] overflow-y-auto px-6 py-2">
+        <div className="max-w-3xl mx-auto bg-surface rounded-xl border border-border overflow-hidden">
           <div className="divide-y divide-border/30">
             {items.map((item) => {
               const score = scoreMap.get(item.sourceModel.name) ?? 0;
@@ -924,10 +857,10 @@ function AllDoneView({
               return (
                 <div
                   key={item.sourceModel.name}
-                  className="px-4 py-2.5 flex items-center gap-3 hover:bg-foreground/[0.02]"
+                  className="px-3 py-1.5 min-h-[36px] flex items-center gap-2 hover:bg-foreground/[0.02]"
                 >
                   <svg
-                    className="w-4 h-4 text-green-400 flex-shrink-0"
+                    className="w-3.5 h-3.5 text-green-400 flex-shrink-0"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -937,15 +870,15 @@ function AllDoneView({
                       clipRule="evenodd"
                     />
                   </svg>
-                  <span className="text-[13px] text-foreground/70 truncate flex-1">
+                  <span className="text-xs text-foreground/70 truncate flex-1">
                     {item.sourceModel.name}
                   </span>
-                  <span className="text-foreground/20">&rarr;</span>
-                  <span className="text-[13px] text-foreground/50 truncate flex-1 text-right">
+                  <span className="text-foreground/20 text-xs">&rarr;</span>
+                  <span className="text-xs text-foreground/50 truncate flex-1 text-right">
                     {item.assignedUserModels[0]?.name}
                   </span>
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0 ${getTypeBadgeClass(item)}`}
+                    className={`text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${getTypeBadgeClass(item)}`}
                   >
                     {getTypeLabel(item)}
                   </span>
