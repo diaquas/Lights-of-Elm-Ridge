@@ -62,6 +62,7 @@
 
 import type { ParsedModel } from "./parser";
 import { calculateSynonymBoost, tokenizeName } from "./semanticSynonyms";
+import { hungarianMaximize } from "./hungarian";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -91,8 +92,26 @@ export interface ModelMapping {
   submodelMappings: SubmodelMapping[];
 }
 
+export interface SacrificeInfo {
+  /** Source model name that was reassigned from its best match */
+  sourceModel: string;
+  /** Destination it was actually assigned to */
+  assignedTo: string;
+  /** Score of the actual assignment */
+  assignedScore: number;
+  /** Destination that was its best possible match */
+  bestMatch: string;
+  /** Score it would have gotten with best match */
+  bestScore: number;
+  /** Source model that "won" the best destination */
+  bestWentTo: string;
+  /** Score difference (bestScore - assignedScore) */
+  scoreDifference: number;
+}
+
 export interface MappingResult {
   mappings: ModelMapping[];
+  sacrifices: SacrificeInfo[];
   totalSource: number;
   totalDest: number;
   mappedCount: number;
@@ -2265,7 +2284,8 @@ function mapSubmodels(
  * Phase 2: Match individual models
  * Phase 3: Resolve submodels within matched models
  *
- * Within each phase, greedy assignment by score (highest first).
+ * Within each phase, optimal assignment via Hungarian Algorithm
+ * (maximizes total score, prevents duplicate dest assignments).
  * Groups appear at the top of each confidence section in output.
  */
 export function matchModels(
@@ -2284,15 +2304,16 @@ export function matchModels(
   const assignedSourceIdx = new Set<number>();
   const assignedDestIdx = new Set<number>();
   const allMappings: ModelMapping[] = [];
+  const allSacrifices: SacrificeInfo[] = [];
 
-  // ── Phase 1: Match Groups ──────────────────────────────
-  const groupMappings = greedyMatch(
+  // ── Phase 1: Match Groups (optimal assignment) ─────────
+  const groupResult = optimalMatch(
     sourceGroups,
     destGroups,
     sourceBounds,
     destBounds,
   );
-  for (const m of groupMappings) {
+  for (const m of groupResult.mappings) {
     allMappings.push(m);
     if (m.destModel) {
       // Track by original index in full destModels array
@@ -2302,21 +2323,23 @@ export function matchModels(
     const srcIdx = sourceModels.indexOf(m.sourceModel);
     if (srcIdx >= 0) assignedSourceIdx.add(srcIdx);
   }
+  allSacrifices.push(...groupResult.sacrifices);
 
-  // ── Phase 2: Match Individual Models ───────────────────
+  // ── Phase 2: Match Individual Models (optimal assignment)
   // Dest pool: individual models + any unmatched groups (a group in dest
   // might be the best match for an individual source model)
   const remainingDest = destModels.filter((_, i) => !assignedDestIdx.has(i));
 
-  const individualMappings = greedyMatch(
+  const individualResult = optimalMatch(
     sourceIndividuals,
     remainingDest,
     sourceBounds,
     destBounds,
   );
-  for (const m of individualMappings) {
+  for (const m of individualResult.mappings) {
     allMappings.push(m);
   }
+  allSacrifices.push(...individualResult.sacrifices);
 
   // ── Post-processing: Group-only children detection ─────
   // When a dest group has member model names listed but none of those
@@ -2696,6 +2719,7 @@ export function matchModels(
   const mapped = allMappings.filter((m) => m.destModel !== null);
   return {
     mappings: allMappings,
+    sacrifices: allSacrifices,
     totalSource: sourceModels.length,
     totalDest: destModels.length,
     mappedCount: mapped.length,
@@ -2750,30 +2774,44 @@ function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
   return false;
 }
 
+interface OptimalMatchResult {
+  mappings: ModelMapping[];
+  sacrifices: SacrificeInfo[];
+}
+
 /**
- * Greedy matching within a pool of source and dest models.
- * Returns mappings for all source models (matched or unmapped).
+ * Optimal matching within a pool of source and dest models.
+ * Uses the Hungarian Algorithm to maximize total match quality
+ * while preventing duplicate destination assignments.
+ *
+ * Returns mappings for all source models (matched or unmapped)
+ * plus sacrifice info for any non-optimal assignments.
  */
-function greedyMatch(
+function optimalMatch(
   sources: ParsedModel[],
   dests: ParsedModel[],
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
   effectTypeMap?: Record<string, Record<string, number>>,
-): ModelMapping[] {
-  // Build score matrix with pre-filtering
-  const entries: {
-    srcIdx: number;
-    destIdx: number;
-    score: number;
-    factors: ModelMapping["factors"];
-  }[] = [];
+): OptimalMatchResult {
+  if (sources.length === 0) return { mappings: [], sacrifices: [] };
+
+  // ── Build full score + factors matrices ──────────────────
+  const scoreMatrix: number[][] = [];
+  const factorsMatrix: (ModelMapping["factors"] | null)[][] = [];
+  const zeroFactors: ModelMapping["factors"] = {
+    name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0,
+  };
 
   for (let s = 0; s < sources.length; s++) {
+    const scoreRow: number[] = [];
+    const factorsRow: (ModelMapping["factors"] | null)[] = [];
     for (let d = 0; d < dests.length; d++) {
-      // Fast pre-filter: skip incompatible pairs before expensive scoring
-      if (shouldSkipPair(sources[s], dests[d])) continue;
-
+      if (shouldSkipPair(sources[s], dests[d])) {
+        scoreRow.push(0);
+        factorsRow.push(null);
+        continue;
+      }
       const { score, factors } = computeScore(
         sources[s],
         dests[d],
@@ -2781,55 +2819,132 @@ function greedyMatch(
         destBounds,
         effectTypeMap?.[sources[s].name],
       );
-      // Only consider if there's some name or type affinity
-      if (score > 0.1) {
-        entries.push({ srcIdx: s, destIdx: d, score, factors });
-      }
+      // Only consider pairs with meaningful affinity
+      scoreRow.push(score > 0.1 ? score : 0);
+      factorsRow.push(score > 0.1 ? factors : null);
     }
+    scoreMatrix.push(scoreRow);
+    factorsMatrix.push(factorsRow);
   }
 
-  // Sort by score descending
-  entries.sort((a, b) => b.score - a.score);
+  // ── Find each source's best possible match (pre-assignment) ──
+  const bestForSource: { destIdx: number; score: number }[] = [];
+  for (let s = 0; s < sources.length; s++) {
+    let bestIdx = -1;
+    let bestScore = 0;
+    for (let d = 0; d < dests.length; d++) {
+      if (scoreMatrix[s][d] > bestScore) {
+        bestScore = scoreMatrix[s][d];
+        bestIdx = d;
+      }
+    }
+    bestForSource.push({ destIdx: bestIdx, score: bestScore });
+  }
 
+  // ── Run Hungarian Algorithm for optimal assignment ──────
+  const assignments = hungarianMaximize(scoreMatrix);
+
+  // Build lookup: srcIdx → assigned destIdx
+  const srcToAssigned = new Map<number, number>();
+  const destToAssigned = new Map<number, number>();
+  for (const [srcIdx, destIdx] of assignments) {
+    srcToAssigned.set(srcIdx, destIdx);
+    destToAssigned.set(destIdx, srcIdx);
+  }
+
+  // ── Build mappings and detect sacrifices ─────────────────
   const assignedSrc = new Set<number>();
   const assignedDest = new Set<number>();
   const mappings: ModelMapping[] = [];
+  const sacrifices: SacrificeInfo[] = [];
 
-  // Greedy assignment
-  for (const entry of entries) {
-    if (assignedSrc.has(entry.srcIdx) || assignedDest.has(entry.destIdx))
-      continue;
+  for (const [srcIdx, destIdx] of assignments) {
+    const sourceModel = sources[srcIdx];
+    const destModel = dests[destIdx];
+    const score = scoreMatrix[srcIdx][destIdx];
+    const factors = factorsMatrix[srcIdx][destIdx] ?? zeroFactors;
+    const confidence = scoreToConfidence(score);
 
-    const sourceModel = sources[entry.srcIdx];
-    const destModel = dests[entry.destIdx];
-    const confidence = scoreToConfidence(entry.score);
-
-    // Don't assign if confidence is too low
+    // Skip if confidence is too low
     if (confidence === "unmapped") continue;
 
     const mapping: ModelMapping = {
       sourceModel,
       destModel,
-      score: entry.score,
+      score,
       confidence,
-      factors: entry.factors,
+      factors,
       reason: "",
       submodelMappings: mapSubmodels(sourceModel, destModel),
     };
     mapping.reason = generateReason(mapping);
 
     mappings.push(mapping);
-    assignedDest.add(entry.destIdx);
+    assignedDest.add(destIdx);
 
-    // For spinner models with matching submodels, allow the source to be
-    // reused by other dest spinners — multiple user spinners can all map
-    // to the same source spinner when submodel names match exactly.
+    // Spinner shared match: allow source reuse
     if (!isSpinnerSharedMatch(sourceModel, destModel)) {
-      assignedSrc.add(entry.srcIdx);
+      assignedSrc.add(srcIdx);
+    }
+
+    // ── Sacrifice detection ──
+    const best = bestForSource[srcIdx];
+    if (
+      best.destIdx >= 0 &&
+      best.destIdx !== destIdx &&
+      best.score - score > 0.01
+    ) {
+      const winnerIdx = destToAssigned.get(best.destIdx);
+      sacrifices.push({
+        sourceModel: sourceModel.name,
+        assignedTo: destModel.name,
+        assignedScore: Math.round(score * 100) / 100,
+        bestMatch: dests[best.destIdx].name,
+        bestScore: Math.round(best.score * 100) / 100,
+        bestWentTo:
+          winnerIdx !== undefined ? sources[winnerIdx].name : "unassigned",
+        scoreDifference:
+          Math.round((best.score - score) * 100) / 100,
+      });
     }
   }
 
-  // Add unmapped source models
+  // ── Spinner shared matching post-pass ───────────────────
+  // For spinner sources that weren't consumed, allow additional
+  // dest spinners to reuse them via greedy fallback.
+  for (let d = 0; d < dests.length; d++) {
+    if (assignedDest.has(d)) continue;
+    // Find the best unassigned-dest ↔ shared-source spinner match
+    let bestSrc = -1;
+    let bestScore = 0;
+    let bestFactors = zeroFactors;
+    for (let s = 0; s < sources.length; s++) {
+      // Source must be already assigned but not consumed (spinner shared)
+      if (!srcToAssigned.has(s) || assignedSrc.has(s)) continue;
+      const sc = scoreMatrix[s][d];
+      if (sc > bestScore && isSpinnerSharedMatch(sources[s], dests[d])) {
+        bestScore = sc;
+        bestSrc = s;
+        bestFactors = factorsMatrix[s][d] ?? zeroFactors;
+      }
+    }
+    if (bestSrc >= 0 && scoreToConfidence(bestScore) !== "unmapped") {
+      const mapping: ModelMapping = {
+        sourceModel: sources[bestSrc],
+        destModel: dests[d],
+        score: bestScore,
+        confidence: scoreToConfidence(bestScore),
+        factors: bestFactors,
+        reason: "",
+        submodelMappings: mapSubmodels(sources[bestSrc], dests[d]),
+      };
+      mapping.reason = generateReason(mapping);
+      mappings.push(mapping);
+      assignedDest.add(d);
+    }
+  }
+
+  // ── Add unmapped source models ──────────────────────────
   for (let s = 0; s < sources.length; s++) {
     if (!assignedSrc.has(s)) {
       mappings.push({
@@ -2837,21 +2952,14 @@ function greedyMatch(
         destModel: null,
         score: 0,
         confidence: "unmapped",
-        factors: {
-          name: 0,
-          spatial: 0,
-          shape: 0,
-          type: 0,
-          pixels: 0,
-          structure: 0,
-        },
+        factors: zeroFactors,
         reason: "No suitable match found in your layout.",
         submodelMappings: [],
       });
     }
   }
 
-  return mappings;
+  return { mappings, sacrifices };
 }
 
 // ═══════════════════════════════════════════════════════════════════

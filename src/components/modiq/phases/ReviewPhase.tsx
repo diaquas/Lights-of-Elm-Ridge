@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
+import { SacrificeSummary } from "../SacrificeIndicator";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export interface ReviewPhaseProps {
@@ -188,6 +189,13 @@ export function ReviewPhase({
               {seqTitle} &rarr; Your Layout
             </div>
           </div>
+
+          {/* ═══ Optimized Assignment Trade-offs ═══ */}
+          {interactive.sacrifices.length > 0 && (
+            <div className="mb-6">
+              <SacrificeSummary sacrifices={interactive.sacrifices} />
+            </div>
+          )}
 
           {/* ═══ Informational Notices (not warnings!) ═══ */}
 

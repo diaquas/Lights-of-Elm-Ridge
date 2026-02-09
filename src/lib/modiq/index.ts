@@ -48,6 +48,7 @@ export type {
   Confidence,
   ModelMapping,
   MappingResult,
+  SacrificeInfo,
   SubmodelMapping,
 } from "./matcher";
 

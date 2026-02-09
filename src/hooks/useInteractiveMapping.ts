@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useRef, startTransition } from "react";
 import type {
   MappingResult,
   ModelMapping,
+  SacrificeInfo,
   Confidence,
   SubmodelMapping,
   EffectTree,
@@ -149,6 +150,8 @@ export interface InteractiveMappingState {
   effectsCoverage: { covered: number; total: number; percent: number };
   /** User display coverage: what % of user's layout models have received mappings */
   displayCoverage: { covered: number; total: number; percent: number };
+  /** Sacrifice info from optimal assignment (items not assigned to their best match) */
+  sacrifices: SacrificeInfo[];
   /** Serialize mapping state for session recovery */
   getSerializedState: () => {
     assignments: Record<string, string | null>;
@@ -791,6 +794,7 @@ export function useInteractiveMapping(
 
     return {
       mappings,
+      sacrifices: [],
       totalSource: sourceModels.length,
       totalDest: destModels.length,
       mappedCount: mapped.length,
@@ -1358,6 +1362,7 @@ export function useInteractiveMapping(
     nextUnmappedLayer,
     effectsCoverage,
     displayCoverage,
+    sacrifices: initialResult?.sacrifices ?? [],
 
     // Destination-side skipping
     skippedDestModels,
