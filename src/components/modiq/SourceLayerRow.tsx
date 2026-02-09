@@ -3,6 +3,8 @@
 import { useState, useCallback, useRef, memo, useMemo } from "react";
 import type { ParsedModel, ModelMapping, Confidence } from "@/lib/modiq";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
+import type { EffectSuggestionContext } from "@/lib/modiq/effect-analysis";
+import EffectContextBadge from "./EffectContextBadge";
 
 interface Suggestion {
   model: ParsedModel;
@@ -26,6 +28,8 @@ interface SourceLayerRowProps {
   draggedModelName?: string;
   onDragEnter: (destModelName: string) => void;
   onDragLeave: (destModelName: string) => void;
+  /** Effect context for this source model (Ticket 44) */
+  effectContext?: EffectSuggestionContext | null;
 }
 
 /** Teal destination count indicator badge */
@@ -79,6 +83,7 @@ export default memo(function SourceLayerRow({
   draggedModelName,
   onDragEnter,
   onDragLeave,
+  effectContext,
 }: SourceLayerRowProps) {
   const [isDropOver, setIsDropOver] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -231,6 +236,7 @@ export default memo(function SourceLayerRow({
               </span>
               <DestCountBadge count={destCount} />
               <EffectCountBadge count={layer.effectCount} />
+              <EffectContextBadge context={effectContext ?? null} mode="inline" />
             </div>
             <div className="text-[11px] text-foreground/40 truncate">
               &rarr; Your &quot;{firstDest.name}&quot;
@@ -370,6 +376,7 @@ export default memo(function SourceLayerRow({
               {name}
             </span>
             <EffectCountBadge count={layer.effectCount} />
+            <EffectContextBadge context={effectContext ?? null} mode="inline" />
             {/* Expand chevron for groups */}
             {hasGroupPreview && (
               <svg
