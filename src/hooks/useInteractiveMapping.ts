@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useRef, startTransition } from "react";
 import type {
   MappingResult,
   ModelMapping,
+  SacrificeInfo,
   Confidence,
   SubmodelMapping,
   EffectTree,
@@ -157,6 +158,8 @@ export interface InteractiveMappingState {
   effectsCoverage: { covered: number; total: number; percent: number };
   /** User display coverage: what % of user's layout models have received mappings */
   displayCoverage: { covered: number; total: number; percent: number };
+  /** Sacrifice info from optimal assignment (items not assigned to their best match) */
+  sacrifices: SacrificeInfo[];
   /** Sequence-wide effect analysis (types, categories, impact scores) */
   sequenceAnalysis: SequenceEffectAnalysis | null;
   /** High-impact unmapped effects (hidden gems) */
@@ -805,6 +808,7 @@ export function useInteractiveMapping(
 
     return {
       mappings,
+      sacrifices: [],
       totalSource: sourceModels.length,
       totalDest: destModels.length,
       mappedCount: mapped.length,
@@ -1062,16 +1066,36 @@ export function useInteractiveMapping(
     return { covered, total, percent };
   }, [sourceLayerMappings]);
 
-  // User display coverage: what % of the user's layout models are receiving effects
+  // User display coverage: what % of the user's physical props are receiving effects.
+  // Only counts individual (non-group) models — groups are logical containers, not
+  // physical props. A model is "covered" if it's directly assigned or is a member of
+  // a group that's assigned.
   const displayCoverage = useMemo(() => {
-    // Total user models (excluding DMX and skipped dest models)
+    // Only count individual (non-group) models as physical props.
+    // Groups are containers whose members are the actual display elements.
     const eligibleDest = destModels.filter(
-      (m) => !isDmxModel(m) && !skippedDestModels.has(m.name),
+      (m) => !isDmxModel(m) && !skippedDestModels.has(m.name) && !m.isGroup,
     );
     const total = eligibleDest.length;
-    // Count how many user models have at least one source layer mapped to them
+
+    // Build set of "covered" user model names:
+    // 1. Directly assigned user models
+    // 2. Children of assigned user groups (mapping a group covers its members)
+    const coveredNames = new Set(assignedUserModelNames);
+    for (const dm of destModels) {
+      if (
+        dm.isGroup &&
+        dm.memberModels.length > 0 &&
+        assignedUserModelNames.has(dm.name)
+      ) {
+        for (const memberName of dm.memberModels) {
+          coveredNames.add(memberName);
+        }
+      }
+    }
+
     const covered = eligibleDest.filter((m) =>
-      assignedUserModelNames.has(m.name),
+      coveredNames.has(m.name),
     ).length;
     const percent = total > 0 ? Math.round((covered / total) * 100) : 100;
     return { covered, total, percent };
@@ -1385,6 +1409,7 @@ export function useInteractiveMapping(
     nextUnmappedLayer,
     effectsCoverage,
     displayCoverage,
+    sacrifices: initialResult?.sacrifices ?? [],
     sequenceAnalysis,
     hiddenGems,
     getEffectContext,

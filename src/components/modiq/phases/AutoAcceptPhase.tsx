@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
+import { SacrificeSummary } from "../SacrificeIndicator";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import type { ModelMapping } from "@/lib/modiq";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
@@ -469,6 +470,13 @@ export function AutoAcceptPhase() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Optimized Assignment Trade-offs */}
+          {interactive.sacrifices.length > 0 && (
+            <div className="mb-2">
+              <SacrificeSummary sacrifices={interactive.sacrifices} />
             </div>
           )}
 

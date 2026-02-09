@@ -46,6 +46,7 @@
  *   - Moving Head isolation: MH/Moving Head models only match other moving heads
  *     Detects MH prefix variants (MHR7, MH1), DMX channel names (Gobo, Pan, Tilt, etc.)
  *   - Extreme pixel count drift (≥1000) is a hard zero for non-group models
+ *     EXCEPTIONS: large spinners (500+ px each), matrix-type models (wildly varying px)
  *
  * Algorithm tuning (V3.1 — Ticket 38):
  *   - HIGH confidence threshold lowered from 0.85 → 0.80
@@ -61,6 +62,7 @@
 
 import type { ParsedModel } from "./parser";
 import { calculateSynonymBoost, tokenizeName } from "./semanticSynonyms";
+import { hungarianMaximize } from "./hungarian";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -90,8 +92,26 @@ export interface ModelMapping {
   submodelMappings: SubmodelMapping[];
 }
 
+export interface SacrificeInfo {
+  /** Source model name that was reassigned from its best match */
+  sourceModel: string;
+  /** Destination it was actually assigned to */
+  assignedTo: string;
+  /** Score of the actual assignment */
+  assignedScore: number;
+  /** Destination that was its best possible match */
+  bestMatch: string;
+  /** Score it would have gotten with best match */
+  bestScore: number;
+  /** Source model that "won" the best destination */
+  bestWentTo: string;
+  /** Score difference (bestScore - assignedScore) */
+  scoreDifference: number;
+}
+
 export interface MappingResult {
   mappings: ModelMapping[];
+  sacrifices: SacrificeInfo[];
   totalSource: number;
   totalDest: number;
   mappedCount: number;
@@ -244,10 +264,13 @@ const SYNONYMS: Record<string, string[]> = {
   // Star variants
   star: ["estrella", "estrellas", "stars"],
   starburst: ["star burst", "explosion"],
-  // Matrix/grid terms
-  matrix: ["grid", "panel"],
-  grid: ["matrix", "panel"],
-  panel: ["matrix", "grid"],
+  // Matrix/grid terms (all treated as synonymous matrix-family names)
+  matrix: ["grid", "panel", "p5", "p10", "virtual matrix"],
+  grid: ["matrix", "panel", "p5", "p10"],
+  panel: ["matrix", "grid", "p5", "p10"],
+  p5: ["matrix", "panel", "p10", "grid", "virtual matrix"],
+  p10: ["matrix", "panel", "p5", "grid", "virtual matrix"],
+  "virtual matrix": ["matrix", "panel", "p5", "p10", "grid"],
   // Window terms
   window: ["windows", "frame"],
   frame: ["window", "border"],
@@ -342,6 +365,8 @@ const PROP_KEYWORDS = [
   "matrix",
   "mega",
   "megatree",
+  "p5",
+  "p10",
   "mini",
   "outline",
   "panel",
@@ -448,10 +473,14 @@ const EQUIVALENT_BASES: Record<string, string> = {
   strand: "prop_strand",
   string: "prop_strand",
   run: "prop_strand",
-  // Matrix/grid elements
+  // Matrix/grid elements (P5, P10, Virtual Matrix all canonicalize to same type)
   matrix: "prop_matrix",
   grid: "prop_matrix",
   panel: "prop_matrix",
+  p5: "prop_matrix",
+  p10: "prop_matrix",
+  "virtual matrix": "prop_matrix",
+  screen: "prop_matrix",
   // Tombstone/grave elements
   tombstone: "prop_tombstone",
   tomb: "prop_tombstone",
@@ -748,6 +777,18 @@ function scoreName(source: ParsedModel, dest: ParsedModel): number {
       return 1.0; // Same singing face number
     }
     return 0.85; // Both singing — rank by nodes/submodels
+  }
+
+  // Matrix-family affinity: Matrix, Virtual Matrix, P5, P10, Panel, Screen
+  // are all synonymous. When both models are matrix types, boost strongly so
+  // matrix models almost never suggest non-matrix matches.
+  if (isMatrixType(source) && isMatrixType(dest)) {
+    const srcIdx = extractIndex(source.name);
+    const destIdx = extractIndex(dest.name);
+    if (srcIdx !== -1 && destIdx !== -1 && srcIdx === destIdx) {
+      return 1.0; // Same matrix number (e.g. "Matrix 1" ↔ "P5 1")
+    }
+    return 0.85; // Both matrix-family — rank by pixels/structure
   }
 
   // Tokenized overlap with synonym expansion
@@ -1250,12 +1291,15 @@ function isPolePair(a: ParsedModel, b: ParsedModel): boolean {
   return true;
 }
 
-/** Check if a model is a Matrix type. */
+/** Check if a model is a Matrix type.
+ *  Recognizes: Matrix, Virtual Matrix, P5, P10, Panel, Screen, Grid */
 function isMatrixType(model: ParsedModel): boolean {
   const da = model.displayAs.toLowerCase();
   const n = model.name.toLowerCase();
   return (
-    da.includes("matrix") || model.type === "Matrix" || /\bmatrix\b/i.test(n)
+    da.includes("matrix") ||
+    model.type === "Matrix" ||
+    /\b(matrix|virtual\s*matrix|p5|p10|panel|screen)\b/i.test(n)
   );
 }
 
@@ -1754,20 +1798,23 @@ function computeScore(
   // these models are fundamentally different (e.g. 100px spider vs 12000px matrix)
   // EXCEPTION: Large spinners (500+ pixels) are generally compatible with each other
   // regardless of pixel count differences (e.g., 800px Showstopper ↔ 1529px GE Overlord)
+  // EXCEPTION: Matrix-type models — pixel counts vary wildly across layouts
+  //   (800px panel vs 114K matrix). Type-lock ensures only matrix↔matrix.
   if (!source.isGroup && !dest.isGroup) {
     const srcPx = source.pixelCount;
     const destPx = dest.pixelCount;
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
-      // Check if both are large spinners (500+ pixels each)
       const bothLargeSpinners =
         isLargeSpinner(source) &&
         isLargeSpinner(dest) &&
         srcPx >= 500 &&
         destPx >= 500;
-      if (!bothLargeSpinners) {
+      const bothMatrix = isMatrixType(source) && isMatrixType(dest);
+      if (!bothLargeSpinners && !bothMatrix) {
         return { score: 0, factors: zeroFactors };
       }
-      // Large spinners with big pixel diff: allow but score will reflect mismatch
+      // Large spinners / matrix pairs with big pixel diff: allow but score
+      // will reflect mismatch (pixel factor reduced for matrix pairs below)
     }
   }
 
@@ -1826,6 +1873,22 @@ function computeScore(
     factors.type >= 0.7
   ) {
     factors.pixels = Math.max(factors.pixels, 0.6);
+  }
+
+  // ── Matrix pixel neutralization ────────────────────────
+  // Matrix-type models (Matrix, Virtual Matrix, P5, P10, Panel, Screen)
+  // have wildly different pixel counts across layouts (800 → 114K).
+  // Type-lock already constrains them to only match other matrices, so
+  // pixel count is irrelevant for filtering — only useful as a minor
+  // tiebreaker. Floor pixel factor at 0.5 (neutral) so name and type
+  // dominate the score.
+  const bothMatrixType =
+    !source.isGroup &&
+    !dest.isGroup &&
+    isMatrixType(source) &&
+    isMatrixType(dest);
+  if (bothMatrixType) {
+    factors.pixels = Math.max(factors.pixels, 0.5);
   }
 
   // ── Holiday mismatch penalty ───────────────────────────
@@ -1930,6 +1993,22 @@ function computeScore(
       factors.pixels * WEIGHTS.pixels +
       factors.structure * WEIGHTS.structure;
     return { score: houseScore, factors };
+  }
+
+  // ── Matrix-type weighting ────────────────────────────────
+  // Matrix models match primarily on name + type. Pixel count is irrelevant
+  // (wildly different across layouts) and spatial/shape are unreliable for
+  // flat panel models. Weight: name 55%, type 25%, spatial 8%, shape 5%,
+  // pixels 2%, structure 5%.
+  if (bothMatrixType) {
+    const matrixScore =
+      factors.name * 0.55 +
+      factors.spatial * 0.08 +
+      factors.shape * 0.05 +
+      factors.type * 0.25 +
+      factors.pixels * 0.02 +
+      factors.structure * 0.05;
+    return { score: matrixScore, factors };
   }
 
   // Dynamic name weight boost: when name factor is near-exact (>=0.95),
@@ -2205,7 +2284,8 @@ function mapSubmodels(
  * Phase 2: Match individual models
  * Phase 3: Resolve submodels within matched models
  *
- * Within each phase, greedy assignment by score (highest first).
+ * Within each phase, optimal assignment via Hungarian Algorithm
+ * (maximizes total score, prevents duplicate dest assignments).
  * Groups appear at the top of each confidence section in output.
  */
 export function matchModels(
@@ -2224,15 +2304,16 @@ export function matchModels(
   const assignedSourceIdx = new Set<number>();
   const assignedDestIdx = new Set<number>();
   const allMappings: ModelMapping[] = [];
+  const allSacrifices: SacrificeInfo[] = [];
 
-  // ── Phase 1: Match Groups ──────────────────────────────
-  const groupMappings = greedyMatch(
+  // ── Phase 1: Match Groups (optimal assignment) ─────────
+  const groupResult = optimalMatch(
     sourceGroups,
     destGroups,
     sourceBounds,
     destBounds,
   );
-  for (const m of groupMappings) {
+  for (const m of groupResult.mappings) {
     allMappings.push(m);
     if (m.destModel) {
       // Track by original index in full destModels array
@@ -2242,21 +2323,23 @@ export function matchModels(
     const srcIdx = sourceModels.indexOf(m.sourceModel);
     if (srcIdx >= 0) assignedSourceIdx.add(srcIdx);
   }
+  allSacrifices.push(...groupResult.sacrifices);
 
-  // ── Phase 2: Match Individual Models ───────────────────
+  // ── Phase 2: Match Individual Models (optimal assignment)
   // Dest pool: individual models + any unmatched groups (a group in dest
   // might be the best match for an individual source model)
   const remainingDest = destModels.filter((_, i) => !assignedDestIdx.has(i));
 
-  const individualMappings = greedyMatch(
+  const individualResult = optimalMatch(
     sourceIndividuals,
     remainingDest,
     sourceBounds,
     destBounds,
   );
-  for (const m of individualMappings) {
+  for (const m of individualResult.mappings) {
     allMappings.push(m);
   }
+  allSacrifices.push(...individualResult.sacrifices);
 
   // ── Post-processing: Group-only children detection ─────
   // When a dest group has member model names listed but none of those
@@ -2636,6 +2719,7 @@ export function matchModels(
   const mapped = allMappings.filter((m) => m.destModel !== null);
   return {
     mappings: allMappings,
+    sacrifices: allSacrifices,
     totalSource: sourceModels.length,
     totalDest: destModels.length,
     mappedCount: mapped.length,
@@ -2669,17 +2753,19 @@ function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
 
   // Extreme pixel count difference (>= 1000) for non-groups
   // EXCEPTION: Large spinners (500+ pixels) are compatible with each other
+  // EXCEPTION: Matrix-type models — pixel counts vary wildly (800 to 114K)
+  //   and type-lock already constrains them to only match other matrices.
   if (!source.isGroup && !dest.isGroup) {
     const srcPx = source.pixelCount;
     const destPx = dest.pixelCount;
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
-      // Allow large spinners to pass through
       const bothLargeSpinners =
         isLargeSpinner(source) &&
         isLargeSpinner(dest) &&
         srcPx >= 500 &&
         destPx >= 500;
-      if (!bothLargeSpinners) {
+      const bothMatrix = isMatrixType(source) && isMatrixType(dest);
+      if (!bothLargeSpinners && !bothMatrix) {
         return true;
       }
     }
@@ -2688,30 +2774,44 @@ function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
   return false;
 }
 
+interface OptimalMatchResult {
+  mappings: ModelMapping[];
+  sacrifices: SacrificeInfo[];
+}
+
 /**
- * Greedy matching within a pool of source and dest models.
- * Returns mappings for all source models (matched or unmapped).
+ * Optimal matching within a pool of source and dest models.
+ * Uses the Hungarian Algorithm to maximize total match quality
+ * while preventing duplicate destination assignments.
+ *
+ * Returns mappings for all source models (matched or unmapped)
+ * plus sacrifice info for any non-optimal assignments.
  */
-function greedyMatch(
+function optimalMatch(
   sources: ParsedModel[],
   dests: ParsedModel[],
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
   effectTypeMap?: Record<string, Record<string, number>>,
-): ModelMapping[] {
-  // Build score matrix with pre-filtering
-  const entries: {
-    srcIdx: number;
-    destIdx: number;
-    score: number;
-    factors: ModelMapping["factors"];
-  }[] = [];
+): OptimalMatchResult {
+  if (sources.length === 0) return { mappings: [], sacrifices: [] };
+
+  // ── Build full score + factors matrices ──────────────────
+  const scoreMatrix: number[][] = [];
+  const factorsMatrix: (ModelMapping["factors"] | null)[][] = [];
+  const zeroFactors: ModelMapping["factors"] = {
+    name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0,
+  };
 
   for (let s = 0; s < sources.length; s++) {
+    const scoreRow: number[] = [];
+    const factorsRow: (ModelMapping["factors"] | null)[] = [];
     for (let d = 0; d < dests.length; d++) {
-      // Fast pre-filter: skip incompatible pairs before expensive scoring
-      if (shouldSkipPair(sources[s], dests[d])) continue;
-
+      if (shouldSkipPair(sources[s], dests[d])) {
+        scoreRow.push(0);
+        factorsRow.push(null);
+        continue;
+      }
       const { score, factors } = computeScore(
         sources[s],
         dests[d],
@@ -2719,55 +2819,132 @@ function greedyMatch(
         destBounds,
         effectTypeMap?.[sources[s].name],
       );
-      // Only consider if there's some name or type affinity
-      if (score > 0.1) {
-        entries.push({ srcIdx: s, destIdx: d, score, factors });
-      }
+      // Only consider pairs with meaningful affinity
+      scoreRow.push(score > 0.1 ? score : 0);
+      factorsRow.push(score > 0.1 ? factors : null);
     }
+    scoreMatrix.push(scoreRow);
+    factorsMatrix.push(factorsRow);
   }
 
-  // Sort by score descending
-  entries.sort((a, b) => b.score - a.score);
+  // ── Find each source's best possible match (pre-assignment) ──
+  const bestForSource: { destIdx: number; score: number }[] = [];
+  for (let s = 0; s < sources.length; s++) {
+    let bestIdx = -1;
+    let bestScore = 0;
+    for (let d = 0; d < dests.length; d++) {
+      if (scoreMatrix[s][d] > bestScore) {
+        bestScore = scoreMatrix[s][d];
+        bestIdx = d;
+      }
+    }
+    bestForSource.push({ destIdx: bestIdx, score: bestScore });
+  }
 
+  // ── Run Hungarian Algorithm for optimal assignment ──────
+  const assignments = hungarianMaximize(scoreMatrix);
+
+  // Build lookup: srcIdx → assigned destIdx
+  const srcToAssigned = new Map<number, number>();
+  const destToAssigned = new Map<number, number>();
+  for (const [srcIdx, destIdx] of assignments) {
+    srcToAssigned.set(srcIdx, destIdx);
+    destToAssigned.set(destIdx, srcIdx);
+  }
+
+  // ── Build mappings and detect sacrifices ─────────────────
   const assignedSrc = new Set<number>();
   const assignedDest = new Set<number>();
   const mappings: ModelMapping[] = [];
+  const sacrifices: SacrificeInfo[] = [];
 
-  // Greedy assignment
-  for (const entry of entries) {
-    if (assignedSrc.has(entry.srcIdx) || assignedDest.has(entry.destIdx))
-      continue;
+  for (const [srcIdx, destIdx] of assignments) {
+    const sourceModel = sources[srcIdx];
+    const destModel = dests[destIdx];
+    const score = scoreMatrix[srcIdx][destIdx];
+    const factors = factorsMatrix[srcIdx][destIdx] ?? zeroFactors;
+    const confidence = scoreToConfidence(score);
 
-    const sourceModel = sources[entry.srcIdx];
-    const destModel = dests[entry.destIdx];
-    const confidence = scoreToConfidence(entry.score);
-
-    // Don't assign if confidence is too low
+    // Skip if confidence is too low
     if (confidence === "unmapped") continue;
 
     const mapping: ModelMapping = {
       sourceModel,
       destModel,
-      score: entry.score,
+      score,
       confidence,
-      factors: entry.factors,
+      factors,
       reason: "",
       submodelMappings: mapSubmodels(sourceModel, destModel),
     };
     mapping.reason = generateReason(mapping);
 
     mappings.push(mapping);
-    assignedDest.add(entry.destIdx);
+    assignedDest.add(destIdx);
 
-    // For spinner models with matching submodels, allow the source to be
-    // reused by other dest spinners — multiple user spinners can all map
-    // to the same source spinner when submodel names match exactly.
+    // Spinner shared match: allow source reuse
     if (!isSpinnerSharedMatch(sourceModel, destModel)) {
-      assignedSrc.add(entry.srcIdx);
+      assignedSrc.add(srcIdx);
+    }
+
+    // ── Sacrifice detection ──
+    const best = bestForSource[srcIdx];
+    if (
+      best.destIdx >= 0 &&
+      best.destIdx !== destIdx &&
+      best.score - score > 0.01
+    ) {
+      const winnerIdx = destToAssigned.get(best.destIdx);
+      sacrifices.push({
+        sourceModel: sourceModel.name,
+        assignedTo: destModel.name,
+        assignedScore: Math.round(score * 100) / 100,
+        bestMatch: dests[best.destIdx].name,
+        bestScore: Math.round(best.score * 100) / 100,
+        bestWentTo:
+          winnerIdx !== undefined ? sources[winnerIdx].name : "unassigned",
+        scoreDifference:
+          Math.round((best.score - score) * 100) / 100,
+      });
     }
   }
 
-  // Add unmapped source models
+  // ── Spinner shared matching post-pass ───────────────────
+  // For spinner sources that weren't consumed, allow additional
+  // dest spinners to reuse them via greedy fallback.
+  for (let d = 0; d < dests.length; d++) {
+    if (assignedDest.has(d)) continue;
+    // Find the best unassigned-dest ↔ shared-source spinner match
+    let bestSrc = -1;
+    let bestScore = 0;
+    let bestFactors = zeroFactors;
+    for (let s = 0; s < sources.length; s++) {
+      // Source must be already assigned but not consumed (spinner shared)
+      if (!srcToAssigned.has(s) || assignedSrc.has(s)) continue;
+      const sc = scoreMatrix[s][d];
+      if (sc > bestScore && isSpinnerSharedMatch(sources[s], dests[d])) {
+        bestScore = sc;
+        bestSrc = s;
+        bestFactors = factorsMatrix[s][d] ?? zeroFactors;
+      }
+    }
+    if (bestSrc >= 0 && scoreToConfidence(bestScore) !== "unmapped") {
+      const mapping: ModelMapping = {
+        sourceModel: sources[bestSrc],
+        destModel: dests[d],
+        score: bestScore,
+        confidence: scoreToConfidence(bestScore),
+        factors: bestFactors,
+        reason: "",
+        submodelMappings: mapSubmodels(sources[bestSrc], dests[d]),
+      };
+      mapping.reason = generateReason(mapping);
+      mappings.push(mapping);
+      assignedDest.add(d);
+    }
+  }
+
+  // ── Add unmapped source models ──────────────────────────
   for (let s = 0; s < sources.length; s++) {
     if (!assignedSrc.has(s)) {
       mappings.push({
@@ -2775,21 +2952,14 @@ function greedyMatch(
         destModel: null,
         score: 0,
         confidence: "unmapped",
-        factors: {
-          name: 0,
-          spatial: 0,
-          shape: 0,
-          type: 0,
-          pixels: 0,
-          structure: 0,
-        },
+        factors: zeroFactors,
         reason: "No suitable match found in your layout.",
         submodelMappings: [],
       });
     }
   }
 
-  return mappings;
+  return { mappings, sacrifices };
 }
 
 // ═══════════════════════════════════════════════════════════════════
