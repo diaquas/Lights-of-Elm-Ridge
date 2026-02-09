@@ -9,6 +9,7 @@ export function generateMatchReasoning(
   factors: ModelMapping["factors"],
   score: number,
   pixelInfo?: { source: number; dest: number },
+  effectAffinity?: { bonus: number; reasons: string[] },
 ): MatchReasoning {
   const components: ReasoningComponent[] = [];
   const whyNotHigher: string[] = [];
@@ -69,8 +70,8 @@ export function generateMatchReasoning(
         : factors.type > 0
           ? "Related type"
           : "Different types",
-    score: factors.type * 0.10,
-    maxScore: 0.10,
+    score: factors.type * 0.1,
+    maxScore: 0.1,
   });
   if (factors.type < 0.5) {
     whyNotHigher.push("Different model types");
@@ -87,8 +88,8 @@ export function generateMatchReasoning(
           : factors.pixels > 0
             ? "Very different pixel counts"
             : "No pixel data",
-    score: factors.pixels * 0.10,
-    maxScore: 0.10,
+    score: factors.pixels * 0.1,
+    maxScore: 0.1,
   });
   if (factors.pixels < 0.3) {
     whyNotHigher.push("Pixel counts differ significantly");
@@ -113,13 +114,32 @@ export function generateMatchReasoning(
     whyNotHigher.push("Different internal structure (submodel count)");
   }
 
+  // Effect affinity (bonus/penalty from effect type analysis)
+  if (effectAffinity && effectAffinity.reasons.length > 0) {
+    const bonus = effectAffinity.bonus;
+    components.push({
+      factor: "Effect Affinity",
+      description:
+        bonus > 0.05
+          ? "Effect types match prop type"
+          : bonus < -0.05
+            ? "Effect types suggest different prop"
+            : "Neutral effect affinity",
+      score: bonus,
+      maxScore: 0.25,
+    });
+    if (bonus < -0.05) {
+      whyNotHigher.push(effectAffinity.reasons[0]);
+    }
+  }
+
   // Summary
   let summary: string;
   if (score >= 0.85) {
     summary = "Excellent match across all factors";
-  } else if (score >= 0.60) {
+  } else if (score >= 0.6) {
     summary = "Good match with some differences";
-  } else if (score >= 0.40) {
+  } else if (score >= 0.4) {
     summary = "Possible match — review recommended";
   } else {
     summary = "Weak match — manual review needed";
@@ -132,6 +152,10 @@ export function generateMatchReasoning(
     pixelComparison:
       pixelInfo && pixelInfo.source > 0 && pixelInfo.dest > 0
         ? pixelInfo
+        : undefined,
+    effectAffinity:
+      effectAffinity && effectAffinity.reasons.length > 0
+        ? effectAffinity
         : undefined,
   };
 }

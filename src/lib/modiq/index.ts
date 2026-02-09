@@ -59,7 +59,15 @@ export {
   downloadMappingReport,
 } from "./xmap-generator";
 
-export { parseXsqModels, parseXsqEffectCounts, getSequenceModelList, getSequenceEffectCounts, getModelEffectCount } from "./xsq-parser";
+export {
+  parseXsqModels,
+  parseXsqEffectCounts,
+  parseXsqEffectTypeCounts,
+  getSequenceModelList,
+  getSequenceEffectCounts,
+  getSequenceEffectTypeCounts,
+  getModelEffectCount,
+} from "./xsq-parser";
 
 export {
   buildEffectTree,

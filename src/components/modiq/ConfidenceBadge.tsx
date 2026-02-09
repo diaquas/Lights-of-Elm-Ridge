@@ -12,8 +12,8 @@ interface ConfidenceBadgeProps {
 
 function getConfidenceTier(score: number): "high" | "medium" | "low" | "none" {
   if (score >= 0.85) return "high";
-  if (score >= 0.60) return "medium";
-  if (score >= 0.40) return "low";
+  if (score >= 0.6) return "medium";
+  if (score >= 0.4) return "low";
   return "none";
 }
 
@@ -111,7 +111,7 @@ function ReasoningTooltip({
     left = Math.max(8, Math.min(left, window.innerWidth - tooltipWidth - 8));
 
     // Position above the badge by default
-    let top = rect.top - 8; // 8px gap
+    const top = rect.top - 8; // 8px gap
 
     setPos({ top, left });
   }, [anchorRef]);
@@ -157,14 +157,20 @@ function ReasoningTooltip({
     >
       <div className="bg-surface border border-border rounded-xl shadow-xl overflow-hidden">
         {/* Header */}
-        <div className={`px-4 py-2.5 border-b border-border ${tierHeaderBg[tier]}`}>
+        <div
+          className={`px-4 py-2.5 border-b border-border ${tierHeaderBg[tier]}`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-foreground">Match Breakdown</span>
+            <span className="text-xs font-semibold text-foreground">
+              Match Breakdown
+            </span>
             <span className={`text-sm font-bold ${tierTextColor[tier]}`}>
               {Math.round(score * 100)}%
             </span>
           </div>
-          <p className="text-[11px] text-foreground/40 mt-0.5">{reasoning.summary}</p>
+          <p className="text-[11px] text-foreground/40 mt-0.5">
+            {reasoning.summary}
+          </p>
         </div>
 
         {/* Components */}
@@ -176,7 +182,8 @@ function ReasoningTooltip({
                   {component.factor}
                 </span>
                 <span className="text-[11px] font-mono text-foreground/40">
-                  +{Math.round(component.score * 100)}%
+                  {component.score >= 0 ? "+" : ""}
+                  {Math.round(component.score * 100)}%
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -190,7 +197,7 @@ function ReasoningTooltip({
                           : "bg-red-500"
                     }`}
                     style={{
-                      width: `${component.maxScore > 0 ? (component.score / component.maxScore) * 100 : 0}%`,
+                      width: `${component.maxScore > 0 ? Math.max(0, (component.score / component.maxScore) * 100) : 0}%`,
                     }}
                   />
                 </div>
@@ -198,27 +205,34 @@ function ReasoningTooltip({
                   /{Math.round(component.maxScore * 100)}
                 </span>
               </div>
-              <p className="text-[10px] text-foreground/40 mt-0.5">{component.description}</p>
+              <p className="text-[10px] text-foreground/40 mt-0.5">
+                {component.description}
+              </p>
             </div>
           ))}
         </div>
 
         {/* Why Not Higher */}
-        {reasoning.whyNotHigher && reasoning.whyNotHigher.length > 0 && score < 0.85 && (
-          <div className="px-4 py-2.5 bg-foreground/3 border-t border-border">
-            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-1.5">
-              Why not higher?
+        {reasoning.whyNotHigher &&
+          reasoning.whyNotHigher.length > 0 &&
+          score < 0.85 && (
+            <div className="px-4 py-2.5 bg-foreground/3 border-t border-border">
+              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-1.5">
+                Why not higher?
+              </div>
+              <ul className="space-y-0.5">
+                {reasoning.whyNotHigher.map((reason, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-1.5 text-[11px] text-foreground/40"
+                  >
+                    <span className="text-foreground/20 mt-px">&bull;</span>
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-0.5">
-              {reasoning.whyNotHigher.map((reason, i) => (
-                <li key={i} className="flex items-start gap-1.5 text-[11px] text-foreground/40">
-                  <span className="text-foreground/20 mt-px">&bull;</span>
-                  <span>{reason}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          )}
 
         {/* Pixel Comparison */}
         {reasoning.pixelComparison && (
@@ -241,20 +255,58 @@ function ReasoningTooltip({
               </div>
               <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/50">
                 <span className="text-foreground/40">Difference</span>
-                <span className={`font-mono tabular-nums ${
-                  Math.abs(reasoning.pixelComparison.source - reasoning.pixelComparison.dest) === 0
-                    ? "text-green-400"
-                    : Math.min(reasoning.pixelComparison.source, reasoning.pixelComparison.dest) /
-                        Math.max(reasoning.pixelComparison.source, reasoning.pixelComparison.dest) >= 0.8
-                      ? "text-amber-400"
-                      : "text-red-400"
-                }`}>
-                  {reasoning.pixelComparison.source === reasoning.pixelComparison.dest
+                <span
+                  className={`font-mono tabular-nums ${
+                    Math.abs(
+                      reasoning.pixelComparison.source -
+                        reasoning.pixelComparison.dest,
+                    ) === 0
+                      ? "text-green-400"
+                      : Math.min(
+                            reasoning.pixelComparison.source,
+                            reasoning.pixelComparison.dest,
+                          ) /
+                            Math.max(
+                              reasoning.pixelComparison.source,
+                              reasoning.pixelComparison.dest,
+                            ) >=
+                          0.8
+                        ? "text-amber-400"
+                        : "text-red-400"
+                  }`}
+                >
+                  {reasoning.pixelComparison.source ===
+                  reasoning.pixelComparison.dest
                     ? "Exact match"
                     : `${reasoning.pixelComparison.source > reasoning.pixelComparison.dest ? "−" : "+"}${Math.abs(reasoning.pixelComparison.source - reasoning.pixelComparison.dest).toLocaleString()}px`}
                 </span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Effect Analysis */}
+        {reasoning.effectAffinity && (
+          <div className="px-4 py-2.5 border-t border-border">
+            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-1.5">
+              Effect Analysis
+            </div>
+            <ul className="space-y-0.5">
+              {reasoning.effectAffinity.reasons.map((reason, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-[11px]">
+                  <span
+                    className={`mt-px ${
+                      reasoning.effectAffinity!.bonus >= 0
+                        ? "text-green-400"
+                        : "text-amber-400"
+                    }`}
+                  >
+                    {reasoning.effectAffinity!.bonus >= 0 ? "\u2713" : "\u26A0"}
+                  </span>
+                  <span className="text-foreground/50">{reason}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

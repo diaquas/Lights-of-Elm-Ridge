@@ -1467,11 +1467,243 @@ const VENDOR_PIXEL_HINTS: Record<number, string> = {
   500: "standard_outline_500",
 };
 
+// ═══════════════════════════════════════════════════════════════════
+// EFFECT-MODEL AFFINITY RULES — Validated from 17 Real Sequences
+// ═══════════════════════════════════════════════════════════════════
+//
+// When a sequence model uses certain effects, we can infer what TYPE
+// of prop it's designed for and adjust scores accordingly.
+
+const EFFECT_MODEL_AFFINITY: Record<
+  string,
+  {
+    primaryType: string;
+    secondaryTypes: string[];
+    confidence: number;
+    matchBonus: number;
+    mismatchPenalty: number;
+  }
+> = {
+  // === VERY HIGH CONFIDENCE (>=70%) ===
+  Faces: {
+    primaryType: "singing",
+    secondaryTypes: ["matrix", "tree"],
+    confidence: 76,
+    matchBonus: 0.2,
+    mismatchPenalty: 0.15,
+  },
+  Text: {
+    primaryType: "matrix",
+    secondaryTypes: [],
+    confidence: 87,
+    matchBonus: 0.25,
+    mismatchPenalty: 0.2,
+  },
+  Video: {
+    primaryType: "matrix",
+    secondaryTypes: ["tree"],
+    confidence: 71,
+    matchBonus: 0.2,
+    mismatchPenalty: 0.15,
+  },
+  Candle: {
+    primaryType: "matrix",
+    secondaryTypes: [],
+    confidence: 100,
+    matchBonus: 0.25,
+    mismatchPenalty: 0.2,
+  },
+  // === HIGH CONFIDENCE (50-70%) ===
+  Pictures: {
+    primaryType: "spinner",
+    secondaryTypes: ["matrix", "tree"],
+    confidence: 51,
+    matchBonus: 0.15,
+    mismatchPenalty: 0.1,
+  },
+  Galaxy: {
+    primaryType: "matrix",
+    secondaryTypes: ["spider"],
+    confidence: 56,
+    matchBonus: 0.15,
+    mismatchPenalty: 0.1,
+  },
+  Curtain: {
+    primaryType: "matrix",
+    secondaryTypes: ["roofline"],
+    confidence: 56,
+    matchBonus: 0.12,
+    mismatchPenalty: 0.08,
+  },
+  // === MEDIUM CONFIDENCE (40-50%) ===
+  Pinwheel: {
+    primaryType: "spinner",
+    secondaryTypes: ["wreath", "arch"],
+    confidence: 42,
+    matchBonus: 0.12,
+    mismatchPenalty: 0.08,
+  },
+  Spirals: {
+    primaryType: "tree",
+    secondaryTypes: ["spinner", "wreath"],
+    confidence: 42,
+    matchBonus: 0.12,
+    mismatchPenalty: 0.08,
+  },
+  Plasma: {
+    primaryType: "singing",
+    secondaryTypes: ["matrix", "spinner"],
+    confidence: 48,
+    matchBonus: 0.12,
+    mismatchPenalty: 0.08,
+  },
+  Morph: {
+    primaryType: "matrix",
+    secondaryTypes: ["pole", "any"],
+    confidence: 42,
+    matchBonus: 0.1,
+    mismatchPenalty: 0.05,
+  },
+  Warp: {
+    primaryType: "matrix",
+    secondaryTypes: ["pole"],
+    confidence: 45,
+    matchBonus: 0.12,
+    mismatchPenalty: 0.08,
+  },
+  // === PROP-SPECIFIC EFFECTS ===
+  Tree: {
+    primaryType: "tree",
+    secondaryTypes: [],
+    confidence: 80,
+    matchBonus: 0.2,
+    mismatchPenalty: 0.15,
+  },
+  Garlands: {
+    primaryType: "tree",
+    secondaryTypes: ["matrix"],
+    confidence: 65,
+    matchBonus: 0.15,
+    mismatchPenalty: 0.1,
+  },
+  Fan: {
+    primaryType: "spinner",
+    secondaryTypes: ["wreath"],
+    confidence: 45,
+    matchBonus: 0.1,
+    mismatchPenalty: 0.05,
+  },
+};
+
+/**
+ * Infer the prop type from a user (dest) model's name and properties.
+ * Returns a broad category that maps to EFFECT_MODEL_AFFINITY primaryType values.
+ */
+function inferPropType(model: ParsedModel): string | null {
+  const n = model.name.toLowerCase();
+  const da = model.displayAs.toLowerCase();
+
+  // Singing props
+  if (isSinging(model)) return "singing";
+
+  // Matrix
+  if (
+    isMatrixType(model) ||
+    /\b(panel|p5|p10|tune[\s-]?to|screen|led\s*curtain)\b/.test(n)
+  ) {
+    return "matrix";
+  }
+
+  // Spinner / wreath
+  if (
+    model.type === "Spinner" ||
+    da === "spinner" ||
+    da.includes("wreath") ||
+    /\b(spinner|showstopper|fuzion|rosa|overlord|wreath|starburst|click\s*click\s*boom|grand\s*illusion|shape\s*shifter|spinarcy|mesmerizer)\b/.test(
+      n,
+    )
+  ) {
+    return "spinner";
+  }
+
+  // Tree
+  if (/\b(tree|mega\s*tree|megatree|spiral\s*tree)\b/.test(n)) return "tree";
+
+  // Arch
+  if (/\b(arch|archway|candy\s*cane|cane)\b/.test(n)) return "arch";
+
+  // Roofline / structural
+  if (
+    /\b(eave|vert(?:ical)?|roof(?:line)?|outline|horizontal|gutter)\b/.test(n)
+  ) {
+    return "roofline";
+  }
+
+  // Spider
+  if (/\b(spider)\b/.test(n)) return "spider";
+
+  // Pole
+  if (/\b(pole|pixel\s*pole)\b/.test(n)) return "pole";
+
+  return null;
+}
+
+/**
+ * Calculate effect affinity bonus/penalty.
+ * Compares a source model's effect type distribution against the user prop type.
+ */
+function calculateEffectAffinityBonus(
+  effectTypes: Record<string, number>,
+  propType: string,
+): { bonus: number; reasons: string[] } {
+  let totalBonus = 0;
+  const reasons: string[] = [];
+
+  const totalEffects = Object.values(effectTypes).reduce((a, b) => a + b, 0);
+  if (totalEffects === 0) return { bonus: 0, reasons: [] };
+
+  for (const [effect, count] of Object.entries(effectTypes)) {
+    const affinity = EFFECT_MODEL_AFFINITY[effect];
+    if (!affinity) continue;
+
+    const effectWeight = count / totalEffects;
+    if (effectWeight < 0.05) continue; // Skip <5% effects
+
+    const typeMatches =
+      affinity.primaryType === propType ||
+      affinity.secondaryTypes.includes(propType);
+
+    if (typeMatches) {
+      const bonus = affinity.matchBonus * effectWeight;
+      totalBonus += bonus;
+      if (effectWeight >= 0.1) {
+        reasons.push(
+          `${effect} effect matches ${propType} (${affinity.confidence}%)`,
+        );
+      }
+    } else if (affinity.confidence >= 50) {
+      const penalty = affinity.mismatchPenalty * effectWeight;
+      totalBonus -= penalty;
+      if (effectWeight >= 0.1) {
+        reasons.push(
+          `${effect} effect typically for ${affinity.primaryType}, not ${propType}`,
+        );
+      }
+    }
+  }
+
+  return {
+    bonus: Math.max(-0.2, Math.min(0.25, totalBonus)),
+    reasons,
+  };
+}
+
 function computeScore(
   source: ParsedModel,
   dest: ParsedModel,
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
+  sourceEffectTypes?: Record<string, number>,
 ): { score: number; factors: ModelMapping["factors"] } {
   const zeroFactors = {
     name: 0,
@@ -1778,6 +2010,20 @@ function computeScore(
     VENDOR_PIXEL_HINTS[source.pixelCount]
   ) {
     score = Math.min(1.0, score * 1.15);
+  }
+
+  // EFFECT AFFINITY: when we know the source model's effect types,
+  // apply a bonus for matching prop types or penalty for mismatches.
+  // e.g., Faces effect → singing prop gets +20%, Faces → arch gets -15%
+  if (sourceEffectTypes && !source.isGroup && !dest.isGroup) {
+    const destPropType = inferPropType(dest);
+    if (destPropType) {
+      const { bonus } = calculateEffectAffinityBonus(
+        sourceEffectTypes,
+        destPropType,
+      );
+      score = Math.max(0, Math.min(1.0, score + bonus));
+    }
   }
 
   return { score, factors };
@@ -2451,6 +2697,7 @@ function greedyMatch(
   dests: ParsedModel[],
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
+  effectTypeMap?: Record<string, Record<string, number>>,
 ): ModelMapping[] {
   // Build score matrix with pre-filtering
   const entries: {
@@ -2470,6 +2717,7 @@ function greedyMatch(
         dests[d],
         sourceBounds,
         destBounds,
+        effectTypeMap?.[sources[s].name],
       );
       // Only consider if there's some name or type affinity
       if (score > 0.1) {
@@ -2560,6 +2808,7 @@ export function suggestMatches(
   sourcePool: ParsedModel[],
   allSourceModels: ParsedModel[],
   allDestModels: ParsedModel[],
+  effectTypeMap?: Record<string, Record<string, number>>,
 ): {
   model: ParsedModel;
   score: number;
@@ -2585,6 +2834,7 @@ export function suggestMatches(
       destModel,
       sourceBounds,
       destBounds,
+      effectTypeMap?.[source.name],
     );
     if (score > 0.05) {
       suggestions.push({
@@ -2610,6 +2860,7 @@ export function suggestMatchesForSource(
   destPool: ParsedModel[],
   allSourceModels: ParsedModel[],
   allDestModels: ParsedModel[],
+  sourceEffectTypes?: Record<string, number>,
 ): {
   model: ParsedModel;
   score: number;
@@ -2635,6 +2886,7 @@ export function suggestMatchesForSource(
       dest,
       sourceBounds,
       destBounds,
+      sourceEffectTypes,
     );
     if (score > 0.05) {
       suggestions.push({
