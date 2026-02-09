@@ -13,6 +13,14 @@ const GREEN_THRESHOLD = 0.9;
 
 // ─── Type helpers ────────────────────────────────────────
 
+type ItemTypeFilter = "all" | "groups" | "models" | "submodelGroups";
+
+function getItemTypeKey(layer: SourceLayerMapping): Exclude<ItemTypeFilter, "all"> {
+  if (layer.sourceModel.groupType === "SUBMODEL_GROUP") return "submodelGroups";
+  if (layer.isGroup) return "groups";
+  return "models";
+}
+
 function getTypeLabel(layer: SourceLayerMapping): string {
   if (layer.sourceModel.groupType === "SUBMODEL_GROUP") return "HD Group";
   if (layer.isGroup) return "Group";
@@ -43,6 +51,7 @@ export function AutoAcceptPhase() {
   const [yellowOpen, setYellowOpen] = useState(true);
   const [greenOpen, setGreenOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<ItemTypeFilter>("all");
 
   // Build top-suggestion map for each item using greedy assignment.
   // Each destination model can only be used once — once claimed by the
@@ -88,7 +97,7 @@ export function AutoAcceptPhase() {
   }, [phaseItems, interactive, scoreMap]);
 
   // Split into green (90%+) and yellow (70-89%) groups
-  const { greenItems, yellowItems, stats } = useMemo(() => {
+  const { greenItems, yellowItems, stats, typeCounts } = useMemo(() => {
     const green: SourceLayerMapping[] = [];
     const yellow: SourceLayerMapping[] = [];
 
@@ -128,6 +137,21 @@ export function AutoAcceptPhase() {
       (i) => !i.isGroup && i.sourceModel.groupType !== "SUBMODEL_GROUP",
     );
 
+    // Per-type counts with high/review breakdown
+    const typeCounts = {
+      all: { total: phaseItems.length, high: green.length, review: yellow.length },
+      groups: { total: 0, high: 0, review: 0 },
+      models: { total: 0, high: 0, review: 0 },
+      submodelGroups: { total: 0, high: 0, review: 0 },
+    };
+    for (const item of phaseItems) {
+      const key = getItemTypeKey(item);
+      const isHigh = (scoreMap.get(item.sourceModel.name) ?? 0) >= GREEN_THRESHOLD;
+      typeCounts[key].total++;
+      if (isHigh) typeCounts[key].high++;
+      else typeCounts[key].review++;
+    }
+
     return {
       greenItems: green,
       yellowItems: yellow,
@@ -142,6 +166,7 @@ export function AutoAcceptPhase() {
         models: models.length,
         hdGroups: hdGroups.length,
       },
+      typeCounts,
     };
   }, [phaseItems, rejectedNames, scoreMap]);
 
@@ -187,21 +212,27 @@ export function AutoAcceptPhase() {
     suggestions,
   ]);
 
-  // Search filter
-  const filterBySearch = (items: SourceLayerMapping[]) => {
-    if (!search) return items;
-    const q = search.toLowerCase();
-    return items.filter((i) => {
-      const sugg = suggestions.get(i.sourceModel.name);
-      return (
-        i.sourceModel.name.toLowerCase().includes(q) ||
-        (sugg && sugg.name.toLowerCase().includes(q))
-      );
-    });
+  // Combined type + search filter
+  const filterItems = (items: SourceLayerMapping[]) => {
+    let result = items;
+    if (typeFilter !== "all") {
+      result = result.filter((i) => getItemTypeKey(i) === typeFilter);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((i) => {
+        const sugg = suggestions.get(i.sourceModel.name);
+        return (
+          i.sourceModel.name.toLowerCase().includes(q) ||
+          (sugg && sugg.name.toLowerCase().includes(q))
+        );
+      });
+    }
+    return result;
   };
 
-  const filteredYellow = filterBySearch(yellowItems);
-  const filteredGreen = filterBySearch(greenItems);
+  const filteredYellow = filterItems(yellowItems);
+  const filteredGreen = filterItems(greenItems);
 
   const toggleReject = (name: string) => {
     setRejectedNames((prev) => {
@@ -480,8 +511,15 @@ export function AutoAcceptPhase() {
             </div>
           )}
 
+          {/* Quick Type Filters */}
+          <QuickFilterBar
+            typeCounts={typeCounts}
+            activeFilter={typeFilter}
+            onSelect={setTypeFilter}
+          />
+
           {/* Search + instruction inline */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 mt-2">
             <p className="text-xs text-foreground/40 shrink-0">
               Uncheck to map manually:
             </p>
@@ -515,7 +553,7 @@ export function AutoAcceptPhase() {
       <div className="h-[900px] min-h-[600px] overflow-y-auto px-6 py-2">
         <div className="max-w-3xl mx-auto space-y-2">
           {/* Yellow Section — Needs Review (default OPEN) */}
-          {yellowItems.length > 0 && (
+          {filteredYellow.length > 0 && (
             <CollapsibleSection
               color="yellow"
               open={yellowOpen}
@@ -532,7 +570,7 @@ export function AutoAcceptPhase() {
           )}
 
           {/* Green Section — High Confidence (default CLOSED) */}
-          {greenItems.length > 0 && (
+          {filteredGreen.length > 0 && (
             <CollapsibleSection
               color="green"
               open={greenOpen}
@@ -902,5 +940,110 @@ function AllDoneView({
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Quick Filter Bar ────────────────────────────────────
+
+interface TypeCounts {
+  all: { total: number; high: number; review: number };
+  groups: { total: number; high: number; review: number };
+  models: { total: number; high: number; review: number };
+  submodelGroups: { total: number; high: number; review: number };
+}
+
+const FILTER_OPTIONS: {
+  key: ItemTypeFilter;
+  label: string;
+  color: string;
+  activeColor: string;
+}[] = [
+  { key: "all", label: "All", color: "text-foreground/60", activeColor: "text-foreground" },
+  { key: "groups", label: "Groups", color: "text-blue-400/60", activeColor: "text-blue-400" },
+  { key: "models", label: "Models", color: "text-foreground/40", activeColor: "text-foreground/70" },
+  { key: "submodelGroups", label: "HD Groups", color: "text-purple-400/60", activeColor: "text-purple-400" },
+];
+
+function QuickFilterBar({
+  typeCounts,
+  activeFilter,
+  onSelect,
+}: {
+  typeCounts: TypeCounts;
+  activeFilter: ItemTypeFilter;
+  onSelect: (filter: ItemTypeFilter) => void;
+}) {
+  return (
+    <div className="flex gap-1.5">
+      {FILTER_OPTIONS.map(({ key, label, color, activeColor }) => {
+        const counts = typeCounts[key];
+        if (key !== "all" && counts.total === 0) return null;
+        const isActive = activeFilter === key;
+        return (
+          <QuickFilterButton
+            key={key}
+            label={label}
+            total={counts.total}
+            high={counts.high}
+            review={counts.review}
+            isActive={isActive}
+            color={isActive ? activeColor : color}
+            onClick={() => onSelect(isActive && key !== "all" ? "all" : key)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function QuickFilterButton({
+  label,
+  total,
+  high,
+  review,
+  isActive,
+  color,
+  onClick,
+}: {
+  label: string;
+  total: number;
+  high: number;
+  review: number;
+  isActive: boolean;
+  color: string;
+  onClick: () => void;
+}) {
+  const highPercent = total > 0 ? (high / total) * 100 : 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center flex-1 px-2 py-1.5 rounded-lg border transition-all ${
+        isActive
+          ? "border-foreground/20 bg-foreground/[0.07] ring-1 ring-foreground/10"
+          : "border-transparent hover:bg-foreground/[0.04]"
+      }`}
+    >
+      <span className={`text-[10px] font-medium ${color}`}>{label}</span>
+      <span className={`text-lg font-bold tabular-nums leading-tight ${color}`}>
+        {total}
+      </span>
+      {/* Mini high/review progress bar */}
+      <div className="w-full h-1 bg-foreground/10 rounded-full overflow-hidden mt-0.5 flex">
+        {high > 0 && (
+          <div
+            className="h-full bg-green-500 rounded-full"
+            style={{ width: `${highPercent}%` }}
+          />
+        )}
+        {review > 0 && (
+          <div
+            className="h-full bg-amber-400"
+            style={{ width: `${100 - highPercent}%` }}
+          />
+        )}
+      </div>
+    </button>
   );
 }
