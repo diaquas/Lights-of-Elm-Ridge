@@ -302,7 +302,7 @@ export function AutoAcceptPhase() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* ── Compact Header ────────────────────────────── */}
       <div className="px-6 pt-3 pb-3 flex-shrink-0 border-b border-border">
         <div className="max-w-3xl mx-auto">
@@ -549,8 +549,8 @@ export function AutoAcceptPhase() {
         </div>
       </div>
 
-      {/* ── Match List — fixed tall height ─────────────── */}
-      <div className="h-[900px] min-h-[600px] overflow-y-auto px-6 py-2">
+      {/* ── Match List — fills remaining space ────────── */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2">
         <div className="max-w-3xl mx-auto space-y-2">
           {/* Yellow Section — Needs Review (default OPEN) */}
           {filteredYellow.length > 0 && (
@@ -833,7 +833,7 @@ function AllDoneView({
   const yellowCount = items.length - greenCount;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col h-full overflow-hidden">
       <div className="px-6 pt-3 pb-3 flex-shrink-0 border-b border-border">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
@@ -882,7 +882,7 @@ function AllDoneView({
         </div>
       </div>
 
-      <div className="h-[900px] min-h-[600px] overflow-y-auto px-6 py-2">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2">
         <div className="max-w-3xl mx-auto bg-surface rounded-xl border border-border overflow-hidden">
           <div className="divide-y divide-border/30">
             {items.map((item) => {
