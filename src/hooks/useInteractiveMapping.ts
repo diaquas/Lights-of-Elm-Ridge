@@ -1048,11 +1048,15 @@ export function useInteractiveMapping(
     return { covered, total, percent };
   }, [sourceLayerMappings]);
 
-  // User display coverage: what % of the user's layout models are receiving effects
+  // User display coverage: what % of the user's physical props are receiving effects.
+  // Only counts individual (non-group) models — groups are logical containers, not
+  // physical props. A model is "covered" if it's directly assigned or is a member of
+  // a group that's assigned.
   const displayCoverage = useMemo(() => {
-    // Total user models (excluding DMX and skipped dest models)
+    // Only count individual (non-group) models as physical props.
+    // Groups are containers whose members are the actual display elements.
     const eligibleDest = destModels.filter(
-      (m) => !isDmxModel(m) && !skippedDestModels.has(m.name),
+      (m) => !isDmxModel(m) && !skippedDestModels.has(m.name) && !m.isGroup,
     );
     const total = eligibleDest.length;
 
