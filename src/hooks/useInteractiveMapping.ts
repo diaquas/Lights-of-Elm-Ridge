@@ -16,6 +16,7 @@ import {
   mapSubmodels,
   isDmxModel,
   getSequenceEffectCounts,
+  getSequenceEffectTypeCounts,
 } from "@/lib/modiq";
 
 // ─── Types ──────────────────────────────────────────────
@@ -76,6 +77,8 @@ export interface SourceLayerMapping {
   isMapped: boolean;
   /** Number of effects for this model in the current sequence */
   effectCount: number;
+  /** Per-effect-type breakdown (e.g., { Faces: 29, Plasma: 8 }) */
+  effectTypeCounts?: Record<string, number>;
 }
 
 export interface InteractiveMappingState {
@@ -890,6 +893,11 @@ export function useInteractiveMapping(
       externalEffectCounts ??
       (sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined);
 
+    // Get per-model effect type distributions (e.g., { Faces: 29, Plasma: 8 })
+    const effectTypeMap = sequenceSlug
+      ? getSequenceEffectTypeCounts(sequenceSlug)
+      : undefined;
+
     const layers: SourceLayerMapping[] = [];
 
     // Groups with effects (Scenario A and B — C are individual-only)
@@ -923,6 +931,7 @@ export function useInteractiveMapping(
         isSkipped: skippedSourceLayers.has(gInfo.model.name),
         isMapped: userModels.length > 0,
         effectCount: effectCounts?.[gInfo.model.name] ?? 0,
+        effectTypeCounts: effectTypeMap?.[gInfo.model.name],
       });
     }
 
@@ -951,6 +960,7 @@ export function useInteractiveMapping(
         isSkipped: skippedSourceLayers.has(mInfo.model.name),
         isMapped: userModels.length > 0,
         effectCount: effectCounts?.[mInfo.model.name] ?? 0,
+        effectTypeCounts: effectTypeMap?.[mInfo.model.name],
       });
     }
 
@@ -1221,6 +1231,13 @@ export function useInteractiveMapping(
     setSkippedDestModels(new Set());
   }, []);
 
+  // Stable effect type map for the current sequence (used by suggestions)
+  const effectTypeMap = useMemo(
+    () =>
+      sequenceSlug ? getSequenceEffectTypeCounts(sequenceSlug) : undefined,
+    [sequenceSlug],
+  );
+
   // Full-pool suggestion cache: scored once per source model, never invalidated.
   // Results are filtered at read time to exclude currently-assigned user models.
   // This avoids expensive re-scoring when only the assigned set changes.
@@ -1241,6 +1258,7 @@ export function useInteractiveMapping(
           fullPool,
           sourceModels,
           destModels,
+          effectTypeMap?.[sourceModel.name],
         );
         fullSuggestionCacheRef.current.set(cacheKey, fullResults);
       }
@@ -1251,7 +1269,13 @@ export function useInteractiveMapping(
           !skippedDestModels.has(s.model.name),
       );
     },
-    [destModels, sourceModels, assignedUserModelNames, skippedDestModels],
+    [
+      destModels,
+      sourceModels,
+      assignedUserModelNames,
+      skippedDestModels,
+      effectTypeMap,
+    ],
   );
 
   // V3 navigation: find next unmapped source layer
