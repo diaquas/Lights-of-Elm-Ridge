@@ -46,6 +46,7 @@
  *   - Moving Head isolation: MH/Moving Head models only match other moving heads
  *     Detects MH prefix variants (MHR7, MH1), DMX channel names (Gobo, Pan, Tilt, etc.)
  *   - Extreme pixel count drift (≥1000) is a hard zero for non-group models
+ *     EXCEPTIONS: large spinners (500+ px each), matrix-type models (wildly varying px)
  *
  * Algorithm tuning (V3.1 — Ticket 38):
  *   - HIGH confidence threshold lowered from 0.85 → 0.80
@@ -1778,20 +1779,23 @@ function computeScore(
   // these models are fundamentally different (e.g. 100px spider vs 12000px matrix)
   // EXCEPTION: Large spinners (500+ pixels) are generally compatible with each other
   // regardless of pixel count differences (e.g., 800px Showstopper ↔ 1529px GE Overlord)
+  // EXCEPTION: Matrix-type models — pixel counts vary wildly across layouts
+  //   (800px panel vs 114K matrix). Type-lock ensures only matrix↔matrix.
   if (!source.isGroup && !dest.isGroup) {
     const srcPx = source.pixelCount;
     const destPx = dest.pixelCount;
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
-      // Check if both are large spinners (500+ pixels each)
       const bothLargeSpinners =
         isLargeSpinner(source) &&
         isLargeSpinner(dest) &&
         srcPx >= 500 &&
         destPx >= 500;
-      if (!bothLargeSpinners) {
+      const bothMatrix = isMatrixType(source) && isMatrixType(dest);
+      if (!bothLargeSpinners && !bothMatrix) {
         return { score: 0, factors: zeroFactors };
       }
-      // Large spinners with big pixel diff: allow but score will reflect mismatch
+      // Large spinners / matrix pairs with big pixel diff: allow but score
+      // will reflect mismatch (pixel factor reduced for matrix pairs below)
     }
   }
 
@@ -1850,6 +1854,22 @@ function computeScore(
     factors.type >= 0.7
   ) {
     factors.pixels = Math.max(factors.pixels, 0.6);
+  }
+
+  // ── Matrix pixel neutralization ────────────────────────
+  // Matrix-type models (Matrix, Virtual Matrix, P5, P10, Panel, Screen)
+  // have wildly different pixel counts across layouts (800 → 114K).
+  // Type-lock already constrains them to only match other matrices, so
+  // pixel count is irrelevant for filtering — only useful as a minor
+  // tiebreaker. Floor pixel factor at 0.5 (neutral) so name and type
+  // dominate the score.
+  const bothMatrixType =
+    !source.isGroup &&
+    !dest.isGroup &&
+    isMatrixType(source) &&
+    isMatrixType(dest);
+  if (bothMatrixType) {
+    factors.pixels = Math.max(factors.pixels, 0.5);
   }
 
   // ── Holiday mismatch penalty ───────────────────────────
@@ -1954,6 +1974,22 @@ function computeScore(
       factors.pixels * WEIGHTS.pixels +
       factors.structure * WEIGHTS.structure;
     return { score: houseScore, factors };
+  }
+
+  // ── Matrix-type weighting ────────────────────────────────
+  // Matrix models match primarily on name + type. Pixel count is irrelevant
+  // (wildly different across layouts) and spatial/shape are unreliable for
+  // flat panel models. Weight: name 55%, type 25%, spatial 8%, shape 5%,
+  // pixels 2%, structure 5%.
+  if (bothMatrixType) {
+    const matrixScore =
+      factors.name * 0.55 +
+      factors.spatial * 0.08 +
+      factors.shape * 0.05 +
+      factors.type * 0.25 +
+      factors.pixels * 0.02 +
+      factors.structure * 0.05;
+    return { score: matrixScore, factors };
   }
 
   // Dynamic name weight boost: when name factor is near-exact (>=0.95),
@@ -2693,17 +2729,19 @@ function shouldSkipPair(source: ParsedModel, dest: ParsedModel): boolean {
 
   // Extreme pixel count difference (>= 1000) for non-groups
   // EXCEPTION: Large spinners (500+ pixels) are compatible with each other
+  // EXCEPTION: Matrix-type models — pixel counts vary wildly (800 to 114K)
+  //   and type-lock already constrains them to only match other matrices.
   if (!source.isGroup && !dest.isGroup) {
     const srcPx = source.pixelCount;
     const destPx = dest.pixelCount;
     if (srcPx > 0 && destPx > 0 && Math.abs(srcPx - destPx) >= 1000) {
-      // Allow large spinners to pass through
       const bothLargeSpinners =
         isLargeSpinner(source) &&
         isLargeSpinner(dest) &&
         srcPx >= 500 &&
         destPx >= 500;
-      if (!bothLargeSpinners) {
+      const bothMatrix = isMatrixType(source) && isMatrixType(dest);
+      if (!bothLargeSpinners && !bothMatrix) {
         return true;
       }
     }
