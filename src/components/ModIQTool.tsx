@@ -478,7 +478,7 @@ export default function ModIQTool() {
       {/* ── Hero ───────────────────────────────────────── */}
       {(step === "input" || step === "processing") && (
         <div className="text-center mb-12">
-          <div className="mb-6">
+          <div className="mb-3">
             <Image
               src="/modiq-wordmark-v3-full.png"
               alt="ModIQ"
@@ -488,12 +488,8 @@ export default function ModIQTool() {
               priority
             />
           </div>
-          <p className="text-lg text-foreground/60 max-w-2xl mx-auto">
-            Upload your xLights layout, pick a sequence, and get a mapping file
-            in seconds — not hours.
-          </p>
-          <p className="text-sm text-foreground/40 mt-2">
-            by Lights of Elm Ridge
+          <p className="text-xl text-gray-200 tracking-[0.015em] max-w-2xl mx-auto">
+            Sequence mapping in seconds — not hours.
           </p>
         </div>
       )}
