@@ -1097,14 +1097,23 @@ export function useInteractiveMapping(
     );
     const total = eligibleDest.length;
 
+    // Cascade threshold: groups with more than 20% of total individual models
+    // are "encompassing" aggregation groups (e.g., "All - Pixels - GRP" with
+    // 148 members, "All - Yard - GRP" with 77). These provide bonus/overlay
+    // effects but shouldn't inflate the coverage metric. Specific category
+    // groups (e.g., "All - Arches - GRP" with 8, "All - Eaves - GRP" with 27)
+    // DO cascade because they represent real targeted mappings.
+    const cascadeThreshold = Math.max(30, Math.round(total * 0.2));
+
     // Build set of "covered" user model names:
     // 1. Directly assigned user models
-    // 2. Children of assigned user groups (mapping a group covers its members)
+    // 2. Children of assigned category groups (not encompassing groups)
     const coveredNames = new Set(assignedUserModelNames);
     for (const dm of destModels) {
       if (
         dm.isGroup &&
         dm.memberModels.length > 0 &&
+        dm.memberModels.length <= cascadeThreshold &&
         assignedUserModelNames.has(dm.name)
       ) {
         for (const memberName of dm.memberModels) {

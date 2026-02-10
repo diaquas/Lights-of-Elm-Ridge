@@ -172,6 +172,11 @@ export function computeDisplayCoverage(
   const groups = nonDmx.filter((m) => m.isGroup);
   const individuals = nonDmx.filter((m) => !m.isGroup);
 
+  // Cascade threshold: encompassing aggregation groups (> 20% of total
+  // individual models) shouldn't inflate coverage. Only specific category
+  // groups (e.g., "All Arches" with 8 members) cascade to children.
+  const cascadeThreshold = Math.max(30, Math.round(individuals.length * 0.2));
+
   // Groups with at least one link
   const mappedGroups: ParsedModel[] = [];
   const unmappedGroups: ParsedModel[] = [];
@@ -181,9 +186,11 @@ export function computeDisplayCoverage(
     const srcs = destToSourcesMap.get(g.name);
     if (srcs && srcs.size > 0) {
       mappedGroups.push(g);
-      // All members of a mapped group are covered
-      for (const memberName of g.memberModels) {
-        coveredByGroup.add(memberName);
+      // Only cascade members for category-level groups (not encompassing ones)
+      if (g.memberModels.length <= cascadeThreshold) {
+        for (const memberName of g.memberModels) {
+          coveredByGroup.add(memberName);
+        }
       }
     } else {
       unmappedGroups.push(g);
