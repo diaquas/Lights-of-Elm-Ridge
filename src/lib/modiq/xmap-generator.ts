@@ -32,11 +32,17 @@ const TAB = "\t";
  * @param activeSourceNames - Optional set of source names that have effects.
  *   If provided, only mappings for these sources will be included in the xmap.
  *   This filters out submodels/models without effects (reducing red rows in xLights).
+ * @param sequenceModelNames - Optional set of model/submodel names present in the
+ *   sequence file (.xsq). When provided, submodel-level xmap rows are only written
+ *   for submodels that actually appear in the sequence. Submodels that inherit effects
+ *   from their parent model (and thus don't have their own Element entries in the xsq)
+ *   are skipped — the top-level model mapping is sufficient for xLights.
  */
 export function generateXmap(
   result: MappingResult,
   sequenceName: string,
   activeSourceNames?: Set<string>,
+  sequenceModelNames?: Set<string>,
 ): string {
   const lines: string[] = [];
 
@@ -76,9 +82,17 @@ export function generateXmap(
     // Top-level model mapping: dest → source
     lines.push([destName, "", "", srcName, "white"].join(TAB));
 
-    // Submodel mappings
+    // Submodel mappings — only include if the source submodel is addressable
+    // in the sequence. Submodels that inherit effects from their parent don't
+    // have their own <Element> in the .xsq, so referencing them in the xmap
+    // produces red/broken rows in xLights.
     for (const subMap of mapping.submodelMappings) {
       if (subMap.destName) {
+        // If we have sequence model names, only write the submodel row when
+        // the source submodel actually exists in the sequence
+        if (sequenceModelNames && !sequenceModelNames.has(subMap.sourceName)) {
+          continue;
+        }
         lines.push(
           [
             destName,
