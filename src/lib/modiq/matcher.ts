@@ -1415,8 +1415,17 @@ function isSinging(model: ParsedModel): boolean {
   if (/\befl\s*snowman\b/i.test(n)) return true;
   // "Singing Skull" pattern (some vendors use this)
   if (/\bsinging\s*skull\b/i.test(n)) return true;
-  // Submodel detection (mouth/eyes/phoneme indicates a singing face)
-  return model.submodels.some((s) => /\b(mouth|eyes?|phoneme)\b/i.test(s.name));
+  // Submodel detection: require BOTH mouth AND eyes/phoneme indicators.
+  // A single "eyes" match is too broad — many non-singing props have eye
+  // submodels (Bat Eyes, Spider Eyes, Ghost Eyes, etc.). True singing faces
+  // always have mouth submodels alongside eyes.
+  const hasMouth = model.submodels.some((s) =>
+    /\bmouth\b/i.test(s.name),
+  );
+  const hasEyesOrPhoneme = model.submodels.some((s) =>
+    /\b(eyes?|phoneme)\b/i.test(s.name),
+  );
+  return hasMouth && hasEyesOrPhoneme;
 }
 
 /** Interchangeability classes — props within the same class can cross-match
@@ -2220,6 +2229,22 @@ function mapSubmodels(
   const cached = submodelCache.get(cacheKey);
   if (cached) return cached;
 
+  // Type compatibility gate: if parent models are fundamentally incompatible
+  // types, skip submodel mapping entirely. Cross-type submodel pairings produce
+  // garbage mappings (e.g., singing face mouth → tombstone bat body) that show
+  // as red/broken rows in xLights.
+  const typeScore = scoreType(source, dest);
+  if (typeScore < 0.3 && !source.isGroup && !dest.isGroup) {
+    const empty: SubmodelMapping[] = source.submodels.map((srcSub) => ({
+      sourceName: srcSub.name,
+      destName: "",
+      confidence: "unmapped" as const,
+      pixelDiff: `${srcSub.pixelCount || "?"}px`,
+    }));
+    submodelCache.set(cacheKey, empty);
+    return empty;
+  }
+
   const mappings: SubmodelMapping[] = [];
   const usedDest = new Set<number>();
 
@@ -2251,7 +2276,10 @@ function mapSubmodels(
       }
     }
 
-    if (bestIdx >= 0 && bestScore > 0.2) {
+    // Raised threshold from 0.2 to 0.4 to reduce false-positive submodel matches.
+    // A 0.2 threshold was too permissive — common words like "Ring", "Outline",
+    // "Spoke" would match across completely unrelated models.
+    if (bestIdx >= 0 && bestScore > 0.4) {
       usedDest.add(bestIdx);
       const destSub = dest.submodels[bestIdx];
       mappings.push({
