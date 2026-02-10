@@ -9008,7 +9008,7 @@
     <view name="Clean View" models="All - Pixels - GRP,All - No Spinners - GRP,All - No Spinners No Tree - GRP,All - No Spinners No Tree No Matrix - GRP,All - House - GRP,All - House Outlines - GRP,All - Eaves - GRP,All - Verts - GRP,All - Windows - GRP,All - Arches - GRP,All - Bats - GRP,All - Fence - GRP,All - Fireworks - GRP,All - Floods - GRP,All - Mini Pumpkins - GRP,All - Mini Trees - GRP,All - Pixel Forest - GRP,All - Poles - GRP,All - Spider Legs - GRP,All - Spiders - GRP,All - Spinners - GRP,All - Spiral Trees - GRP,All - Tombstones - GRP,All - Tombstones - Old - GRP,All - Tombstones - Small - GRP,All - Tombstones GE Rosa - GRP,All - Trees - Real - GRP,All - Yard - GRP,All - Yard Left - GRP,All - Yard Middle - GRP,All - Yard Right - GRP,Spinners - CC Boom - Submodels - GRP,Spinners - Fuzion - Submodels - GRP,Spinners - Overlord - Submodels - GRP,Spinners - Rosa Grande - Submodels - GRP,Spinners - Showstopper - Submodels - GRP,FOLDER - GE Spider Groups,FOLDER - Misc Groups,FOLDER - Rosa Tomb Groups,Fog Machine,Matrix,Mega Tree,Spider - Tree Topper,Singing Pumpkin,Tune-To-Matrix,Tune-To-Matrix-2"/>
     <view name="Yard View" models="All - Pixel Forest - GRP,All - Arches - GRP,All - Fireworks - GRP,All - Bats - GRP,All - Mini Trees - GRP,All - Poles - GRP,All - Tombstones - GRP,All - Yard - GRP,All - Spiral Trees - GRP,All - Trees - Real - GRP,Mega Tree,Singing Pumpkin,Tune-To-Matrix,Spinner - Showstopper 1,Spinner - Showstopper 2,All - Floods - GRP,All - Yard Left - GRP,All - Yard Middle - GRP,All - Yard Right - GRP,FOLDER - Misc Groups"/>
     <view name="House View" models="All - House - GRP,All - House Outlines - GRP,All - Eaves - GRP,All - Verts - GRP,All - Windows - GRP"/>
-    <view name="Spinners Only" models="Spinners - Overlord - Submodels - GRP,Spinners - Showstopper - Submodels - GRP,Spinners - Fuzion - Submodels - GRP,Spinners - CC Boom - Submodels - GRP,Spinners - Rosa Grande - Submodels - GRP"/>
+    <view name="Spinners Only" models="Spinners - Overlord - Submodels - GRP,Spinners - Showstopper - Submodels - GRP,Spinners - Fuzion - Submodels - GRP,Spinners - CC Boom - Submodels - GRP,Spinners - Rosa Grande - Submodels - GRP,FOLDER - Rosa Tomb Groups,FOLDER - GE Spider Groups"/>
     <view name="Matrix &amp; Mega" models="Matrix,Mega Tree,Spider - Tree Topper,All - Fence - GRP"/>
     <view name="Core Props" models="All - Arches - GRP,All - Spiders - GRP,All - Fireworks - GRP,All - Poles - GRP,All - Mini Trees - GRP,All - Bats - GRP,All - Mini Pumpkins - GRP,All - Spiral Trees - GRP,All - Tombstones - GRP,All - Tombstones GE Rosa - GRP,All - Tombstones - Small - GRP,All - Pixel Forest - GRP,All - Trees - Real - GRP,FOLDER - Misc Groups"/>
     <view name="Yard - Left" models="All - Poles - GRP,All - Bats - GRP,All - Fence - GRP,All - Floods - GRP,All - Trees - Real - GRP,Spinner - Showstopper 1,Spinner - Showstopper 2,Singing Pumpkin,All - Tombstones - Small - GRP"/>
@@ -9549,13 +9549,13 @@
     <backgroundBrightness value="100"/>
     <storedLayoutGroup value="Default"/>
     <backgroundAlpha value="85"/>
-    <renderCacheDir value="C:\Holiday Lighting\2026\Christmas\Shows"/>
-    <backupDir value="C:\Holiday Lighting\2026\Halloween\Shows"/>
     <backgroundImage value="C:\Holiday Lighting\2026\Halloween\Shows\House 1.png"/>
     <LayoutMode3D value="1"/>
+    <defaultSeqView value="Clean View"/>
+    <backupDir value="C:\Users\josep\OneDrive\Desktop\Holiday Lighting"/>
     <previewWidth value="1280"/>
     <previewHeight value="720"/>
-    <defaultSeqView value="Clean View"/>
+    <renderCacheDir value="C:\Users\josep\OneDrive\Desktop\Holiday Lighting"/>
   </settings>
   <colors>
     <DisabledEffect Red="200" Green="200" Blue="0"/>
