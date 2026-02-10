@@ -1761,6 +1761,9 @@ export default function ModIQTool() {
             vendorEffectCounts={
               mapFromMode === "other-vendor" ? vendorEffectCounts : undefined
             }
+            vendorXsqModels={
+              mapFromMode === "other-vendor" ? vendorXsqModels : undefined
+            }
             onExported={(fileName, meta) => {
               setExportFileName(fileName);
               setExportDisplayCoverage(meta?.displayCoverage);
@@ -1821,6 +1824,7 @@ function InteractiveResults({
   onReset,
   onExported,
   vendorEffectCounts,
+  vendorXsqModels,
 }: {
   initialResult: MappingResult;
   sourceModels: ParsedModel[];
@@ -1846,6 +1850,7 @@ function InteractiveResults({
     },
   ) => void;
   vendorEffectCounts?: Record<string, number> | null;
+  vendorXsqModels?: string[] | null;
 }) {
   const interactive = useInteractiveMapping(
     initialResult,
@@ -2199,7 +2204,30 @@ function InteractiveResults({
       const activeSourceNames = effectTree
         ? getActiveSourceNamesForExport(effectTree)
         : undefined;
-      const xmapContent = generateXmap(result, seqTitle, activeSourceNames);
+
+      // Build a set of model/submodel names that exist in the sequence.
+      // Used to filter submodel-level xmap rows: only include submodel rows
+      // when the submodel has its own effects in the .xsq. Submodels that
+      // inherit effects from their parent don't have <Element> entries in the
+      // xsq, so referencing them in the xmap causes red rows in xLights.
+      let sequenceModelNames: Set<string> | undefined;
+      if (vendorXsqModels) {
+        // Vendor flow: model names parsed from uploaded .xsq
+        sequenceModelNames = new Set(vendorXsqModels);
+      } else if (mapFromMode === "elm-ridge") {
+        // LOER flow: use pre-extracted model list
+        const loerModels = getSequenceModelList(selectedSequence);
+        if (loerModels) {
+          sequenceModelNames = new Set(loerModels);
+        }
+      }
+
+      const xmapContent = generateXmap(
+        result,
+        seqTitle,
+        activeSourceNames,
+        sequenceModelNames,
+      );
       downloadXmap(xmapContent, xsqFilename);
       const baseName = xsqFilename.replace(/\.xsq$/i, "");
       const fileName = `modiq_${baseName}.xmap`;
@@ -2229,6 +2257,8 @@ function InteractiveResults({
       seqTitle,
       xsqFilename,
       selectedSequence,
+      mapFromMode,
+      vendorXsqModels,
       telemetry,
       onExported,
       destModels,
