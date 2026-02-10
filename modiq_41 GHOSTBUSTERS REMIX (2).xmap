@@ -1,0 +1,475 @@
+false
+82
+All - House Outlines - GRP
+All - Spiders - GRP
+All - House - GRP
+All - Tombstones - GRP
+All - Mini Trees - GRP
+All - Tombstones - Small - GRP
+All - Fence - GRP
+S - Arrows
+All - Pixels - GRP
+All - Arches - GRP
+All - Yard Right - GRP
+All - Spinners - GRP
+FOLDER - GE Spider Groups
+GE Rosa Tomb Outline GRP
+All - Tombstone Outlines - GRP
+All - Mini Pumpkin Outlines - GRP
+All - Eyes - GRP
+GE CC Boom Spokes GRP
+S - Circles (V)
+All - Spider Hourglasses - GRP
+All - Fireworks - GRP
+S - All Rings
+All - Floods - GRP
+GE Rosa Tomb Wings Up GRP
+GE Rosa Tomb Wings Down GRP
+Spinner - Fuzion
+Pixel Forest
+Matrix
+Fence Panel 2
+Arch 6
+Arch 5
+GE Rosa Tomb 4
+GE Rosa Tomb 3
+Vert 14 - Garage 2
+Eave 24 - Garage Peak 2
+Vert 2 - Office 2
+Vert 1 - Office 1
+Eave 22 - Garage Left
+Tombstone Small - 2
+Eave 26 - Garage 2
+Eave 3 - Office Peak 2
+Eave 2 - Office Peak 1
+Eave 4 - Office Right
+Tombstone Small - 3
+Tree Real 1 - Fork Left
+Spinner - Click Click Boom
+Tree Real 1 - Trunk
+Spider - Tree Topper
+Spinner - Overlord
+Singing Pumpkin
+Fence Panel 1
+Floods 4
+Arch 7
+Spinner - Showstopper 2
+Spinner - Showstopper 1
+Vert 12 - Guest Bath
+Arch 8
+Arch 3
+Arch 4
+Arch 1
+Arch 2
+Floods 1
+Floods 2
+Floods 3
+Driveway Left
+Vert 13 - Garage 1
+Eave 25 - Garage Right
+Spinner - Rosa Grande
+Fence Panel 3
+Fence Panel 5
+Fence Panel 4
+Mega Tree
+Vert 5 - Entrance 2
+Window - Avery
+Vert 7 - Dining
+GE Rosa Tomb 2
+GE Rosa Tomb 1
+Eave 14 - Ellis Eave
+Vert 15 - Garage 3
+Eave 13 - Avery Right
+Eave 11 - Lower Tower Right
+Eave 18 - Guest Right
+All - House Outlines - GRP			VLS GROUP - HOUSE OUTLINE	white
+All - Spiders - GRP			VLS GROUP - ALL SPIDERS	white
+All - House - GRP			VLS GROUP - HOUSE WITH PROPS	white
+All - Tombstones - GRP			VLS GROUP - ALL TOMBSTONES	white
+All - Mini Trees - GRP			VLS GROUP - ALL GHOSTS	white
+All - Tombstones - Small - GRP			VLS GROUP - ALL TOMBSTONES  GHOSTS	white
+All - Fence - GRP			VLS GROUP - VERTICAL LINES	white
+S - Arrows			VLS GROUP - HORIZONTAL LINES	white
+All - Pixels - GRP			VLS GROUP - ALL ELEMENTS	white
+All - Arches - GRP			VLS GROUP - ARCHES	white
+All - Yard Right - GRP			VLS GROUP - ALL MATRIX	white
+All - Spinners - GRP			VLS GROUP - SPINNERS	white
+FOLDER - GE Spider Groups			VLS GROUP - SPIDERS AND SPINNERS	white
+GE Rosa Tomb Outline GRP			VLS GROUP - TOMSTONE OUTLINE	white
+All - Tombstone Outlines - GRP			VLS GROUP - TOMBSTONE RIP	white
+All - Mini Pumpkin Outlines - GRP			VLS GROUP - GHOST OUTLINE	white
+All - Eyes - GRP			VLS GROUP - GHOST EYES MOUTH	white
+GE CC Boom Spokes GRP			VLS GROUP - SPINNER SPOKES	white
+S - Circles (V)			VLS GROUP - SPINNER OUTER CIRCLE	white
+All - Spider Hourglasses - GRP			VLS GROUP - SPIDER HOURGLASS	white
+All - Fireworks - GRP			VLS GROUP - HOUSE LETTERS	white
+S - All Rings			VLS GROUP - ICICLES	white
+All - Floods - GRP			VLS GROUP - HOUSE FLOODS	white
+GE Rosa Tomb Wings Up GRP			VLS GROUP - FLYING BAT WINGS UP	white
+GE Rosa Tomb Wings Down GRP			VLS GROUP - FLYING BAT WINGS DOWN	white
+Spinner - Fuzion			GARAGE SPINNER RIGHT	white
+Spinner - Fuzion	Spoke 1		GARAGE SPINNER RIGHT/Spokes	white
+Spinner - Fuzion	Ring 7		GARAGE SPINNER RIGHT/Outer Ring	white
+Spinner - Fuzion	Ring 3		GARAGE SPINNER RIGHT/Outer Ring Segments	white
+Spinner - Fuzion	M 1		GARAGE SPINNER RIGHT/Spiral	white
+Pixel Forest			MATRIX SPINNER RIGHT	white
+Matrix			MATRIX SPINNER LEFT	white
+Fence Panel 2			MATRIX 2	white
+Arch 6			ARCH 3	white
+Arch 6	Outer Arch		ARCH 3/Outside Arch	white
+Arch 6	Middle Arch		ARCH 3/Middle Arch	white
+Arch 6	Inner Arch		ARCH 3/Inside Arch	white
+Arch 5			ARCH 4	white
+Arch 5	Outer Arch		ARCH 4/Outside Arch	white
+Arch 5	Middle Arch		ARCH 4/Middle Arch	white
+Arch 5	Inner Arch		ARCH 4/Inside Arch	white
+GE Rosa Tomb 4			RGB SINGING BULB 4	white
+GE Rosa Tomb 4	Bat Flying Wings Up		RGB SINGING BULB 4/Base	white
+GE Rosa Tomb 4	Bat Flying Wings Down		RGB SINGING BULB 4/Bulb	white
+GE Rosa Tomb 4	Paddle Arm 1		RGB SINGING BULB 4/Mouth 1	white
+GE Rosa Tomb 4	Warp 2		RGB SINGING BULB 4/Mouth 2	white
+GE Rosa Tomb 4	Cross Highlights		RGB SINGING BULB 4/Mouth 3	white
+GE Rosa Tomb 4	Warp 4		RGB SINGING BULB 4/Mouth 4	white
+GE Rosa Tomb 4	Cross Spinner Ring 5		RGB SINGING BULB 4/Mouth 5	white
+GE Rosa Tomb 4	Paddle Arm 2		RGB SINGING BULB 4/Open RT Eye	white
+GE Rosa Tomb 4	Cross Spinner Ring 1		RGB SINGING BULB 4/Close RT Eye	white
+GE Rosa Tomb 4	Paddle Arm 3		RGB SINGING BULB 4/Open LT Eye	white
+GE Rosa Tomb 4	Cross Spinner Ring 2		RGB SINGING BULB 4/Close LT Eye	white
+GE Rosa Tomb 4	Cross Spinner Outline		RGB SINGING BULB 4/Open Eyes	white
+GE Rosa Tomb 4	Gourds-05		RGB SINGING BULB 4/Closed Eyes	white
+GE Rosa Tomb 4	Star		RGB SINGING BULB 4/EVIL EYES	white
+GE Rosa Tomb 4	Flake Outline		RGB SINGING BULB 4/MOUTH AH	white
+GE Rosa Tomb 4	Warp 6		RGB SINGING BULB 4/Mouth 6	white
+GE Rosa Tomb 4	Warp 1		RGB SINGING BULB 4/Open RT Eye-1	white
+GE Rosa Tomb 4	Gourds-01		RGB SINGING BULB 4/Open LT Eye-1	white
+GE Rosa Tomb 4	Tomb Ring 1		RGB SINGING BULB 4/Open Eyes-1	white
+GE Rosa Tomb 4	Cross Spinner Spoke 1		RGB SINGING BULB 4/MOUTH AH-1	white
+GE Rosa Tomb 4	Bat Body		RGB SINGING BULB 4/Genie Necklace	white
+GE Rosa Tomb 4	Bat Eyes		RGB SINGING BULB 4/Genie left earring	white
+GE Rosa Tomb 3			RGB SINGING BULB 3	white
+GE Rosa Tomb 3	Bat Flying Wings Up		RGB SINGING BULB 3/Base	white
+GE Rosa Tomb 3	Bat Flying Wings Down		RGB SINGING BULB 3/Bulb	white
+GE Rosa Tomb 3	Paddle Arm 1		RGB SINGING BULB 3/Mouth 1	white
+GE Rosa Tomb 3	Warp 2		RGB SINGING BULB 3/Mouth 2	white
+GE Rosa Tomb 3	Cross Highlights		RGB SINGING BULB 3/Mouth 3	white
+GE Rosa Tomb 3	Warp 4		RGB SINGING BULB 3/Mouth 4	white
+GE Rosa Tomb 3	Cross Spinner Ring 5		RGB SINGING BULB 3/Mouth 5	white
+GE Rosa Tomb 3	Paddle Arm 2		RGB SINGING BULB 3/Open RT Eye	white
+GE Rosa Tomb 3	Cross Spinner Ring 1		RGB SINGING BULB 3/Close RT Eye	white
+GE Rosa Tomb 3	Paddle Arm 3		RGB SINGING BULB 3/Open LT Eye	white
+GE Rosa Tomb 3	Cross Spinner Ring 2		RGB SINGING BULB 3/Close LT Eye	white
+GE Rosa Tomb 3	Cross Spinner Outline		RGB SINGING BULB 3/Open Eyes	white
+GE Rosa Tomb 3	Gourds-05		RGB SINGING BULB 3/Closed Eyes	white
+GE Rosa Tomb 3	Star		RGB SINGING BULB 3/EVIL EYES	white
+GE Rosa Tomb 3	Flake Outline		RGB SINGING BULB 3/MOUTH AH	white
+GE Rosa Tomb 3	Warp 6		RGB SINGING BULB 3/Mouth 6	white
+GE Rosa Tomb 3	Warp 1		RGB SINGING BULB 3/Open RT Eye-1	white
+GE Rosa Tomb 3	Gourds-01		RGB SINGING BULB 3/Open LT Eye-1	white
+GE Rosa Tomb 3	Tomb Ring 1		RGB SINGING BULB 3/Open Eyes-1	white
+GE Rosa Tomb 3	Cross Spinner Spoke 1		RGB SINGING BULB 3/MOUTH AH-1	white
+GE Rosa Tomb 3	Bat Body		RGB SINGING BULB 3/Genie Necklace	white
+GE Rosa Tomb 3	Bat Eyes		RGB SINGING BULB 3/Genie left earring	white
+Vert 14 - Garage 2			PERM LIGHTS - LEVEL 2 STRAND 4	white
+Eave 24 - Garage Peak 2			PERM LIGHTS - LEVEL 2 STRAND 9	white
+Vert 2 - Office 2			PERM LIGHTS - LEVEL 2 STRAND 8	white
+Vert 1 - Office 1			PERM LIGHTS - LEVEL 2 STRAND 7	white
+Eave 22 - Garage Left			PERM LIGHTS - LEVEL 2 STRAND 6	white
+Tombstone Small - 2			RETRO GHOST 2	white
+Tombstone Small - 2	Border		RETRO GHOST 2/outline	white
+Tombstone Small - 2	RIP		RETRO GHOST 2/armsin	white
+Eave 26 - Garage 2			PERM LIGHTS - LEVEL 2 STRAND 5	white
+Eave 3 - Office Peak 2			PERM LIGHTS - LEVEL 2 STRAND 3	white
+Eave 2 - Office Peak 1			PERM LIGHTS - LEVEL 2 STRAND 2	white
+Eave 4 - Office Right			PERM LIGHTS - LEVEL 2 STRAND 1	white
+Tombstone Small - 3			RETRO GHOST	white
+Tombstone Small - 3	Border		RETRO GHOST/outline	white
+Tombstone Small - 3	RIP		RETRO GHOST/armsin	white
+Tree Real 1 - Fork Left			VISIONARY 300 V2	white
+Spinner - Click Click Boom			FRONT DOOR WREATH	white
+Spinner - Click Click Boom	Stigma-01		FRONT DOOR WREATH/Outer Ring	white
+Spinner - Click Click Boom	Piece of Work		FRONT DOOR WREATH/Circle Rings - Complete	white
+Spinner - Click Click Boom	Spoke Inner		FRONT DOOR WREATH/Circle Rings - Individual	white
+Spinner - Click Click Boom	Outline		FRONT DOOR WREATH/Wavy Outline	white
+Spinner - Click Click Boom	Spoke		FRONT DOOR WREATH/Spokes	white
+Spinner - Click Click Boom	Tee		FRONT DOOR WREATH/Rings	white
+Spinner - Click Click Boom	Cone Small Odd		FRONT DOOR WREATH/Arrows	white
+Spinner - Click Click Boom	Cone Odd-01		FRONT DOOR WREATH/Arrows - Odd	white
+Spinner - Click Click Boom	Cone Even-01		FRONT DOOR WREATH/Arrows - Even	white
+Spinner - Click Click Boom	Thelma		FRONT DOOR WREATH/Feathers	white
+Spinner - Click Click Boom	Cone Odd		FRONT DOOR WREATH/Feathers - Odd	white
+Spinner - Click Click Boom	Cone Even		FRONT DOOR WREATH/Feathers - Even	white
+Spinner - Click Click Boom	Cone Small Even		FRONT DOOR WREATH/Top Matrix	white
+Spinner - Click Click Boom	Strangness-01		FRONT DOOR WREATH/Bottom Matrix	white
+Spinner - Click Click Boom	Thelma-01		FRONT DOOR WREATH/Ring 1	white
+Spinner - Click Click Boom	Thelma-02		FRONT DOOR WREATH/Ring 2	white
+Spinner - Click Click Boom	Thelma-03		FRONT DOOR WREATH/Ring 3	white
+Spinner - Click Click Boom	Thelma-04		FRONT DOOR WREATH/Ring 4	white
+Spinner - Click Click Boom	Thelma-05		FRONT DOOR WREATH/Ring 5	white
+Spinner - Click Click Boom	Thelma-06		FRONT DOOR WREATH/Ring 6	white
+Spinner - Click Click Boom	Thelma-07		FRONT DOOR WREATH/Ring 7	white
+Spinner - Click Click Boom	Thelma-08		FRONT DOOR WREATH/Ring 8	white
+Spinner - Click Click Boom	Spoke-01		FRONT DOOR WREATH/Arrow 1	white
+Spinner - Click Click Boom	Spoke-02		FRONT DOOR WREATH/Arrow 2	white
+Spinner - Click Click Boom	Spoke-03		FRONT DOOR WREATH/Arrow 3	white
+Spinner - Click Click Boom	Spoke-04		FRONT DOOR WREATH/Arrow 4	white
+Spinner - Click Click Boom	Spoke-05		FRONT DOOR WREATH/Arrow 5	white
+Spinner - Click Click Boom	Spoke-06		FRONT DOOR WREATH/Arrow 6	white
+Spinner - Click Click Boom	Spoke-07		FRONT DOOR WREATH/Arrow 7	white
+Spinner - Click Click Boom	Spoke-08		FRONT DOOR WREATH/Arrow 8	white
+Spinner - Click Click Boom	Spoke-09		FRONT DOOR WREATH/Arrow 9	white
+Spinner - Click Click Boom	Spoke-10		FRONT DOOR WREATH/Arrow 10	white
+Spinner - Click Click Boom	Outside Ball-01		FRONT DOOR WREATH/Arrow 11	white
+Spinner - Click Click Boom	Outside Ball-02		FRONT DOOR WREATH/Arrow 12	white
+Spinner - Click Click Boom	Outside Ball-03		FRONT DOOR WREATH/Arrow 13	white
+Spinner - Click Click Boom	Outside Ball-04		FRONT DOOR WREATH/Arrow 14	white
+Spinner - Click Click Boom	Outside Ball-05		FRONT DOOR WREATH/Arrow 15	white
+Spinner - Click Click Boom	Outside Ball-06		FRONT DOOR WREATH/Arrow 16	white
+Spinner - Click Click Boom	Spoke Inner-01		FRONT DOOR WREATH/Spoke 1	white
+Spinner - Click Click Boom	Spoke Inner-02		FRONT DOOR WREATH/Spoke 2	white
+Spinner - Click Click Boom	Spoke Inner-03		FRONT DOOR WREATH/Spoke 3	white
+Spinner - Click Click Boom	Spoke Inner-04		FRONT DOOR WREATH/Spoke 4	white
+Spinner - Click Click Boom	Spoke Inner-05		FRONT DOOR WREATH/Spoke 5	white
+Spinner - Click Click Boom	Spoke Inner-06		FRONT DOOR WREATH/Spoke 6	white
+Spinner - Click Click Boom	Spoke Inner-07		FRONT DOOR WREATH/Spoke 7	white
+Spinner - Click Click Boom	Spoke Inner-08		FRONT DOOR WREATH/Spoke 8	white
+Spinner - Click Click Boom	Spoke Inner-09		FRONT DOOR WREATH/Spoke 9	white
+Spinner - Click Click Boom	Spoke Inner-10		FRONT DOOR WREATH/Spoke 10	white
+Spinner - Click Click Boom	Outside Ball-07		FRONT DOOR WREATH/Spoke 11	white
+Spinner - Click Click Boom	Outside Ball-08		FRONT DOOR WREATH/Spoke 12	white
+Spinner - Click Click Boom	Outside Ball-09		FRONT DOOR WREATH/Spoke 13	white
+Spinner - Click Click Boom	Outside Ball-10		FRONT DOOR WREATH/Spoke 14	white
+Spinner - Click Click Boom	Outside Ball		FRONT DOOR WREATH/Outer Ball 1	white
+Spinner - Click Click Boom	Finger-02		FRONT DOOR WREATH/Outer Ball 2	white
+Spinner - Click Click Boom	Finger-03		FRONT DOOR WREATH/Outer Ball 3	white
+Spinner - Click Click Boom	Finger-04		FRONT DOOR WREATH/Outer Ball 4	white
+Spinner - Click Click Boom	Finger-05		FRONT DOOR WREATH/Outer Ball 5	white
+Spinner - Click Click Boom	Finger-06		FRONT DOOR WREATH/Outer Ball 6	white
+Spinner - Click Click Boom	Finger-07		FRONT DOOR WREATH/Outer Ball 7	white
+Spinner - Click Click Boom	Finger-08		FRONT DOOR WREATH/Outer Ball 8	white
+Spinner - Click Click Boom	Finger-09		FRONT DOOR WREATH/Outer Ball 9	white
+Spinner - Click Click Boom	Finger-10		FRONT DOOR WREATH/Outer Ball 10	white
+Spinner - Click Click Boom	Finger-01		FRONT DOOR WREATH/Ribbon 1	white
+Spinner - Click Click Boom	Tee-02		FRONT DOOR WREATH/Ribbon 2	white
+Spinner - Click Click Boom	Tee-03		FRONT DOOR WREATH/Ribbon 3	white
+Spinner - Click Click Boom	Tee-04		FRONT DOOR WREATH/Ribbon 4	white
+Spinner - Click Click Boom	Tee-05		FRONT DOOR WREATH/Ribbon 5	white
+Spinner - Click Click Boom	Tee-06		FRONT DOOR WREATH/Ribbon 6	white
+Spinner - Click Click Boom	Tee-07		FRONT DOOR WREATH/Ribbon 7	white
+Spinner - Click Click Boom	Tee-08		FRONT DOOR WREATH/Ribbon 8	white
+Spinner - Click Click Boom	Tee-09		FRONT DOOR WREATH/Ribbon 9	white
+Spinner - Click Click Boom	Tee-10		FRONT DOOR WREATH/Ribbon 10	white
+Spinner - Click Click Boom	Star 01		FRONT DOOR WREATH/Ribbon 11	white
+Spinner - Click Click Boom	Star 02		FRONT DOOR WREATH/Ribbon 12	white
+Spinner - Click Click Boom	Star 03		FRONT DOOR WREATH/Ribbon 13	white
+Spinner - Click Click Boom	Tee-01		FRONT DOOR WREATH/Feather 1	white
+Spinner - Click Click Boom	Piece of Work-02		FRONT DOOR WREATH/Feather 2	white
+Spinner - Click Click Boom	Piece of Work-03		FRONT DOOR WREATH/Feather 3	white
+Spinner - Click Click Boom	Piece of Work-04		FRONT DOOR WREATH/Feather 4	white
+Spinner - Click Click Boom	Piece of Work-05		FRONT DOOR WREATH/Feather 5	white
+Spinner - Click Click Boom	Piece of Work-06		FRONT DOOR WREATH/Feather 6	white
+Spinner - Click Click Boom	Piece of Work-07		FRONT DOOR WREATH/Feather 7	white
+Spinner - Click Click Boom	Piece of Work-08		FRONT DOOR WREATH/Feather 8	white
+Spinner - Click Click Boom	Thelma-09		FRONT DOOR WREATH/Feather 9	white
+Spinner - Click Click Boom	Thelma-10		FRONT DOOR WREATH/Feather 10	white
+Spinner - Click Click Boom	Piece of Work-01		FRONT DOOR WREATH/Feather 11	white
+Spinner - Click Click Boom	Piece of Work-09		FRONT DOOR WREATH/Feather 12	white
+Spinner - Click Click Boom	Piece of Work-10		FRONT DOOR WREATH/Feather 13	white
+Spinner - Click Click Boom	Cone Small Odd-01		FRONT DOOR WREATH/Feather 14	white
+Spinner - Click Click Boom	Cone Small Odd-02		FRONT DOOR WREATH/Feather 15	white
+Spinner - Click Click Boom	Cone Small Odd-03		FRONT DOOR WREATH/Feather 16	white
+Tree Real 1 - Trunk			Icicles 12	white
+Spider - Tree Topper			MEGATREE BAT	white
+Spider - Tree Topper	Eyes		MEGATREE BAT/EYES	white
+Spider - Tree Topper	Body 2		MEGATREE BAT/OUTLINE	white
+Spinner - Overlord			MEGATREE BAT 2	white
+Spinner - Overlord	Desparado Odd-01		MEGATREE BAT 2/OUTLINE	white
+Singing Pumpkin			MEGA BLACK WIDOW 2	white
+Fence Panel 1			MATRIX 1	white
+Floods 4			LOWER COLUMN 4	white
+Arch 7			Icicles 7	white
+Arch 7	Outer Arch		Icicles 7/soffit horizontal	white
+Spinner - Showstopper 2			IC TARANTULA 2	white
+Spinner - Showstopper 2	01 Cascading Arches		IC TARANTULA 2/GROUP - ALL NO BACKSTRIPES	white
+Spinner - Showstopper 2	62 Spinners - Inner		IC TARANTULA 2/GROUP - ALL BODY NO LEGS OR BACK STRIPES	white
+Spinner - Showstopper 2	11 Oysters		IC TARANTULA 2/GROUP - ALL LEGS	white
+Spinner - Showstopper 2	Cascading Arches-05		IC TARANTULA 2/GROUP - BACK STRIPES	white
+Spinner - Showstopper 2	Spinners - All-01		IC TARANTULA 2/BACK V	white
+Spinner - Showstopper 2	Cascading Arches-01		IC TARANTULA 2/BIG FANGS OPEN	white
+Spinner - Showstopper 2	Cascading Petal-01		IC TARANTULA 2/BIG FANGS CLOSED	white
+Spinner - Showstopper 2	Swirl Right-01		IC TARANTULA 2/LITTLE FANGS OPEN	white
+Spinner - Showstopper 2	61 Inner Circle		IC TARANTULA 2/LITTLE FANGS CLOSED	white
+Spinner - Showstopper 2	BatR-01		IC TARANTULA 2/Leg 1	white
+Spinner - Showstopper 2	Cascading Arches-02		IC TARANTULA 2/Leg 2	white
+Spinner - Showstopper 2	Cascading Arches-03		IC TARANTULA 2/Leg 3	white
+Spinner - Showstopper 2	Circles (V)-04		IC TARANTULA 2/Leg 4	white
+Spinner - Showstopper 2	Circles (V)-05		IC TARANTULA 2/Leg 5	white
+Spinner - Showstopper 2	Cascading Arches-06		IC TARANTULA 2/Leg 6	white
+Spinner - Showstopper 2	All Rings-07		IC TARANTULA 2/Leg 7	white
+Spinner - Showstopper 2	Cascading Arches-08		IC TARANTULA 2/Leg 8	white
+Spinner - Showstopper 2	**WHOLE SPINNER		IC TARANTULA 2/Little Fang Left Closed	white
+Spinner - Showstopper 2	**OUTER		IC TARANTULA 2/Little Fang Right Closed	white
+Spinner - Showstopper 2	**MIDDLE		IC TARANTULA 2/Little Fang Right Open	white
+Spinner - Showstopper 2	**CENTER		IC TARANTULA 2/Little Fang Left Open	white
+Spinner - Showstopper 2	Swirl Right-02		IC TARANTULA 2/Big Fang Left Closed	white
+Spinner - Showstopper 2	Swirl Right-03		IC TARANTULA 2/Big Fang Right Closed	white
+Spinner - Showstopper 2	Half Moon-04		IC TARANTULA 2/Big Fang Left Open	white
+Spinner - Showstopper 2	Half Moon-07		IC TARANTULA 2/Big Fang Right Open	white
+Spinner - Showstopper 2	Bow		IC TARANTULA 2/Head Outline	white
+Spinner - Showstopper 2	Cascading Leaf-01		IC TARANTULA 2/Eyes 1	white
+Spinner - Showstopper 2	Spinners - All-02		IC TARANTULA 2/Eyes 2	white
+Spinner - Showstopper 2	Cascading Petal-02		IC TARANTULA 2/Body Outline	white
+Spinner - Showstopper 2	**HALLOWEEN		IC TARANTULA 2/Back Stripe 1	white
+Spinner - Showstopper 2	All Rings-02		IC TARANTULA 2/Back Stripe 2	white
+Spinner - Showstopper 2	Spinners - All-03		IC TARANTULA 2/Back Stripe 3	white
+Spinner - Showstopper 2	Spinners - All-04		IC TARANTULA 2/Back Stripe 4	white
+Spinner - Showstopper 2	Spinners - All-05		IC TARANTULA 2/Back Stripe 5	white
+Spinner - Showstopper 2	Spinners - All-06		IC TARANTULA 2/Back Stripe 6	white
+Spinner - Showstopper 1			IC TARANTULA 1	white
+Spinner - Showstopper 1	01 Cascading Arches		IC TARANTULA 1/GROUP - ALL NO BACKSTRIPES	white
+Spinner - Showstopper 1	11 Oysters		IC TARANTULA 1/GROUP - ALL LEGS	white
+Spinner - Showstopper 1	75 Dragon Pupil		IC TARANTULA 1/GROUP - BACK STRIPES	white
+Spinner - Showstopper 1	Cascading Arches-01		IC TARANTULA 1/Leg 1	white
+Spinner - Showstopper 1	Cascading Arches-02		IC TARANTULA 1/Leg 2	white
+Spinner - Showstopper 1	Cascading Arches-03		IC TARANTULA 1/Leg 3	white
+Spinner - Showstopper 1	Circles (V)-04		IC TARANTULA 1/Leg 4	white
+Spinner - Showstopper 1	Circles (V)-05		IC TARANTULA 1/Leg 5	white
+Spinner - Showstopper 1	Cascading Arches-06		IC TARANTULA 1/Leg 6	white
+Spinner - Showstopper 1	All Rings-07		IC TARANTULA 1/Leg 7	white
+Spinner - Showstopper 1	Cascading Arches-08		IC TARANTULA 1/Leg 8	white
+Spinner - Showstopper 1	**WHOLE SPINNER		IC TARANTULA 1/Little Fang Left Closed	white
+Spinner - Showstopper 1	**OUTER		IC TARANTULA 1/Little Fang Left Open	white
+Spinner - Showstopper 1	**MIDDLE		IC TARANTULA 1/Little Fang Right Closed	white
+Spinner - Showstopper 1	**CENTER		IC TARANTULA 1/Little Fang Right Open	white
+Spinner - Showstopper 1	Swirl Right-01		IC TARANTULA 1/Big Fang Left Closed	white
+Spinner - Showstopper 1	Half Moon-04		IC TARANTULA 1/Big Fang Left Open	white
+Spinner - Showstopper 1	Swirl Right-02		IC TARANTULA 1/Big Fang Right Closed	white
+Spinner - Showstopper 1	Half Moon-07		IC TARANTULA 1/Big Fang Right Open	white
+Spinner - Showstopper 1	Bow		IC TARANTULA 1/Head Outline	white
+Spinner - Showstopper 1	Spinners - All-01		IC TARANTULA 1/Eyes 1	white
+Spinner - Showstopper 1	Spinners - All-02		IC TARANTULA 1/Eyes 2	white
+Spinner - Showstopper 1	Cascading Petal-01		IC TARANTULA 1/Body Outline	white
+Spinner - Showstopper 1	**HALLOWEEN		IC TARANTULA 1/Back Stripe 1	white
+Spinner - Showstopper 1	All Rings-02		IC TARANTULA 1/Back Stripe 2	white
+Spinner - Showstopper 1	Spinners - All-03		IC TARANTULA 1/Back Stripe 3	white
+Spinner - Showstopper 1	Spinners - All-04		IC TARANTULA 1/Back Stripe 4	white
+Spinner - Showstopper 1	Spinners - All-05		IC TARANTULA 1/Back Stripe 5	white
+Spinner - Showstopper 1	Spinners - All-06		IC TARANTULA 1/Back Stripe 6	white
+Spinner - Showstopper 1	61 Inner Circle		IC TARANTULA 1/Back V	white
+Vert 12 - Guest Bath			LOWER ROOF VERTICAL	white
+Arch 8			Icicles 8	white
+Arch 8	Outer Arch		Icicles 8/soffit horizontal	white
+Arch 7			Icicles 6	white
+Arch 7	Outer Arch		Icicles 6/soffit horizontal	white
+Arch 3			ARCH 6	white
+Arch 3	Outer Arch		ARCH 6/Outside Arch	white
+Arch 3	Middle Arch		ARCH 6/Middle Arch	white
+Arch 3	Inner Arch		ARCH 6/Inside Arch	white
+Arch 4			ARCH 5	white
+Arch 4	Outer Arch		ARCH 5/Outside Arch	white
+Arch 4	Middle Arch		ARCH 5/Middle Arch	white
+Arch 4	Inner Arch		ARCH 5/Inside Arch	white
+Arch 1			ARCH 2	white
+Arch 1	Outer Arch		ARCH 2/Outside Arch	white
+Arch 1	Middle Arch		ARCH 2/Middle Arch	white
+Arch 1	Inner Arch		ARCH 2/Inside Arch	white
+Arch 2			ARCH 1	white
+Arch 2	Outer Arch		ARCH 1/Outside Arch	white
+Arch 2	Middle Arch		ARCH 1/Middle Arch	white
+Arch 2	Inner Arch		ARCH 1/Inside Arch	white
+Floods 1			COLUMN 1	white
+Floods 2			COLUMN 2	white
+Floods 3			COLUMN 3	white
+Arch 7			Icicles 3	white
+Arch 7	Outer Arch		Icicles 3/soffit horizontal	white
+Driveway Left			Icicles 5	white
+Vert 13 - Garage 1			Icicles 4	white
+Eave 25 - Garage Right			Icicles 10	white
+Vert 13 - Garage 1			Icicles 9	white
+Arch 7			Icicles 2	white
+Arch 7	Outer Arch		Icicles 2/soffit horizontal	white
+Tree Real 1 - Trunk			Icicles 1	white
+Spinner - Rosa Grande			ICE PRINCESS SNOWFLAKE	white
+Spinner - Rosa Grande	Wavy Outline Outer		ICE PRINCESS SNOWFLAKE/Main Arms Outline	white
+Spinner - Rosa Grande	Outer Ring		ICE PRINCESS SNOWFLAKE/Tips	white
+Spinner - Rosa Grande	Wavy Outline Inner		ICE PRINCESS SNOWFLAKE/Arrows	white
+Spinner - Rosa Grande	Ring 01		ICE PRINCESS SNOWFLAKE/Middle Star 1	white
+Spinner - Rosa Grande	Web Spoke 01		ICE PRINCESS SNOWFLAKE/Inner Star 1	white
+Spinner - Rosa Grande	Snowflake Spoke 01		ICE PRINCESS SNOWFLAKE/Main Arms Outline-1	white
+Spinner - Rosa Grande	Snowflake Spoke 02		ICE PRINCESS SNOWFLAKE/Main Arms Outline-2	white
+Spinner - Rosa Grande	Feather 03 Long		ICE PRINCESS SNOWFLAKE/Main Arms Outline-3	white
+Spinner - Rosa Grande	Snowflake Spoke 04		ICE PRINCESS SNOWFLAKE/Main Arms Outline-4	white
+Spinner - Rosa Grande	Snowflake Spoke 05		ICE PRINCESS SNOWFLAKE/Main Arms Outline-5	white
+Spinner - Rosa Grande	Snowflake Spoke 06		ICE PRINCESS SNOWFLAKE/Main Arms Outline-6	white
+Spinner - Rosa Grande	Ribbon 01		ICE PRINCESS SNOWFLAKE/Tips-1	white
+Spinner - Rosa Grande	Ribbon 02		ICE PRINCESS SNOWFLAKE/Tips-2	white
+Spinner - Rosa Grande	Ribbon 03		ICE PRINCESS SNOWFLAKE/Tips-3	white
+Spinner - Rosa Grande	Ribbon 04		ICE PRINCESS SNOWFLAKE/Tips-4	white
+Spinner - Rosa Grande	Ribbon 05		ICE PRINCESS SNOWFLAKE/Tips-5	white
+Spinner - Rosa Grande	Ribbon 06		ICE PRINCESS SNOWFLAKE/Tips-6	white
+Spinner - Rosa Grande	Spoke 01		ICE PRINCESS SNOWFLAKE/Diamond-1	white
+Spinner - Rosa Grande	Spoke 02		ICE PRINCESS SNOWFLAKE/Diamond-2	white
+Spinner - Rosa Grande	Spoke 03		ICE PRINCESS SNOWFLAKE/Diamond-3	white
+Spinner - Rosa Grande	Spoke 04		ICE PRINCESS SNOWFLAKE/Diamond-4	white
+Spinner - Rosa Grande	Spoke 05		ICE PRINCESS SNOWFLAKE/Diamond-5	white
+Spinner - Rosa Grande	Spoke 06		ICE PRINCESS SNOWFLAKE/Diamond-6	white
+Fence Panel 3			MATRIX 3	white
+Fence Panel 5			MATRIX 5	white
+Fence Panel 4			MATRIX 4	white
+Mega Tree			MEGATREE 2	white
+Vert 5 - Entrance 2			FRONT DOOR CORNER WEB 2	white
+Window - Avery			FRONT DOOR CORNER WEB 1	white
+Vert 7 - Dining			GARAGE SIDE	white
+GE Rosa Tomb 2			RGB SINGING BULB 2	white
+GE Rosa Tomb 2	Bat Flying Wings Up		RGB SINGING BULB 2/Base	white
+GE Rosa Tomb 2	Bat Flying Wings Down		RGB SINGING BULB 2/Bulb	white
+GE Rosa Tomb 2	Paddle Arm 1		RGB SINGING BULB 2/Mouth 1	white
+GE Rosa Tomb 2	Warp 2		RGB SINGING BULB 2/Mouth 2	white
+GE Rosa Tomb 2	Cross Highlights		RGB SINGING BULB 2/Mouth 3	white
+GE Rosa Tomb 2	Warp 4		RGB SINGING BULB 2/Mouth 4	white
+GE Rosa Tomb 2	Cross Spinner Ring 5		RGB SINGING BULB 2/Mouth 5	white
+GE Rosa Tomb 2	Paddle Arm 2		RGB SINGING BULB 2/Open RT Eye	white
+GE Rosa Tomb 2	Cross Spinner Ring 1		RGB SINGING BULB 2/Close RT Eye	white
+GE Rosa Tomb 2	Paddle Arm 3		RGB SINGING BULB 2/Open LT Eye	white
+GE Rosa Tomb 2	Cross Spinner Ring 2		RGB SINGING BULB 2/Close LT Eye	white
+GE Rosa Tomb 2	Cross Spinner Outline		RGB SINGING BULB 2/Open Eyes	white
+GE Rosa Tomb 2	Gourds-05		RGB SINGING BULB 2/Closed Eyes	white
+GE Rosa Tomb 2	Star		RGB SINGING BULB 2/EVIL EYES	white
+GE Rosa Tomb 2	Flake Outline		RGB SINGING BULB 2/MOUTH AH	white
+GE Rosa Tomb 2	Warp 6		RGB SINGING BULB 2/Mouth 6	white
+GE Rosa Tomb 2	Warp 1		RGB SINGING BULB 2/Open RT Eye-1	white
+GE Rosa Tomb 2	Tomb Ring 1		RGB SINGING BULB 2/Close RT Eye-1	white
+GE Rosa Tomb 2	Gourds-01		RGB SINGING BULB 2/Open LT Eye-1	white
+GE Rosa Tomb 2	Cross Spinner Spoke 1		RGB SINGING BULB 2/Close LT Eye-1	white
+GE Rosa Tomb 2	Tomb Spoke 1		RGB SINGING BULB 2/Open Eyes-1	white
+GE Rosa Tomb 2	Cross Outline		RGB SINGING BULB 2/MOUTH AH-1	white
+GE Rosa Tomb 2	Bat Body		RGB SINGING BULB 2/Genie Necklace	white
+GE Rosa Tomb 2	Bat Eyes		RGB SINGING BULB 2/Genie right earing	white
+GE Rosa Tomb 1			RGB SINGING BULB 1	white
+GE Rosa Tomb 1	Bat Flying Wings Up		RGB SINGING BULB 1/Base	white
+GE Rosa Tomb 1	Bat Flying Wings Down		RGB SINGING BULB 1/Bulb	white
+GE Rosa Tomb 1	Paddle Arm 1		RGB SINGING BULB 1/Mouth 1	white
+GE Rosa Tomb 1	Warp 2		RGB SINGING BULB 1/Mouth 2	white
+GE Rosa Tomb 1	Cross Highlights		RGB SINGING BULB 1/Mouth 3	white
+GE Rosa Tomb 1	Warp 4		RGB SINGING BULB 1/Mouth 4	white
+GE Rosa Tomb 1	Cross Spinner Ring 5		RGB SINGING BULB 1/Mouth 5	white
+GE Rosa Tomb 1	Paddle Arm 2		RGB SINGING BULB 1/Open RT Eye	white
+GE Rosa Tomb 1	Cross Spinner Ring 1		RGB SINGING BULB 1/Close RT Eye	white
+GE Rosa Tomb 1	Paddle Arm 3		RGB SINGING BULB 1/Open LT Eye	white
+GE Rosa Tomb 1	Cross Spinner Ring 2		RGB SINGING BULB 1/Close LT Eye	white
+GE Rosa Tomb 1	Cross Spinner Outline		RGB SINGING BULB 1/Open Eyes	white
+GE Rosa Tomb 1	Gourds-05		RGB SINGING BULB 1/Closed Eyes	white
+GE Rosa Tomb 1	Star		RGB SINGING BULB 1/EVIL EYES	white
+GE Rosa Tomb 1	Flake Outline		RGB SINGING BULB 1/MOUTH AH	white
+GE Rosa Tomb 1	Warp 6		RGB SINGING BULB 1/Mouth 6	white
+GE Rosa Tomb 1	Warp 1		RGB SINGING BULB 1/Open RT Eye-1	white
+GE Rosa Tomb 1	Gourds-01		RGB SINGING BULB 1/Open LT Eye-1	white
+GE Rosa Tomb 1	Tomb Ring 1		RGB SINGING BULB 1/Open Eyes-1	white
+GE Rosa Tomb 1	Cross Spinner Spoke 1		RGB SINGING BULB 1/MOUTH AH-1	white
+GE Rosa Tomb 1	Bat Body		RGB SINGING BULB 1/Genie Necklace	white
+GE Rosa Tomb 1	Bat Eyes		RGB SINGING BULB 1/Genie left earring	white
+Eave 14 - Ellis Eave			GARAGE DOOR	white
+Mega Tree			MEGATREE	white
+Vert 15 - Garage 3			LOWER COLUMN 3	white
+Eave 13 - Avery Right			Roof Lower Peak Right-2	white
+Eave 11 - Lower Tower Right			Roof Lower Peak Right-3	white
+Eave 18 - Guest Right			Roof Lower Peak Right-4	white
