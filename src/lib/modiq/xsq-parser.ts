@@ -42,6 +42,22 @@ export function parseXsqModels(xsqXml: string): string[] {
     modelNames.add(name);
   }
 
+  // Also extract SubModelEffectLayer names. In xsq files, submodel effects
+  // are stored as <SubModelEffectLayer name="..."> inside the parent model's
+  // <Element>, NOT as nested <Element type="model"> entries. Without this,
+  // submodel names (e.g., "SPEAKER 1", "Handle") wouldn't appear in the
+  // model list, causing the xmap submodel filter to incorrectly exclude them.
+  const subModelRegex = /<SubModelEffectLayer\s+name="([^"]+)"/g;
+  while ((match = subModelRegex.exec(xsqXml)) !== null) {
+    const name = match[1]
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'");
+    modelNames.add(name);
+  }
+
   return Array.from(modelNames).sort();
 }
 
@@ -94,6 +110,32 @@ export function parseXsqEffectCounts(xsqXml: string): Record<string, number> {
             for (let j = 0; j < child.children.length; j++) {
               if (child.children[j].tagName === "Effect") {
                 effectCount++;
+              }
+            }
+          }
+        }
+
+        // Also count effects in SubModelEffectLayer children.
+        // Some models have 0 direct effects but all their effects are on
+        // submodel layers (e.g., "TUNE TO RADIO" with Speaker/Handle/Matrix
+        // SubModelEffectLayers). Without this, such models get effectCount=0
+        // and are filtered out by the zero-effect filter.
+        for (let i = 0; i < el.children.length; i++) {
+          const child = el.children[i];
+          if (child.tagName === "SubModelEffectLayer") {
+            const subName = child.getAttribute("name");
+            let subEffectCount = 0;
+            for (let j = 0; j < child.children.length; j++) {
+              if (child.children[j].tagName === "Effect") {
+                subEffectCount++;
+              }
+            }
+            if (subEffectCount > 0) {
+              effectCount += subEffectCount;
+              // Also track the submodel name separately so xmap submodel
+              // filtering knows this submodel is addressable in the sequence
+              if (subName) {
+                counts[subName] = (counts[subName] ?? 0) + subEffectCount;
               }
             }
           }
@@ -162,23 +204,41 @@ export function parseXsqEffectTypeCounts(
         .replace(/&apos;/g, "'");
 
       if (!EXCLUDED_PREFIXES.some((p) => decodedName.startsWith(p))) {
+        // Helper to extract effect type from an Effect element
+        const extractEffectType = (
+          effect: Element,
+          targetName: string,
+        ) => {
+          let effectName =
+            effect.getAttribute("name") ??
+            effect.getAttribute("ref")?.split(",")[0];
+          if (effectName) {
+            effectName = effectName.trim();
+            if (!result[targetName]) result[targetName] = {};
+            result[targetName][effectName] =
+              (result[targetName][effectName] ?? 0) + 1;
+          }
+        };
+
         for (let i = 0; i < el.children.length; i++) {
           const child = el.children[i];
           if (child.tagName === "EffectLayer") {
             for (let j = 0; j < child.children.length; j++) {
-              const effect = child.children[j];
-              if (effect.tagName === "Effect") {
-                // Effect name: try "name" attribute first, then parse from "ref"
-                let effectName =
-                  effect.getAttribute("name") ??
-                  effect.getAttribute("ref")?.split(",")[0];
-                if (effectName) {
-                  // Normalize: strip whitespace, use title case key
-                  effectName = effectName.trim();
-                  if (!result[decodedName]) result[decodedName] = {};
-                  result[decodedName][effectName] =
-                    (result[decodedName][effectName] ?? 0) + 1;
-                }
+              if (child.children[j].tagName === "Effect") {
+                extractEffectType(child.children[j], decodedName);
+              }
+            }
+          }
+        }
+
+        // Also process SubModelEffectLayer children — submodel effects
+        // should count toward the parent model's type distribution
+        for (let i = 0; i < el.children.length; i++) {
+          const child = el.children[i];
+          if (child.tagName === "SubModelEffectLayer") {
+            for (let j = 0; j < child.children.length; j++) {
+              if (child.children[j].tagName === "Effect") {
+                extractEffectType(child.children[j], decodedName);
               }
             }
           }
