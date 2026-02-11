@@ -1635,7 +1635,7 @@ export default function ModIQTool() {
                 <div
                   className={`text-2xl font-bold text-accent font-display ${processingStats.matchesFound > 0 ? "proc-counter-bump" : ""}`}
                 >
-                  {processingStats.matchesFound}
+                  <AnimatedCounter value={processingStats.matchesFound} />
                 </div>
                 <div className="text-[11px] text-foreground/40 mt-0.5">
                   Matches Found
@@ -3451,6 +3451,48 @@ function HowItWorksCard({
       <p className="text-sm text-foreground/60 flex-1">{description}</p>
     </div>
   );
+}
+
+// ─── Animated Counter ────────────────────────────────────
+// Tweens from 0 to target using requestAnimationFrame with ease-out.
+// Minimum animation duration of 500ms even if processing is fast.
+
+function AnimatedCounter({ value, className }: { value: number; className?: string }) {
+  const [displayed, setDisplayed] = useState(0);
+  const rafRef = useRef<number>(0);
+  const startRef = useRef<{ time: number; from: number; to: number } | null>(null);
+
+  useEffect(() => {
+    if (value === 0) {
+      setDisplayed(0);
+      return;
+    }
+
+    const from = 0; // always animate from 0
+    const to = value;
+    const duration = Math.max(500, Math.min(to * 15, 1200)); // 500ms–1200ms
+
+    startRef.current = { time: performance.now(), from, to };
+
+    const tick = (now: number) => {
+      const s = startRef.current;
+      if (!s) return;
+      const elapsed = now - s.time;
+      const t = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - (1 - t) ** 3;
+      const current = Math.round(s.from + (s.to - s.from) * eased);
+      setDisplayed(current);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value]);
+
+  return <span className={className}>{displayed}</span>;
 }
 
 function delay(ms: number): Promise<void> {
