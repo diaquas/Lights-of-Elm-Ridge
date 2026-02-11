@@ -82,6 +82,7 @@ interface ProcessingStats {
   layoutModels: number;
   sequenceModels: number;
   matchesFound: number;
+  matchEstimate: number; // expected total — drives continuous counter animation
   progress: number; // 0-100
 }
 
@@ -165,6 +166,7 @@ export default function ModIQTool() {
     layoutModels: 0,
     sequenceModels: 0,
     matchesFound: 0,
+    matchEstimate: 0,
     progress: 0,
   });
 
@@ -298,6 +300,7 @@ export default function ModIQTool() {
       layoutModels: userLayout.modelCount,
       sequenceModels: 0,
       matchesFound: 0,
+      matchEstimate: 0,
       progress: 0,
     });
 
@@ -411,16 +414,20 @@ export default function ModIQTool() {
 
     await advance(300); // "Matching against ..." → active
 
-    // Set preliminary estimate so the counter starts climbing during matching
-    const estimate = Math.round(srcModels.length * 0.75);
-    setProcessingStats((s) => ({ ...s, matchesFound: estimate }));
+    // Tell the counter to start its continuous climb toward ~85% of estimate
+    const estimate = Math.round(srcModels.length * 0.85);
+    setProcessingStats((s) => ({ ...s, matchEstimate: estimate }));
 
-    // Yield to let React render the estimate before blocking on matchModels
+    // Yield to let React start the counter animation before blocking on matchModels
     await delay(50);
     const result = matchModels(srcModels, userLayout.models);
 
-    // Update to real count — AnimatedCounter will tween from estimate → actual
-    setProcessingStats((s) => ({ ...s, matchesFound: result.mappedCount }));
+    // Land on exact final number — counter smoothly finishes from wherever it is
+    setProcessingStats((s) => ({
+      ...s,
+      matchesFound: result.mappedCount,
+      matchEstimate: 0,
+    }));
 
     await advance(300); // "Resolving submodel structures" → active
     await delay(200);
@@ -1642,7 +1649,7 @@ export default function ModIQTool() {
                 <div
                   className={`text-2xl font-bold text-accent font-display ${processingStats.matchesFound > 0 ? "proc-counter-bump" : ""}`}
                 >
-                  <AnimatedCounter value={processingStats.matchesFound} />
+                  <AnimatedCounter value={processingStats.matchesFound} estimate={processingStats.matchEstimate} />
                 </div>
                 <div className="text-[11px] text-foreground/40 mt-0.5">
                   Matches Found
@@ -3464,33 +3471,35 @@ function HowItWorksCard({
 // Tweens from 0 to target using requestAnimationFrame with ease-out.
 // Minimum animation duration of 500ms even if processing is fast.
 
-function AnimatedCounter({ value, className }: { value: number; className?: string }) {
+function AnimatedCounter({
+  value,
+  estimate = 0,
+  className,
+}: {
+  value: number;
+  estimate?: number;
+  className?: string;
+}) {
   const [displayed, setDisplayed] = useState(0);
   const rafRef = useRef<number>(0);
   const displayedRef = useRef(0);
 
+  // Mode 1: Continuous climb while processing (estimate > 0, value still 0)
+  // Slowly climbs toward ~85% of estimate over ~8s with ease-out
   useEffect(() => {
-    if (value === 0) {
-      displayedRef.current = 0;
-      setDisplayed(0);
-      return;
-    }
+    if (estimate <= 0 || value > 0) return;
 
-    const from = displayedRef.current; // animate from current value
-    const to = value;
-    if (from === to) return;
-
-    const delta = Math.abs(to - from);
-    // Longer animation for big jumps (0→N), shorter for small corrections
-    const duration = delta > 20 ? Math.max(500, Math.min(delta * 12, 1200)) : 300;
+    const target = Math.round(estimate * 0.85);
+    const duration = 8000; // 8s continuous climb
     const startTime = performance.now();
+    const from = displayedRef.current;
 
     const tick = (now: number) => {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / duration, 1);
-      // ease-out cubic
-      const eased = 1 - (1 - t) ** 3;
-      const current = Math.round(from + (to - from) * eased);
+      // ease-out: fast start, slows toward end — never fully stops
+      const eased = 1 - (1 - t) ** 2.5;
+      const current = Math.round(from + (target - from) * eased);
       displayedRef.current = current;
       setDisplayed(current);
       if (t < 1) {
@@ -3500,7 +3509,43 @@ function AnimatedCounter({ value, className }: { value: number; className?: stri
 
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [value]);
+  }, [estimate, value]);
+
+  // Mode 2: Snap to final value (value > 0 means processing complete)
+  useEffect(() => {
+    if (value <= 0) {
+      if (estimate <= 0) {
+        displayedRef.current = 0;
+        setDisplayed(0);
+      }
+      return;
+    }
+
+    const from = displayedRef.current;
+    const to = value;
+    if (from === to) return;
+
+    const delta = Math.abs(to - from);
+    // Quick finish: 300–600ms ease-out from wherever the climb got to
+    const duration = Math.max(300, Math.min(delta * 8, 600));
+    const startTime = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - (1 - t) ** 3;
+      const current = Math.round(from + (to - from) * eased);
+      displayedRef.current = current;
+      setDisplayed(current);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value, estimate]);
 
   return <span className={className}>{displayed}</span>;
 }
