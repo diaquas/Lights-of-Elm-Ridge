@@ -3441,12 +3441,14 @@ function HowItWorksCard({
   description: string;
 }) {
   return (
-    <div className="bg-surface rounded-xl border border-border p-6 text-center">
+    <div className="bg-surface rounded-xl border border-border p-6 text-center flex flex-col">
       <div className="w-10 h-10 rounded-full bg-accent/20 text-accent flex items-center justify-center text-lg font-bold mx-auto mb-3">
         {number}
       </div>
-      <h3 className="font-display font-bold mb-2">{title}</h3>
-      <p className="text-sm text-foreground/60">{description}</p>
+      <h3 className="font-display font-bold mb-2 min-h-[3rem] flex items-end justify-center">
+        {title}
+      </h3>
+      <p className="text-sm text-foreground/60 flex-1">{description}</p>
     </div>
   );
 }
