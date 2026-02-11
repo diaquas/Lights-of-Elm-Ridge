@@ -88,6 +88,8 @@ export function UniversalSourcePanel({
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(
     new Set(),
   );
+  const [unmappedOpen, setUnmappedOpen] = useState(true);
+  const [mappedOpen, setMappedOpen] = useState(false);
 
   // Available models = filtered + not skipped
   const availableModels = useMemo(() => {
@@ -164,6 +166,25 @@ export function UniversalSourcePanel({
     return families;
   }, [filteredModels, search, suggestionNames, assignedNames]);
 
+  // Split families into unmapped / mapped, sorted A→Z
+  const { unmappedFamilies, mappedFamilies } = useMemo(() => {
+    const unmapped: ModelFamily[] = [];
+    const mapped: ModelFamily[] = [];
+    for (const family of modelFamilies) {
+      const allAssigned =
+        assignedNames != null &&
+        assignedNames.size > 0 &&
+        family.models.every((m) => assignedNames.has(m.name));
+      if (allAssigned) mapped.push(family);
+      else unmapped.push(family);
+    }
+    const sortFn = (a: ModelFamily, b: ModelFamily) =>
+      a.prefix.localeCompare(b.prefix);
+    unmapped.sort(sortFn);
+    mapped.sort(sortFn);
+    return { unmappedFamilies: unmapped, mappedFamilies: mapped };
+  }, [modelFamilies, assignedNames]);
+
   const toggleFamily = useCallback((prefix: string) => {
     setExpandedFamilies((prev) => {
       const next = new Set(prev);
@@ -180,6 +201,60 @@ export function UniversalSourcePanel({
     },
     [onSkipDest],
   );
+
+  // Shared renderer for a family (used in both unmapped + mapped sections)
+  const renderFamily = (family: ModelFamily) => {
+    // Single item or searching — render flat
+    if (family.models.length === 1 || search) {
+      return family.models.map((model) => (
+        <ModelCard
+          key={model.name}
+          model={model}
+          isAssigned={assignedNames?.has(model.name) ?? false}
+          onAccept={onAccept}
+          onSkip={onSkipDest}
+          dnd={dnd}
+          destToSourcesMap={destToSourcesMap}
+          onRemoveLink={onRemoveLink}
+          sourceEffectCounts={sourceEffectCounts}
+          currentSourceSelection={selectedDestLabel}
+        />
+      ));
+    }
+
+    // Multi-item family — collapsible group
+    const isExpanded = expandedFamilies.has(family.prefix);
+    return (
+      <div key={family.prefix}>
+        <FamilyRow
+          family={family}
+          isExpanded={isExpanded}
+          onToggle={() => toggleFamily(family.prefix)}
+          onSkipFamily={
+            onSkipDest ? () => skipFamily(family.models) : undefined
+          }
+        />
+        {isExpanded && (
+          <div className="space-y-0.5 pl-3 pb-1 ml-1 border-l border-border/30">
+            {family.models.map((model) => (
+              <ModelCard
+                key={model.name}
+                model={model}
+                isAssigned={assignedNames?.has(model.name) ?? false}
+                onAccept={onAccept}
+                onSkip={onSkipDest}
+                dnd={dnd}
+                destToSourcesMap={destToSourcesMap}
+                onRemoveLink={onRemoveLink}
+                sourceEffectCounts={sourceEffectCounts}
+                currentSourceSelection={selectedDestLabel}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -260,16 +335,9 @@ export function UniversalSourcePanel({
           </div>
         )}
 
-        {/* All Models section — grouped by family */}
+        {/* All Models — split into Unmapped / Mapped sections */}
         <div className="px-6 py-3">
-          <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
-            All Models ({filteredModels.length}
-            {skippedModels.length > 0
-              ? `, ${skippedModels.length} skipped`
-              : ""}
-            )
-          </div>
-          {modelFamilies.length === 0 ? (
+          {unmappedFamilies.length === 0 && mappedFamilies.length === 0 ? (
             <div className="text-center py-8 text-foreground/40">
               <p className="text-sm">
                 {search ? (
@@ -280,60 +348,78 @@ export function UniversalSourcePanel({
               </p>
             </div>
           ) : (
-            <div className="space-y-1">
-              {modelFamilies.map((family) => {
-                // Single item or searching — render flat
-                if (family.models.length === 1 || search) {
-                  return family.models.map((model) => (
-                    <ModelCard
-                      key={model.name}
-                      model={model}
-                      isAssigned={assignedNames?.has(model.name) ?? false}
-                      onAccept={onAccept}
-                      onSkip={onSkipDest}
-                      dnd={dnd}
-                      destToSourcesMap={destToSourcesMap}
-                      onRemoveLink={onRemoveLink}
-                      sourceEffectCounts={sourceEffectCounts}
-                      currentSourceSelection={selectedDestLabel}
-                    />
-                  ));
-                }
+            <>
+              {/* ── UNMAPPED section ── */}
+              {unmappedFamilies.length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setUnmappedOpen((p) => !p)}
+                    className="flex items-center gap-2 w-full py-2 text-left group"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${unmappedOpen ? "rotate-90" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
+                      Unmapped
+                    </span>
+                    <span className="text-[12px] font-semibold text-foreground/35">
+                      ({unmappedFamilies.reduce((n, f) => n + f.models.length, 0)})
+                    </span>
+                  </button>
+                  {unmappedOpen && (
+                    <div className="space-y-1 pb-2">
+                      {unmappedFamilies.map((family) =>
+                        renderFamily(family),
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
-                // Multi-item family — collapsible group
-                const isExpanded = expandedFamilies.has(family.prefix);
-                return (
-                  <div key={family.prefix}>
-                    <FamilyRow
-                      family={family}
-                      isExpanded={isExpanded}
-                      onToggle={() => toggleFamily(family.prefix)}
-                      onSkipFamily={
-                        onSkipDest ? () => skipFamily(family.models) : undefined
-                      }
-                    />
-                    {isExpanded && (
-                      <div className="space-y-0.5 pl-3 pb-1 ml-1 border-l border-border/30">
-                        {family.models.map((model) => (
-                          <ModelCard
-                            key={model.name}
-                            model={model}
-                            isAssigned={assignedNames?.has(model.name) ?? false}
-                            onAccept={onAccept}
-                            onSkip={onSkipDest}
-                            dnd={dnd}
-                            destToSourcesMap={destToSourcesMap}
-                            onRemoveLink={onRemoveLink}
-                            sourceEffectCounts={sourceEffectCounts}
-                            currentSourceSelection={selectedDestLabel}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+              {/* ── Divider between sections ── */}
+              {unmappedFamilies.length > 0 && mappedFamilies.length > 0 && (
+                <div className="border-t border-border/40 my-1" />
+              )}
+
+              {/* ── MAPPED section ── */}
+              {mappedFamilies.length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setMappedOpen((p) => !p)}
+                    className="flex items-center gap-2 w-full py-2 text-left group"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${mappedOpen ? "rotate-90" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
+                      Mapped
+                    </span>
+                    <span className="text-[12px] font-semibold text-foreground/35">
+                      ({mappedFamilies.reduce((n, f) => n + f.models.length, 0)})
+                    </span>
+                  </button>
+                  {mappedOpen && (
+                    <div className="space-y-1 pb-2">
+                      {mappedFamilies.map((family) =>
+                        renderFamily(family),
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           {/* Skipped Items section */}
