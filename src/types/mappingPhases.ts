@@ -6,6 +6,7 @@ export type MappingPhase =
   | "groups"
   | "individuals"
   | "spinners"
+  | "finalize"
   | "review";
 
 export interface PhaseConfig {
@@ -28,7 +29,7 @@ export const UPLOAD_STEP = {
 /**
  * Phase definitions for the ModIQ mapping wizard.
  *
- * Ordering: [Upload (always done)] → Auto-Accept → Groups → Individuals → Spinners → Review
+ * Ordering: [Upload (always done)] → Auto-Accept → Groups → Individuals → Spinners → Finalize → Review
  *
  * Phase routing uses the xLights type system:
  * - Auto-Accept: ALL entity types with 70%+ confidence (opt-out review)
@@ -81,9 +82,16 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     },
   },
   {
+    id: "finalize",
+    label: "Finalize",
+    description: "Fine-tune mappings and fill coverage gaps",
+    icon: "finalize",
+    filter: () => true, // Shows all non-skipped items (dual-pane working checklist)
+  },
+  {
     id: "review",
     label: "Review",
-    description: "Review all mappings before export",
+    description: "Review metrics and export",
     icon: "review",
     filter: () => true,
   },

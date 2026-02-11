@@ -1,11 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useCallback } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
-import { ConfidenceBadge } from "../ConfidenceBadge";
 import { SacrificeSummary } from "../SacrificeIndicator";
-import PostMappingAdvisor from "../PostMappingAdvisor";
-import FinalCheckNotice from "../FinalCheckNotice";
 import CoverageProgressBar from "../CoverageProgressBar";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
@@ -24,22 +21,33 @@ export function ReviewPhase({
   onReset,
   seqTitle,
 }: ReviewPhaseProps) {
-  const { interactive, phaseCounts } = useMappingPhase();
+  const { interactive, phaseCounts, setCurrentPhase } = useMappingPhase();
 
-  const { displayCoverage, effectsCoverage, hiddenGems } = interactive;
-  const [finalCheckDismissed, setFinalCheckDismissed] = useState(false);
+  const { displayCoverage, effectsCoverage } = interactive;
 
-  const { mappedLayers, unmappedLayers } = useMemo(() => {
+  const { mappedLayers, unmappedLayers, skippedLayers, manyToOneCount } = useMemo(() => {
     const mapped: SourceLayerMapping[] = [];
     const unmapped: SourceLayerMapping[] = [];
+    const skipped: SourceLayerMapping[] = [];
+    let manyToOne = 0;
 
     for (const layer of interactive.sourceLayerMappings) {
-      if (layer.isSkipped) continue;
-      if (layer.isMapped) mapped.push(layer);
-      else unmapped.push(layer);
+      if (layer.isSkipped) {
+        skipped.push(layer);
+      } else if (layer.isMapped) {
+        mapped.push(layer);
+        if (layer.assignedUserModels.length > 1) manyToOne++;
+      } else {
+        unmapped.push(layer);
+      }
     }
 
-    return { mappedLayers: mapped, unmappedLayers: unmapped };
+    return {
+      mappedLayers: mapped,
+      unmappedLayers: unmapped,
+      skippedLayers: skipped,
+      manyToOneCount: manyToOne,
+    };
   }, [interactive.sourceLayerMappings]);
 
   const totalChildrenResolved = mappedLayers
@@ -52,9 +60,35 @@ export function ReviewPhase({
   // Display coverage determines the visual treatment
   const isGreat = displayCoverage.percent >= 90;
   const isGood = displayCoverage.percent >= 70;
+  const showFinalizeNudge = displayCoverage.percent < 100;
+
+  const goToFinalize = useCallback(() => {
+    setCurrentPhase("finalize");
+  }, [setCurrentPhase]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
+      {/* Finalize nudge */}
+      {showFinalizeNudge && (
+        <div className="px-6 py-2.5 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-[13px] text-amber-200/80">
+              Display coverage is {displayCoverage.percent}% &mdash; go back to Finalize to fill gaps?
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={goToFinalize}
+            className="text-[12px] font-medium text-amber-400 hover:text-amber-300 px-3 py-1 rounded-lg hover:bg-amber-500/10 transition-colors"
+          >
+            Go to Finalize
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-8 py-6 border-b border-border text-center flex-shrink-0">
         {isGreat ? (
@@ -119,6 +153,37 @@ export function ReviewPhase({
               </span>{" "}
               models in your layout will receive effects
             </p>
+          </div>
+
+          {/* ═══ Side-by-Side Summary Counts ═══ */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-surface rounded-xl border border-border p-5">
+              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-3">
+                Source Sequence
+              </div>
+              <div className="space-y-2">
+                <SummaryRow label="Layers mapped" value={mappedLayers.length} />
+                <SummaryRow label="Skipped" value={skippedLayers.length} muted />
+                <SummaryRow label="Many-to-one" value={manyToOneCount} muted />
+              </div>
+            </div>
+            <div className="bg-surface rounded-xl border border-border p-5">
+              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-3">
+                My Display
+              </div>
+              <div className="space-y-2">
+                <SummaryRow
+                  label="Groups active"
+                  value={`${displayCoverage.covered}/${displayCoverage.total}`}
+                />
+                <SummaryRow label="Groups dark" value={userUnmappedCount} muted />
+                <SummaryRow
+                  label="Display coverage"
+                  value={`${displayCoverage.percent}%`}
+                  highlight={isGreat}
+                />
+              </div>
+            </div>
           </div>
 
           {/* ═══ Stats Grid ═══ */}
@@ -194,26 +259,6 @@ export function ReviewPhase({
             )}
           </div>
 
-          {/* ═══ Final Check — Unmapped Premium Effects (Ticket 47) ═══ */}
-          <div className="mb-6">
-            <FinalCheckNotice
-              hiddenGems={hiddenGems}
-              dismissed={finalCheckDismissed}
-              onDismiss={() => setFinalCheckDismissed(true)}
-            />
-          </div>
-
-          {/* ═══ Mapping Advisor (Ticket 45) ═══ */}
-          <div className="mb-6">
-            <PostMappingAdvisor
-              displayCoveragePercent={displayCoverage.percent}
-              effectsCoveragePercent={effectsCoverage.percent}
-              hiddenGems={hiddenGems}
-              totalUserModels={displayCoverage.total}
-              coveredUserModels={displayCoverage.covered}
-            />
-          </div>
-
           {/* ═══ Mapping Source ═══ */}
           <div className="bg-surface rounded-xl border border-border p-4 mb-6">
             <div className="text-[11px] text-foreground/30 uppercase tracking-wide mb-1">
@@ -231,9 +276,7 @@ export function ReviewPhase({
             </div>
           )}
 
-          {/* ═══ Informational Notices (not warnings!) ═══ */}
-
-          {/* User models without sequence content — INFO, not warning */}
+          {/* ═══ Informational Notices ═══ */}
           {userUnmappedCount > 0 && (
             <InfoNotice
               icon="info"
@@ -242,7 +285,6 @@ export function ReviewPhase({
             />
           )}
 
-          {/* Unused sequence layers — INFO, not warning */}
           {unmappedLayers.length > 0 && (
             <InfoNotice
               icon="layers"
@@ -250,58 +292,10 @@ export function ReviewPhase({
               subtitle="The sequence has props you don't have — this is expected!"
             />
           )}
-
-          {/* ═══ Mapped Summary (collapsible) ═══ */}
-          <details className="mb-6">
-            <summary className="text-sm font-medium text-foreground/60 cursor-pointer hover:text-foreground/80 mb-3">
-              View all {mappedLayers.length} mappings
-            </summary>
-            <div className="bg-surface rounded-xl border border-border overflow-hidden">
-              <div className="divide-y divide-border/30">
-                {mappedLayers.map((layer) => {
-                  const suggs = interactive.getSuggestionsForLayer(
-                    layer.sourceModel,
-                  );
-                  const matchedSugg = suggs.find(
-                    (s) => s.model.name === layer.assignedUserModels[0]?.name,
-                  );
-
-                  return (
-                    <div
-                      key={layer.sourceModel.name}
-                      className="px-4 py-2.5 flex items-center gap-3 hover:bg-foreground/[0.02]"
-                    >
-                      <svg
-                        className="w-4 h-4 text-green-400 flex-shrink-0"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span className="text-[13px] text-foreground/70 truncate flex-1">
-                        {layer.sourceModel.name}
-                      </span>
-                      <span className="text-foreground/20">&rarr;</span>
-                      <span className="text-[13px] text-foreground/50 truncate flex-1 text-right">
-                        {layer.assignedUserModels[0]?.name ?? "\u2014"}
-                      </span>
-                      {matchedSugg && (
-                        <ConfidenceBadge score={matchedSugg.score} size="sm" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </details>
         </div>
       </div>
 
-      {/* ═══ Export Actions — clean, no scary numbers ═══ */}
+      {/* ═══ Export Actions ═══ */}
       <div className="px-8 py-4 border-t border-border flex-shrink-0">
         <div className="flex flex-col sm:flex-row gap-3 max-w-3xl mx-auto">
           <button
@@ -350,7 +344,40 @@ export function ReviewPhase({
   );
 }
 
-// ─── Info Notice (replaces scary warnings) ────────────
+// ─── Summary Row ────────────────────────────────────────
+
+function SummaryRow({
+  label,
+  value,
+  muted,
+  highlight,
+}: {
+  label: string;
+  value: string | number;
+  muted?: boolean;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className={muted ? "text-foreground/35" : "text-foreground/50"}>
+        {label}
+      </span>
+      <span
+        className={`font-medium tabular-nums ${
+          highlight
+            ? "text-green-400"
+            : muted
+              ? "text-foreground/35"
+              : "text-foreground"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// ─── Info Notice ────────────────────────────────────────
 
 function InfoNotice({
   icon,

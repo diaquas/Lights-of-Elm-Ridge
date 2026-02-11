@@ -82,6 +82,21 @@ const PHASE_ICONS: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
+  finalize: (
+    <svg
+      className="w-3.5 h-3.5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+      />
+    </svg>
+  ),
   review: (
     <svg
       className="w-3.5 h-3.5"
@@ -157,7 +172,7 @@ export function PhaseStepper({ progressState, onOpenProgressModal }: PhaseSteppe
                 >
                   {isComplete ? CHECK_ICON : PHASE_ICONS[phase.icon]}
                   <span>{phase.stepperLabel ?? phase.label}</span>
-                  {count > 0 && phase.id !== "review" && (
+                  {count > 0 && phase.id !== "review" && phase.id !== "finalize" && (
                     <span
                       className={`
                         text-[10px] px-1.5 py-0.5 rounded-full font-semibold
