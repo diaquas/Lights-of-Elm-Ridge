@@ -513,13 +513,15 @@ export default function TheShowTabs({
               </span>
             </button>
             <button
-              className={`show-pl-tab ${playlistCategory === "christmas" ? "active" : ""}`}
-              onClick={() => setPlaylistCategory("christmas")}
+              className="show-pl-tab opacity-50 cursor-not-allowed pointer-events-none"
+              aria-disabled="true"
+              tabIndex={-1}
             >
               <span className="show-pl-tab-icon">🎄</span> Christmas{" "}
               <span className="show-pl-tab-count">
                 ({christmasSongs.length})
               </span>
+              <span className="text-xs text-zinc-500 ml-1.5 font-normal">Coming Soon</span>
             </button>
           </div>
           <span className="show-pl-original-count">
