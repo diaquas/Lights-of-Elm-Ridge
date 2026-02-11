@@ -5,7 +5,7 @@ import ModIQTool from "@/components/ModIQTool";
 export const metadata: Metadata = {
   title: "ModIQ — Intelligent Sequence Mapping",
   description:
-    "Stop mapping sequences manually. Upload your xLights layout, pick a sequence, and get a mapping file in seconds — not hours. By Lights of Elm Ridge.",
+    "Stop mapping sequences manually. Sequence mapping in seconds — not hours. The first automated xLights mapping tool.",
   keywords: [
     "xLights",
     "sequence mapping",
