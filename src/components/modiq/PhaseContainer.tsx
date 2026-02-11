@@ -5,6 +5,7 @@ import { AutoAcceptPhase } from "./phases/AutoAcceptPhase";
 import { GroupsPhase } from "./phases/GroupsPhase";
 import { IndividualsPhase } from "./phases/IndividualsPhase";
 import { SpinnersPhase } from "./phases/SpinnersPhase";
+import { FinalizePhase } from "./phases/FinalizePhase";
 import { ReviewPhase, type ReviewPhaseProps } from "./phases/ReviewPhase";
 
 interface PhaseContainerProps {
@@ -28,6 +29,9 @@ export function PhaseContainer({ reviewProps }: PhaseContainerProps) {
       break;
     case "spinners":
       content = <SpinnersPhase />;
+      break;
+    case "finalize":
+      content = <FinalizePhase />;
       break;
     case "review":
       content = <ReviewPhase {...reviewProps} />;

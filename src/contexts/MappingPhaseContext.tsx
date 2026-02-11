@@ -221,7 +221,7 @@ export function MappingPhaseProvider({
 
   const getPhaseItems = useCallback(
     (phase: MappingPhase): SourceLayerMapping[] => {
-      if (phase === "review") {
+      if (phase === "review" || phase === "finalize") {
         return sortLayers(interactive.sourceLayerMappings.filter((l) => !l.isSkipped));
       }
       return sortLayers(interactive.sourceLayerMappings.filter((layer) => {
@@ -275,7 +275,7 @@ export function MappingPhaseProvider({
   const phaseCounts = useMemo(() => {
     const counts = new Map<MappingPhase, number>();
     for (const config of PHASE_CONFIG) {
-      if (config.id === "review") {
+      if (config.id === "review" || config.id === "finalize") {
         counts.set(config.id, interactive.sourceLayerMappings.filter((l) => !l.isSkipped).length);
       } else {
         counts.set(config.id, getPhaseItems(config.id).length);
