@@ -422,7 +422,7 @@ export default function ModIQTool() {
     await delay(50);
     const result = matchModels(srcModels, userLayout.models);
 
-    // Land on exact final number — counter smoothly finishes from wherever it is
+    // Set exact final number — counter jumps directly from climb position
     setProcessingStats((s) => ({
       ...s,
       matchesFound: result.mappedCount,
@@ -3468,8 +3468,8 @@ function HowItWorksCard({
 }
 
 // ─── Animated Counter ────────────────────────────────────
-// Tweens from 0 to target using requestAnimationFrame with ease-out.
-// Minimum animation duration of 500ms even if processing is fast.
+// Continuous climb toward estimate using requestAnimationFrame with ease-out.
+// When real value arrives, sets it directly (no second animation).
 
 function AnimatedCounter({
   value,
@@ -3484,7 +3484,7 @@ function AnimatedCounter({
   const rafRef = useRef<number>(0);
   const displayedRef = useRef(0);
 
-  // Mode 1: Continuous climb while processing (estimate > 0, value still 0)
+  // Continuous climb while processing (estimate > 0, value still 0)
   // Slowly climbs toward ~85% of estimate over ~8s with ease-out
   useEffect(() => {
     if (estimate <= 0 || value > 0) return;
@@ -3511,40 +3511,16 @@ function AnimatedCounter({
     return () => cancelAnimationFrame(rafRef.current);
   }, [estimate, value]);
 
-  // Mode 2: Snap to final value (value > 0 means processing complete)
+  // When final value arrives, stop climbing and set it directly
   useEffect(() => {
-    if (value <= 0) {
-      if (estimate <= 0) {
-        displayedRef.current = 0;
-        setDisplayed(0);
-      }
-      return;
+    if (value > 0) {
+      cancelAnimationFrame(rafRef.current);
+      displayedRef.current = value;
+      setDisplayed(value);
+    } else if (estimate <= 0) {
+      displayedRef.current = 0;
+      setDisplayed(0);
     }
-
-    const from = displayedRef.current;
-    const to = value;
-    if (from === to) return;
-
-    const delta = Math.abs(to - from);
-    // Quick finish: 300–600ms ease-out from wherever the climb got to
-    const duration = Math.max(300, Math.min(delta * 8, 600));
-    const startTime = performance.now();
-
-    const tick = (now: number) => {
-      const elapsed = now - startTime;
-      const t = Math.min(elapsed / duration, 1);
-      const eased = 1 - (1 - t) ** 3;
-      const current = Math.round(from + (to - from) * eased);
-      displayedRef.current = current;
-      setDisplayed(current);
-      if (t < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      }
-    };
-
-    cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
   }, [value, estimate]);
 
   return <span className={className}>{displayed}</span>;
