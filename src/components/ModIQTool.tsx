@@ -410,9 +410,16 @@ export default function ModIQTool() {
     setSourceModels(srcModels);
 
     await advance(300); // "Matching against ..." → active
+
+    // Set preliminary estimate so the counter starts climbing during matching
+    const estimate = Math.round(srcModels.length * 0.75);
+    setProcessingStats((s) => ({ ...s, matchesFound: estimate }));
+
+    // Yield to let React render the estimate before blocking on matchModels
+    await delay(50);
     const result = matchModels(srcModels, userLayout.models);
 
-    // Update matches found
+    // Update to real count — AnimatedCounter will tween from estimate → actual
     setProcessingStats((s) => ({ ...s, matchesFound: result.mappedCount }));
 
     await advance(300); // "Resolving submodel structures" → active
@@ -3460,28 +3467,31 @@ function HowItWorksCard({
 function AnimatedCounter({ value, className }: { value: number; className?: string }) {
   const [displayed, setDisplayed] = useState(0);
   const rafRef = useRef<number>(0);
-  const startRef = useRef<{ time: number; from: number; to: number } | null>(null);
+  const displayedRef = useRef(0);
 
   useEffect(() => {
     if (value === 0) {
+      displayedRef.current = 0;
       setDisplayed(0);
       return;
     }
 
-    const from = 0; // always animate from 0
+    const from = displayedRef.current; // animate from current value
     const to = value;
-    const duration = Math.max(500, Math.min(to * 15, 1200)); // 500ms–1200ms
+    if (from === to) return;
 
-    startRef.current = { time: performance.now(), from, to };
+    const delta = Math.abs(to - from);
+    // Longer animation for big jumps (0→N), shorter for small corrections
+    const duration = delta > 20 ? Math.max(500, Math.min(delta * 12, 1200)) : 300;
+    const startTime = performance.now();
 
     const tick = (now: number) => {
-      const s = startRef.current;
-      if (!s) return;
-      const elapsed = now - s.time;
+      const elapsed = now - startTime;
       const t = Math.min(elapsed / duration, 1);
       // ease-out cubic
       const eased = 1 - (1 - t) ** 3;
-      const current = Math.round(s.from + (s.to - s.from) * eased);
+      const current = Math.round(from + (to - from) * eased);
+      displayedRef.current = current;
       setDisplayed(current);
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
