@@ -125,7 +125,7 @@ export function PhaseStepper({ progressState, onOpenProgressModal }: PhaseSteppe
       <div className="flex items-center gap-1">
         {/* Upload Step (always completed) */}
         <div className="flex items-center">
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[13px] font-medium bg-green-500/15 text-green-400">
+          <div className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full text-[13px] font-medium bg-green-500/15 text-green-400 min-h-[2.75rem] text-center">
             {CHECK_ICON}
             <span>{UPLOAD_STEP.label}</span>
           </div>
@@ -145,7 +145,8 @@ export function PhaseStepper({ progressState, onOpenProgressModal }: PhaseSteppe
                 type="button"
                 onClick={() => setCurrentPhase(phase.id)}
                 className={`
-                  flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[13px] font-medium
+                  flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full text-[13px] font-medium
+                  min-h-[2.75rem] text-center whitespace-normal
                   transition-all duration-200
                   ${isComplete ? "bg-green-500/15 text-green-400 hover:bg-green-500/25" : ""}
                   ${isCurrent ? "bg-accent/15 text-accent ring-1 ring-accent/40" : ""}
