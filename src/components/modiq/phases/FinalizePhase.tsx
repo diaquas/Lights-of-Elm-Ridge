@@ -6,6 +6,10 @@ import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 // ─── Types ──────────────────────────────────────────────
 
+type ViewMode = "card" | "grid";
+type SortKey = "unmapped-first" | "name-asc" | "name-desc" | "fx-desc" | "match-desc";
+type FilterMode = "all" | "unmapped" | "suggested" | "mapped";
+
 interface DestDisplayItem {
   model: { name: string; isGroup: boolean };
   sources: string[];
@@ -23,6 +27,17 @@ interface DarkGroup {
   items: DestDisplayItem[];
   /** Best suggestion across all items in this group */
   topSuggestion: SuggestionHit | null;
+}
+
+/** A flat row for grid view — combines dark + mapped items */
+interface GridRow {
+  destName: string;
+  isGroup: boolean;
+  sources: string[];
+  isMapped: boolean;
+  topSuggestion: SuggestionHit | null;
+  topScore: number; // 0-1 for sorting
+  effectCount: number; // from best source
 }
 
 // ─── Helpers ────────────────────────────────────────────
@@ -61,6 +76,7 @@ export function FinalizePhase() {
   } = interactive;
 
   // ── State ──
+  const [viewMode, setViewMode] = useState<ViewMode>("card");
   const [search, setSearch] = useState("");
   const [needsAttentionOpen, setNeedsAttentionOpen] = useState(true);
   const [mappedOpen, setMappedOpen] = useState(false);
@@ -70,6 +86,13 @@ export function FinalizePhase() {
   const [inlinePicker, setInlinePicker] = useState<{ destName: string; anchorRect?: DOMRect } | null>(null);
   const [pickerSearch, setPickerSearch] = useState("");
   const [batchPicker, setBatchPicker] = useState<{ family: string } | null>(null);
+
+  // Grid-specific state
+  const [sortKey, setSortKey] = useState<SortKey>("unmapped-first");
+  const [filterMode, setFilterMode] = useState<FilterMode>("all");
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [gridDropdown, setGridDropdown] = useState<string | null>(null);
+  const [gridDropdownSearch, setGridDropdownSearch] = useState("");
 
   // Coverage delta toast
   const [deltaToast, setDeltaToast] = useState<string | null>(null);
@@ -289,7 +312,144 @@ export function FinalizePhase() {
     });
   }, [batchPicker, darkGroups, darkSuggestions, sourceLayerMappings]);
 
+  // ── Grid rows (flat list of all dest models) ──
+  const allGridRows = useMemo((): GridRow[] => {
+    const allItems = [...darkItems, ...mappedItems];
+    return allItems.map((item) => {
+      const suggs = darkSuggestions.get(item.model.name);
+      const topSugg = suggs && suggs.length > 0 ? suggs[0] : null;
+      // For mapped items, find effect count from source layer
+      let effectCount = 0;
+      if (item.sources.length > 0) {
+        const layer = sourceLayerMappings.find((l) => l.sourceModel.name === item.sources[0]);
+        effectCount = layer?.effectCount ?? 0;
+      } else if (topSugg) {
+        effectCount = topSugg.effectCount;
+      }
+      return {
+        destName: item.model.name,
+        isGroup: item.model.isGroup,
+        sources: item.sources,
+        isMapped: item.isMapped,
+        topSuggestion: topSugg,
+        topScore: topSugg?.score ?? 0,
+        effectCount,
+      };
+    });
+  }, [darkItems, mappedItems, darkSuggestions, sourceLayerMappings]);
+
+  // Filtered + sorted grid rows
+  const gridRows = useMemo(() => {
+    let rows = allGridRows;
+
+    // Filter
+    if (filterMode === "unmapped") rows = rows.filter((r) => !r.isMapped);
+    else if (filterMode === "suggested") rows = rows.filter((r) => r.topSuggestion !== null);
+    else if (filterMode === "mapped") rows = rows.filter((r) => r.isMapped);
+
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(
+        (r) =>
+          r.destName.toLowerCase().includes(q) ||
+          r.sources.some((s) => s.toLowerCase().includes(q)),
+      );
+    }
+
+    // Sort
+    const sorted = [...rows];
+    switch (sortKey) {
+      case "unmapped-first":
+        sorted.sort((a, b) => {
+          if (a.isMapped !== b.isMapped) return a.isMapped ? 1 : -1;
+          return naturalCompare(a.destName, b.destName);
+        });
+        break;
+      case "name-asc":
+        sorted.sort((a, b) => naturalCompare(a.destName, b.destName));
+        break;
+      case "name-desc":
+        sorted.sort((a, b) => naturalCompare(b.destName, a.destName));
+        break;
+      case "fx-desc":
+        sorted.sort((a, b) => b.effectCount - a.effectCount || naturalCompare(a.destName, b.destName));
+        break;
+      case "match-desc":
+        sorted.sort((a, b) => b.topScore - a.topScore || naturalCompare(a.destName, b.destName));
+        break;
+    }
+
+    return sorted;
+  }, [allGridRows, filterMode, search, sortKey]);
+
+  // Grid dropdown sources (for inline cell dropdown)
+  const gridDropdownSources = useMemo(() => {
+    if (!gridDropdown) return { suggested: [] as { name: string; effectCount: number; score: number }[], rest: [] as { name: string; effectCount: number; score: number }[] };
+    const suggs = darkSuggestions.get(gridDropdown) ?? [];
+    const suggNames = new Set(suggs.map((s) => s.sourceName));
+
+    const allSources = sourceLayerMappings
+      .filter((l) => !l.isSkipped && l.isMapped)
+      .sort((a, b) => b.effectCount - a.effectCount);
+
+    const q = gridDropdownSearch.toLowerCase();
+    const filter = (l: SourceLayerMapping) => !q || l.sourceModel.name.toLowerCase().includes(q);
+
+    const suggested = allSources.filter((l) => suggNames.has(l.sourceModel.name)).filter(filter);
+    const rest = allSources.filter((l) => !suggNames.has(l.sourceModel.name)).filter(filter);
+
+    return {
+      suggested: suggested.map((l) => ({
+        name: l.sourceModel.name,
+        effectCount: l.effectCount,
+        score: suggs.find((s) => s.sourceName === l.sourceModel.name)?.score ?? 0,
+      })),
+      rest: rest.map((l) => ({
+        name: l.sourceModel.name,
+        effectCount: l.effectCount,
+        score: 0,
+      })),
+    };
+  }, [gridDropdown, darkSuggestions, sourceLayerMappings, gridDropdownSearch]);
+
+  // Grid summary counts
+  const gridSummary = useMemo(() => {
+    const total = allGridRows.length;
+    const mapped = allGridRows.filter((r) => r.isMapped).length;
+    const suggested = allGridRows.filter((r) => !r.isMapped && r.topSuggestion !== null).length;
+    const unmapped = total - mapped;
+    return { total, mapped, suggested, unmapped };
+  }, [allGridRows]);
+
   // ── Handlers ──
+
+  const handleSelectRow = useCallback((destName: string) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(destName)) next.delete(destName);
+      else next.add(destName);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    if (selectedRows.size === gridRows.length) {
+      setSelectedRows(new Set());
+    } else {
+      setSelectedRows(new Set(gridRows.map((r) => r.destName)));
+    }
+  }, [gridRows, selectedRows.size]);
+
+  const handleBatchAssignSelected = useCallback(
+    (sourceName: string) => {
+      for (const destName of selectedRows) {
+        assignUserModelToLayer(sourceName, destName);
+      }
+      setSelectedRows(new Set());
+    },
+    [selectedRows, assignUserModelToLayer],
+  );
 
   const handleAcceptSuggestion = useCallback(
     (sourceName: string, destName: string) => {
@@ -386,27 +546,58 @@ export function FinalizePhase() {
         </div>
       </div>
 
-      {/* ── Quick Actions ── */}
-      {darkItems.length > 0 && (
-        <div className="px-6 py-2 border-b border-border/50 flex-shrink-0 flex items-center gap-3">
-          {suggestedCount > 0 && (
-            <button
-              type="button"
-              onClick={handleAcceptAllSuggestions}
-              className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
-            >
-              Accept All Suggestions ({suggestedCount})
-            </button>
-          )}
+      {/* ── Quick Actions + View Toggle ── */}
+      <div className="px-6 py-2 border-b border-border/50 flex-shrink-0 flex items-center gap-3">
+        {darkItems.length > 0 && suggestedCount > 0 && (
+          <button
+            type="button"
+            onClick={handleAcceptAllSuggestions}
+            className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+          >
+            Accept All Suggestions ({suggestedCount})
+          </button>
+        )}
+        {darkItems.length > 0 && (
           <span className="text-[11px] text-foreground/30">
             {darkItems.length} model{darkItems.length !== 1 ? "s" : ""} need attention
           </span>
-        </div>
-      )}
+        )}
 
-      {/* ── Search ── */}
-      <div className="px-6 py-2 border-b border-border/50 flex-shrink-0">
-        <div className="relative max-w-md">
+        <div className="ml-auto flex items-center gap-1 bg-foreground/5 rounded-lg p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode("card")}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              viewMode === "card"
+                ? "bg-accent/15 text-accent"
+                : "text-foreground/40 hover:text-foreground/60"
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+            </svg>
+            Cards
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("grid")}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+              viewMode === "grid"
+                ? "bg-accent/15 text-accent"
+                : "text-foreground/40 hover:text-foreground/60"
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18M10 6v12M17 6v12" />
+            </svg>
+            Grid
+          </button>
+        </div>
+      </div>
+
+      {/* ── Search (shared) + Grid controls ── */}
+      <div className="px-6 py-2 border-b border-border/50 flex-shrink-0 flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
           <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
@@ -427,130 +618,255 @@ export function FinalizePhase() {
             </button>
           )}
         </div>
+
+        {/* Grid-only: Sort + Filter */}
+        {viewMode === "grid" && (
+          <>
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as SortKey)}
+              className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent"
+            >
+              <option value="unmapped-first">Unmapped First</option>
+              <option value="name-asc">Name A&rarr;Z</option>
+              <option value="name-desc">Name Z&rarr;A</option>
+              <option value="fx-desc">Effects High&rarr;Low</option>
+              <option value="match-desc">Match High&rarr;Low</option>
+            </select>
+            <select
+              value={filterMode}
+              onChange={(e) => setFilterMode(e.target.value as FilterMode)}
+              className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent"
+            >
+              <option value="all">All</option>
+              <option value="unmapped">Unmapped Only</option>
+              <option value="suggested">Suggested Only</option>
+              <option value="mapped">Mapped Only</option>
+            </select>
+          </>
+        )}
       </div>
 
-      {/* ── Main scrollable content ── */}
-      <div className="flex-1 min-h-0 overflow-y-auto relative">
-        {/* Full coverage banner */}
-        {darkItems.length === 0 && (
-          <div className="px-6 py-8 text-center">
-            <div className="text-green-400 text-lg font-medium mb-1">
-              All models in your display are receiving effects!
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* CARD VIEW                                             */}
+      {/* ══════════════════════════════════════════════════════ */}
+      {viewMode === "card" && (
+        <div className="flex-1 min-h-0 overflow-y-auto relative">
+          {/* Full coverage banner */}
+          {darkItems.length === 0 && (
+            <div className="px-6 py-8 text-center">
+              <div className="text-green-400 text-lg font-medium mb-1">
+                All models in your display are receiving effects!
+              </div>
+              <p className="text-[12px] text-foreground/30">
+                Nothing to fix. Review mapped models below or continue to Review.
+              </p>
             </div>
-            <p className="text-[12px] text-foreground/30">
-              Nothing to fix. Review mapped models below or continue to Review.
-            </p>
-          </div>
-        )}
+          )}
 
-        {/* ═══ NEEDS ATTENTION ═══ */}
-        {darkItems.length > 0 && (
-          <div className="border-b border-border/50">
+          {/* ═══ NEEDS ATTENTION ═══ */}
+          {darkItems.length > 0 && (
+            <div className="border-b border-border/50">
+              <button
+                type="button"
+                onClick={() => setNeedsAttentionOpen(!needsAttentionOpen)}
+                className="w-full flex items-center justify-between px-6 py-2.5 text-left hover:bg-foreground/[0.02]"
+              >
+                <span className="text-[11px] font-semibold text-amber-400/80 uppercase tracking-wider">
+                  Needs Attention ({darkItems.length})
+                </span>
+                <svg
+                  className={`w-4 h-4 text-foreground/30 transition-transform ${needsAttentionOpen ? "rotate-180" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {needsAttentionOpen && (
+                <div className="px-4 pb-3 space-y-2">
+                  {filteredDarkGroups.map((group) => (
+                    <DarkGroupCard
+                      key={group.family}
+                      group={group}
+                      isExpanded={expandedGroups.has(group.family)}
+                      onToggle={() => toggleGroup(group.family)}
+                      darkSuggestions={darkSuggestions}
+                      onAcceptSuggestion={handleAcceptSuggestion}
+                      onOpenPicker={openInlinePicker}
+                      onBatchAssign={() => {
+                        setBatchPicker({ family: group.family });
+                      }}
+                    />
+                  ))}
+                  {filteredDarkGroups.length === 0 && (
+                    <div className="py-4 text-center text-[12px] text-foreground/30">
+                      No matches
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ═══ ALREADY MAPPED ═══ */}
+          <div>
             <button
               type="button"
-              onClick={() => setNeedsAttentionOpen(!needsAttentionOpen)}
+              onClick={() => setMappedOpen(!mappedOpen)}
               className="w-full flex items-center justify-between px-6 py-2.5 text-left hover:bg-foreground/[0.02]"
             >
-              <span className="text-[11px] font-semibold text-amber-400/80 uppercase tracking-wider">
-                Needs Attention ({darkItems.length})
+              <span className="text-[11px] font-semibold text-green-400/80 uppercase tracking-wider">
+                Already Mapped ({mappedItems.length})
               </span>
               <svg
-                className={`w-4 h-4 text-foreground/30 transition-transform ${needsAttentionOpen ? "rotate-180" : ""}`}
+                className={`w-4 h-4 text-foreground/30 transition-transform ${mappedOpen ? "rotate-180" : ""}`}
                 fill="none" stroke="currentColor" viewBox="0 0 24 24"
               >
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
 
-            {needsAttentionOpen && (
-              <div className="px-4 pb-3 space-y-2">
-                {filteredDarkGroups.map((group) => (
-                  <DarkGroupCard
-                    key={group.family}
-                    group={group}
-                    isExpanded={expandedGroups.has(group.family)}
-                    onToggle={() => toggleGroup(group.family)}
-                    darkSuggestions={darkSuggestions}
-                    onAcceptSuggestion={handleAcceptSuggestion}
-                    onOpenPicker={openInlinePicker}
-                    onBatchAssign={() => {
-                      setBatchPicker({ family: group.family });
-                    }}
+            {mappedOpen && (
+              <div className="px-4 pb-3 divide-y divide-border/20">
+                {filteredMapped.map((item) => (
+                  <MappedRow
+                    key={item.model.name}
+                    item={item}
+                    onRemoveLink={handleRemoveLink}
                   />
                 ))}
-                {filteredDarkGroups.length === 0 && (
+                {filteredMapped.length === 0 && (
                   <div className="py-4 text-center text-[12px] text-foreground/30">
-                    No matches
+                    {search ? "No matches" : "No mapped models"}
                   </div>
                 )}
               </div>
             )}
           </div>
-        )}
 
-        {/* ═══ ALREADY MAPPED ═══ */}
-        <div>
-          <button
-            type="button"
-            onClick={() => setMappedOpen(!mappedOpen)}
-            className="w-full flex items-center justify-between px-6 py-2.5 text-left hover:bg-foreground/[0.02]"
-          >
-            <span className="text-[11px] font-semibold text-green-400/80 uppercase tracking-wider">
-              Already Mapped ({mappedItems.length})
-            </span>
-            <svg
-              className={`w-4 h-4 text-foreground/30 transition-transform ${mappedOpen ? "rotate-180" : ""}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+          {/* ── Inline picker popover ── */}
+          {inlinePicker && (
+            <InlineSourcePicker
+              destName={inlinePicker.destName}
+              suggested={pickerSources.suggested}
+              rest={pickerSources.rest}
+              search={pickerSearch}
+              onSearchChange={setPickerSearch}
+              onSelect={(sourceName) => {
+                handleTrayAssign(sourceName, inlinePicker.destName);
+                setInlinePicker(null);
+              }}
+              onClose={() => setInlinePicker(null)}
+            />
+          )}
 
-          {mappedOpen && (
-            <div className="px-4 pb-3 divide-y divide-border/20">
-              {filteredMapped.map((item) => (
-                <MappedRow
-                  key={item.model.name}
-                  item={item}
-                  onRemoveLink={handleRemoveLink}
-                />
-              ))}
-              {filteredMapped.length === 0 && (
-                <div className="py-4 text-center text-[12px] text-foreground/30">
-                  {search ? "No matches" : "No mapped models"}
-                </div>
-              )}
-            </div>
+          {/* ── Batch assign picker ── */}
+          {batchPicker && (
+            <BatchAssignPicker
+              family={batchPicker.family}
+              groupSize={darkGroups.find((g) => g.family === batchPicker.family)?.items.length ?? 0}
+              suggestions={batchPickerSources}
+              onSelect={(sourceName) => handleBatchAssign(batchPicker.family, sourceName)}
+              onClose={() => setBatchPicker(null)}
+            />
           )}
         </div>
+      )}
 
-        {/* ── Inline picker popover ── */}
-        {inlinePicker && (
-          <InlineSourcePicker
-            destName={inlinePicker.destName}
-            suggested={pickerSources.suggested}
-            rest={pickerSources.rest}
-            search={pickerSearch}
-            onSearchChange={setPickerSearch}
-            onSelect={(sourceName) => {
-              handleTrayAssign(sourceName, inlinePicker.destName);
-              setInlinePicker(null);
-            }}
-            onClose={() => setInlinePicker(null)}
-          />
-        )}
+      {/* ══════════════════════════════════════════════════════ */}
+      {/* GRID VIEW                                             */}
+      {/* ══════════════════════════════════════════════════════ */}
+      {viewMode === "grid" && (
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {/* Multi-select toolbar */}
+          {selectedRows.size > 0 && (
+            <div className="px-4 py-2 bg-accent/5 border-b border-accent/20 flex-shrink-0 flex items-center gap-3">
+              <span className="text-[12px] font-medium text-accent">
+                {selectedRows.size} selected
+              </span>
+              <GridBatchDropdown
+                sources={sourceTrayItems}
+                onSelect={handleBatchAssignSelected}
+              />
+              <button
+                type="button"
+                onClick={() => setSelectedRows(new Set())}
+                className="text-[11px] text-foreground/40 hover:text-foreground/60 ml-auto"
+              >
+                Clear selection
+              </button>
+            </div>
+          )}
 
-        {/* ── Batch assign picker ── */}
-        {batchPicker && (
-          <BatchAssignPicker
-            family={batchPicker.family}
-            groupSize={darkGroups.find((g) => g.family === batchPicker.family)?.items.length ?? 0}
-            suggestions={batchPickerSources}
-            onSelect={(sourceName) => handleBatchAssign(batchPicker.family, sourceName)}
-            onClose={() => setBatchPicker(null)}
-          />
-        )}
-      </div>
+          {/* Table */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <table className="w-full text-[12px]">
+              <thead className="sticky top-0 bg-surface z-10">
+                <tr className="border-b border-border text-foreground/40">
+                  <th className="w-8 px-2 py-2 text-center">
+                    <input
+                      type="checkbox"
+                      checked={gridRows.length > 0 && selectedRows.size === gridRows.length}
+                      onChange={handleSelectAll}
+                      className="w-3.5 h-3.5 rounded border-border accent-accent"
+                    />
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium">My Display</th>
+                  <th className="px-3 py-2 text-left font-medium w-[16rem]">Mapped To</th>
+                  <th className="px-3 py-2 text-right font-medium w-16">Match</th>
+                  <th className="px-3 py-2 text-right font-medium w-14">FX</th>
+                  <th className="px-3 py-2 text-center font-medium w-16">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gridRows.map((row) => (
+                  <GridRowComponent
+                    key={row.destName}
+                    row={row}
+                    isSelected={selectedRows.has(row.destName)}
+                    isDropdownOpen={gridDropdown === row.destName}
+                    dropdownSources={gridDropdown === row.destName ? gridDropdownSources : null}
+                    dropdownSearch={gridDropdown === row.destName ? gridDropdownSearch : ""}
+                    onToggleSelect={() => handleSelectRow(row.destName)}
+                    onOpenDropdown={() => {
+                      setGridDropdown(row.destName);
+                      setGridDropdownSearch("");
+                    }}
+                    onCloseDropdown={() => setGridDropdown(null)}
+                    onDropdownSearchChange={setGridDropdownSearch}
+                    onAssign={(sourceName) => {
+                      assignUserModelToLayer(sourceName, row.destName);
+                      setGridDropdown(null);
+                    }}
+                    onAcceptSuggestion={(sourceName) => {
+                      assignUserModelToLayer(sourceName, row.destName);
+                    }}
+                    onRemoveLink={(sourceName) => {
+                      removeLinkFromLayer(sourceName, row.destName);
+                    }}
+                  />
+                ))}
+                {gridRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-foreground/30">
+                      {search ? "No matches" : "No models"}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Summary footer */}
+          <div className="px-4 py-2 border-t border-border bg-surface flex-shrink-0 flex items-center gap-4 text-[11px] text-foreground/40">
+            <span>{gridSummary.total} models</span>
+            <span className="text-green-400/70">{gridSummary.mapped} mapped</span>
+            <span className="text-accent/70">{gridSummary.suggested} suggested</span>
+            <span className="text-amber-400/70">{gridSummary.unmapped} unmapped</span>
+          </div>
+        </div>
+      )}
 
       {/* ═══ SOURCE TRAY (Bottom Dock) ═══ */}
       <div className="flex-shrink-0 border-t border-border bg-surface">
@@ -980,6 +1296,289 @@ function BatchAssignPicker({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Grid Row Component ──────────────────────────────────
+
+function GridRowComponent({
+  row,
+  isSelected,
+  isDropdownOpen,
+  dropdownSources,
+  dropdownSearch,
+  onToggleSelect,
+  onOpenDropdown,
+  onCloseDropdown,
+  onDropdownSearchChange,
+  onAssign,
+  onAcceptSuggestion,
+  onRemoveLink,
+}: {
+  row: GridRow;
+  isSelected: boolean;
+  isDropdownOpen: boolean;
+  dropdownSources: { suggested: { name: string; effectCount: number; score: number }[]; rest: { name: string; effectCount: number; score: number }[] } | null;
+  dropdownSearch: string;
+  onToggleSelect: () => void;
+  onOpenDropdown: () => void;
+  onCloseDropdown: () => void;
+  onDropdownSearchChange: (v: string) => void;
+  onAssign: (sourceName: string) => void;
+  onAcceptSuggestion: (sourceName: string) => void;
+  onRemoveLink: (sourceName: string) => void;
+}) {
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        onCloseDropdown();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isDropdownOpen, onCloseDropdown]);
+
+  const statusIcon = row.isMapped ? (
+    <span className="text-green-400" title="Mapped">&#10003;</span>
+  ) : row.topSuggestion ? (
+    <span title="AI suggestion available">&#128161;</span>
+  ) : (
+    <span className="text-amber-400" title="Unmapped">&#9888;</span>
+  );
+
+  return (
+    <tr className={`border-b border-border/20 hover:bg-foreground/[0.02] group/row ${isSelected ? "bg-accent/5" : ""}`}>
+      {/* Checkbox */}
+      <td className="px-2 py-2 text-center">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelect}
+          className="w-3.5 h-3.5 rounded border-border accent-accent"
+        />
+      </td>
+
+      {/* My Display */}
+      <td className="px-3 py-2">
+        <span className="text-foreground/80 font-medium">{row.destName}</span>
+      </td>
+
+      {/* Mapped To (inline dropdown) */}
+      <td className="px-3 py-2 relative">
+        {row.isMapped ? (
+          <div className="flex flex-col gap-0.5">
+            {row.sources.map((src) => (
+              <div key={src} className="flex items-center gap-1.5 group/src">
+                <span className="text-foreground/60 truncate">{src}</span>
+                <button
+                  type="button"
+                  onClick={() => onRemoveLink(src)}
+                  className="text-red-400/40 hover:text-red-400 opacity-0 group-hover/src:opacity-100 transition-opacity text-[10px] flex-shrink-0"
+                  title="Remove"
+                >
+                  &times;
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={onOpenDropdown}
+              className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors text-left mt-0.5 opacity-0 group-hover/row:opacity-100"
+            >
+              + add source
+            </button>
+          </div>
+        ) : row.topSuggestion ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onAcceptSuggestion(row.topSuggestion!.sourceName)}
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-accent/8 text-accent/80 hover:bg-accent/15 hover:text-accent transition-colors"
+            >
+              <span className="text-[9px]">&#128161;</span>
+              {row.topSuggestion.sourceName}
+            </button>
+            <button
+              type="button"
+              onClick={onOpenDropdown}
+              className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors"
+            >
+              or choose...
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenDropdown}
+            className="text-foreground/25 hover:text-foreground/50 transition-colors"
+          >
+            Choose a source...
+          </button>
+        )}
+
+        {/* Inline dropdown */}
+        {isDropdownOpen && dropdownSources && (
+          <div
+            ref={dropdownRef}
+            className="absolute left-0 top-full mt-1 z-20 bg-surface border border-border rounded-lg shadow-xl w-[20rem] max-h-[16rem] flex flex-col overflow-hidden"
+          >
+            <div className="px-3 py-2 border-b border-border/50">
+              <input
+                type="text"
+                placeholder="Search sources..."
+                value={dropdownSearch}
+                onChange={(e) => onDropdownSearchChange(e.target.value)}
+                className="w-full text-[11px] px-2 py-1 rounded bg-foreground/5 border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+                autoFocus
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {dropdownSources.suggested.length > 0 && (
+                <>
+                  <div className="px-3 py-1 text-[9px] font-semibold text-foreground/30 uppercase tracking-wider">
+                    Suggested
+                  </div>
+                  {dropdownSources.suggested.map((s) => (
+                    <button
+                      key={s.name}
+                      type="button"
+                      onClick={() => onAssign(s.name)}
+                      className="w-full text-left px-3 py-1.5 hover:bg-accent/10 transition-colors flex items-center gap-2"
+                    >
+                      <span className="text-[9px]">&#128161;</span>
+                      <span className="text-[11px] text-foreground truncate flex-1">{s.name}</span>
+                      <span className="text-[9px] text-foreground/25 tabular-nums">{s.effectCount} fx</span>
+                      <span className="text-[9px] text-accent/60 tabular-nums">{Math.round(s.score * 100)}%</span>
+                    </button>
+                  ))}
+                  {dropdownSources.rest.length > 0 && (
+                    <div className="mx-3 my-0.5 border-t border-border/30" />
+                  )}
+                </>
+              )}
+              {dropdownSources.rest.map((s) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  onClick={() => onAssign(s.name)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-accent/10 transition-colors flex items-center gap-2"
+                >
+                  <span className="text-[11px] text-foreground truncate flex-1">{s.name}</span>
+                  <span className="text-[9px] text-foreground/25 tabular-nums">{s.effectCount} fx</span>
+                </button>
+              ))}
+              {dropdownSources.suggested.length === 0 && dropdownSources.rest.length === 0 && (
+                <div className="px-3 py-3 text-center text-[11px] text-foreground/30">
+                  No matches
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </td>
+
+      {/* Match % */}
+      <td className="px-3 py-2 text-right tabular-nums">
+        {row.topScore > 0 ? (
+          <span className="text-accent/70">{Math.round(row.topScore * 100)}%</span>
+        ) : (
+          <span className="text-foreground/15">&mdash;</span>
+        )}
+      </td>
+
+      {/* FX */}
+      <td className="px-3 py-2 text-right tabular-nums">
+        {row.effectCount > 0 ? (
+          <span className="text-foreground/50">{row.effectCount}</span>
+        ) : (
+          <span className="text-foreground/15">&mdash;</span>
+        )}
+      </td>
+
+      {/* Status */}
+      <td className="px-3 py-2 text-center text-[13px]">
+        {statusIcon}
+      </td>
+    </tr>
+  );
+}
+
+// ─── Grid Batch Dropdown (multi-select toolbar) ──────────
+
+function GridBatchDropdown({
+  sources,
+  onSelect,
+}: {
+  sources: SourceLayerMapping[];
+  onSelect: (sourceName: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [ddSearch, setDdSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = ddSearch.toLowerCase();
+    const list = sources.filter((l) => !q || l.sourceModel.name.toLowerCase().includes(q));
+    return list.sort((a, b) => b.effectCount - a.effectCount).slice(0, 20);
+  }, [sources, ddSearch]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="text-[11px] font-medium px-2.5 py-1 rounded bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+      >
+        Assign all to...
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-20 bg-surface border border-border rounded-lg shadow-xl w-[18rem] max-h-[14rem] flex flex-col overflow-hidden">
+          <div className="px-3 py-2 border-b border-border/50">
+            <input
+              type="text"
+              placeholder="Search sources..."
+              value={ddSearch}
+              onChange={(e) => setDdSearch(e.target.value)}
+              className="w-full text-[11px] px-2 py-1 rounded bg-foreground/5 border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+              autoFocus
+            />
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {filtered.map((l) => (
+              <button
+                key={l.sourceModel.name}
+                type="button"
+                onClick={() => {
+                  onSelect(l.sourceModel.name);
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-1.5 hover:bg-accent/10 transition-colors flex items-center gap-2"
+              >
+                <span className="text-[11px] text-foreground truncate flex-1">{l.sourceModel.name}</span>
+                <span className="text-[9px] text-foreground/25 tabular-nums">{l.effectCount} fx</span>
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="px-3 py-3 text-center text-[11px] text-foreground/30">No matches</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
