@@ -190,17 +190,16 @@ export default function PlaylistTabs({
             )}
           </button>
           <button
-            className={`seq-cat-tab ${activeTab === "christmas" ? "active" : ""}`}
+            className="seq-cat-tab opacity-50 cursor-not-allowed pointer-events-none"
             role="tab"
-            aria-selected={activeTab === "christmas"}
-            onClick={() => setActiveTab("christmas")}
+            aria-selected={false}
+            aria-disabled="true"
+            tabIndex={-1}
           >
             <span className="seq-cat-tab-icon">🎄</span>
             Christmas
             <span className="seq-cat-tab-count">({christmasSongs.length})</span>
-            {christmasNew.length > 0 && (
-              <span className="seq-cat-tab-new">{christmasNew.length} new</span>
-            )}
+            <span className="text-xs text-zinc-500 ml-1.5 font-normal">Coming Soon</span>
           </button>
         </div>
 
