@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, memo } from "react";
 import {
   useMappingPhase,
   findNextUnmapped,
+  extractFamily,
 } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
@@ -16,7 +17,7 @@ import {
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
-import { useItemFamilies } from "@/hooks/useItemFamilies";
+import { useItemFamilies, type ItemFamily } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import { PANEL_STYLES } from "../panelStyles";
@@ -85,10 +86,63 @@ export function IndividualsPhase() {
     return sortItems(items, sortBy, topSuggestionsMap);
   }, [unmappedItems, search, sortBy, topSuggestionsMap]);
 
+  // Sorted + filtered mapped items (same Level 3 sort)
+  const filteredMapped = useMemo(() => {
+    let items = mappedItems;
+    if (search) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (item) =>
+          item.sourceModel.name.toLowerCase().includes(q) ||
+          item.sourceModel.type.toLowerCase().includes(q),
+      );
+    }
+    return sortItems(items, sortBy, topSuggestionsMap);
+  }, [mappedItems, search, sortBy, topSuggestionsMap]);
+
+  // Level 2 split: model groups (families with >1 item) vs individuals
+  const splitByGroupType = useCallback(
+    (items: SourceLayerMapping[]) => {
+      const familyMap = new Map<string, SourceLayerMapping[]>();
+      for (const item of items) {
+        const prefix = extractFamily(item.sourceModel.name);
+        const existing = familyMap.get(prefix);
+        if (existing) existing.push(item);
+        else familyMap.set(prefix, [item]);
+      }
+      const groups: ItemFamily[] = [];
+      const singles: SourceLayerMapping[] = [];
+      for (const [prefix, familyItems] of familyMap) {
+        if (familyItems.length > 1) {
+          groups.push({ prefix, items: familyItems });
+        } else {
+          singles.push(familyItems[0]);
+        }
+      }
+      // Groups sorted A→Z by prefix (fixed Level 2)
+      groups.sort((a, b) => a.prefix.localeCompare(b.prefix));
+      return { groups, singles };
+    },
+    [],
+  );
+
+  const unmappedSplit = useMemo(
+    () => splitByGroupType(filteredUnmapped),
+    [filteredUnmapped, splitByGroupType],
+  );
+  const mappedSplit = useMemo(
+    () => splitByGroupType(filteredMapped),
+    [filteredMapped, splitByGroupType],
+  );
+
   const { families, toggle, isExpanded } = useItemFamilies(
     filteredUnmapped,
     selectedItemId,
   );
+
+  // Section collapse state
+  const [unmappedOpen, setUnmappedOpen] = useState(true);
+  const [mappedOpen, setMappedOpen] = useState(false);
 
   // Suggestions for selected item
   const suggestions = useMemo(() => {
@@ -242,11 +296,23 @@ export function IndividualsPhase() {
               </svg>
               <input
                 type="text"
-                placeholder="Filter models..."
+                placeholder="Search models..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={PANEL_STYLES.search.input}
+                className={`${PANEL_STYLES.search.input} ${search ? "pr-8" : ""}`}
               />
+              {search && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
             <SortDropdown value={sortBy} onChange={setSortBy} />
           </div>
@@ -260,31 +326,128 @@ export function IndividualsPhase() {
           />
         )}
 
-        {/* List */}
+        {/* List — 3-tier: Unmapped/Mapped → Groups/Individuals → sort */}
         <div className={PANEL_STYLES.scrollArea}>
-          <div className="space-y-1.5">
-            {families.map((family) => {
-              if (family.items.length === 1) {
-                return renderItemCard(family.items[0]);
-              }
-              return (
-                <div key={family.prefix}>
-                  <FamilyAccordionHeader
-                    prefix={family.prefix}
-                    count={family.items.length}
-                    isExpanded={isExpanded(family.prefix)}
-                    onToggle={() => toggle(family.prefix)}
-                    onSkipFamily={() => handleSkipFamily(family.items)}
-                  />
-                  {isExpanded(family.prefix) && (
-                    <div className="space-y-1.5 pl-2 mt-1">
-                      {family.items.map((item) => renderItemCard(item))}
+          {/* ── UNMAPPED section ── */}
+          {filteredUnmapped.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setUnmappedOpen((p) => !p)}
+                className="flex items-center gap-2 w-full px-4 py-2 text-left"
+              >
+                <svg
+                  className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${unmappedOpen ? "rotate-90" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
+                  Unmapped
+                </span>
+                <span className="text-[12px] font-semibold text-foreground/35">
+                  ({filteredUnmapped.length})
+                </span>
+              </button>
+              {unmappedOpen && (
+                <div className="px-4 pb-3 space-y-3">
+                  {/* Level 2: Model Groups */}
+                  {unmappedSplit.groups.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
+                        Model Groups ({unmappedSplit.groups.length})
+                      </div>
+                      <div className="space-y-2">
+                        {unmappedSplit.groups.map((group) => (
+                          <GroupCard
+                            key={group.prefix}
+                            family={group}
+                            isExpanded={isExpanded(group.prefix)}
+                            onToggle={() => toggle(group.prefix)}
+                            onSkipFamily={() => handleSkipFamily(group.items)}
+                            renderItemCard={renderItemCard}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Level 2: Individual Models */}
+                  {unmappedSplit.singles.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
+                        Individual Models ({unmappedSplit.singles.length})
+                      </div>
+                      <div className="space-y-1.5">
+                        {unmappedSplit.singles.map((item) => renderItemCard(item))}
+                      </div>
                     </div>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Divider ── */}
+          {filteredUnmapped.length > 0 && filteredMapped.length > 0 && (
+            <div className="border-t border-border/40 mx-4 my-1" />
+          )}
+
+          {/* ── MAPPED section ── */}
+          {filteredMapped.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setMappedOpen((p) => !p)}
+                className="flex items-center gap-2 w-full px-4 py-2 text-left"
+              >
+                <svg
+                  className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${mappedOpen ? "rotate-90" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
+                  Mapped
+                </span>
+                <span className="text-[12px] font-semibold text-foreground/35">
+                  ({filteredMapped.length})
+                </span>
+              </button>
+              {mappedOpen && (
+                <div className="px-4 pb-3 space-y-3">
+                  {mappedSplit.groups.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
+                        Model Groups ({mappedSplit.groups.length})
+                      </div>
+                      <div className="space-y-2">
+                        {mappedSplit.groups.map((group) => (
+                          <GroupCard
+                            key={group.prefix}
+                            family={group}
+                            isExpanded={isExpanded(group.prefix)}
+                            onToggle={() => toggle(group.prefix)}
+                            renderItemCard={renderItemCard}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {mappedSplit.singles.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
+                        Individual Models ({mappedSplit.singles.length})
+                      </div>
+                      <div className="space-y-1.5">
+                        {mappedSplit.singles.map((item) => renderItemCard(item))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {interactive.hiddenZeroEffectCount > 0 && (
             <p className="mt-4 text-[11px] text-foreground/25 text-center">
@@ -295,7 +458,7 @@ export function IndividualsPhase() {
           )}
 
           {skippedItems.length > 0 && (
-            <details className="mt-4">
+            <details className="mt-4 px-4">
               <summary className="text-[11px] text-foreground/25 cursor-pointer hover:text-foreground/40">
                 {skippedItems.length} skipped
               </summary>
@@ -397,6 +560,81 @@ export function IndividualsPhase() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Group Card (bordered container for model families) ────────
+
+function GroupCard({
+  family,
+  isExpanded,
+  onToggle,
+  onSkipFamily,
+  renderItemCard,
+}: {
+  family: ItemFamily;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onSkipFamily?: () => void;
+  renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-foreground/[0.02] overflow-hidden">
+      {/* Group header */}
+      <div className="flex items-center gap-1 px-3 py-2">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-1 flex items-center gap-2 text-left min-w-0"
+        >
+          <svg
+            className={`w-3.5 h-3.5 text-foreground/40 transition-transform duration-150 flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <svg
+            className="w-3.5 h-3.5 text-foreground/30 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+          </svg>
+          <span className="text-[13px] font-semibold text-foreground/70 truncate">
+            {family.prefix}
+          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/8 text-foreground/40 font-semibold flex-shrink-0">
+            &times;{family.items.length}
+          </span>
+        </button>
+        {onSkipFamily && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSkipFamily();
+            }}
+            title={`Skip all ${family.items.length} in ${family.prefix}`}
+            className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
+      {/* Expanded children */}
+      {isExpanded && (
+        <div className="px-3 pb-2 pl-5 space-y-1.5 border-t border-border/30">
+          <div className="pt-1.5">
+            {family.items.map((item) => renderItemCard(item))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
