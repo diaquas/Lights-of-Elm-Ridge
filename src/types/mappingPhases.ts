@@ -11,6 +11,8 @@ export type MappingPhase =
 export interface PhaseConfig {
   id: MappingPhase;
   label: string;
+  /** Shorter label for the stepper pill (falls back to label) */
+  stepperLabel?: string;
   description: string;
   icon: string;
   filter: (layer: SourceLayerMapping) => boolean;
@@ -70,6 +72,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
   {
     id: "spinners",
     label: "Submodel Groups",
+    stepperLabel: "Submodels",
     description: "Match submodel groups for spinners, wreaths & HD props",
     icon: "spinners",
     filter: (layer) => {

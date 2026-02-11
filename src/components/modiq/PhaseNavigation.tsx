@@ -10,7 +10,6 @@ export function PhaseNavigation() {
     goToPreviousPhase,
     canGoNext,
     canGoPrevious,
-    interactive,
   } = useMappingPhase();
 
   const phaseIndex = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
@@ -49,17 +48,8 @@ export function PhaseNavigation() {
         Back
       </button>
 
-      {/* Effects Coverage */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm text-foreground/50">
-          {interactive.effectsCoverage.percent}% effects covered
-        </span>
-        <span className="text-sm text-foreground/30">&middot;</span>
-        <span className="text-sm text-foreground/50">
-          {interactive.displayCoverage.covered}/
-          {interactive.displayCoverage.total} models active
-        </span>
-      </div>
+      {/* Spacer — status moved to StatusSummaryBar */}
+      <div />
 
       {/* Next / Export Button */}
       {currentPhase === "review" ? (
