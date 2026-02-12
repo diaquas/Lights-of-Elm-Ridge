@@ -12,6 +12,7 @@ import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import {
   MetadataBadges,
   HeroEffectBadge,
+  InlineEffectBadge,
   EffectsCoverageBar,
 } from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
@@ -587,11 +588,12 @@ function SpinnerListCard({
     ? (CATEGORY_LABELS[item.sourceModel.semanticCategory] ??
       item.sourceModel.semanticCategory)
     : null;
+  const px = item.sourceModel.pixelCount;
 
   return (
     <div
       className={`
-        relative p-3 rounded-lg border transition-all duration-200 cursor-pointer
+        px-3 py-1.5 rounded-lg border transition-all duration-200 cursor-pointer
         ${
           isDropTarget
             ? "bg-accent/10 border-accent/50 ring-2 ring-accent/30"
@@ -606,127 +608,52 @@ function SpinnerListCard({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* Skip/X Button — top right */}
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          onSkip();
-        }}
-        className="absolute top-2 right-2 p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors"
-        aria-label="Skip this group"
-        title="Skip this group"
-      >
-        <svg
-          className="w-3.5 h-3.5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
-
-      <div className="flex items-start gap-2 pr-6">
-        {/* Hero Effect Badge */}
-        <HeroEffectBadge count={item.effectCount} />
-
+      <div className="flex items-center gap-2 min-w-0">
+        <InlineEffectBadge count={item.effectCount} />
         {/* Checkbox */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCheck();
-          }}
-          className={`
-            mt-1.5 w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0
-            transition-all duration-200
-            ${isChecked ? "bg-accent border-accent" : "border-foreground/20 hover:border-foreground/40"}
-          `}
-        >
+        <button type="button" onClick={(e) => { e.stopPropagation(); onCheck(); }}
+          className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isChecked ? "bg-accent border-accent" : "border-foreground/20 hover:border-foreground/40"}`}>
           {isChecked && (
-            <svg
-              className="w-2.5 h-2.5 text-white"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
+            <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
           )}
         </button>
-
-        {/* Item Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.SUB}`}
-            >
-              <svg
-                className="w-2.5 h-2.5 inline-block mr-0.5 -mt-px"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-              >
-                <path strokeLinecap="round" d="M9 3v12m0 0H5m4 0h4" />
-              </svg>
-              SUB
-            </span>
-            {categoryLabel && (
-              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/30 rounded">
-                {categoryLabel}
-              </span>
-            )}
-            <span className={PANEL_STYLES.card.title}>
-              {item.sourceModel.name}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 mt-1">
-            <MetadataBadges item={item} />
-          </div>
-
-          {/* Best match preview */}
-          {topSuggestion && (
-            <div className="mt-1.5 flex items-center gap-2">
-              <span className="text-[10px] text-foreground/40">Suggested:</span>
-              <span className="text-[12px] text-foreground/60 truncate">
-                {topSuggestion.model.name}
-              </span>
-              <ConfidenceBadge score={topSuggestion.score} size="sm" />
-            </div>
-          )}
-        </div>
-
-        {/* Quick Accept */}
+        <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.SUB}`}>
+          <svg className="w-2.5 h-2.5 inline-block mr-0.5 -mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" d="M9 3v12m0 0H5m4 0h4" />
+          </svg>
+          SUB
+        </span>
+        {categoryLabel && (
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/30 rounded flex-shrink-0">{categoryLabel}</span>
+        )}
+        <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">{item.sourceModel.name}</span>
+        {px > 0 && (<><span className="text-foreground/15 flex-shrink-0">&middot;</span><span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{px}ch</span></>)}
         {topSuggestion && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAccept(topSuggestion.model.name);
-            }}
-            className="p-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors flex-shrink-0"
-            aria-label="Accept suggested match"
-            title="Accept suggested match"
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
+          <>
+            <span className="text-foreground/15 flex-shrink-0">&middot;</span>
+            <span className="text-[10px] text-foreground/40 flex-shrink-0">Suggested:</span>
+            <span className="text-[11px] text-foreground/60 truncate">{topSuggestion.model.name}</span>
+            <ConfidenceBadge score={topSuggestion.score} size="sm" />
+          </>
+        )}
+        <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+          {topSuggestion && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
+              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors" title="Accept suggested match">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
+              </svg>
+            </button>
+          )}
+          <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
+            className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors" title="Skip this group">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
