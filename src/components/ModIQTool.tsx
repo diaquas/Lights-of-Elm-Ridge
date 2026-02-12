@@ -45,6 +45,7 @@ import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
 import {
   useInteractiveMapping,
   type SourceLayerMapping,
+  type InteractiveMappingState,
 } from "@/hooks/useInteractiveMapping";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
@@ -59,7 +60,7 @@ import PostExportScreen from "@/components/modiq/PostExportScreen";
 import CascadeToastContainer, {
   useCascadeToasts,
 } from "@/components/modiq/CascadeToast";
-import { MappingPhaseProvider } from "@/contexts/MappingPhaseContext";
+import { MappingPhaseProvider, useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ProgressTrackerProvider } from "@/components/modiq/ProgressTrackerProvider";
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
 import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
@@ -1932,6 +1933,32 @@ function InteractiveResults({
     null,
   );
 
+  // Global focus mode — expands work area to full viewport, hides chrome
+  const [focusMode, setFocusMode] = useState(false);
+  const toggleFocusMode = useCallback(() => setFocusMode((p) => !p), []);
+
+  // Focus mode keyboard shortcuts (F to toggle, Escape to exit)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      )
+        return;
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        setFocusMode((p) => !p);
+      }
+      if (e.key === "Escape" && focusMode) {
+        e.preventDefault();
+        setFocusMode(false);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [focusMode]);
+
   // Left panel sections open state
   const [showMappedSection, setShowMappedSection] = useState(false);
   const [showSkippedSection, setShowSkippedSection] = useState(false);
@@ -2393,63 +2420,77 @@ function InteractiveResults({
   }, [doExport]);
 
   return (
-    <MappingPhaseProvider interactive={interactive}>
-      <div className="space-y-0">
-        {/* ── V4 Phased Wizard Header ─────────────────────── */}
-        <div className="sticky top-0 z-40 bg-background/95 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 mb-4">
-          <div className="max-w-7xl mx-auto">
-            {/* Title Bar */}
-            <div className="flex items-center justify-between py-2.5 border-b border-border">
-              <div className="flex items-center gap-3 min-w-0">
-                <h2 className="text-[15px] font-display font-bold flex-shrink-0">
-                  Mod<span className="text-accent">:</span>
-                  <span className="text-accent">IQ</span>
-                </h2>
-                <span className="text-[13px] text-foreground/50 truncate">
-                  {seqTitle} &rarr; Your Layout
-                </span>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                {interactive.canUndo && (
-                  <button
-                    type="button"
-                    onClick={interactive.undo}
-                    className="hidden sm:block text-xs px-2.5 py-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
-                  >
-                    Undo
-                  </button>
-                )}
-                <button
-                  onClick={handleExport}
-                  className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${exportButtonStyle.className}`}
-                >
-                  {exportButtonStyle.icon && (
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  )}
-                  {exportButtonStyle.label}
-                </button>
-              </div>
-            </div>
+    <MappingPhaseProvider interactive={interactive} focusMode={focusMode} toggleFocusMode={toggleFocusMode}>
+      <div className={focusMode ? "fixed inset-0 z-50 bg-background flex flex-col" : "space-y-0"}>
+        {/* ── Focus Mode: Global Coverage Bar ── */}
+        {focusMode && (
+          <GlobalFocusBar
+            interactive={interactive}
+            onExitFocus={() => setFocusMode(false)}
+          />
+        )}
 
-            {/* Phase Stepper + Progress Tracker */}
-            <ProgressTrackerProvider />
+        {/* ── V4 Phased Wizard Header (hidden in focus mode) ─────────────────────── */}
+        {!focusMode && (
+          <div className="sticky top-0 z-40 bg-background/95 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 mb-4">
+            <div className="max-w-7xl mx-auto">
+              {/* Title Bar */}
+              <div className="flex items-center justify-between py-2.5 border-b border-border">
+                <div className="flex items-center gap-3 min-w-0">
+                  <h2 className="text-[15px] font-display font-bold flex-shrink-0">
+                    Mod<span className="text-accent">:</span>
+                    <span className="text-accent">IQ</span>
+                  </h2>
+                  <span className="text-[13px] text-foreground/50 truncate">
+                    {seqTitle} &rarr; Your Layout
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {interactive.canUndo && (
+                    <button
+                      type="button"
+                      onClick={interactive.undo}
+                      className="hidden sm:block text-xs px-2.5 py-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
+                    >
+                      Undo
+                    </button>
+                  )}
+                  <button
+                    onClick={handleExport}
+                    className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${exportButtonStyle.className}`}
+                  >
+                    {exportButtonStyle.icon && (
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    )}
+                    {exportButtonStyle.label}
+                  </button>
+                </div>
+              </div>
+
+              {/* Phase Stepper + Progress Tracker */}
+              <ProgressTrackerProvider />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── V4 Phase Content ─────────────────────────────── */}
-        <div className="bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[calc(100vh-11rem)]">
+        <div className={
+          focusMode
+            ? "bg-surface overflow-hidden flex flex-col flex-1 min-h-0"
+            : "bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[calc(100vh-11rem)]"
+        }>
           <PhaseNavigation />
           <div className="flex-1 min-h-0 overflow-hidden">
             <PhaseContainer
@@ -3230,6 +3271,69 @@ function InteractiveResults({
         <CascadeToastContainer toasts={toasts} onDismiss={dismissToast} />
       </div>
     </MappingPhaseProvider>
+  );
+}
+
+// ─── Global Focus Bar ─────────────────────────────────────────────
+
+function GlobalFocusBar({
+  interactive,
+  onExitFocus,
+}: {
+  interactive: InteractiveMappingState;
+  onExitFocus: () => void;
+}) {
+  const { currentPhase, phaseProgress, overallProgress } = useMappingPhase();
+  const dispPct = interactive.displayCoverage.percent;
+  const seqPct = interactive.effectsCoverage.percent;
+  const phaseLabel =
+    currentPhase === "individuals" ? "Models" :
+    currentPhase === "spinners" ? "Spinners" :
+    currentPhase === "finalize" ? "Finalize" : "Review";
+
+  return (
+    <div className="px-4 py-1.5 border-b border-border bg-surface flex-shrink-0 flex items-center gap-4">
+      {/* Phase indicator */}
+      <span className="text-[11px] font-semibold text-accent/70 uppercase tracking-wider flex-shrink-0">{phaseLabel}</span>
+      <span className="text-foreground/10">|</span>
+      {/* Phase progress */}
+      <span className="text-[11px] text-foreground/50 tabular-nums flex-shrink-0">
+        Phase: {phaseProgress.completed}/{phaseProgress.total}
+      </span>
+      <div className="w-20 h-1.5 bg-foreground/10 rounded-full overflow-hidden flex-shrink-0">
+        <div className="h-full bg-accent/60 rounded-full transition-all duration-300" style={{ width: `${phaseProgress.percentage}%` }} />
+      </div>
+      <span className="text-foreground/10">|</span>
+      {/* Display coverage */}
+      <span className="text-[11px] text-foreground/50 tabular-nums flex-shrink-0">
+        Display: {dispPct}% ({interactive.displayCoverage.covered}/{interactive.displayCoverage.total})
+      </span>
+      <div className="w-24 h-1.5 bg-foreground/10 rounded-full overflow-hidden flex-shrink-0">
+        <div className="h-full bg-green-400 rounded-full transition-all duration-300" style={{ width: `${dispPct}%` }} />
+      </div>
+      <span className="text-foreground/10">|</span>
+      {/* Effects coverage */}
+      <span className="text-[11px] text-foreground/50 tabular-nums flex-shrink-0">
+        Effects: {seqPct}% ({interactive.effectsCoverage.covered}/{interactive.effectsCoverage.total})
+      </span>
+      <div className="w-24 h-1.5 bg-foreground/10 rounded-full overflow-hidden flex-shrink-0">
+        <div className="h-full bg-accent rounded-full transition-all duration-300" style={{ width: `${seqPct}%` }} />
+      </div>
+      {/* Overall */}
+      <span className="text-foreground/10">|</span>
+      <span className="text-[11px] text-foreground/40 tabular-nums flex-shrink-0">
+        Overall: {overallProgress.completed}/{overallProgress.total}
+      </span>
+      {/* Exit button */}
+      <button
+        type="button"
+        onClick={onExitFocus}
+        className="ml-auto text-[11px] font-medium px-2.5 py-1 rounded bg-foreground/5 text-foreground/50 hover:bg-foreground/10 hover:text-foreground/70 transition-colors flex-shrink-0"
+      >
+        Exit Focus
+      </button>
+      <span className="text-[9px] text-foreground/20 flex-shrink-0">Esc</span>
+    </div>
   );
 }
 
