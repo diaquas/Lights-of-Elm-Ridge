@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, useRef, memo } from "react";
 import {
   useMappingPhase,
   findNextUnmapped,
@@ -53,13 +53,19 @@ export function SpinnersPhase() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("effects-desc");
+  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  const [statusFilter, setStatusFilter] = useState<"all" | "unmapped" | "mapped">("all");
 
-  const unmappedItems = phaseItems.filter((item) => !item.isMapped);
-  const mappedItems = phaseItems.filter((item) => item.isMapped);
+  // Stable sort: rows don't move on map/unmap — only on explicit re-sort
+  const [sortVersion, setSortVersion] = useState(0);
+  const stableOrderRef = useRef<Map<string, number>>(new Map());
+  const lastSortRef = useRef({ sortBy: "" as SortOption, sortVersion: -1, search: "", statusFilter: "" as string });
+
   const skippedItems = interactive.sourceLayerMappings.filter(
     (l) => l.isSkipped,
   );
+  const unmappedCount = phaseItems.filter((item) => !item.isMapped).length;
+  const mappedCount = phaseItems.filter((item) => item.isMapped).length;
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -86,8 +92,11 @@ export function SpinnersPhase() {
     return map;
   }, [phaseItems, interactive]);
 
-  const filteredUnmapped = useMemo(() => {
-    let items = unmappedItems;
+  // Filtered + stable-sorted items (single unified list)
+  const filteredItems = useMemo(() => {
+    let items = [...phaseItems];
+    if (statusFilter === "unmapped") items = items.filter((i) => !i.isMapped);
+    else if (statusFilter === "mapped") items = items.filter((i) => i.isMapped);
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -96,11 +105,32 @@ export function SpinnersPhase() {
           item.sourceModel.type.toLowerCase().includes(q),
       );
     }
-    return sortItems(items, sortBy, topSuggestionsMap);
-  }, [unmappedItems, search, sortBy, topSuggestionsMap]);
+
+    const needsResort =
+      sortBy !== lastSortRef.current.sortBy ||
+      sortVersion !== lastSortRef.current.sortVersion ||
+      search !== lastSortRef.current.search ||
+      statusFilter !== lastSortRef.current.statusFilter ||
+      stableOrderRef.current.size === 0;
+
+    if (needsResort) {
+      const sorted = sortItems(items, sortBy, topSuggestionsMap);
+      stableOrderRef.current = new Map(sorted.map((r, i) => [r.sourceModel.name, i]));
+      lastSortRef.current = { sortBy, sortVersion, search, statusFilter };
+      return sorted;
+    }
+
+    const order = stableOrderRef.current;
+    return [...items].sort((a, b) => {
+      const ai = order.get(a.sourceModel.name) ?? Infinity;
+      const bi = order.get(b.sourceModel.name) ?? Infinity;
+      if (ai !== bi) return ai - bi;
+      return a.sourceModel.name.localeCompare(b.sourceModel.name, undefined, { numeric: true, sensitivity: "base" });
+    });
+  }, [phaseItems, statusFilter, search, sortBy, sortVersion, topSuggestionsMap]);
 
   const { families, toggle, isExpanded } = useItemFamilies(
-    filteredUnmapped,
+    filteredItems,
     selectedItemId,
   );
 
@@ -129,16 +159,7 @@ export function SpinnersPhase() {
     );
   }
 
-  // All done
-  if (unmappedItems.length === 0) {
-    return (
-      <PhaseEmptyState
-        icon={<span className="text-5xl">&#9989;</span>}
-        title="All Submodel Groups Mapped!"
-        description={`${mappedItems.length} submodel group${mappedItems.length === 1 ? "" : "s"} successfully matched. Nice work!`}
-      />
-    );
-  }
+  const unmappedItems = phaseItems.filter((item) => !item.isMapped);
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
@@ -217,13 +238,12 @@ export function SpinnersPhase() {
             Submodel Groups
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
-            {unmappedItems.length} groups need matching
-            {mappedItems.length > 0 && (
-              <span> &middot; {mappedItems.length} already mapped</span>
-            )}
+            {phaseItems.length} group{phaseItems.length !== 1 ? "s" : ""}
+            {mappedCount > 0 && <span> &middot; <span className="text-green-400/60">{mappedCount} mapped</span></span>}
+            {unmappedCount > 0 && <span> &middot; <span className="text-amber-400/60">{unmappedCount} unmapped</span></span>}
           </p>
           <EffectsCoverageBar
-            mappedEffects={mappedItems.reduce(
+            mappedEffects={phaseItems.filter((i) => i.isMapped).reduce(
               (sum, i) => sum + i.effectCount,
               0,
             )}
@@ -256,7 +276,14 @@ export function SpinnersPhase() {
                 className={PANEL_STYLES.search.input}
               />
             </div>
-            <SortDropdown value={sortBy} onChange={setSortBy} />
+            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setSortVersion((v) => v + 1); }}
+              className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent">
+              <option value="all">All</option>
+              <option value="unmapped">Unmapped</option>
+              <option value="mapped">Mapped</option>
+            </select>
+            <SortDropdown value={sortBy} onChange={(v) => { setSortBy(v); setSortVersion((sv) => sv + 1); }} />
+            <button type="button" onClick={() => setSortVersion((v) => v + 1)} className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1" title="Re-sort">&#x21bb;</button>
           </div>
         </div>
 
@@ -337,35 +364,10 @@ export function SpinnersPhase() {
             </p>
           )}
 
-          {mappedItems.length > 0 && (
-            <details className="mt-6">
-              <summary className="text-sm text-foreground/40 cursor-pointer hover:text-foreground/60">
-                {mappedItems.length} submodel groups already mapped
-              </summary>
-              <div className="mt-3 space-y-2 opacity-50">
-                {mappedItems.map((item) => (
-                  <div
-                    key={item.sourceModel.name}
-                    className="p-3 rounded-lg bg-green-500/5 border border-green-500/15"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.SUB}`}
-                      >
-                        SUB
-                      </span>
-                      <span className="text-[13px] text-foreground/60 truncate">
-                        {item.sourceModel.name}
-                      </span>
-                      <span className="text-foreground/20">&rarr;</span>
-                      <span className="text-[13px] text-green-400/70 truncate">
-                        {item.assignedUserModels[0]?.name}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </details>
+          {filteredItems.length === 0 && (
+            <p className="py-6 text-center text-[12px] text-foreground/30">
+              {search || statusFilter !== "all" ? "No matches for current filters" : "No items"}
+            </p>
           )}
 
           {skippedItems.length > 0 && (
@@ -589,11 +591,12 @@ function SpinnerListCard({
       item.sourceModel.semanticCategory)
     : null;
   const px = item.sourceModel.pixelCount;
+  const leftBorder = item.isMapped ? "border-l-green-500/70" : topSuggestion ? "border-l-red-400/70" : "border-l-amber-400/70";
 
   return (
     <div
       className={`
-        px-3 py-1.5 rounded-lg border transition-all duration-200 cursor-pointer
+        px-3 py-1.5 rounded-lg border transition-all duration-200 cursor-pointer border-l-[3px] ${leftBorder}
         ${
           isDropTarget
             ? "bg-accent/10 border-accent/50 ring-2 ring-accent/30"

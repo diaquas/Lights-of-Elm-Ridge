@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { SacrificeSummary } from "../SacrificeIndicator";
+import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import type { ModelMapping } from "@/lib/modiq";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
@@ -48,10 +49,18 @@ export function AutoAcceptPhase() {
 
   const [rejectedNames, setRejectedNames] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [yellowOpen, setYellowOpen] = useState(true);
-  const [greenOpen, setGreenOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<ItemTypeFilter>("all");
+  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  const [sortVersion, setSortVersion] = useState(0);
+
+  const stableOrderRef = useRef<Map<string, number>>(new Map());
+  const lastSortRef = useRef({
+    sortBy: "" as SortOption,
+    sortVersion: -1,
+    search: "",
+    typeFilter: "" as string,
+  });
 
   // Build top-suggestion map for each item using greedy assignment.
   // Each destination model can only be used once — once claimed by the
@@ -96,36 +105,25 @@ export function AutoAcceptPhase() {
     return map;
   }, [phaseItems, interactive, scoreMap]);
 
-  // Split into green (90%+) and yellow (70-89%) groups
-  const { greenItems, yellowItems, stats, typeCounts } = useMemo(() => {
-    const green: SourceLayerMapping[] = [];
-    const yellow: SourceLayerMapping[] = [];
-
-    for (const item of phaseItems) {
-      const score = scoreMap.get(item.sourceModel.name) ?? 0;
-      if (score >= GREEN_THRESHOLD) {
-        green.push(item);
-      } else {
-        yellow.push(item);
-      }
-    }
-
-    // Sort by confidence ascending within each group (lowest first for review)
-    const byScore = (a: SourceLayerMapping, b: SourceLayerMapping) =>
-      (scoreMap.get(a.sourceModel.name) ?? 0) -
-      (scoreMap.get(b.sourceModel.name) ?? 0);
-    green.sort(byScore);
-    yellow.sort(byScore);
-
+  // Compute stats for header (no longer splits into separate arrays)
+  const { stats, typeCounts } = useMemo(() => {
     const accepted = phaseItems.filter(
       (i) => !rejectedNames.has(i.sourceModel.name),
     );
-    const greenAccepted = green.filter(
-      (i) => !rejectedNames.has(i.sourceModel.name),
-    );
-    const yellowAccepted = yellow.filter(
-      (i) => !rejectedNames.has(i.sourceModel.name),
-    );
+
+    let greenCount = 0;
+    let yellowCount = 0;
+    for (const item of phaseItems) {
+      if ((scoreMap.get(item.sourceModel.name) ?? 0) >= GREEN_THRESHOLD) greenCount++;
+      else yellowCount++;
+    }
+
+    const greenAccepted = phaseItems.filter(
+      (i) =>
+        !rejectedNames.has(i.sourceModel.name) &&
+        (scoreMap.get(i.sourceModel.name) ?? 0) >= GREEN_THRESHOLD,
+    ).length;
+    const yellowAccepted = accepted.length - greenAccepted;
 
     const groups = accepted.filter(
       (i) => i.isGroup && i.sourceModel.groupType !== "SUBMODEL_GROUP",
@@ -139,7 +137,7 @@ export function AutoAcceptPhase() {
 
     // Per-type counts with high/review breakdown
     const typeCounts = {
-      all: { total: phaseItems.length, high: green.length, review: yellow.length },
+      all: { total: phaseItems.length, high: greenCount, review: yellowCount },
       groups: { total: 0, high: 0, review: 0 },
       models: { total: 0, high: 0, review: 0 },
       submodelGroups: { total: 0, high: 0, review: 0 },
@@ -153,15 +151,13 @@ export function AutoAcceptPhase() {
     }
 
     return {
-      greenItems: green,
-      yellowItems: yellow,
       stats: {
         total: phaseItems.length,
         accepted: accepted.length,
-        greenCount: green.length,
-        yellowCount: yellow.length,
-        greenAccepted: greenAccepted.length,
-        yellowAccepted: yellowAccepted.length,
+        greenCount,
+        yellowCount,
+        greenAccepted,
+        yellowAccepted,
         groups: groups.length,
         models: models.length,
         hdGroups: hdGroups.length,
@@ -212,15 +208,29 @@ export function AutoAcceptPhase() {
     suggestions,
   ]);
 
-  // Combined type + search filter
-  const filterItems = (items: SourceLayerMapping[]) => {
-    let result = items;
-    if (typeFilter !== "all") {
-      result = result.filter((i) => getItemTypeKey(i) === typeFilter);
+  // Build a sortItems-compatible suggestions map for confidence sorting
+  const sortSuggestionsMap = useMemo(() => {
+    const m = new Map<string, { model: { name: string }; score: number } | null>();
+    for (const [name, score] of scoreMap) {
+      const sugg = suggestions.get(name);
+      m.set(name, { model: { name: sugg?.name ?? "" }, score });
     }
+    return m;
+  }, [scoreMap, suggestions]);
+
+  // Single unified list with stable sort (replaces yellow/green split)
+  const filteredItems = useMemo(() => {
+    let items = [...phaseItems];
+
+    // Type filter
+    if (typeFilter !== "all") {
+      items = items.filter((i) => getItemTypeKey(i) === typeFilter);
+    }
+
+    // Search
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((i) => {
+      items = items.filter((i) => {
         const sugg = suggestions.get(i.sourceModel.name);
         return (
           i.sourceModel.name.toLowerCase().includes(q) ||
@@ -228,11 +238,29 @@ export function AutoAcceptPhase() {
         );
       });
     }
-    return result;
-  };
 
-  const filteredYellow = filterItems(yellowItems);
-  const filteredGreen = filterItems(greenItems);
+    // Stable sort — only re-sort when sort/filter/search changes
+    const needsResort =
+      sortBy !== lastSortRef.current.sortBy ||
+      sortVersion !== lastSortRef.current.sortVersion ||
+      search !== lastSortRef.current.search ||
+      typeFilter !== lastSortRef.current.typeFilter;
+
+    if (needsResort || stableOrderRef.current.size === 0) {
+      const sorted = sortItems(items, sortBy, sortSuggestionsMap);
+      stableOrderRef.current = new Map(sorted.map((r, i) => [r.sourceModel.name, i]));
+      lastSortRef.current = { sortBy, sortVersion, search, typeFilter };
+      return sorted;
+    }
+
+    // Stable order fallback — rows never move on accept/reject toggle
+    const order = stableOrderRef.current;
+    return [...items].sort((a, b) => {
+      const oa = order.get(a.sourceModel.name) ?? 999;
+      const ob = order.get(b.sourceModel.name) ?? 999;
+      return oa - ob;
+    });
+  }, [phaseItems, typeFilter, search, sortBy, sortVersion, sortSuggestionsMap, suggestions]);
 
   const toggleReject = (name: string) => {
     setRejectedNames((prev) => {
@@ -342,6 +370,10 @@ export function AutoAcceptPhase() {
                     {stats.hdGroups !== 1 && "s"}
                   </>
                 )}
+                {" "}&middot;{" "}
+                <span className="text-green-400">{stats.greenAccepted} high</span>
+                {" "}&middot;{" "}
+                <span className="text-amber-400">{stats.yellowAccepted} review</span>
               </p>
             </div>
           </div>
@@ -365,15 +397,8 @@ export function AutoAcceptPhase() {
                 />
               </svg>
               <span className="font-medium text-foreground/60">
-                Match Quality
+                Coverage Preview
               </span>
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-500/15 text-green-400">
-                {stats.greenAccepted} high
-              </span>
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">
-                {stats.yellowAccepted} review
-              </span>
-              <span className="text-foreground/20">|</span>
               <span className="text-foreground/40 tabular-nums">
                 {coveragePreview.display.percent}% display &middot;{" "}
                 {coveragePreview.effects.percent}% effects
@@ -518,8 +543,8 @@ export function AutoAcceptPhase() {
             onSelect={setTypeFilter}
           />
 
-          {/* Search + instruction inline */}
-          <div className="flex items-center gap-3 mt-2">
+          {/* Search + sort toolbar */}
+          <div className="flex items-center gap-2 mt-2">
             <p className="text-xs text-foreground/40 shrink-0">
               Uncheck to map manually:
             </p>
@@ -545,150 +570,57 @@ export function AutoAcceptPhase() {
                 className="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
               />
             </div>
+            <SortDropdown
+              value={sortBy}
+              onChange={(v) => {
+                setSortBy(v);
+                setSortVersion((n) => n + 1);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setSortVersion((n) => n + 1)}
+              className="px-2 py-1.5 text-xs text-foreground/40 hover:text-foreground/70 bg-background border border-border hover:border-foreground/20 rounded-lg transition-colors"
+              title="Re-sort list"
+            >
+              &#8635;
+            </button>
           </div>
         </div>
       </div>
 
-      {/* ── Match List — fills remaining space ────────── */}
+      {/* ── Unified match list ────────────────────────── */}
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2">
-        <div className="max-w-3xl mx-auto space-y-2">
-          {/* Yellow Section — Needs Review (default OPEN) */}
-          {filteredYellow.length > 0 && (
-            <CollapsibleSection
-              color="yellow"
-              open={yellowOpen}
-              onToggle={() => setYellowOpen(!yellowOpen)}
-              label={`Needs Review (${filteredYellow.length} match${filteredYellow.length !== 1 ? "es" : ""})`}
-              badge="70-89%"
-              items={filteredYellow}
-              rejectedNames={rejectedNames}
-              suggestions={suggestions}
-              scoreMap={scoreMap}
-              onToggleReject={toggleReject}
-              searchActive={!!search}
-            />
-          )}
+        <div className="max-w-3xl mx-auto">
+          {filteredItems.length === 0 ? (
+            <div className="px-4 py-6 text-center text-sm text-foreground/30">
+              No matches{search ? " matching your search" : ""}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/30">
+              {filteredItems.map((item) => {
+                const score = scoreMap.get(item.sourceModel.name) ?? 0;
+                const isHigh = score >= GREEN_THRESHOLD;
+                const leftBorder = isHigh
+                  ? "border-l-green-500/70"
+                  : "border-l-amber-400/70";
 
-          {/* Green Section — High Confidence (default CLOSED) */}
-          {filteredGreen.length > 0 && (
-            <CollapsibleSection
-              color="green"
-              open={greenOpen}
-              onToggle={() => setGreenOpen(!greenOpen)}
-              label={`High Confidence (${filteredGreen.length} match${filteredGreen.length !== 1 ? "es" : ""})`}
-              badge="90%+"
-              items={filteredGreen}
-              rejectedNames={rejectedNames}
-              suggestions={suggestions}
-              scoreMap={scoreMap}
-              onToggleReject={toggleReject}
-              searchActive={!!search}
-            />
+                return (
+                  <AutoMatchRow
+                    key={item.sourceModel.name}
+                    item={item}
+                    isRejected={rejectedNames.has(item.sourceModel.name)}
+                    suggestion={suggestions.get(item.sourceModel.name)}
+                    score={score}
+                    onToggle={() => toggleReject(item.sourceModel.name)}
+                    leftBorder={leftBorder}
+                  />
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-// ─── Collapsible Section ────────────────────────────────
-
-function CollapsibleSection({
-  color,
-  open,
-  onToggle,
-  label,
-  badge,
-  items,
-  rejectedNames,
-  suggestions,
-  scoreMap,
-  onToggleReject,
-  searchActive,
-}: {
-  color: "green" | "yellow";
-  open: boolean;
-  onToggle: () => void;
-  label: string;
-  badge: string;
-  items: SourceLayerMapping[];
-  rejectedNames: Set<string>;
-  suggestions: Map<
-    string,
-    {
-      name: string;
-      score: number;
-      pixelCount: number | undefined;
-      factors: ModelMapping["factors"];
-    }
-  >;
-  scoreMap: Map<string, number>;
-  onToggleReject: (name: string) => void;
-  searchActive: boolean;
-}) {
-  const isGreen = color === "green";
-  const headerBg = isGreen ? "bg-green-500/5" : "bg-amber-500/5";
-  const headerHover = isGreen
-    ? "hover:bg-green-500/10"
-    : "hover:bg-amber-500/10";
-  const headerText = isGreen ? "text-green-400" : "text-amber-400";
-  const badgeBg = isGreen
-    ? "bg-green-500/15 text-green-400"
-    : "bg-amber-500/15 text-amber-400";
-  const icon = isGreen ? "\u2713" : "\u26A0";
-
-  return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      {/* Header */}
-      <button
-        type="button"
-        onClick={onToggle}
-        className={`w-full px-3 py-2 ${headerBg} ${headerHover} flex items-center justify-between transition-colors`}
-      >
-        <div className="flex items-center gap-2">
-          <svg
-            className={`w-4 h-4 text-foreground/40 transition-transform ${open ? "rotate-90" : ""}`}
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-          <span className={`font-medium text-sm ${headerText}`}>
-            {icon} {label}
-          </span>
-        </div>
-        <span
-          className={`text-[10px] font-semibold px-2 py-0.5 rounded ${badgeBg}`}
-        >
-          {badge}
-        </span>
-      </button>
-
-      {/* Items */}
-      {open && (
-        <div className="divide-y divide-border/30">
-          {items.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-foreground/30">
-              No matches{searchActive && " matching your search"}
-            </div>
-          ) : (
-            items.map((item) => (
-              <AutoMatchRow
-                key={item.sourceModel.name}
-                item={item}
-                isRejected={rejectedNames.has(item.sourceModel.name)}
-                suggestion={suggestions.get(item.sourceModel.name)}
-                score={scoreMap.get(item.sourceModel.name) ?? 0}
-                onToggle={() => onToggleReject(item.sourceModel.name)}
-              />
-            ))
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -701,6 +633,7 @@ function AutoMatchRow({
   suggestion,
   score,
   onToggle,
+  leftBorder,
 }: {
   item: SourceLayerMapping;
   isRejected: boolean;
@@ -714,6 +647,7 @@ function AutoMatchRow({
     | undefined;
   score: number;
   onToggle: () => void;
+  leftBorder: string;
 }) {
   const isAccepted = !isRejected;
   const typeLabel = getTypeLabel(item);
@@ -737,7 +671,7 @@ function AutoMatchRow({
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-1.5 min-h-[36px] transition-colors hover:bg-foreground/[0.02] ${
+      className={`flex items-center gap-2 px-3 py-1.5 min-h-[36px] border-l-[3px] ${leftBorder} transition-colors hover:bg-foreground/[0.02] ${
         isRejected ? "opacity-40" : ""
       }`}
     >
@@ -883,10 +817,14 @@ function AllDoneView({
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2">
-        <div className="max-w-3xl mx-auto bg-surface rounded-xl border border-border overflow-hidden">
+        <div className="max-w-3xl mx-auto rounded-xl border border-border overflow-hidden">
           <div className="divide-y divide-border/30">
             {items.map((item) => {
               const score = scoreMap.get(item.sourceModel.name) ?? 0;
+              const isHigh = score >= GREEN_THRESHOLD;
+              const leftBorder = isHigh
+                ? "border-l-green-500/70"
+                : "border-l-amber-400/70";
               const sugg = suggestions.get(item.sourceModel.name);
               const reasoning = sugg
                 ? generateMatchReasoning(
@@ -903,7 +841,7 @@ function AllDoneView({
               return (
                 <div
                   key={item.sourceModel.name}
-                  className="px-3 py-1.5 min-h-[36px] flex items-center gap-2 hover:bg-foreground/[0.02]"
+                  className={`px-3 py-1.5 min-h-[36px] flex items-center gap-2 border-l-[3px] ${leftBorder} hover:bg-foreground/[0.02]`}
                 >
                   <svg
                     className="w-3.5 h-3.5 text-green-400 flex-shrink-0"

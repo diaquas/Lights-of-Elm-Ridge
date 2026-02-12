@@ -27,10 +27,10 @@ const SORT_LABELS: Record<SortOption, string> = {
 };
 
 const SORT_GROUPS: { label: string; options: SortOption[] }[] = [
-  { label: "Impact", options: ["effects-desc", "effects-asc"] },
-  { label: "Size", options: ["pixels-desc", "pixels-asc"] },
   { label: "Name", options: ["name-asc", "name-desc"] },
   { label: "Match", options: ["confidence-desc", "confidence-asc"] },
+  { label: "Impact", options: ["effects-desc", "effects-asc"] },
+  { label: "Size", options: ["pixels-desc", "pixels-asc"] },
   { label: "Status", options: ["status"] },
 ];
 
