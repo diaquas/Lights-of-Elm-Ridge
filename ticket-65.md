@@ -102,6 +102,65 @@ A source sequence might have an xLights group "All - Arches" with Arch 1–8, bu
 
 ---
 
+## Cross-Type Mapping (Group ↔ Model)
+
+Merging phases unlocks mapping across types. The source dropdown for any row — whether it's a group header or an individual model — shows ALL available sources: groups and models together.
+
+### Dropdown Structure
+
+```
+┌──────────────────────────────────────────┐
+│ Search sources...                        │
+├──── 💡 Suggestions ─────────────────────┤
+│ 💡 All - Arches (group, 88 fx)    72%   │
+│ 💡 ARCH 1 (model, 11 fx)          68%   │
+├──── Groups ─────────────────────────────┤
+│    All - Arches             88 fx  Group │
+│    All - Mega Trees        210 fx  Group │
+│    All - Windows            96 fx  Group │
+├──── Models ─────────────────────────────┤
+│    ARCH 1                   11 fx        │
+│    ARCH 2                   11 fx        │
+│    MATRIX 1                 82 fx        │
+│    MEGATREE                105 fx        │
+│    ...                                   │
+└──────────────────────────────────────────┘
+```
+
+- Suggestions at top (as before)
+- Then source groups, labeled with "Group" tag and combined effect count
+- Then source models, sorted by effect count
+- Searchable — typing filters across both groups and models
+- A subtle "Group" badge distinguishes groups from models in the list
+
+### Mapping Combinations
+
+| User's Layout (row) | Mapped To (source) | Behavior |
+|---|---|---|
+| Group → Group | All 8 arches inherit the source group's effects | Same as current group mapping |
+| Group → Model | All 8 arches inherit that single model's effects | New — previously required mapping each model individually |
+| Model → Group | Single model inherits the source group's combined effects | New — powerful for "give me everything from that group" |
+| Model → Model | Direct 1:1 mapping | Same as current model mapping |
+
+### Group-Level Mapping Override
+
+If a user maps at the group level (e.g., "All - Arches" → "MEGATREE"), all children inherit that mapping by default. But a user can then expand the group and override individual children:
+
+```
+│ ▾ All - Arches (8)  ·  mapped to MEGATREE                                      │
+│     Arch 1           │ [MEGATREE ✕]  (inherited)                                │
+│     Arch 2           │ [MEGATREE ✕]  (inherited)                                │
+│     Arch 3           │ [ARCH 3 ✕]    (overridden)                               │
+│     ...                                                                          │
+```
+
+- "Inherited" label (muted) indicates the mapping came from the group-level assignment
+- User can override any child by clicking its dropdown and selecting a different source
+- Overridden children show the new source without the inherited label
+- Removing the group-level mapping clears all inherited children (but preserves overrides)
+
+---
+
 ## What This Does NOT Change
 
 - **Auto-Match phase** — still runs the same fuzzy matching algorithm
