@@ -76,7 +76,7 @@ function extractNumberedName(name: string): { base: string; num: number } | null
 // ─── Component ──────────────────────────────────────────
 
 export function FinalizePhase() {
-  const { phaseItems, interactive } = useMappingPhase();
+  const { phaseItems, interactive, focusMode } = useMappingPhase();
 
   const {
     displayCoverage,
@@ -121,9 +121,6 @@ export function FinalizePhase() {
   const [deltaToast, setDeltaToast] = useState<string | null>(null);
   const prevCoveredRef = useRef(displayCoverage.covered);
 
-  // Focus mode
-  const [focusMode, setFocusMode] = useState(false);
-
   // Ignore/dismiss
   const [ignoredDisplay, setIgnoredDisplay] = useState<Set<string>>(new Set());
   const [ignoredSource, setIgnoredSource] = useState<Set<string>>(new Set());
@@ -131,11 +128,10 @@ export function FinalizePhase() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [ignoredSectionOpen, setIgnoredSectionOpen] = useState(false);
 
+  // Phase-specific keyboard shortcuts (R to re-sort in focus mode)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
-      if (e.key === "f" || e.key === "F") { e.preventDefault(); setFocusMode((p) => !p); }
-      if (e.key === "Escape" && focusMode) { e.preventDefault(); setFocusMode(false); }
       if ((e.key === "r" || e.key === "R") && focusMode) { e.preventDefault(); setSortVersion((v) => v + 1); }
     };
     document.addEventListener("keydown", handler);
@@ -638,22 +634,7 @@ export function FinalizePhase() {
   const seqPct = effectsCoverage.percent;
 
   return (
-    <div className={focusMode ? "fixed inset-0 z-50 bg-background flex flex-col" : "flex flex-col h-full overflow-hidden"}>
-      {/* ── Focus Mode: Slim Coverage Bar ── */}
-      {focusMode && (
-        <div className="px-4 py-1.5 border-b border-border bg-surface flex-shrink-0 flex items-center gap-4">
-          <span className="text-[11px] text-foreground/60 tabular-nums">Models: {dispPct}% ({displayCoverage.covered}/{displayCoverage.total})</span>
-          <div className="w-32 h-1.5 bg-foreground/10 rounded-full overflow-hidden">
-            <div className="h-full bg-green-400 rounded-full transition-all" style={{ width: `${dispPct}%` }} />
-          </div>
-          <span className="text-[11px] text-foreground/60 tabular-nums">Effects: {seqPct}% ({effectsCoverage.covered}/{effectsCoverage.total})</span>
-          <div className="w-32 h-1.5 bg-foreground/10 rounded-full overflow-hidden">
-            <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${seqPct}%` }} />
-          </div>
-          <button type="button" onClick={() => setFocusMode(false)} className="ml-auto text-[11px] font-medium px-2.5 py-1 rounded bg-foreground/5 text-foreground/50 hover:bg-foreground/10 hover:text-foreground/70 transition-colors">Exit Focus</button>
-        </div>
-      )}
-
+    <div className="flex flex-col h-full overflow-hidden">
       {/* ── Quick Actions + Perspective ── */}
       <div className="px-6 py-1.5 border-b border-border/50 flex-shrink-0 flex items-center gap-3">
         {deltaToast && <span className="text-[11px] text-green-400 font-medium animate-pulse">{deltaToast}</span>}
@@ -669,9 +650,6 @@ export function FinalizePhase() {
           <span className="text-[11px] text-amber-400/60">{sourceSummary.unused} source{sourceSummary.unused !== 1 ? "s" : ""} unused</span>
         )}
         <div className="ml-auto flex items-center gap-2">
-          {!focusMode && (
-            <button type="button" onClick={() => setFocusMode(true)} className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-2 py-1 rounded hover:bg-foreground/5" title="Focus mode (F)">&#x26F6; Focus</button>
-          )}
           <div className="flex items-center gap-1 bg-foreground/5 rounded-lg p-0.5">
             <button type="button" onClick={() => { setPerspective("display"); setSelectedRows(new Set()); }}
               className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${perspective === "display" ? "bg-accent/15 text-accent" : "text-foreground/40 hover:text-foreground/60"}`}>

@@ -58,6 +58,10 @@ interface PhaseContextValue {
   autoMatchedNames: ReadonlySet<string>;
   /** Aggregate stats about auto-matched items */
   autoMatchStats: AutoMatchStats;
+  /** Global focus mode — expands work area to full viewport */
+  focusMode: boolean;
+  /** Toggle focus mode on/off */
+  toggleFocusMode: () => void;
 }
 
 const MappingPhaseContext = createContext<PhaseContextValue | null>(null);
@@ -112,11 +116,15 @@ export function findNextUnmapped(
 interface MappingPhaseProviderProps {
   children: ReactNode;
   interactive: InteractiveMappingState;
+  focusMode: boolean;
+  toggleFocusMode: () => void;
 }
 
 export function MappingPhaseProvider({
   children,
   interactive,
+  focusMode,
+  toggleFocusMode,
 }: MappingPhaseProviderProps) {
   const [currentPhase, setCurrentPhase] = useState<MappingPhase>("individuals");
 
@@ -349,6 +357,8 @@ export function MappingPhaseProvider({
       interactive,
       autoMatchedNames,
       autoMatchStats,
+      focusMode,
+      toggleFocusMode,
     }),
     [
       currentPhase,
@@ -365,6 +375,8 @@ export function MappingPhaseProvider({
       interactive,
       autoMatchedNames,
       autoMatchStats,
+      focusMode,
+      toggleFocusMode,
     ],
   );
 
