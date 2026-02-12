@@ -36,6 +36,14 @@ export interface GroupEffectInfo {
    * does NOT auto-resolve children — effects overlay on top.
    */
   isAllEncompassing: boolean;
+  /**
+   * True if this group fully contains the members of 3+ other groups
+   * AND has 20+ models (or 50%+ of total, whichever is smaller).
+   * These are display-wide / section-wide groups like "All - Pixels - GRP".
+   */
+  isSuperGroup: boolean;
+  /** Number of other groups whose members are fully contained by this group */
+  containedGroupCount: number;
 }
 
 export interface ModelEffectInfo {
@@ -61,6 +69,27 @@ export interface EffectSummary {
   modelsCoveredByGroups: number;
   modelsWithNoEffects: number;
   effectiveMappingItems: number;
+  /** Number of detected super groups (display-wide / section-wide) */
+  superGroupCount: number;
+}
+
+/**
+ * A node in the imposed display hierarchy.
+ * Each model/group appears once under its most specific parent.
+ */
+export interface HierarchyNode {
+  /** Name of the group or model */
+  name: string;
+  /** True if this is a group (super or regular), false for individual models */
+  isGroup: boolean;
+  /** True if this is a super group (display-wide / section-wide) */
+  isSuperGroup: boolean;
+  /** Child nodes (sub-groups and/or individual models) */
+  children: HierarchyNode[];
+  /** Effect count for this node */
+  effectCount: number;
+  /** Total member count (for groups) */
+  memberCount: number;
 }
 
 export interface EffectTree {
@@ -80,6 +109,15 @@ export interface EffectTree {
    * or Scenario B members without individual effects).
    */
   coveredByGroup: Map<string, string>;
+  /** Super groups: groups that fully contain 3+ other groups' members */
+  superGroups: GroupEffectInfo[];
+  /**
+   * Map from regular group name → best parent super group name.
+   * "Best parent" = smallest super group that fully contains the regular group.
+   */
+  groupParentMap: Map<string, string>;
+  /** Imposed navigational hierarchy for display purposes */
+  hierarchy: HierarchyNode[];
 }
 
 // ── Heuristics for "all-encompassing" groups ──────────────────
@@ -114,6 +152,201 @@ function isAllEncompassingGroup(
     return true;
   }
   return false;
+}
+
+// ── Super group detection ─────────────────────────────────────
+
+/**
+ * Minimum number of other groups a group must fully contain to be a super group.
+ */
+const SUPER_GROUP_CONTAINED_THRESHOLD = 3;
+
+/**
+ * Minimum member count for super groups (absolute floor).
+ */
+const SUPER_GROUP_MIN_MEMBERS = 20;
+
+/**
+ * Alternative threshold: fraction of total individual models.
+ * Super groups must have at least min(SUPER_GROUP_MIN_MEMBERS, totalModels * this).
+ */
+const SUPER_GROUP_MEMBER_RATIO = 0.5;
+
+/**
+ * Detect which groups are "super groups" — groups that fully contain
+ * the members of 3+ other groups AND have enough members.
+ *
+ * Returns a map of group name → number of groups it fully contains.
+ */
+function detectSuperGroups(
+  groupsWithEffects: GroupEffectInfo[],
+  totalIndividualModels: number,
+): Map<string, number> {
+  const result = new Map<string, number>();
+  const minMembers = Math.min(
+    SUPER_GROUP_MIN_MEMBERS,
+    Math.floor(totalIndividualModels * SUPER_GROUP_MEMBER_RATIO),
+  );
+
+  // Build member sets for each group
+  const memberSets = new Map<string, Set<string>>();
+  for (const gInfo of groupsWithEffects) {
+    memberSets.set(gInfo.model.name, new Set(gInfo.model.memberModels));
+  }
+
+  // For each group G, count how many other groups H it fully contains
+  for (const gInfo of groupsWithEffects) {
+    if (gInfo.model.memberModels.length < minMembers) continue;
+
+    const gMembers = memberSets.get(gInfo.model.name)!;
+    let containedCount = 0;
+
+    for (const hInfo of groupsWithEffects) {
+      if (hInfo.model.name === gInfo.model.name) continue;
+      if (hInfo.model.memberModels.length === 0) continue;
+      // Don't count groups that are the same size or larger
+      if (hInfo.model.memberModels.length >= gInfo.model.memberModels.length) continue;
+
+      // Check if every member of H is also in G
+      const hMembers = hInfo.model.memberModels;
+      const allContained = hMembers.every((m) => gMembers.has(m));
+      if (allContained) containedCount++;
+    }
+
+    if (containedCount >= SUPER_GROUP_CONTAINED_THRESHOLD) {
+      result.set(gInfo.model.name, containedCount);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Build a "best parent" map: for each regular group, find the smallest
+ * super group that fully contains it. Used for hierarchy construction.
+ */
+function buildGroupParentMap(
+  groupsWithEffects: GroupEffectInfo[],
+  superGroupNames: Set<string>,
+): Map<string, string> {
+  const parentMap = new Map<string, string>();
+
+  // Build member sets for super groups
+  const superMemberSets = new Map<string, Set<string>>();
+  const superSizes = new Map<string, number>();
+  for (const gInfo of groupsWithEffects) {
+    if (!superGroupNames.has(gInfo.model.name)) continue;
+    superMemberSets.set(gInfo.model.name, new Set(gInfo.model.memberModels));
+    superSizes.set(gInfo.model.name, gInfo.model.memberModels.length);
+  }
+
+  // For each non-super group, find its best (smallest) parent super group
+  for (const gInfo of groupsWithEffects) {
+    if (superGroupNames.has(gInfo.model.name)) continue;
+    if (gInfo.model.memberModels.length === 0) continue;
+
+    let bestParent: string | null = null;
+    let bestParentSize = Infinity;
+
+    for (const [superName, superMembers] of superMemberSets) {
+      const size = superSizes.get(superName)!;
+      // Check if this super group fully contains the regular group
+      const allContained = gInfo.model.memberModels.every((m) =>
+        superMembers.has(m),
+      );
+      if (allContained && size < bestParentSize) {
+        bestParent = superName;
+        bestParentSize = size;
+      }
+    }
+
+    if (bestParent) {
+      parentMap.set(gInfo.model.name, bestParent);
+    }
+  }
+
+  // Also nest super groups inside each other when one is a strict subset
+  const superNames = [...superGroupNames];
+  for (const childName of superNames) {
+    const childMembers = superMemberSets.get(childName)!;
+    let bestParent: string | null = null;
+    let bestParentSize = Infinity;
+
+    for (const parentName of superNames) {
+      if (parentName === childName) continue;
+      const parentMembers = superMemberSets.get(parentName)!;
+      // Child must be strictly smaller
+      if (childMembers.size >= parentMembers.size) continue;
+      // Every member of child must be in parent
+      let allContained = true;
+      for (const m of childMembers) {
+        if (!parentMembers.has(m)) { allContained = false; break; }
+      }
+      if (allContained && parentMembers.size < bestParentSize) {
+        bestParent = parentName;
+        bestParentSize = parentMembers.size;
+      }
+    }
+
+    if (bestParent) {
+      parentMap.set(childName, bestParent);
+    }
+  }
+
+  return parentMap;
+}
+
+/**
+ * Build an imposed navigational hierarchy from the effect tree data.
+ * Each model/group appears once under its most specific parent.
+ */
+function buildHierarchy(
+  groupsWithEffects: GroupEffectInfo[],
+  superGroupNames: Set<string>,
+  groupParentMap: Map<string, string>,
+  effectCounts?: Record<string, number>,
+): HierarchyNode[] {
+  // Build nodes for all groups
+  const nodeMap = new Map<string, HierarchyNode>();
+  for (const gInfo of groupsWithEffects) {
+    nodeMap.set(gInfo.model.name, {
+      name: gInfo.model.name,
+      isGroup: true,
+      isSuperGroup: superGroupNames.has(gInfo.model.name),
+      children: [],
+      effectCount: effectCounts?.[gInfo.model.name] ?? 0,
+      memberCount: gInfo.memberCount,
+    });
+  }
+
+  // Attach groups to their parents
+  for (const [childName, parentName] of groupParentMap) {
+    const childNode = nodeMap.get(childName);
+    const parentNode = nodeMap.get(parentName);
+    if (childNode && parentNode) {
+      parentNode.children.push(childNode);
+    }
+  }
+
+  // Collect top-level nodes (groups not nested under any parent)
+  const topLevel: HierarchyNode[] = [];
+  for (const gInfo of groupsWithEffects) {
+    if (!groupParentMap.has(gInfo.model.name)) {
+      const node = nodeMap.get(gInfo.model.name);
+      if (node) topLevel.push(node);
+    }
+  }
+
+  // Sort children at each level alphabetically
+  const sortChildren = (nodes: HierarchyNode[]) => {
+    nodes.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+    for (const node of nodes) {
+      if (node.children.length > 0) sortChildren(node.children);
+    }
+  };
+  sortChildren(topLevel);
+
+  return topLevel;
 }
 
 // ── Main builder ──────────────────────────────────────────────
@@ -196,6 +429,8 @@ export function buildEffectTree(
           membersWithoutEffects: membersWithoutFx,
           memberCount: group.memberModels.length,
           isAllEncompassing: isAllEncompassingGroup(group, totalIndividual),
+          isSuperGroup: false, // Updated in Phase 1.5
+          containedGroupCount: 0,
         });
       }
       // If no members have effects either, skip this group entirely
@@ -224,6 +459,8 @@ export function buildEffectTree(
       membersWithoutEffects: membersWithoutFx,
       memberCount: group.memberModels.length,
       isAllEncompassing: allEncompassing,
+      isSuperGroup: false, // Updated in Phase 1.5
+      containedGroupCount: 0,
     });
 
     // For non-all-encompassing groups, mark children as covered
@@ -240,6 +477,25 @@ export function buildEffectTree(
       }
     }
   }
+
+  // ── Phase 1.5: Detect super groups ─────────────────────────
+  const superGroupMap = detectSuperGroups(groupsWithEffects, totalIndividual);
+  const superGroupNames = new Set(superGroupMap.keys());
+
+  // Update GroupEffectInfo with super group flags
+  for (const gInfo of groupsWithEffects) {
+    const contained = superGroupMap.get(gInfo.model.name);
+    if (contained !== undefined) {
+      gInfo.isSuperGroup = true;
+      gInfo.containedGroupCount = contained;
+    }
+  }
+
+  // Build parent map and hierarchy
+  const groupParentMap = buildGroupParentMap(groupsWithEffects, superGroupNames);
+  const hierarchy = buildHierarchy(groupsWithEffects, superGroupNames, groupParentMap, effectCounts);
+
+  const superGroups = groupsWithEffects.filter((g) => g.isSuperGroup);
 
   // ── Phase 2: Classify individual models ─────────────────────
   const modelsWithEffects: ModelEffectInfo[] = [];
@@ -330,6 +586,7 @@ export function buildEffectTree(
       groupsNeedingMapping +
       allEncompassingGroupsWithEffects +
       individualModelsNeedingMapping,
+    superGroupCount: superGroups.length,
   };
 
   return {
@@ -339,6 +596,9 @@ export function buildEffectTree(
     summary,
     activeModelNames,
     coveredByGroup,
+    superGroups,
+    groupParentMap,
+    hierarchy,
   };
 }
 

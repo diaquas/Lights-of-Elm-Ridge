@@ -88,6 +88,14 @@ export interface SourceLayerMapping {
   effectCount: number;
   /** Per-effect-type breakdown (e.g., { Faces: 29, Plasma: 8 }) */
   effectTypeCounts?: Record<string, number>;
+  /** True if this group fully contains 3+ other groups (display-wide / section-wide) */
+  isSuperGroup: boolean;
+  /** Number of other groups fully contained by this group */
+  containedGroupCount: number;
+  /** Parent super group name (for regular groups nested under a super group) */
+  parentSuperGroup: string | null;
+  /** Names of super groups that include this model/group (for layer indicators) */
+  superGroupLayers: string[];
 }
 
 export interface InteractiveMappingState {
@@ -931,6 +939,17 @@ export function useInteractiveMapping(
 
     const layers: SourceLayerMapping[] = [];
 
+    // Pre-compute: for each model name, which super groups contain it?
+    const modelSuperGroupMap = new Map<string, string[]>();
+    for (const sg of effectTree.superGroups) {
+      const members = new Set(sg.model.memberModels);
+      for (const memberName of members) {
+        const existing = modelSuperGroupMap.get(memberName) ?? [];
+        existing.push(sg.model.name);
+        modelSuperGroupMap.set(memberName, existing);
+      }
+    }
+
     // Groups with effects (Scenario A and B — C are individual-only)
     for (const gInfo of effectTree.groupsWithEffects) {
       if (gInfo.scenario === "C") continue;
@@ -963,6 +982,10 @@ export function useInteractiveMapping(
         isMapped: userModels.length > 0,
         effectCount: effectCounts?.[gInfo.model.name] ?? 0,
         effectTypeCounts: effectTypeMap?.[gInfo.model.name],
+        isSuperGroup: gInfo.isSuperGroup,
+        containedGroupCount: gInfo.containedGroupCount,
+        parentSuperGroup: effectTree.groupParentMap.get(gInfo.model.name) ?? null,
+        superGroupLayers: [],
       });
     }
 
@@ -992,6 +1015,10 @@ export function useInteractiveMapping(
         isMapped: userModels.length > 0,
         effectCount: effectCounts?.[mInfo.model.name] ?? 0,
         effectTypeCounts: effectTypeMap?.[mInfo.model.name],
+        isSuperGroup: false,
+        containedGroupCount: 0,
+        parentSuperGroup: null,
+        superGroupLayers: modelSuperGroupMap.get(mInfo.model.name) ?? [],
       });
     }
 
