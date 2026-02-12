@@ -565,7 +565,7 @@ def main():
     create_holiday(wb)
     create_algorithm(wb)
 
-    output = "/home/user/Lights-of-Elm-Ridge/ModIQ_Matcher_Analysis.xlsx"
+    output = "/home/user/Lights-of-Elm-Ridge/data/ModIQ_Matcher_Analysis.xlsx"
     wb.save(output)
     print(f"Saved: {output}")
     print(f"Sheets: {', '.join(wb.sheetnames)}")
