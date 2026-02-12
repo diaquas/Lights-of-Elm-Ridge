@@ -184,6 +184,7 @@ function calculatePixelCount(
       // parm1 = nodes per arch, parm2 = num arches, parm3 = lights per node
       return parm1 * parm2 * Math.max(parm3, 1);
     case "tree 360":
+    case "tree 180":
     case "tree flat":
       // parm1 = strands, parm2 = lights per strand
       return parm1 * parm2;
@@ -209,9 +210,11 @@ function calculatePixelCount(
       // parm2 = total drops
       return parm2;
     case "matrix":
+    case "horiz matrix":
     case "vert matrix":
-      // parm2 = pixels per strand, parm3 = strands
-      return parm2 * parm3;
+      // parm1 = strings (physical connections), parm2 = nodes per string
+      // parm3 = strands per string (zigzag folds, not additional pixels)
+      return parm1 * parm2;
     case "window frame":
       // parm1 = top, parm2 = left/right, parm3 = bottom
       return parm1 + parm2 * 2 + parm3;

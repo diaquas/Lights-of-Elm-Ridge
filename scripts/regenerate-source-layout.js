@@ -15,6 +15,68 @@ const HALLOWEEN_XML = path.join(ROOT, "xlights_rgbeffects Halloween Default.xml"
 const CHRISTMAS_XML = path.join(ROOT, "xlights_rgbeffects Christmas Default.xml");
 const OUTPUT = path.join(ROOT, "src/lib/modiq/source-layout.ts");
 
+/**
+ * Calculate pixel count from an xLights <model> element, mirroring the
+ * logic in parser.ts calculatePixelCount.
+ *
+ * Priority: explicit PixelCount attr > CustomModel cell count > DisplayAs-aware formula > parm1*parm2
+ */
+function calculatePixelCount(el, displayAs) {
+  const pcAttr = parseInt(el.getAttribute("PixelCount") || "0", 10);
+  if (pcAttr > 0) return pcAttr;
+
+  const parm1 = parseInt(el.getAttribute("parm1") || "0", 10);
+  const parm2 = parseInt(el.getAttribute("parm2") || "1", 10);
+  const parm3 = parseInt(el.getAttribute("parm3") || "1", 10);
+
+  const type = displayAs.toLowerCase();
+
+  // Custom models: count non-empty cells in the CustomModel grid
+  if (type === "custom") {
+    const customModel = el.getAttribute("CustomModel") || "";
+    if (customModel) {
+      const cells = customModel.split(/[;,]/);
+      const filled = cells.filter((c) => c.trim() !== "").length;
+      if (filled > 0) return filled;
+    }
+    return parm1 * parm2;
+  }
+
+  switch (type) {
+    case "arches":
+      return parm1 * parm2 * Math.max(parm3, 1);
+    case "tree 360":
+    case "tree 180":
+    case "tree flat":
+      return parm1 * parm2;
+    case "single line":
+    case "poly line":
+      return parm2;
+    case "star":
+      return parm1 * parm2;
+    case "spinner":
+      return parm1 * parm2;
+    case "candy cane":
+    case "candy canes":
+      return parm1 * parm2;
+    case "circle":
+    case "wreaths":
+      return parm2;
+    case "icicles":
+      return parm2;
+    case "matrix":
+    case "horiz matrix":
+    case "vert matrix":
+      // parm1 = strings (physical connections), parm2 = nodes per string
+      // parm3 = strands per string (zigzag folds, not additional pixels)
+      return parm1 * parm2;
+    case "window frame":
+      return parm1 + parm2 * 2 + parm3;
+    default:
+      return Math.max(parm1 * parm2, parm1, parm2);
+  }
+}
+
 function parseXmlFile(xmlPath) {
   const xml = fs.readFileSync(xmlPath, "utf-8");
   const dom = new JSDOM(xml, { contentType: "text/xml" });
@@ -33,8 +95,7 @@ function parseXmlFile(xmlPath) {
     if (!name) continue;
 
     const displayAs = el.getAttribute("DisplayAs") || "Custom";
-    const pixelCount = parseInt(el.getAttribute("PixelCount") || "0", 10) ||
-      parseInt(el.getAttribute("parm1") || "0", 10) * parseInt(el.getAttribute("parm2") || "1", 10);
+    const pixelCount = calculatePixelCount(el, displayAs);
     const worldPosX = parseFloat(el.getAttribute("WorldPosX") || "0");
     const worldPosY = parseFloat(el.getAttribute("WorldPosY") || "0");
 
