@@ -196,26 +196,84 @@ export function AutoMatchBanner({
   stats,
   phaseAutoCount,
   onAcceptAllStrong,
+  bannerFilter,
+  onFilterStrong,
+  onFilterReview,
+  onClearFilter,
 }: {
   stats: AutoMatchStats;
   /** Number of auto-matched items visible in THIS phase (not global total) */
   phaseAutoCount: number;
   onAcceptAllStrong?: () => void;
+  /** Currently active banner filter (if any) */
+  bannerFilter?: "auto-strong" | "auto-review" | null;
+  /** Click handler for strong count pill */
+  onFilterStrong?: () => void;
+  /** Click handler for review count pill */
+  onFilterReview?: () => void;
+  /** Clear banner filter */
+  onClearFilter?: () => void;
 }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed || phaseAutoCount === 0) return null;
 
+  // If banner filter is active, show the "Showing" state instead
+  if (bannerFilter) {
+    const label = bannerFilter === "auto-review"
+      ? `${stats.reviewCount} needs review`
+      : `${stats.strongCount} strong matches`;
+    return (
+      <div className={`mx-4 mt-2 mb-1 px-4 py-2 rounded-lg border flex items-center gap-3 flex-shrink-0 ${
+        bannerFilter === "auto-review"
+          ? "border-amber-500/20 bg-amber-500/5"
+          : "border-green-500/20 bg-green-500/5"
+      }`}>
+        <Link2Badge />
+        <span className="text-[12px] font-semibold text-foreground/80">
+          Showing: {label}
+        </span>
+        {bannerFilter === "auto-review" && stats.reviewCount > 0 && (
+          <span className="text-[11px] text-foreground/40">
+            Review these before continuing
+          </span>
+        )}
+        {onClearFilter && (
+          <button
+            type="button"
+            onClick={onClearFilter}
+            className="ml-auto text-[11px] font-medium text-accent/70 hover:text-accent transition-colors flex-shrink-0"
+          >
+            {bannerFilter === "auto-review" ? "Skip review, show all" : "Clear filter"}
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mx-4 mt-2 mb-1 px-4 py-2.5 rounded-lg border border-green-500/20 bg-green-500/5 flex items-center gap-3 flex-shrink-0">
       <Link2Badge />
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 flex items-center gap-2">
         <span className="text-[12px] font-semibold text-foreground/80">
           {phaseAutoCount} auto-matched
         </span>
-        {stats.strongCount > 0 && stats.reviewCount > 0 && (
-          <span className="text-[11px] text-foreground/40 ml-1.5">
-            ({stats.strongCount} strong, {stats.reviewCount} needs review)
-          </span>
+        {stats.strongCount > 0 && (
+          <button
+            type="button"
+            onClick={onFilterStrong}
+            className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-500/10 text-green-400/80 hover:bg-green-500/20 transition-colors tabular-nums"
+          >
+            {stats.strongCount} strong
+          </button>
+        )}
+        {stats.reviewCount > 0 && (
+          <button
+            type="button"
+            onClick={onFilterReview}
+            className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400/80 hover:bg-amber-500/20 transition-colors tabular-nums"
+          >
+            {stats.reviewCount} needs review
+          </button>
         )}
       </div>
       {onAcceptAllStrong && stats.strongCount > 0 && (
@@ -224,7 +282,7 @@ export function AutoMatchBanner({
           onClick={onAcceptAllStrong}
           className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-green-500/15 text-green-400 hover:bg-green-500/25 transition-colors flex-shrink-0"
         >
-          Accept All Strong
+          Accept All Strong ({stats.strongCount})
         </button>
       )}
       <button
