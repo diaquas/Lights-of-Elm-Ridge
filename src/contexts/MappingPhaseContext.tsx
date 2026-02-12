@@ -187,15 +187,11 @@ export function MappingPhaseProvider({
           // Store natural fallback for rejection routing
           if (isSpinner) {
             fallbackPhaseRef.current.set(name, "spinners");
-          } else if (layer.isGroup) {
-            fallbackPhaseRef.current.set(name, "groups");
           } else {
             fallbackPhaseRef.current.set(name, "individuals");
           }
         } else if (isSpinner) {
           phaseAssignmentRef.current.set(name, "spinners");
-        } else if (layer.isGroup) {
-          phaseAssignmentRef.current.set(name, "groups");
         } else {
           phaseAssignmentRef.current.set(name, "individuals");
         }

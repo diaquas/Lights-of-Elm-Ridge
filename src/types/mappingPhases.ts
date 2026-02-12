@@ -3,7 +3,6 @@ import { isSpinnerType } from "@/types/xLightsTypes";
 
 export type MappingPhase =
   | "auto-accept"
-  | "groups"
   | "individuals"
   | "spinners"
   | "finalize"
@@ -29,12 +28,11 @@ export const UPLOAD_STEP = {
 /**
  * Phase definitions for the ModIQ mapping wizard.
  *
- * Ordering: [Upload (always done)] → Auto-Accept → Groups → Individuals → Spinners → Finalize → Review
+ * Ordering: [Upload (always done)] → Auto-Accept → Groups & Models → Spinners → Finalize → Review
  *
  * Phase routing uses the xLights type system:
  * - Auto-Accept: ALL entity types with 70%+ confidence (opt-out review)
- * - Groups: MODEL_GROUP + META_GROUP + MIXED_GROUP (below 70%)
- * - Models: MODEL + SUBMODEL (below 70%)
+ * - Groups & Models: MODEL_GROUP + META_GROUP + MIXED_GROUP + MODEL + SUBMODEL (below 70%)
  * - Spinners: SUBMODEL_GROUP (below 70%)
  * - Items rejected from auto-accept are routed to their natural phase
  */
@@ -49,24 +47,13 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     },
   },
   {
-    id: "groups",
-    label: "Groups",
-    description: "Match model groups to your groups",
+    id: "individuals",
+    label: "Groups & Models",
+    stepperLabel: "Groups & Models",
+    description: "Match groups and individual models",
     icon: "groups",
     filter: (layer) => {
       if (isSpinnerType(layer.sourceModel.groupType)) return false;
-      if (!layer.isGroup) return false;
-      return getLayerBestScore(layer) < 0.70;
-    },
-  },
-  {
-    id: "individuals",
-    label: "Models",
-    description: "Match individual models one by one",
-    icon: "individuals",
-    filter: (layer) => {
-      if (isSpinnerType(layer.sourceModel.groupType)) return false;
-      if (layer.isGroup) return false;
       return getLayerBestScore(layer) < 0.70;
     },
   },
