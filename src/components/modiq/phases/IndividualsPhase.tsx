@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, useRef, memo } from "react";
 import {
   useMappingPhase,
   findNextUnmapped,
@@ -38,13 +38,19 @@ export function IndividualsPhase() {
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("effects-desc");
+  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  const [statusFilter, setStatusFilter] = useState<"all" | "unmapped" | "mapped">("all");
 
-  const unmappedItems = phaseItems.filter((item) => !item.isMapped);
+  // Stable sort: rows don't move on map/unmap — only on explicit re-sort
+  const [sortVersion, setSortVersion] = useState(0);
+  const stableOrderRef = useRef<Map<string, number>>(new Map());
+  const lastSortRef = useRef({ sortBy: "" as SortOption, sortVersion: -1, search: "", statusFilter: "" as string });
+
   const skippedItems = interactive.sourceLayerMappings.filter(
     (l) => l.isSkipped,
   );
-  const mappedItems = phaseItems.filter((item) => item.isMapped);
+  const unmappedCount = phaseItems.filter((item) => !item.isMapped).length;
+  const mappedCount = phaseItems.filter((item) => item.isMapped).length;
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -71,8 +77,11 @@ export function IndividualsPhase() {
     return map;
   }, [phaseItems, interactive]);
 
-  const filteredUnmapped = useMemo(() => {
-    let items = unmappedItems;
+  // Filtered + stable-sorted items (single unified list)
+  const filteredItems = useMemo(() => {
+    let items = [...phaseItems];
+    if (statusFilter === "unmapped") items = items.filter((i) => !i.isMapped);
+    else if (statusFilter === "mapped") items = items.filter((i) => i.isMapped);
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -81,22 +90,29 @@ export function IndividualsPhase() {
           item.sourceModel.type.toLowerCase().includes(q),
       );
     }
-    return sortItems(items, sortBy, topSuggestionsMap);
-  }, [unmappedItems, search, sortBy, topSuggestionsMap]);
 
-  // Sorted + filtered mapped items (same Level 3 sort)
-  const filteredMapped = useMemo(() => {
-    let items = mappedItems;
-    if (search) {
-      const q = search.toLowerCase();
-      items = items.filter(
-        (item) =>
-          item.sourceModel.name.toLowerCase().includes(q) ||
-          item.sourceModel.type.toLowerCase().includes(q),
-      );
+    const needsResort =
+      sortBy !== lastSortRef.current.sortBy ||
+      sortVersion !== lastSortRef.current.sortVersion ||
+      search !== lastSortRef.current.search ||
+      statusFilter !== lastSortRef.current.statusFilter ||
+      stableOrderRef.current.size === 0;
+
+    if (needsResort) {
+      const sorted = sortItems(items, sortBy, topSuggestionsMap);
+      stableOrderRef.current = new Map(sorted.map((r, i) => [r.sourceModel.name, i]));
+      lastSortRef.current = { sortBy, sortVersion, search, statusFilter };
+      return sorted;
     }
-    return sortItems(items, sortBy, topSuggestionsMap);
-  }, [mappedItems, search, sortBy, topSuggestionsMap]);
+
+    const order = stableOrderRef.current;
+    return [...items].sort((a, b) => {
+      const ai = order.get(a.sourceModel.name) ?? Infinity;
+      const bi = order.get(b.sourceModel.name) ?? Infinity;
+      if (ai !== bi) return ai - bi;
+      return a.sourceModel.name.localeCompare(b.sourceModel.name, undefined, { numeric: true, sensitivity: "base" });
+    });
+  }, [phaseItems, statusFilter, search, sortBy, sortVersion, topSuggestionsMap]);
 
   // Build xLights group membership: memberName → parent group SourceLayerMapping
   const sourceGroupMap = useMemo(() => {
@@ -152,13 +168,9 @@ export function IndividualsPhase() {
     [sourceGroupMap],
   );
 
-  const unmappedSplit = useMemo(
-    () => splitByXLightsGroup(filteredUnmapped),
-    [filteredUnmapped, splitByXLightsGroup],
-  );
-  const mappedSplit = useMemo(
-    () => splitByXLightsGroup(filteredMapped),
-    [filteredMapped, splitByXLightsGroup],
+  const itemsSplit = useMemo(
+    () => splitByXLightsGroup(filteredItems),
+    [filteredItems, splitByXLightsGroup],
   );
 
   // Expand/collapse state for xLights groups
@@ -171,10 +183,6 @@ export function IndividualsPhase() {
       return next;
     });
   }, []);
-
-  // Section collapse state
-  const [unmappedOpen, setUnmappedOpen] = useState(true);
-  const [mappedOpen, setMappedOpen] = useState(false);
 
   // Suggestions for selected item
   const suggestions = useMemo(() => {
@@ -194,15 +202,7 @@ export function IndividualsPhase() {
     );
   }
 
-  if (unmappedItems.length === 0) {
-    return (
-      <PhaseEmptyState
-        icon={<span className="text-5xl">&#9989;</span>}
-        title="All Groups & Models Mapped!"
-        description={`${mappedItems.length} item${mappedItems.length === 1 ? "" : "s"} successfully matched. Nice work!`}
-      />
-    );
-  }
+  const unmappedItems = phaseItems.filter((item) => !item.isMapped);
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
@@ -245,7 +245,7 @@ export function IndividualsPhase() {
     }
   };
 
-  const renderItemCard = (item: (typeof filteredUnmapped)[0]) => (
+  const renderItemCard = (item: SourceLayerMapping) => (
     <ItemCardMemo
       key={item.sourceModel.name}
       item={item}
@@ -289,13 +289,12 @@ export function IndividualsPhase() {
             Groups &amp; Models
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
-            {unmappedItems.length} item{unmappedItems.length !== 1 ? "s" : ""} need matching
-            {mappedItems.length > 0 && (
-              <span> &middot; {mappedItems.length} already mapped</span>
-            )}
+            {phaseItems.length} item{phaseItems.length !== 1 ? "s" : ""}
+            {mappedCount > 0 && <span> &middot; <span className="text-green-400/60">{mappedCount} mapped</span></span>}
+            {unmappedCount > 0 && <span> &middot; <span className="text-amber-400/60">{unmappedCount} unmapped</span></span>}
           </p>
           <EffectsCoverageBar
-            mappedEffects={mappedItems.reduce(
+            mappedEffects={phaseItems.filter((i) => i.isMapped).reduce(
               (sum, i) => sum + i.effectCount,
               0,
             )}
@@ -340,7 +339,14 @@ export function IndividualsPhase() {
                 </button>
               )}
             </div>
-            <SortDropdown value={sortBy} onChange={setSortBy} />
+            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setSortVersion((v) => v + 1); }}
+              className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent">
+              <option value="all">All</option>
+              <option value="unmapped">Unmapped</option>
+              <option value="mapped">Mapped</option>
+            </select>
+            <SortDropdown value={sortBy} onChange={(v) => { setSortBy(v); setSortVersion((sv) => sv + 1); }} />
+            <button type="button" onClick={() => setSortVersion((v) => v + 1)} className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1" title="Re-sort">&#x21bb;</button>
           </div>
         </div>
 
@@ -352,132 +358,35 @@ export function IndividualsPhase() {
           />
         )}
 
-        {/* List — 3-tier: Unmapped/Mapped → Groups/Individuals → sort */}
+        {/* Unified list — groups → ungrouped, with left border visual state */}
         <div className={PANEL_STYLES.scrollArea}>
-          {/* ── UNMAPPED section ── */}
-          {filteredUnmapped.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setUnmappedOpen((p) => !p)}
-                className="flex items-center gap-2 w-full px-4 py-2 text-left"
-              >
-                <svg
-                  className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${unmappedOpen ? "rotate-90" : ""}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
-                  Unmapped
-                </span>
-                <span className="text-[12px] font-semibold text-foreground/35">
-                  ({filteredUnmapped.length})
-                </span>
-              </button>
-              {unmappedOpen && (
-                <div className="px-4 pb-3 space-y-3">
-                  {/* xLights Groups with child models */}
-                  {unmappedSplit.groups.length > 0 && (
-                    <div className="space-y-2">
-                      {unmappedSplit.groups.map((group) => (
-                        <XLightsGroupCard
-                          key={group.groupItem.sourceModel.name}
-                          group={group.groupItem}
-                          members={group.members}
-                          isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
-                          isSelected={selectedItemId === group.groupItem.sourceModel.name}
-                          topSuggestion={topSuggestionsMap.get(group.groupItem.sourceModel.name) ?? null}
-                          onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
-                          onSelect={() => setSelectedItemId(group.groupItem.sourceModel.name)}
-                          onAccept={(userModelName) => handleAccept(group.groupItem.sourceModel.name, userModelName)}
-                          onSkip={() => handleSkipFamily([group.groupItem, ...group.members])}
-                          renderItemCard={renderItemCard}
-                        />
-                      ))}
-                    </div>
-                  )}
+          <div className="px-4 pb-3 space-y-1">
+            {/* xLights Groups with child models */}
+            {itemsSplit.groups.map((group) => (
+              <XLightsGroupCard
+                key={group.groupItem.sourceModel.name}
+                group={group.groupItem}
+                members={group.members}
+                isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
+                isSelected={selectedItemId === group.groupItem.sourceModel.name}
+                topSuggestion={topSuggestionsMap.get(group.groupItem.sourceModel.name) ?? null}
+                onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
+                onSelect={() => setSelectedItemId(group.groupItem.sourceModel.name)}
+                onAccept={(userModelName) => handleAccept(group.groupItem.sourceModel.name, userModelName)}
+                onSkip={() => handleSkipFamily([group.groupItem, ...group.members])}
+                renderItemCard={renderItemCard}
+              />
+            ))}
 
-                  {/* Ungrouped individual models */}
-                  {unmappedSplit.ungrouped.length > 0 && (
-                    <div>
-                      {unmappedSplit.groups.length > 0 && (
-                        <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
-                          Individual Models ({unmappedSplit.ungrouped.length})
-                        </div>
-                      )}
-                      <div className="space-y-1.5">
-                        {unmappedSplit.ungrouped.map((item) => renderItemCard(item))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+            {/* Ungrouped individual models */}
+            {itemsSplit.ungrouped.map((item) => renderItemCard(item))}
 
-          {/* ── Divider ── */}
-          {filteredUnmapped.length > 0 && filteredMapped.length > 0 && (
-            <div className="border-t border-border/40 mx-4 my-1" />
-          )}
-
-          {/* ── MAPPED section ── */}
-          {filteredMapped.length > 0 && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setMappedOpen((p) => !p)}
-                className="flex items-center gap-2 w-full px-4 py-2 text-left"
-              >
-                <svg
-                  className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${mappedOpen ? "rotate-90" : ""}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
-                  Mapped
-                </span>
-                <span className="text-[12px] font-semibold text-foreground/35">
-                  ({filteredMapped.length})
-                </span>
-              </button>
-              {mappedOpen && (
-                <div className="px-4 pb-3 space-y-3">
-                  {mappedSplit.groups.length > 0 && (
-                    <div className="space-y-2">
-                      {mappedSplit.groups.map((group) => (
-                        <XLightsGroupCard
-                          key={group.groupItem.sourceModel.name}
-                          group={group.groupItem}
-                          members={group.members}
-                          isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
-                          isSelected={selectedItemId === group.groupItem.sourceModel.name}
-                          topSuggestion={topSuggestionsMap.get(group.groupItem.sourceModel.name) ?? null}
-                          onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
-                          onSelect={() => setSelectedItemId(group.groupItem.sourceModel.name)}
-                          onAccept={(userModelName) => handleAccept(group.groupItem.sourceModel.name, userModelName)}
-                          renderItemCard={renderItemCard}
-                        />
-                      ))}
-                    </div>
-                  )}
-                  {mappedSplit.ungrouped.length > 0 && (
-                    <div>
-                      {mappedSplit.groups.length > 0 && (
-                        <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
-                          Individual Models ({mappedSplit.ungrouped.length})
-                        </div>
-                      )}
-                      <div className="space-y-1.5">
-                        {mappedSplit.ungrouped.map((item) => renderItemCard(item))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+            {filteredItems.length === 0 && (
+              <p className="py-6 text-center text-[12px] text-foreground/30">
+                {search || statusFilter !== "all" ? "No matches for current filters" : "No items"}
+              </p>
+            )}
+          </div>
 
           {interactive.hiddenZeroEffectCount > 0 && (
             <p className="mt-4 text-[11px] text-foreground/25 text-center">
@@ -629,8 +538,9 @@ function XLightsGroupCard({
 }) {
   const mappedCount = members.filter((m) => m.isMapped).length;
   const totalCount = members.length;
+  const groupBorder = group.isMapped || (totalCount > 0 && mappedCount === totalCount) ? "border-l-green-500/70" : mappedCount > 0 ? "border-l-amber-400/70" : "border-l-amber-400/70";
   return (
-    <div className={`rounded-lg border overflow-hidden transition-all ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}>
+    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}>
       {/* Group header — single line: ▸ GRP  Name  (N)  ·  status  ·  suggestion    ★  ✕ */}
       <div className="flex items-center gap-1.5 px-3 py-1.5">
         <button type="button" onClick={onToggle} className="flex-shrink-0 p-0.5">
@@ -722,11 +632,12 @@ function ItemCard({
   onDrop: (e: React.DragEvent) => void;
 }) {
   const px = item.sourceModel.pixelCount;
+  const leftBorder = item.isMapped ? "border-l-green-500/70" : topSuggestion ? "border-l-red-400/70" : "border-l-amber-400/70";
 
   return (
     <div
       className={`
-        w-full px-3 py-1.5 rounded-lg text-left transition-all duration-200 cursor-pointer
+        w-full px-3 py-1.5 rounded-lg text-left transition-all duration-200 cursor-pointer border-l-[3px] ${leftBorder}
         ${
           isDropTarget
             ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
