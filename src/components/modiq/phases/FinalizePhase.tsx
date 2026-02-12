@@ -42,6 +42,10 @@ interface SourceGridRow {
   isSkipped: boolean;
   effectCount: number;
   destCount: number;
+  /** True if this is a display-wide super group */
+  isSuperGroup: boolean;
+  /** Names of super groups that overlay effects on this model */
+  superGroupLayers: string[];
 }
 
 interface GridGroup {
@@ -395,6 +399,8 @@ export function FinalizePhase() {
         isSkipped: l.isSkipped,
         effectCount: l.effectCount,
         destCount: l.assignedUserModels.length,
+        isSuperGroup: l.isSuperGroup,
+        superGroupLayers: l.superGroupLayers,
       }))
       .sort((a, b) => naturalCompare(a.sourceName, b.sourceName));
   }, [sourceLayerMappings]);
@@ -1117,7 +1123,17 @@ function SourceGridRowComponent({ row, isSelected, isDropdownOpen, dropdownItems
       <td className="px-2 py-1 text-center">
         <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="w-3.5 h-3.5 rounded border-border accent-accent" />
       </td>
-      <td className="px-3 py-1"><span className="text-foreground/80 font-medium">{row.sourceName}</span></td>
+      <td className="px-3 py-1">
+        <div className="flex items-center gap-1.5">
+          {row.isSuperGroup && <span className="px-1 py-px text-[8px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">SUPER</span>}
+          <span className="text-foreground/80 font-medium">{row.sourceName}</span>
+          {row.superGroupLayers.length > 0 && (
+            <span className="text-[9px] text-purple-400/50 flex-shrink-0" title={`Also covered by: ${row.superGroupLayers.join(", ")}`}>
+              +{row.superGroupLayers.length} layer{row.superGroupLayers.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+      </td>
       <td className="px-3 py-1 relative">
         {row.destinations.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1">

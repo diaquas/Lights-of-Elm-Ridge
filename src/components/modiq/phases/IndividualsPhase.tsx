@@ -25,6 +25,8 @@ import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 type StatusFilter = "all" | "unmapped" | "auto-strong" | "auto-review" | "mapped";
+type TypeFilter = "all" | "display-wide" | "groups" | "models";
+type ViewMode = "flat" | "hierarchy";
 
 export function IndividualsPhase() {
   const { phaseItems, goToNextPhase, interactive, autoMatchedNames, autoMatchStats, scoreMap } = useMappingPhase();
@@ -46,6 +48,22 @@ export function IndividualsPhase() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+
+  // Detect super groups and default to hierarchy view if any exist
+  const hasSuperGroups = useMemo(
+    () => phaseItems.some((i) => i.isSuperGroup),
+    [phaseItems],
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>("flat");
+  // Set hierarchy as default when super groups are detected (on first render)
+  const didInitViewRef = useRef(false);
+  useEffect(() => {
+    if (!didInitViewRef.current && hasSuperGroups) {
+      setViewMode("hierarchy");
+      didInitViewRef.current = true;
+    }
+  }, [hasSuperGroups]);
 
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
@@ -92,9 +110,27 @@ export function IndividualsPhase() {
     [phaseItems, autoMatchedNames],
   );
 
+  // Type filter counts (before status/search filters)
+  const typeFilterCounts = useMemo(() => {
+    let displayWide = 0, groups = 0, models = 0;
+    for (const item of phaseItems) {
+      if (item.isSuperGroup) displayWide++;
+      else if (item.isGroup) groups++;
+      else models++;
+    }
+    return { displayWide, groups, models, all: phaseItems.length };
+  }, [phaseItems]);
+
   // Filtered + stable-sorted items (single unified list)
   const filteredItems = useMemo(() => {
     let items = [...phaseItems];
+
+    // Type filter
+    if (typeFilter === "display-wide") items = items.filter((i) => i.isSuperGroup);
+    else if (typeFilter === "groups") items = items.filter((i) => i.isGroup && !i.isSuperGroup);
+    else if (typeFilter === "models") items = items.filter((i) => !i.isGroup);
+
+    // Status filter
     if (statusFilter === "unmapped") items = items.filter((i) => !i.isMapped);
     else if (statusFilter === "auto-strong") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) >= STRONG_THRESHOLD);
     else if (statusFilter === "auto-review") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD);
@@ -185,10 +221,13 @@ export function IndividualsPhase() {
     [sourceGroupMap],
   );
 
-  const itemsSplit = useMemo(
-    () => splitByXLightsGroup(filteredItems),
-    [filteredItems, splitByXLightsGroup],
-  );
+  const itemsSplit = useMemo(() => {
+    const split = splitByXLightsGroup(filteredItems);
+    // Separate super groups from regular groups
+    const superGroups = split.groups.filter((g) => g.groupItem.isSuperGroup);
+    const regularGroups = split.groups.filter((g) => !g.groupItem.isSuperGroup);
+    return { superGroups, regularGroups, ungrouped: split.ungrouped };
+  }, [filteredItems, splitByXLightsGroup]);
 
   // Expand/collapse state for xLights groups
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -330,6 +369,36 @@ export function IndividualsPhase() {
           />
         </div>
 
+        {/* Type Filter Pills + View Toggle */}
+        {(hasSuperGroups || typeFilterCounts.groups > 0) && (
+          <div className="px-4 pt-2 pb-1 flex items-center gap-1.5 flex-wrap border-b border-border/50">
+            {/* Type pills */}
+            <TypeFilterPill label={`All (${typeFilterCounts.all})`} active={typeFilter === "all"} onClick={() => { setTypeFilter("all"); setSortVersion((v) => v + 1); }} />
+            {typeFilterCounts.displayWide > 0 && (
+              <TypeFilterPill label={`Display-Wide (${typeFilterCounts.displayWide})`} active={typeFilter === "display-wide"} onClick={() => { setTypeFilter("display-wide"); setSortVersion((v) => v + 1); }} />
+            )}
+            {typeFilterCounts.groups > 0 && (
+              <TypeFilterPill label={`Groups (${typeFilterCounts.groups})`} active={typeFilter === "groups"} onClick={() => { setTypeFilter("groups"); setSortVersion((v) => v + 1); }} />
+            )}
+            <TypeFilterPill label={`Models (${typeFilterCounts.models})`} active={typeFilter === "models"} onClick={() => { setTypeFilter("models"); setSortVersion((v) => v + 1); }} />
+            {/* View toggle */}
+            <div className="ml-auto flex items-center gap-0.5 bg-foreground/5 rounded p-0.5">
+              <button type="button" onClick={() => setViewMode("hierarchy")}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${viewMode === "hierarchy" ? "bg-accent/15 text-accent font-semibold" : "text-foreground/40 hover:text-foreground/60"}`}
+                title="Hierarchy view">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10M4 18h10" /></svg>
+                Tree
+              </button>
+              <button type="button" onClick={() => setViewMode("flat")}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${viewMode === "flat" ? "bg-accent/15 text-accent font-semibold" : "text-foreground/40 hover:text-foreground/60"}`}
+                title="Flat view">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+                Flat
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Search + Sort */}
         <div className={PANEL_STYLES.search.wrapper}>
           <div className="flex items-center gap-2">
@@ -393,18 +462,36 @@ export function IndividualsPhase() {
           phaseAutoCount={phaseAutoCount}
         />
 
-        {/* Unified list — groups → ungrouped, with left border visual state */}
+        {/* Unified list — super groups → groups → ungrouped, with left border visual state */}
         <div className={PANEL_STYLES.scrollArea}>
           {/* Expand/Collapse All (only if there are expandable groups) */}
-          {itemsSplit.groups.length > 0 && (
+          {(itemsSplit.superGroups.length + itemsSplit.regularGroups.length) > 0 && (
             <div className="flex items-center gap-3 px-4 pb-1.5 text-[10px] text-foreground/30">
-              <button type="button" onClick={() => setExpandedGroups(new Set(itemsSplit.groups.map((g) => g.groupItem.sourceModel.name)))} className="hover:text-foreground/60 transition-colors">Expand All</button>
+              <button type="button" onClick={() => setExpandedGroups(new Set([...itemsSplit.superGroups, ...itemsSplit.regularGroups].map((g) => g.groupItem.sourceModel.name)))} className="hover:text-foreground/60 transition-colors">Expand All</button>
               <button type="button" onClick={() => setExpandedGroups(new Set())} className="hover:text-foreground/60 transition-colors">Collapse All</button>
             </div>
           )}
           <div className="px-4 pb-3 space-y-1">
-            {/* xLights Groups with child models */}
-            {itemsSplit.groups.map((group) => (
+            {/* Display-Wide Groups section */}
+            {itemsSplit.superGroups.length > 0 && (
+              <SuperGroupSection
+                superGroups={itemsSplit.superGroups}
+                expandedGroups={expandedGroups}
+                selectedItemId={selectedItemId}
+                autoMatchedNames={autoMatchedNames}
+                topSuggestionsMap={topSuggestionsMap}
+                onToggle={toggleGroup}
+                onSelect={setSelectedItemId}
+                onAccept={handleAccept}
+                onSkipFamily={handleSkipFamily}
+                renderItemCard={renderItemCard}
+                phaseItemsByName={phaseItemsByName}
+                viewMode={viewMode}
+              />
+            )}
+
+            {/* Regular xLights Groups with child models */}
+            {itemsSplit.regularGroups.map((group) => (
               <XLightsGroupCard
                 key={group.groupItem.sourceModel.name}
                 group={group.groupItem}
@@ -426,7 +513,7 @@ export function IndividualsPhase() {
 
             {filteredItems.length === 0 && (
               <p className="py-6 text-center text-[12px] text-foreground/30">
-                {search || statusFilter !== "all" ? "No matches for current filters" : "No items"}
+                {search || statusFilter !== "all" || typeFilter !== "all" ? "No matches for current filters" : "No items"}
               </p>
             )}
           </div>
@@ -477,7 +564,10 @@ export function IndividualsPhase() {
             {/* Item Info Header — compact, same height as left */}
             <div className={PANEL_STYLES.header.wrapper}>
               <div className="flex items-center gap-2">
-                {selectedItem.isGroup && (
+                {selectedItem.isSuperGroup && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/15 text-purple-400 rounded">SUPER</span>
+                )}
+                {selectedItem.isGroup && !selectedItem.isSuperGroup && (
                   <span className={`px-1.5 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.GRP} rounded`}>GRP</span>
                 )}
                 <h3 className="text-sm font-semibold text-foreground truncate">
@@ -485,12 +575,17 @@ export function IndividualsPhase() {
                 </h3>
               </div>
               <div className="flex items-center gap-3 mt-0.5 text-[11px] text-foreground/40">
-                {selectedItem.isGroup ? (
+                {selectedItem.isSuperGroup ? (
+                  <span>{selectedItem.memberNames.length} models &middot; contains {selectedItem.containedGroupCount} groups &middot; Scenario {selectedItem.scenario || "A"}</span>
+                ) : selectedItem.isGroup ? (
                   <span>{selectedItem.memberNames.length} members &middot; Scenario {selectedItem.scenario || "A"}</span>
                 ) : (
                   <>
                     {selectedItem.sourceModel.pixelCount ? <span>{selectedItem.sourceModel.pixelCount}px</span> : null}
                     <span>{selectedItem.sourceModel.type}</span>
+                    {selectedItem.superGroupLayers.length > 0 && (
+                      <span className="text-purple-400/60">+{selectedItem.superGroupLayers.length} layer{selectedItem.superGroupLayers.length !== 1 ? "s" : ""}</span>
+                    )}
                   </>
                 )}
               </div>
@@ -827,6 +922,273 @@ function CurrentMappingCard({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Type Filter Pill ────────────────────────────────
+
+function TypeFilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
+        active
+          ? "bg-accent/15 text-accent border border-accent/30"
+          : "bg-foreground/5 text-foreground/40 border border-transparent hover:text-foreground/60 hover:bg-foreground/8"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ─── Display-Wide Super Group Section ────────────────
+
+interface XLightsGroup { groupItem: SourceLayerMapping; members: SourceLayerMapping[] }
+
+function SuperGroupSection({
+  superGroups,
+  expandedGroups,
+  selectedItemId,
+  autoMatchedNames,
+  topSuggestionsMap,
+  onToggle,
+  onSelect,
+  onAccept,
+  onSkipFamily,
+  renderItemCard,
+  phaseItemsByName,
+  viewMode,
+}: {
+  superGroups: XLightsGroup[];
+  expandedGroups: Set<string>;
+  selectedItemId: string | null;
+  autoMatchedNames: ReadonlySet<string>;
+  topSuggestionsMap: Map<string, { model: { name: string }; score: number } | null>;
+  onToggle: (name: string) => void;
+  onSelect: (name: string) => void;
+  onAccept: (sourceName: string, userModelName: string) => void;
+  onSkipFamily: (items: SourceLayerMapping[]) => void;
+  renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
+  phaseItemsByName: Map<string, SourceLayerMapping>;
+  viewMode: ViewMode;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div className="mb-3">
+      {/* Section header */}
+      <button
+        type="button"
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center gap-2 px-1 py-1.5 text-left group"
+      >
+        <svg className={`w-3 h-3 text-purple-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="text-[11px] font-bold text-purple-400/80 uppercase tracking-wider">
+          Display-Wide Groups
+        </span>
+        <span className="text-[10px] text-purple-400/50">({superGroups.length})</span>
+      </button>
+
+      {!collapsed && (
+        <>
+          <p className="text-[10px] text-foreground/30 px-1 pb-2 leading-relaxed">
+            These groups span your entire display or large sections. Mapping here applies broad effects that layer on top of individual group/model mappings.
+          </p>
+          <div className="space-y-1">
+            {superGroups.map((group) => {
+              // In hierarchy view, show nested child groups inside super groups
+              const childGroupNames = viewMode === "hierarchy"
+                ? group.groupItem.memberNames.filter((name) => {
+                    const item = phaseItemsByName.get(name);
+                    return item?.isGroup && !item.isSuperGroup && item.parentSuperGroup === group.groupItem.sourceModel.name;
+                  })
+                : [];
+
+              return (
+                <SuperGroupCard
+                  key={group.groupItem.sourceModel.name}
+                  group={group.groupItem}
+                  members={group.members}
+                  childGroupNames={childGroupNames}
+                  phaseItemsByName={phaseItemsByName}
+                  isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
+                  isSelected={selectedItemId === group.groupItem.sourceModel.name}
+                  isAutoMatched={autoMatchedNames.has(group.groupItem.sourceModel.name)}
+                  topSuggestion={topSuggestionsMap.get(group.groupItem.sourceModel.name) ?? null}
+                  onToggle={() => onToggle(group.groupItem.sourceModel.name)}
+                  onSelect={() => onSelect(group.groupItem.sourceModel.name)}
+                  onAccept={(userModelName) => onAccept(group.groupItem.sourceModel.name, userModelName)}
+                  onSkip={() => onSkipFamily([group.groupItem, ...group.members])}
+                  renderItemCard={renderItemCard}
+                  viewMode={viewMode}
+                  expandedGroups={expandedGroups}
+                  onToggleChild={onToggle}
+                  onSelectChild={onSelect}
+                  autoMatchedNames={autoMatchedNames}
+                  topSuggestionsMap={topSuggestionsMap}
+                  onAcceptChild={onAccept}
+                  onSkipChild={(items) => onSkipFamily(items)}
+                />
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Super Group Card ────────────────────────────────
+
+function SuperGroupCard({
+  group,
+  members,
+  childGroupNames,
+  phaseItemsByName,
+  isExpanded,
+  isSelected,
+  isAutoMatched,
+  topSuggestion,
+  onToggle,
+  onSelect,
+  onAccept,
+  onSkip,
+  renderItemCard,
+  viewMode,
+  expandedGroups,
+  onToggleChild,
+  onSelectChild,
+  autoMatchedNames,
+  topSuggestionsMap,
+  onAcceptChild,
+  onSkipChild,
+}: {
+  group: SourceLayerMapping;
+  members: SourceLayerMapping[];
+  childGroupNames: string[];
+  phaseItemsByName: Map<string, SourceLayerMapping>;
+  isExpanded: boolean;
+  isSelected: boolean;
+  isAutoMatched: boolean;
+  topSuggestion: { model: { name: string }; score: number } | null;
+  onToggle: () => void;
+  onSelect: () => void;
+  onAccept: (userModelName: string) => void;
+  onSkip: () => void;
+  renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
+  viewMode: ViewMode;
+  expandedGroups: Set<string>;
+  onToggleChild: (name: string) => void;
+  onSelectChild: (name: string) => void;
+  autoMatchedNames: ReadonlySet<string>;
+  topSuggestionsMap: Map<string, { model: { name: string }; score: number } | null>;
+  onAcceptChild: (sourceName: string, userModelName: string) => void;
+  onSkipChild: (items: SourceLayerMapping[]) => void;
+}) {
+  const totalCount = group.memberNames.length;
+  const groupFxCount = group.effectCount + members.reduce((sum, m) => sum + m.effectCount, 0);
+  const groupBorder = group.isMapped ? "border-l-purple-500/70" : "border-l-purple-400/40";
+
+  return (
+    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-purple-500/[0.03]"}`}>
+      {/* Super group header */}
+      <div className="flex items-center gap-1.5 px-3 py-1.5">
+        <button type="button" onClick={onToggle} className="flex-shrink-0 p-0.5">
+          <svg className={`w-3 h-3 text-purple-400/60 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        <button type="button" onClick={onSelect} className="flex items-center gap-1.5 text-left min-w-0 shrink">
+          <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded">SUPER</span>
+          <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.sourceModel.name}</span>
+          <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({totalCount})</span>
+          <span className="text-foreground/15 flex-shrink-0">&middot;</span>
+          <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
+            {groupFxCount >= 1000 ? `${(groupFxCount / 1000).toFixed(1)}k` : groupFxCount} fx
+          </span>
+          <span className="text-[10px] text-purple-400/40 flex-shrink-0">
+            &middot; {group.containedGroupCount} groups
+          </span>
+        </button>
+        {/* Right-aligned destination */}
+        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+          {group.isMapped && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
+              {isAutoMatched && <Link2Badge />}
+              &rarr; {group.assignedUserModels[0]?.name}
+            </span>
+          )}
+          {!group.isMapped && topSuggestion && (
+            <>
+              <span className="text-[11px] text-foreground/50 truncate max-w-[160px]">{topSuggestion.model.name}</span>
+              <ConfidenceBadge score={topSuggestion.score} size="sm" />
+            </>
+          )}
+          {topSuggestion && !group.isMapped && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
+              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors" title="Accept suggested match">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
+              </svg>
+            </button>
+          )}
+          <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
+            title={`Skip group and ${totalCount} members`}
+            className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded: show child groups (hierarchy view) or direct members (flat view) */}
+      {isExpanded && (
+        <div className="px-3 pb-2 pl-5 space-y-1 border-t border-purple-400/10">
+          <div className="pt-1">
+            {viewMode === "hierarchy" && childGroupNames.length > 0 ? (
+              <>
+                {childGroupNames.map((childName) => {
+                  const childItem = phaseItemsByName.get(childName);
+                  if (!childItem) return null;
+                  // Gather child group's individual members from filtered list
+                  const childMembers = members.filter((m) =>
+                    childItem.memberNames.includes(m.sourceModel.name),
+                  );
+                  return (
+                    <XLightsGroupCard
+                      key={childName}
+                      group={childItem}
+                      members={childMembers}
+                      isExpanded={expandedGroups.has(childName)}
+                      isSelected={false}
+                      isAutoMatched={autoMatchedNames.has(childName)}
+                      topSuggestion={topSuggestionsMap.get(childName) ?? null}
+                      onToggle={() => onToggleChild(childName)}
+                      onSelect={() => onSelectChild(childName)}
+                      onAccept={(userModelName) => onAcceptChild(childName, userModelName)}
+                      onSkip={() => onSkipChild(childMembers.length > 0 ? [childItem, ...childMembers] : [childItem])}
+                      renderItemCard={renderItemCard}
+                    />
+                  );
+                })}
+                {/* Individual members not in any child group */}
+                {members.filter((m) => !childGroupNames.some((cn) => {
+                  const cItem = phaseItemsByName.get(cn);
+                  return cItem?.memberNames.includes(m.sourceModel.name);
+                })).map((item) => renderItemCard(item))}
+              </>
+            ) : (
+              members.map((item) => renderItemCard(item))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
