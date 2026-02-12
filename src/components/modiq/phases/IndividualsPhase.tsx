@@ -167,13 +167,18 @@ export function IndividualsPhase() {
     });
   }, [phaseItems, statusFilter, search, sortBy, sortVersion, topSuggestionsMap]);
 
-  // Build xLights group membership: memberName → parent group SourceLayerMapping
+  // Build xLights group membership: memberName → most-specific parent group SourceLayerMapping
+  // When a model belongs to multiple groups (e.g. "Arch 1" in both "All - Arches - GRP"
+  // and "All - Pixels - GRP"), prefer the SMALLEST group (most specific parent).
   const sourceGroupMap = useMemo(() => {
     const map = new Map<string, SourceLayerMapping>();
     for (const layer of interactive.sourceLayerMappings) {
       if (layer.isGroup) {
         for (const member of layer.memberNames) {
-          map.set(member, layer);
+          const existing = map.get(member);
+          if (!existing || layer.memberNames.length < existing.memberNames.length) {
+            map.set(member, layer);
+          }
         }
       }
     }
@@ -695,9 +700,23 @@ function XLightsGroupCard({
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
 }) {
   const mappedCount = members.filter((m) => m.isMapped).length;
-  const totalCount = members.length;
+  // Always show the FULL member count from the group definition, not just active members
+  const fullMemberCount = group.memberNames.length;
+  const activeMemberCount = members.length;
   const groupFxCount = group.effectCount + members.reduce((sum, m) => sum + m.effectCount, 0);
-  const groupBorder = group.isMapped || (totalCount > 0 && mappedCount === totalCount) ? "border-l-green-500/70" : mappedCount > 0 ? "border-l-amber-400/70" : "border-l-amber-400/70";
+  const groupBorder = group.isMapped || (activeMemberCount > 0 && mappedCount === activeMemberCount) ? "border-l-green-500/70" : mappedCount > 0 ? "border-l-amber-400/70" : "border-l-amber-400/70";
+
+  // Ghost members: names in the group definition but not in the active members list
+  const activeMemberNames = useMemo(() => new Set(members.map((m) => m.sourceModel.name)), [members]);
+  const ghostMembers = useMemo(
+    () => group.memberNames
+      .filter((name) => !activeMemberNames.has(name))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })),
+    [group.memberNames, activeMemberNames],
+  );
+
+  const hasChildren = activeMemberCount > 0 || ghostMembers.length > 0;
+
   return (
     <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}>
       {/* Group header: ▸ GRP  Name  (N)  ·  fx  ·  status  →dest  ★  ✕ */}
@@ -710,16 +729,16 @@ function XLightsGroupCard({
         <button type="button" onClick={onSelect} className="flex items-center gap-1.5 text-left min-w-0 shrink">
           <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>GRP</span>
           <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.sourceModel.name}</span>
-          <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({totalCount})</span>
+          <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({fullMemberCount})</span>
           <span className="text-foreground/15 flex-shrink-0">&middot;</span>
           <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
             {groupFxCount >= 1000 ? `${(groupFxCount / 1000).toFixed(1)}k` : groupFxCount} fx
           </span>
-          {totalCount > 0 && (
+          {activeMemberCount > 0 && (
             <span className="text-[10px] text-foreground/30 flex-shrink-0">
               &middot; {mappedCount > 0 && <span className="text-green-400/60">{mappedCount}</span>}
-              {mappedCount > 0 && mappedCount < totalCount && "/"}
-              {mappedCount < totalCount && <span className="text-amber-400/60">{totalCount - mappedCount} unmapped</span>}
+              {mappedCount > 0 && mappedCount < activeMemberCount && "/"}
+              {mappedCount < activeMemberCount && <span className="text-amber-400/60">{activeMemberCount - mappedCount} unmapped</span>}
             </span>
           )}
         </button>
@@ -747,7 +766,7 @@ function XLightsGroupCard({
           )}
           {onSkip && (
             <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
-              title={`Skip group and ${totalCount} members`}
+              title={`Skip group and ${fullMemberCount} members`}
               className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -756,11 +775,16 @@ function XLightsGroupCard({
           )}
         </div>
       </div>
-      {/* Expanded children */}
-      {isExpanded && members.length > 0 && (
+      {/* Expanded children: active members + ghost members (0 fx) */}
+      {isExpanded && hasChildren && (
         <div className="px-3 pb-2 pl-5 space-y-1 border-t border-border/30">
           <div className="pt-1">
+            {/* Active members (have effects, in the phase) */}
             {members.map((item) => renderItemCard(item))}
+            {/* Ghost members (0 effects or covered by group — shown for structural clarity) */}
+            {ghostMembers.map((name) => (
+              <GhostMemberRow key={name} name={name} />
+            ))}
           </div>
         </div>
       )}
@@ -921,6 +945,20 @@ function CurrentMappingCard({
             Remove Mapping
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Ghost Member Row (0-effect members shown for structural clarity) ────────
+
+function GhostMemberRow({ name }: { name: string }) {
+  return (
+    <div className="w-full px-3 py-1 rounded-lg border-l-[3px] border-l-foreground/10 bg-foreground/[0.01] border border-border/30 opacity-40">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-[10px] text-foreground/25 tabular-nums flex-shrink-0">0 fx</span>
+        <span className="text-[11px] text-foreground/30 truncate flex-shrink min-w-0">{name}</span>
+        <span className="ml-auto text-[9px] text-foreground/20 flex-shrink-0">covered by group</span>
       </div>
     </div>
   );
