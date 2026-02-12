@@ -685,28 +685,26 @@ function XLightsGroupCard({
   return (
     <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}>
       {/* Group header: ▸ GRP  Name  (N)  ·  fx  ·  status  →dest  ★  ✕ */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5">
-        <button type="button" onClick={onToggle} className="flex-shrink-0 p-0.5">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer" onClick={onSelect}>
+        <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex-shrink-0 p-0.5">
           <svg className={`w-3 h-3 text-foreground/40 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-        <button type="button" onClick={onSelect} className="flex items-center gap-1.5 text-left min-w-0 shrink">
-          <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>GRP</span>
-          <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.sourceModel.name}</span>
-          <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({fullMemberCount})</span>
-          <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-          <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
-            {groupFxCount >= 1000 ? `${(groupFxCount / 1000).toFixed(1)}k` : groupFxCount} fx
+        <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>GRP</span>
+        <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.sourceModel.name}</span>
+        <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({fullMemberCount})</span>
+        <span className="text-foreground/15 flex-shrink-0">&middot;</span>
+        <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
+          {groupFxCount >= 1000 ? `${(groupFxCount / 1000).toFixed(1)}k` : groupFxCount} fx
+        </span>
+        {activeMemberCount > 0 && (
+          <span className="text-[10px] text-foreground/30 flex-shrink-0">
+            &middot; {mappedCount > 0 && <span className="text-green-400/60">{mappedCount}</span>}
+            {mappedCount > 0 && mappedCount < activeMemberCount && "/"}
+            {mappedCount < activeMemberCount && <span className="text-amber-400/60">{activeMemberCount - mappedCount} unmapped</span>}
           </span>
-          {activeMemberCount > 0 && (
-            <span className="text-[10px] text-foreground/30 flex-shrink-0">
-              &middot; {mappedCount > 0 && <span className="text-green-400/60">{mappedCount}</span>}
-              {mappedCount > 0 && mappedCount < activeMemberCount && "/"}
-              {mappedCount < activeMemberCount && <span className="text-amber-400/60">{activeMemberCount - mappedCount} unmapped</span>}
-            </span>
-          )}
-        </button>
+        )}
         {/* Right-aligned destination / suggestion */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
@@ -1093,24 +1091,22 @@ function SuperGroupCard({
   return (
     <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-purple-500/[0.03]"}`}>
       {/* Super group header */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5">
-        <button type="button" onClick={onToggle} className="flex-shrink-0 p-0.5">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer" onClick={onSelect}>
+        <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex-shrink-0 p-0.5">
           <svg className={`w-3 h-3 text-purple-400/60 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-        <button type="button" onClick={onSelect} className="flex items-center gap-1.5 text-left min-w-0 shrink">
-          <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded">SUPER</span>
-          <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.sourceModel.name}</span>
-          <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({totalCount})</span>
-          <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-          <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
-            {groupFxCount >= 1000 ? `${(groupFxCount / 1000).toFixed(1)}k` : groupFxCount} fx
-          </span>
-          <span className="text-[10px] text-purple-400/40 flex-shrink-0">
-            &middot; {group.containedGroupCount} groups
-          </span>
-        </button>
+        <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded">SUPER</span>
+        <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.sourceModel.name}</span>
+        <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({totalCount})</span>
+        <span className="text-foreground/15 flex-shrink-0">&middot;</span>
+        <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
+          {groupFxCount >= 1000 ? `${(groupFxCount / 1000).toFixed(1)}k` : groupFxCount} fx
+        </span>
+        <span className="text-[10px] text-purple-400/40 flex-shrink-0">
+          &middot; {group.containedGroupCount} groups
+        </span>
         {/* Right-aligned destination */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
