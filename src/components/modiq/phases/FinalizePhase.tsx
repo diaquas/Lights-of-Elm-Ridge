@@ -88,13 +88,24 @@ export function FinalizePhase() {
   // ── State ──
   const [perspective, setPerspective] = useState<Perspective>("display");
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("unmapped-first");
+  const [sortKey, setSortKey] = useState<SortKey>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [gridDropdown, setGridDropdown] = useState<string | null>(null);
   const [gridDropdownSearch, setGridDropdownSearch] = useState("");
   const [expandedGridGroups, setExpandedGridGroups] = useState<Set<string>>(new Set());
+
+  // Stable sort: rows don't move on map/unmap — only on explicit re-sort
+  const [sortVersion, setSortVersion] = useState(0);
+  const stableDisplayOrderRef = useRef<Map<string, number>>(new Map());
+  const lastDisplaySortRef = useRef({ sortKey: "" as SortKey, sortVersion: -1, typeFilter: "" as TypeFilter, statusFilter: "" as StatusFilter, search: "" });
+  const stableSourceOrderRef = useRef<Map<string, number>>(new Map());
+  const lastSourceSortRef = useRef({ sortKey: "" as SortKey, sortVersion: -1, statusFilter: "" as StatusFilter, search: "" });
+
+  // Row flash on mapping
+  const [flashRows, setFlashRows] = useState<Set<string>>(new Set());
+  const flashTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Auto-complete
   const [autoComplete, setAutoComplete] = useState<AutoCompleteSuggestion | null>(null);
@@ -121,6 +132,7 @@ export function FinalizePhase() {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       if (e.key === "f" || e.key === "F") { e.preventDefault(); setFocusMode((p) => !p); }
       if (e.key === "Escape" && focusMode) { e.preventDefault(); setFocusMode(false); }
+      if ((e.key === "r" || e.key === "R") && focusMode) { e.preventDefault(); setSortVersion((v) => v + 1); }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
@@ -224,7 +236,9 @@ export function FinalizePhase() {
     };
   }, [allGridRows, ignoredDisplay, statusFilter]);
 
-  // Filtered + sorted grid rows
+  // Filtered + stable-sorted grid rows.
+  // Sort is "locked" — mapping/unmapping changes row visuals but not position.
+  // Only explicit re-sort (sortVersion bump), sort key change, or filter change triggers re-sort.
   const gridRows = useMemo(() => {
     let rows = allGridRows.filter((r) => !ignoredDisplay.has(r.destName));
 
@@ -244,32 +258,58 @@ export function FinalizePhase() {
       );
     }
 
-    const sorted = [...rows];
-    switch (sortKey) {
-      case "unmapped-first":
-        sorted.sort((a, b) => {
-          if (a.isMapped !== b.isMapped) return a.isMapped ? 1 : -1;
-          return naturalCompare(a.destName, b.destName);
-        });
-        break;
-      case "name-asc":
-        sorted.sort((a, b) => naturalCompare(a.destName, b.destName));
-        break;
-      case "name-desc":
-        sorted.sort((a, b) => naturalCompare(b.destName, a.destName));
-        break;
-      case "fx-desc":
-        sorted.sort((a, b) => b.effectCount - a.effectCount || naturalCompare(a.destName, b.destName));
-        break;
-      case "fx-asc":
-        sorted.sort((a, b) => a.effectCount - b.effectCount || naturalCompare(a.destName, b.destName));
-        break;
-      case "match-desc":
-        sorted.sort((a, b) => b.topScore - a.topScore || naturalCompare(a.destName, b.destName));
-        break;
+    const needsResort =
+      sortKey !== lastDisplaySortRef.current.sortKey ||
+      sortVersion !== lastDisplaySortRef.current.sortVersion ||
+      typeFilter !== lastDisplaySortRef.current.typeFilter ||
+      statusFilter !== lastDisplaySortRef.current.statusFilter ||
+      search !== lastDisplaySortRef.current.search ||
+      stableDisplayOrderRef.current.size === 0;
+
+    const applySort = (arr: GridRow[]) => {
+      const sorted = [...arr];
+      switch (sortKey) {
+        case "unmapped-first":
+          sorted.sort((a, b) => {
+            if (a.isMapped !== b.isMapped) return a.isMapped ? 1 : -1;
+            return naturalCompare(a.destName, b.destName);
+          });
+          break;
+        case "name-asc":
+          sorted.sort((a, b) => naturalCompare(a.destName, b.destName));
+          break;
+        case "name-desc":
+          sorted.sort((a, b) => naturalCompare(b.destName, a.destName));
+          break;
+        case "fx-desc":
+          sorted.sort((a, b) => b.effectCount - a.effectCount || naturalCompare(a.destName, b.destName));
+          break;
+        case "fx-asc":
+          sorted.sort((a, b) => a.effectCount - b.effectCount || naturalCompare(a.destName, b.destName));
+          break;
+        case "match-desc":
+          sorted.sort((a, b) => b.topScore - a.topScore || naturalCompare(a.destName, b.destName));
+          break;
+      }
+      return sorted;
+    };
+
+    if (needsResort) {
+      const sorted = applySort(rows);
+      stableDisplayOrderRef.current = new Map(sorted.map((r, i) => [r.destName, i]));
+      lastDisplaySortRef.current = { sortKey, sortVersion, typeFilter, statusFilter, search };
+      return sorted;
     }
-    return sorted;
-  }, [allGridRows, ignoredDisplay, typeFilter, statusFilter, search, sortKey]);
+
+    // Stable order: use cached positions, new items go to end
+    const order = stableDisplayOrderRef.current;
+    return [...rows].sort((a, b) => {
+      const ai = order.get(a.destName) ?? Infinity;
+      const bi = order.get(b.destName) ?? Infinity;
+      if (ai !== bi) return ai - bi;
+      return naturalCompare(a.destName, b.destName);
+    });
+  }, [allGridRows, ignoredDisplay, typeFilter, statusFilter, search, sortKey, sortVersion]);
 
   const ignoredDisplayRows = useMemo(() => {
     return allGridRows.filter((r) => ignoredDisplay.has(r.destName)).sort((a, b) => naturalCompare(a.destName, b.destName));
@@ -308,6 +348,8 @@ export function FinalizePhase() {
       const rows = groupMap.get(family)!;
       return { family, rows, mappedCount: rows.filter((r) => r.isMapped).length, unmappedCount: rows.filter((r) => !r.isMapped).length };
     });
+    // Groups always alphabetical (Tier 1); within-group order from gridRows sort
+    grouped.sort((a, b) => naturalCompare(a.family, b.family));
     return { grouped, ungrouped };
   }, [gridRows, destGroupMembership]);
 
@@ -366,19 +408,44 @@ export function FinalizePhase() {
       const q = search.toLowerCase();
       rows = rows.filter((r) => r.sourceName.toLowerCase().includes(q) || r.destinations.some((d) => d.toLowerCase().includes(q)));
     }
-    const sorted = [...rows];
-    switch (sortKey) {
-      case "unmapped-first":
-        sorted.sort((a, b) => { if (a.isMapped !== b.isMapped) return a.isMapped ? 1 : -1; return b.effectCount - a.effectCount || naturalCompare(a.sourceName, b.sourceName); });
-        break;
-      case "name-asc": sorted.sort((a, b) => naturalCompare(a.sourceName, b.sourceName)); break;
-      case "name-desc": sorted.sort((a, b) => naturalCompare(b.sourceName, a.sourceName)); break;
-      case "fx-desc": sorted.sort((a, b) => b.effectCount - a.effectCount || naturalCompare(a.sourceName, b.sourceName)); break;
-      case "fx-asc": sorted.sort((a, b) => a.effectCount - b.effectCount || naturalCompare(a.sourceName, b.sourceName)); break;
-      case "dest-count-desc": sorted.sort((a, b) => b.destCount - a.destCount || naturalCompare(a.sourceName, b.sourceName)); break;
+
+    const needsResort =
+      sortKey !== lastSourceSortRef.current.sortKey ||
+      sortVersion !== lastSourceSortRef.current.sortVersion ||
+      statusFilter !== lastSourceSortRef.current.statusFilter ||
+      search !== lastSourceSortRef.current.search ||
+      stableSourceOrderRef.current.size === 0;
+
+    const applySort = (arr: SourceGridRow[]) => {
+      const sorted = [...arr];
+      switch (sortKey) {
+        case "unmapped-first":
+          sorted.sort((a, b) => { if (a.isMapped !== b.isMapped) return a.isMapped ? 1 : -1; return b.effectCount - a.effectCount || naturalCompare(a.sourceName, b.sourceName); });
+          break;
+        case "name-asc": sorted.sort((a, b) => naturalCompare(a.sourceName, b.sourceName)); break;
+        case "name-desc": sorted.sort((a, b) => naturalCompare(b.sourceName, a.sourceName)); break;
+        case "fx-desc": sorted.sort((a, b) => b.effectCount - a.effectCount || naturalCompare(a.sourceName, b.sourceName)); break;
+        case "fx-asc": sorted.sort((a, b) => a.effectCount - b.effectCount || naturalCompare(a.sourceName, b.sourceName)); break;
+        case "dest-count-desc": sorted.sort((a, b) => b.destCount - a.destCount || naturalCompare(a.sourceName, b.sourceName)); break;
+      }
+      return sorted;
+    };
+
+    if (needsResort) {
+      const sorted = applySort(rows);
+      stableSourceOrderRef.current = new Map(sorted.map((r, i) => [r.sourceName, i]));
+      lastSourceSortRef.current = { sortKey, sortVersion, statusFilter, search };
+      return sorted;
     }
-    return sorted;
-  }, [allSourceRows, ignoredSource, statusFilter, search, sortKey]);
+
+    const order = stableSourceOrderRef.current;
+    return [...rows].sort((a, b) => {
+      const ai = order.get(a.sourceName) ?? Infinity;
+      const bi = order.get(b.sourceName) ?? Infinity;
+      if (ai !== bi) return ai - bi;
+      return naturalCompare(a.sourceName, b.sourceName);
+    });
+  }, [allSourceRows, ignoredSource, statusFilter, search, sortKey, sortVersion]);
 
   const ignoredSourceRows = useMemo(() => {
     return allSourceRows.filter((r) => ignoredSource.has(r.sourceName)).sort((a, b) => naturalCompare(a.sourceName, b.sourceName));
@@ -479,10 +546,21 @@ export function FinalizePhase() {
     }
   }, [sourceLayerMappings, allDestModels, destToSourcesMap]);
 
-  const handleAcceptSuggestion = useCallback((sourceName: string, destName: string) => {
+  const assignWithFlash = useCallback((sourceName: string, destName: string) => {
     assignUserModelToLayer(sourceName, destName);
+    setFlashRows((prev) => { const next = new Set(prev); next.add(destName); return next; });
+    const existing = flashTimersRef.current.get(destName);
+    if (existing) clearTimeout(existing);
+    flashTimersRef.current.set(destName, setTimeout(() => {
+      setFlashRows((prev) => { const next = new Set(prev); next.delete(destName); return next; });
+      flashTimersRef.current.delete(destName);
+    }, 500));
+  }, [assignUserModelToLayer]);
+
+  const handleAcceptSuggestion = useCallback((sourceName: string, destName: string) => {
+    assignWithFlash(sourceName, destName);
     detectAutoComplete(sourceName, destName);
-  }, [assignUserModelToLayer, detectAutoComplete]);
+  }, [assignWithFlash, detectAutoComplete]);
 
   const handleAcceptAllSuggestions = useCallback(() => {
     for (const name of darkNames) {
@@ -663,26 +741,27 @@ export function FinalizePhase() {
           <option value="multi-mapped">Multi-mapped</option>
         </select>
         {perspective === "display" ? (
-          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
+          <select value={sortKey} onChange={(e) => { setSortKey(e.target.value as SortKey); setSortVersion((v) => v + 1); }}
             className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent">
+            <option value="name-asc">Name A&#8594;Z</option>
+            <option value="name-desc">Name Z&#8594;A</option>
             <option value="unmapped-first">Unmapped First</option>
             <option value="match-desc">Match High&#8594;Low</option>
             <option value="fx-desc">FX High&#8594;Low</option>
             <option value="fx-asc">FX Low&#8594;High</option>
-            <option value="name-asc">Name A&#8594;Z</option>
-            <option value="name-desc">Name Z&#8594;A</option>
           </select>
         ) : (
-          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}
+          <select value={sortKey} onChange={(e) => { setSortKey(e.target.value as SortKey); setSortVersion((v) => v + 1); }}
             className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent">
+            <option value="name-asc">Name A&#8594;Z</option>
+            <option value="name-desc">Name Z&#8594;A</option>
             <option value="unmapped-first">Unmapped First</option>
             <option value="fx-desc">FX High&#8594;Low</option>
             <option value="fx-asc">FX Low&#8594;High</option>
-            <option value="name-asc">Name A&#8594;Z</option>
-            <option value="name-desc">Name Z&#8594;A</option>
             <option value="dest-count-desc">Dest Count High&#8594;Low</option>
           </select>
         )}
+        <button type="button" onClick={() => setSortVersion((v) => v + 1)} className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1" title="Re-sort (R in Focus mode)">&#x21bb;</button>
         {isFiltered && (
           <button type="button" onClick={clearFilters} className="text-[11px] text-accent/60 hover:text-accent transition-colors">Clear filters</button>
         )}
@@ -748,13 +827,13 @@ export function FinalizePhase() {
                         </td>
                       </tr>
                       {isExpanded && group.rows.map((row) => (
-                        <GridRowComponent key={row.destName} row={row} indent isSelected={selectedRows.has(row.destName)} isDropdownOpen={gridDropdown === row.destName}
+                        <GridRowComponent key={row.destName} row={row} indent isSelected={selectedRows.has(row.destName)} isFlashing={flashRows.has(row.destName)} isDropdownOpen={gridDropdown === row.destName}
                           dropdownSources={gridDropdown === row.destName ? gridDropdownSources : null} dropdownSearch={gridDropdown === row.destName ? gridDropdownSearch : ""}
                           draggingSource={draggingSource}
                           onToggleSelect={() => handleSelectRow(row.destName)}
                           onOpenDropdown={() => { setGridDropdown(row.destName); setGridDropdownSearch(""); }}
                           onCloseDropdown={() => setGridDropdown(null)} onDropdownSearchChange={setGridDropdownSearch}
-                          onAssign={(s) => { assignUserModelToLayer(s, row.destName); setGridDropdown(null); }}
+                          onAssign={(s) => { assignWithFlash(s, row.destName); setGridDropdown(null); }}
                           onAcceptSuggestion={(s) => handleAcceptSuggestion(s, row.destName)}
                           onRemoveLink={(s) => removeLinkFromLayer(s, row.destName)}
                           onIgnore={() => handleIgnoreDisplay(row.destName)} />
@@ -776,13 +855,13 @@ export function FinalizePhase() {
                 )}
                 {/* Ungrouped models */}
                 {groupedGridRows.ungrouped.map((row) => (
-                  <GridRowComponent key={row.destName} row={row} isSelected={selectedRows.has(row.destName)} isDropdownOpen={gridDropdown === row.destName}
+                  <GridRowComponent key={row.destName} row={row} isSelected={selectedRows.has(row.destName)} isFlashing={flashRows.has(row.destName)} isDropdownOpen={gridDropdown === row.destName}
                     dropdownSources={gridDropdown === row.destName ? gridDropdownSources : null} dropdownSearch={gridDropdown === row.destName ? gridDropdownSearch : ""}
                     draggingSource={draggingSource}
                     onToggleSelect={() => handleSelectRow(row.destName)}
                     onOpenDropdown={() => { setGridDropdown(row.destName); setGridDropdownSearch(""); }}
                     onCloseDropdown={() => setGridDropdown(null)} onDropdownSearchChange={setGridDropdownSearch}
-                    onAssign={(s) => { assignUserModelToLayer(s, row.destName); setGridDropdown(null); }}
+                    onAssign={(s) => { assignWithFlash(s, row.destName); setGridDropdown(null); }}
                     onAcceptSuggestion={(s) => handleAcceptSuggestion(s, row.destName)}
                     onRemoveLink={(s) => removeLinkFromLayer(s, row.destName)}
                     onIgnore={() => handleIgnoreDisplay(row.destName)} />
@@ -918,8 +997,8 @@ export function FinalizePhase() {
 
 // ─── Grid Row Component (Display Perspective) ────────────
 
-function GridRowComponent({ row, indent, isSelected, isDropdownOpen, dropdownSources, dropdownSearch, draggingSource, onToggleSelect, onOpenDropdown, onCloseDropdown, onDropdownSearchChange, onAssign, onAcceptSuggestion, onRemoveLink, onIgnore }: {
-  row: GridRow; indent?: boolean; isSelected: boolean; isDropdownOpen: boolean;
+function GridRowComponent({ row, indent, isSelected, isFlashing, isDropdownOpen, dropdownSources, dropdownSearch, draggingSource, onToggleSelect, onOpenDropdown, onCloseDropdown, onDropdownSearchChange, onAssign, onAcceptSuggestion, onRemoveLink, onIgnore }: {
+  row: GridRow; indent?: boolean; isSelected: boolean; isFlashing?: boolean; isDropdownOpen: boolean;
   dropdownSources: { suggested: { name: string; effectCount: number; score: number }[]; rest: { name: string; effectCount: number; score: number }[] } | null;
   dropdownSearch: string; draggingSource: string | null;
   onToggleSelect: () => void; onOpenDropdown: () => void; onCloseDropdown: () => void; onDropdownSearchChange: (v: string) => void;
@@ -938,7 +1017,7 @@ function GridRowComponent({ row, indent, isSelected, isDropdownOpen, dropdownSou
   const borderColor = row.isMapped ? "border-l-green-500/70" : row.topSuggestion ? "border-l-red-400/70" : "border-l-amber-400/70";
 
   return (
-    <tr className={`border-b border-border/20 border-l-[3px] ${borderColor} min-h-[36px] hover:bg-foreground/[0.02] group/row ${isSelected ? "bg-accent/5" : ""} ${draggingSource && isDropHover ? "bg-accent/10 ring-1 ring-accent/40 ring-inset" : ""}`}
+    <tr className={`border-b border-border/20 border-l-[3px] ${borderColor} min-h-[36px] hover:bg-foreground/[0.02] group/row transition-colors duration-300 ${isFlashing ? "!bg-green-500/[0.08]" : ""} ${isSelected ? "bg-accent/5" : ""} ${draggingSource && isDropHover ? "bg-accent/10 ring-1 ring-accent/40 ring-inset" : ""}`}
       onDragOver={(e) => { if (!draggingSource) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; setIsDropHover(true); }}
       onDragLeave={() => setIsDropHover(false)}
       onDrop={(e) => { e.preventDefault(); const src = e.dataTransfer.getData("text/plain"); if (src) onAssign(src); setIsDropHover(false); }}>
