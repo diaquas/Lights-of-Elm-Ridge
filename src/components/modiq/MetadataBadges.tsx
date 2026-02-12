@@ -40,7 +40,7 @@ export function HeroEffectBadge({ count }: { count: number }) {
 
 /**
  * Compact inline effect badge for single-line card layouts.
- * Shows "+N fx" in a color-coded pill.
+ * Shows "N fx" in a color-coded pill.
  */
 export function InlineEffectBadge({ count }: { count: number }) {
   const { text, bg, border } = getEffectColor(count);
