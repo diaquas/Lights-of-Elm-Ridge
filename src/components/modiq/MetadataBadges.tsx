@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
+import type { AutoMatchStats } from "@/contexts/MappingPhaseContext";
 
 /**
  * Color tiers for effect counts.
@@ -157,6 +159,84 @@ export function EffectsCoverageBar({
       <span className="text-[10px] text-foreground/35 tabular-nums whitespace-nowrap">
         {mappedEffects.toLocaleString()} / {totalEffects.toLocaleString()} effects
       </span>
+    </div>
+  );
+}
+
+/**
+ * Link2 SVG icon — used inline on auto-matched items to indicate origin.
+ * Green 14px icon with tooltip showing "Auto-matched".
+ */
+export function Link2Badge() {
+  return (
+    <span title="Auto-matched" className="inline-flex flex-shrink-0">
+      <svg
+        className="w-3.5 h-3.5 text-green-400"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M9 17H7A5 5 0 017 7h2" />
+        <path d="M15 7h2a5 5 0 010 10h-2" />
+        <line x1="8" y1="12" x2="16" y2="12" />
+      </svg>
+    </span>
+  );
+}
+
+/**
+ * Auto-match summary banner for the top of Groups & Models and Submodels phases.
+ * Shows the total auto-matches, split into strong/review counts.
+ * Dismissible; hidden if zero auto-matches in this phase.
+ */
+export function AutoMatchBanner({
+  stats,
+  phaseAutoCount,
+  onAcceptAllStrong,
+}: {
+  stats: AutoMatchStats;
+  /** Number of auto-matched items visible in THIS phase (not global total) */
+  phaseAutoCount: number;
+  onAcceptAllStrong?: () => void;
+}) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed || phaseAutoCount === 0) return null;
+
+  return (
+    <div className="mx-4 mt-2 mb-1 px-4 py-2.5 rounded-lg border border-green-500/20 bg-green-500/5 flex items-center gap-3 flex-shrink-0">
+      <Link2Badge />
+      <div className="flex-1 min-w-0">
+        <span className="text-[12px] font-semibold text-foreground/80">
+          {phaseAutoCount} auto-matched
+        </span>
+        {stats.strongCount > 0 && stats.reviewCount > 0 && (
+          <span className="text-[11px] text-foreground/40 ml-1.5">
+            ({stats.strongCount} strong, {stats.reviewCount} needs review)
+          </span>
+        )}
+      </div>
+      {onAcceptAllStrong && stats.strongCount > 0 && (
+        <button
+          type="button"
+          onClick={onAcceptAllStrong}
+          className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-green-500/15 text-green-400 hover:bg-green-500/25 transition-colors flex-shrink-0"
+        >
+          Accept All Strong
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setDismissed(true)}
+        className="p-1 text-foreground/20 hover:text-foreground/50 transition-colors flex-shrink-0"
+        title="Dismiss"
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   );
 }

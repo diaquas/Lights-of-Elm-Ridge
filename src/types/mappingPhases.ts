@@ -2,7 +2,6 @@ import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 import { isSpinnerType } from "@/types/xLightsTypes";
 
 export type MappingPhase =
-  | "auto-accept"
   | "individuals"
   | "spinners"
   | "finalize"
@@ -28,24 +27,16 @@ export const UPLOAD_STEP = {
 /**
  * Phase definitions for the ModIQ mapping wizard.
  *
- * Ordering: [Upload (always done)] → Auto-Accept → Groups & Models → Spinners → Finalize → Review
+ * Ordering: [Upload (always done)] → Groups & Models → Submodels → Finalize → Review
+ *
+ * Auto-matches (70%+ confidence) are pre-applied during the loading screen
+ * and appear inline in their natural phase with a Link2 badge.
  *
  * Phase routing uses the xLights type system:
- * - Auto-Accept: ALL entity types with 70%+ confidence (opt-out review)
- * - Groups & Models: MODEL_GROUP + META_GROUP + MIXED_GROUP + MODEL + SUBMODEL (below 70%)
- * - Spinners: SUBMODEL_GROUP (below 70%)
- * - Items rejected from auto-accept are routed to their natural phase
+ * - Groups & Models: MODEL_GROUP + META_GROUP + MIXED_GROUP + MODEL + SUBMODEL
+ * - Spinners: SUBMODEL_GROUP
  */
 export const PHASE_CONFIG: PhaseConfig[] = [
-  {
-    id: "auto-accept",
-    label: "Auto-Matches",
-    description: "Review auto-matched items (70%+ confidence)",
-    icon: "auto",
-    filter: (layer) => {
-      return getLayerBestScore(layer) >= 0.70;
-    },
-  },
   {
     id: "individuals",
     label: "Groups & Models",
@@ -53,8 +44,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     description: "Match groups and individual models",
     icon: "groups",
     filter: (layer) => {
-      if (isSpinnerType(layer.sourceModel.groupType)) return false;
-      return getLayerBestScore(layer) < 0.70;
+      return !isSpinnerType(layer.sourceModel.groupType);
     },
   },
   {
@@ -64,8 +54,7 @@ export const PHASE_CONFIG: PhaseConfig[] = [
     description: "Match submodel groups for spinners, wreaths & HD props",
     icon: "spinners",
     filter: (layer) => {
-      if (!isSpinnerType(layer.sourceModel.groupType)) return false;
-      return getLayerBestScore(layer) < 0.70;
+      return isSpinnerType(layer.sourceModel.groupType);
     },
   },
   {
@@ -84,10 +73,11 @@ export const PHASE_CONFIG: PhaseConfig[] = [
   },
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function getLayerBestScore(_layer: SourceLayerMapping): number {
-  return 0;
-}
+/** Score threshold: items at or above are considered "strong" auto-matches */
+export const STRONG_THRESHOLD = 0.75;
+
+/** Score threshold: items at or above are auto-matched during loading */
+export const AUTO_ACCEPT_THRESHOLD = 0.70;
 
 export function getLayerBestScoreFromMap(
   layer: SourceLayerMapping,

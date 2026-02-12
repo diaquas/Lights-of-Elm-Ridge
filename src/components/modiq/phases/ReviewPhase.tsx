@@ -21,7 +21,7 @@ export function ReviewPhase({
   onReset,
   seqTitle,
 }: ReviewPhaseProps) {
-  const { interactive, phaseCounts, setCurrentPhase } = useMappingPhase();
+  const { interactive, phaseCounts, setCurrentPhase, autoMatchStats } = useMappingPhase();
 
   const { displayCoverage, effectsCoverage } = interactive;
 
@@ -190,7 +190,7 @@ export function ReviewPhase({
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <StatCard
               label="Auto-Matched"
-              value={phaseCounts.get("auto-accept") ?? 0}
+              value={autoMatchStats.total}
               color="green"
             />
             <StatCard

@@ -43,8 +43,8 @@ export interface SerializedMappingState {
   overrides: string[];
   /** Source → dest links (source name → dest name[]) */
   sourceDestLinks: Record<string, string[]>;
-  /** Names rejected during auto-accept */
-  autoAcceptRejected: string[];
+  /** @deprecated No longer used (auto-accept phase removed) */
+  autoAcceptRejected?: string[];
 }
 
 // ─── Hook ───────────────────────────────────────────────

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
-import { AutoAcceptPhase } from "./phases/AutoAcceptPhase";
 import { IndividualsPhase } from "./phases/IndividualsPhase";
 import { SpinnersPhase } from "./phases/SpinnersPhase";
 import { FinalizePhase } from "./phases/FinalizePhase";
@@ -17,9 +16,6 @@ export function PhaseContainer({ reviewProps }: PhaseContainerProps) {
 
   let content: React.ReactNode;
   switch (currentPhase) {
-    case "auto-accept":
-      content = <AutoAcceptPhase />;
-      break;
     case "individuals":
       content = <IndividualsPhase />;
       break;
