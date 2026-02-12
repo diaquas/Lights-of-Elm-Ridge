@@ -106,12 +106,25 @@ export function FinalizePhase() {
   const [deltaToast, setDeltaToast] = useState<string | null>(null);
   const prevCoveredRef = useRef(displayCoverage.covered);
 
+  // Focus mode
+  const [focusMode, setFocusMode] = useState(false);
+
   // Ignore/dismiss
   const [ignoredDisplay, setIgnoredDisplay] = useState<Set<string>>(new Set());
   const [ignoredSource, setIgnoredSource] = useState<Set<string>>(new Set());
   const [undoToast, setUndoToast] = useState<{ name: string; kind: "display" | "source" } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [ignoredSectionOpen, setIgnoredSectionOpen] = useState(false);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key === "f" || e.key === "F") { e.preventDefault(); setFocusMode((p) => !p); }
+      if (e.key === "Escape" && focusMode) { e.preventDefault(); setFocusMode(false); }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [focusMode]);
 
   useEffect(() => {
     const diff = displayCoverage.covered - prevCoveredRef.current;
@@ -520,12 +533,27 @@ export function FinalizePhase() {
   const seqPct = effectsCoverage.percent;
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className={focusMode ? "fixed inset-0 z-50 bg-background flex flex-col" : "flex flex-col h-full overflow-hidden"}>
+      {/* ── Focus Mode: Slim Coverage Bar ── */}
+      {focusMode && (
+        <div className="px-4 py-1.5 border-b border-border bg-surface flex-shrink-0 flex items-center gap-4">
+          <span className="text-[11px] text-foreground/60 tabular-nums">Models: {dispPct}% ({displayCoverage.covered}/{displayCoverage.total})</span>
+          <div className="w-32 h-1.5 bg-foreground/10 rounded-full overflow-hidden">
+            <div className="h-full bg-green-400 rounded-full transition-all" style={{ width: `${dispPct}%` }} />
+          </div>
+          <span className="text-[11px] text-foreground/60 tabular-nums">Effects: {seqPct}% ({effectsCoverage.covered}/{effectsCoverage.total})</span>
+          <div className="w-32 h-1.5 bg-foreground/10 rounded-full overflow-hidden">
+            <div className="h-full bg-accent rounded-full transition-all" style={{ width: `${seqPct}%` }} />
+          </div>
+          <button type="button" onClick={() => setFocusMode(false)} className="ml-auto text-[11px] font-medium px-2.5 py-1 rounded bg-foreground/5 text-foreground/50 hover:bg-foreground/10 hover:text-foreground/70 transition-colors">Exit Focus</button>
+        </div>
+      )}
+
       {/* ── Quick Actions + Perspective ── */}
-      <div className="px-6 py-2 border-b border-border/50 flex-shrink-0 flex items-center gap-3">
+      <div className="px-6 py-1.5 border-b border-border/50 flex-shrink-0 flex items-center gap-3">
         {deltaToast && <span className="text-[11px] text-green-400 font-medium animate-pulse">{deltaToast}</span>}
         {perspective === "display" && darkNames.length > 0 && suggestedCount > 0 && (
-          <button type="button" onClick={handleAcceptAllSuggestions} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors">
+          <button type="button" onClick={handleAcceptAllSuggestions} className="text-[12px] font-medium px-3 py-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors">
             Accept All Suggestions ({suggestedCount})
           </button>
         )}
@@ -535,15 +563,20 @@ export function FinalizePhase() {
         {perspective === "source" && sourceSummary.unused > 0 && (
           <span className="text-[11px] text-amber-400/60">{sourceSummary.unused} source{sourceSummary.unused !== 1 ? "s" : ""} unused</span>
         )}
-        <div className="ml-auto flex items-center gap-1 bg-foreground/5 rounded-lg p-0.5">
-          <button type="button" onClick={() => { setPerspective("display"); setSelectedRows(new Set()); }}
-            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${perspective === "display" ? "bg-accent/15 text-accent" : "text-foreground/40 hover:text-foreground/60"}`}>
-            My Display
-          </button>
-          <button type="button" onClick={() => { setPerspective("source"); setSelectedRows(new Set()); }}
-            className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${perspective === "source" ? "bg-accent/15 text-accent" : "text-foreground/40 hover:text-foreground/60"}`}>
-            Source Sequence
-          </button>
+        <div className="ml-auto flex items-center gap-2">
+          {!focusMode && (
+            <button type="button" onClick={() => setFocusMode(true)} className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-2 py-1 rounded hover:bg-foreground/5" title="Focus mode (F)">&#x26F6; Focus</button>
+          )}
+          <div className="flex items-center gap-1 bg-foreground/5 rounded-lg p-0.5">
+            <button type="button" onClick={() => { setPerspective("display"); setSelectedRows(new Set()); }}
+              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${perspective === "display" ? "bg-accent/15 text-accent" : "text-foreground/40 hover:text-foreground/60"}`}>
+              My Display
+            </button>
+            <button type="button" onClick={() => { setPerspective("source"); setSelectedRows(new Set()); }}
+              className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${perspective === "source" ? "bg-accent/15 text-accent" : "text-foreground/40 hover:text-foreground/60"}`}>
+              Source Sequence
+            </button>
+          </div>
         </div>
       </div>
 
@@ -651,15 +684,15 @@ export function FinalizePhase() {
           <div className="flex-1 min-h-0 overflow-y-auto">
             <table className="w-full text-[12px]">
               <thead className="sticky top-0 bg-surface z-10">
-                <tr className="border-b border-border text-foreground/40">
-                  <th className="w-8 px-2 py-2 text-center">
+                <tr className="border-b border-border text-foreground/40 text-[11px]">
+                  <th className="w-8 px-2 py-1.5 text-center">
                     <input type="checkbox" checked={gridRows.length > 0 && selectedRows.size === gridRows.length} onChange={handleSelectAll} className="w-3.5 h-3.5 rounded border-border accent-accent" />
                   </th>
-                  <th className="px-3 py-2 text-left font-medium">My Display</th>
-                  <th className="px-3 py-2 text-left font-medium w-[16rem]">Mapped To</th>
-                  <th className="px-3 py-2 text-right font-medium w-16">Match</th>
-                  <th className="px-3 py-2 text-right font-medium w-14">FX</th>
-                  <th className="px-3 py-2 text-center font-medium w-20">Status</th>
+                  <th className="px-3 py-1.5 text-left font-medium w-[25%]">My Display</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Mapped To</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-[50px]">Match</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-[40px]">FX</th>
+                  <th className="w-7" />
                 </tr>
               </thead>
               <tbody>
@@ -682,31 +715,30 @@ export function FinalizePhase() {
                   const isExpanded = expandedGridGroups.has(group.family);
                   const allSelected = group.rows.every((r) => selectedRows.has(r.destName));
                   const someSelected = !allSelected && group.rows.some((r) => selectedRows.has(r.destName));
-                  const statusIcon = group.unmappedCount === 0
-                    ? <span className="text-green-400 text-[11px]">&#10003;</span>
-                    : <span className="text-amber-400 text-[11px]">&#9888;</span>;
+                  const groupBorder = group.unmappedCount === 0 ? "border-l-green-500/70" : "border-l-amber-400/70";
                   return (
                     <React.Fragment key={group.family}>
-                      <tr className="border-b border-border/30 bg-foreground/[0.02] cursor-pointer hover:bg-foreground/[0.04]" onClick={() => toggleGridGroup(group.family)}>
-                        <td className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <tr className={`border-b border-border/30 border-l-[3px] ${groupBorder} bg-foreground/[0.03] cursor-pointer hover:bg-foreground/[0.05]`} onClick={() => toggleGridGroup(group.family)}>
+                        <td className="px-2 py-0.5 text-center" onClick={(e) => e.stopPropagation()}>
                           <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected; }} onChange={() => handleSelectGroup(group.family)} className="w-3.5 h-3.5 rounded border-border accent-accent" />
                         </td>
-                        <td className="px-3 py-1.5" colSpan={3}>
+                        <td className="py-0.5 px-3" colSpan={4}>
                           <div className="flex items-center gap-2">
-                            <svg className={`w-3 h-3 text-foreground/40 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className={`w-2.5 h-2.5 text-foreground/40 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <span className="text-[12px] font-medium text-foreground/70">{group.family}</span>
-                            <span className="text-[10px] text-foreground/30">({group.rows.length})</span>
-                            <span className="text-[10px] text-foreground/30 ml-1">
-                              {group.mappedCount > 0 && <span className="text-green-400/60">{group.mappedCount} mapped</span>}
-                              {group.mappedCount > 0 && group.unmappedCount > 0 && " \u00b7 "}
-                              {group.unmappedCount > 0 && <span className="text-amber-400/60">{group.unmappedCount} unmapped</span>}
+                            <span className="text-[11px] font-medium text-foreground/60">{group.family}</span>
+                            <span className="text-[10px] text-foreground/25">({group.rows.length})</span>
+                            <span className="text-[10px] text-foreground/30">&middot;</span>
+                            <span className="text-[10px] text-foreground/30">
+                              {group.mappedCount > 0 && <span className="text-green-400/60">{group.mappedCount}/{group.rows.length}</span>}
+                              {group.unmappedCount > 0 && <span className="text-amber-400/60 ml-1">{group.unmappedCount} unmapped</span>}
                             </span>
                           </div>
                         </td>
-                        <td />
-                        <td className="px-3 py-1.5 text-center">{statusIcon}</td>
+                        <td className="w-7 py-0.5 text-center">
+                          {group.unmappedCount > 0 && <span className="text-amber-400/70 text-[10px]">&#9888;</span>}
+                        </td>
                       </tr>
                       {isExpanded && group.rows.map((row) => (
                         <GridRowComponent key={row.destName} row={row} indent isSelected={selectedRows.has(row.destName)} isDropdownOpen={gridDropdown === row.destName}
@@ -784,15 +816,15 @@ export function FinalizePhase() {
           <div className="flex-1 min-h-0 overflow-y-auto">
             <table className="w-full text-[12px]">
               <thead className="sticky top-0 bg-surface z-10">
-                <tr className="border-b border-border text-foreground/40">
-                  <th className="w-8 px-2 py-2 text-center">
+                <tr className="border-b border-border text-foreground/40 text-[11px]">
+                  <th className="w-8 px-2 py-1.5 text-center">
                     <input type="checkbox" checked={sourceGridRows.length > 0 && selectedRows.size === sourceGridRows.length} onChange={handleSelectAll} className="w-3.5 h-3.5 rounded border-border accent-accent" />
                   </th>
-                  <th className="px-3 py-2 text-left font-medium">Source Model</th>
-                  <th className="px-3 py-2 text-left font-medium w-[16rem]">Sending To</th>
-                  <th className="px-3 py-2 text-right font-medium w-14">FX</th>
-                  <th className="px-3 py-2 text-right font-medium w-14">Dest#</th>
-                  <th className="px-3 py-2 text-center font-medium w-20">Status</th>
+                  <th className="px-3 py-1.5 text-left font-medium w-[25%]">Source Model</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Sending To</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-[50px]">FX</th>
+                  <th className="px-2 py-1.5 text-right font-medium w-[40px]">Dest#</th>
+                  <th className="w-7" />
                 </tr>
               </thead>
               <tbody>
@@ -871,32 +903,29 @@ function GridRowComponent({ row, indent, isSelected, isDropdownOpen, dropdownSou
     return () => document.removeEventListener("mousedown", handler);
   }, [isDropdownOpen, onCloseDropdown]);
 
-  const statusIcon = row.isMapped
-    ? <span className="text-green-400" title="Mapped">&#10003;</span>
-    : row.topSuggestion ? <span title="AI suggestion available">&#128161;</span>
-    : <span className="text-amber-400" title="Unmapped">&#9888;</span>;
+  const borderColor = row.isMapped ? "border-l-green-500/70" : row.topSuggestion ? "border-l-red-400/70" : "border-l-amber-400/70";
 
   return (
-    <tr className={`border-b border-border/20 hover:bg-foreground/[0.02] group/row ${isSelected ? "bg-accent/5" : ""} ${draggingSource && isDropHover ? "bg-accent/10 ring-1 ring-accent/40 ring-inset" : ""}`}
+    <tr className={`border-b border-border/20 border-l-[3px] ${borderColor} min-h-[36px] hover:bg-foreground/[0.02] group/row ${isSelected ? "bg-accent/5" : ""} ${draggingSource && isDropHover ? "bg-accent/10 ring-1 ring-accent/40 ring-inset" : ""}`}
       onDragOver={(e) => { if (!draggingSource) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; setIsDropHover(true); }}
       onDragLeave={() => setIsDropHover(false)}
       onDrop={(e) => { e.preventDefault(); const src = e.dataTransfer.getData("text/plain"); if (src) onAssign(src); setIsDropHover(false); }}>
-      <td className="px-2 py-2 text-center">
+      <td className="px-2 py-1 text-center">
         <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="w-3.5 h-3.5 rounded border-border accent-accent" />
       </td>
-      <td className={`py-2 ${indent ? "pl-8 pr-3" : "px-3"}`}>
+      <td className={`py-1 ${indent ? "pl-8 pr-3" : "px-3"}`}>
         <span className="text-foreground/80 font-medium">{row.destName}</span>
       </td>
-      <td className="px-3 py-2 relative">
+      <td className="px-3 py-1 relative">
         {row.isMapped ? (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-wrap items-center gap-1">
             {row.sources.map((src) => (
-              <div key={src} className="flex items-center gap-1.5 group/src">
-                <span className="text-foreground/60 truncate">{src}</span>
-                <button type="button" onClick={() => onRemoveLink(src)} className="text-red-400/40 hover:text-red-400 opacity-0 group-hover/src:opacity-100 transition-opacity text-[10px] flex-shrink-0" title="Remove">&times;</button>
-              </div>
+              <span key={src} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-foreground/[0.06] text-[11px] text-foreground/70 group/src hover:bg-foreground/10 transition-colors">
+                <span className="truncate max-w-[14rem]">{src}</span>
+                <button type="button" onClick={() => onRemoveLink(src)} className="text-foreground/30 hover:text-red-400 opacity-0 group-hover/src:opacity-100 transition-opacity text-[9px] leading-none flex-shrink-0">&times;</button>
+              </span>
             ))}
-            <button type="button" onClick={onOpenDropdown} className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors text-left mt-0.5 opacity-0 group-hover/row:opacity-100">+ add source</button>
+            <button type="button" onClick={onOpenDropdown} className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors opacity-0 group-hover/row:opacity-100">+ Add</button>
           </div>
         ) : row.topSuggestion ? (
           <div className="flex items-center gap-2">
@@ -906,7 +935,7 @@ function GridRowComponent({ row, indent, isSelected, isDropdownOpen, dropdownSou
             <button type="button" onClick={onOpenDropdown} className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors">or choose...</button>
           </div>
         ) : (
-          <button type="button" onClick={onOpenDropdown} className="text-foreground/25 hover:text-foreground/50 transition-colors">Choose a source...</button>
+          <button type="button" onClick={onOpenDropdown} className="text-[11px] text-foreground/30 hover:text-foreground/50 px-2 py-0.5 rounded bg-foreground/5 hover:bg-foreground/8 transition-colors">+ Assign</button>
         )}
         {isDropdownOpen && dropdownSources && (
           <div ref={dropdownRef} className="absolute left-0 top-full mt-1 z-20 bg-surface border border-border rounded-lg shadow-xl w-[20rem] max-h-[16rem] flex flex-col overflow-hidden">
@@ -940,17 +969,14 @@ function GridRowComponent({ row, indent, isSelected, isDropdownOpen, dropdownSou
           </div>
         )}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums">
-        {row.topScore > 0 ? <span className="text-accent/70">{Math.round(row.topScore * 100)}%</span> : <span className="text-foreground/15">&mdash;</span>}
+      <td className="px-2 py-1 text-right tabular-nums w-[50px]">
+        {row.topScore > 0 && <span className="text-accent/70 text-[11px]">{Math.round(row.topScore * 100)}%</span>}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums">
-        {row.effectCount > 0 ? <span className="text-foreground/50">{row.effectCount}</span> : <span className="text-foreground/15">&mdash;</span>}
+      <td className="px-2 py-1 text-right tabular-nums w-[40px]">
+        {row.effectCount > 0 && <span className="text-foreground/50 text-[11px]">{row.effectCount}</span>}
       </td>
-      <td className="px-3 py-2 text-center">
-        <div className="flex items-center justify-center gap-1.5">
-          <span className="text-[13px]">{statusIcon}</span>
-          <button type="button" onClick={onIgnore} className="text-[9px] text-foreground/20 hover:text-foreground/50 opacity-0 group-hover/row:opacity-100 transition-all" title="Ignore">&#10005;</button>
-        </div>
+      <td className="w-7 py-1 text-center">
+        <button type="button" onClick={onIgnore} className="text-[9px] text-foreground/20 hover:text-foreground/50 opacity-0 group-hover/row:opacity-100 transition-all" title="Ignore">&#10005;</button>
       </td>
     </tr>
   );
@@ -972,28 +998,28 @@ function SourceGridRowComponent({ row, isSelected, isDropdownOpen, dropdownItems
     return () => document.removeEventListener("mousedown", handler);
   }, [isDropdownOpen, onCloseDropdown]);
 
-  const statusIcon = row.isMapped ? <span className="text-green-400" title="Mapped">&#10003;</span> : <span className="text-amber-400" title="Unmapped">&#9888;</span>;
+  const borderColor = row.isMapped ? "border-l-green-500/70" : "border-l-amber-400/70";
   const isHighFxUnmapped = !row.isMapped && row.effectCount > 50;
 
   return (
-    <tr className={`border-b border-border/20 hover:bg-foreground/[0.02] group/row ${isSelected ? "bg-accent/5" : ""} ${isHighFxUnmapped ? "bg-amber-500/[0.03]" : ""}`}>
-      <td className="px-2 py-2 text-center">
+    <tr className={`border-b border-border/20 border-l-[3px] ${borderColor} min-h-[36px] hover:bg-foreground/[0.02] group/row ${isSelected ? "bg-accent/5" : ""} ${isHighFxUnmapped ? "bg-amber-500/[0.03]" : ""}`}>
+      <td className="px-2 py-1 text-center">
         <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="w-3.5 h-3.5 rounded border-border accent-accent" />
       </td>
-      <td className="px-3 py-2"><span className="text-foreground/80 font-medium">{row.sourceName}</span></td>
-      <td className="px-3 py-2 relative">
+      <td className="px-3 py-1"><span className="text-foreground/80 font-medium">{row.sourceName}</span></td>
+      <td className="px-3 py-1 relative">
         {row.destinations.length > 0 ? (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-wrap items-center gap-1">
             {row.destinations.map((dest) => (
-              <div key={dest} className="flex items-center gap-1.5 group/dest">
-                <span className="text-foreground/60 truncate">{dest}</span>
-                <button type="button" onClick={() => onRemoveLink(dest)} className="text-red-400/40 hover:text-red-400 opacity-0 group-hover/dest:opacity-100 transition-opacity text-[10px] flex-shrink-0" title="Remove">&times;</button>
-              </div>
+              <span key={dest} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-foreground/[0.06] text-[11px] text-foreground/70 group/dest hover:bg-foreground/10 transition-colors">
+                <span className="truncate max-w-[14rem]">{dest}</span>
+                <button type="button" onClick={() => onRemoveLink(dest)} className="text-foreground/30 hover:text-red-400 opacity-0 group-hover/dest:opacity-100 transition-opacity text-[9px] leading-none flex-shrink-0">&times;</button>
+              </span>
             ))}
-            <button type="button" onClick={onOpenDropdown} className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors text-left mt-0.5 opacity-0 group-hover/row:opacity-100">+ add destination</button>
+            <button type="button" onClick={onOpenDropdown} className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors opacity-0 group-hover/row:opacity-100">+ Add</button>
           </div>
         ) : (
-          <button type="button" onClick={onOpenDropdown} className="text-foreground/25 hover:text-foreground/50 transition-colors">Add destination...</button>
+          <button type="button" onClick={onOpenDropdown} className="text-[11px] text-foreground/30 hover:text-foreground/50 px-2 py-0.5 rounded bg-foreground/5 hover:bg-foreground/8 transition-colors">+ Assign</button>
         )}
         {isDropdownOpen && dropdownItems && (
           <div ref={dropdownRef} className="absolute left-0 top-full mt-1 z-20 bg-surface border border-border rounded-lg shadow-xl w-[20rem] max-h-[16rem] flex flex-col overflow-hidden">
@@ -1013,17 +1039,14 @@ function SourceGridRowComponent({ row, isSelected, isDropdownOpen, dropdownItems
           </div>
         )}
       </td>
-      <td className="px-3 py-2 text-right tabular-nums">
-        <span className={row.effectCount > 50 && !row.isMapped ? "text-amber-400/80 font-medium" : "text-foreground/50"}>{row.effectCount}</span>
+      <td className="px-2 py-1 text-right tabular-nums w-[50px]">
+        <span className={`text-[11px] ${row.effectCount > 50 && !row.isMapped ? "text-amber-400/80 font-medium" : "text-foreground/50"}`}>{row.effectCount}</span>
       </td>
-      <td className="px-3 py-2 text-right tabular-nums">
-        <span className={row.destCount >= 3 ? "text-blue-400/70 font-medium" : "text-foreground/50"}>{row.destCount}</span>
+      <td className="px-2 py-1 text-right tabular-nums w-[40px]">
+        <span className={`text-[11px] ${row.destCount >= 3 ? "text-blue-400/70 font-medium" : "text-foreground/50"}`}>{row.destCount}</span>
       </td>
-      <td className="px-3 py-2 text-center">
-        <div className="flex items-center justify-center gap-1.5">
-          <span className="text-[13px]">{statusIcon}</span>
-          <button type="button" onClick={onIgnore} className="text-[9px] text-foreground/20 hover:text-foreground/50 opacity-0 group-hover/row:opacity-100 transition-all" title="Ignore">&#10005;</button>
-        </div>
+      <td className="w-7 py-1 text-center">
+        <button type="button" onClick={onIgnore} className="text-[9px] text-foreground/20 hover:text-foreground/50 opacity-0 group-hover/row:opacity-100 transition-all" title="Ignore">&#10005;</button>
       </td>
     </tr>
   );
