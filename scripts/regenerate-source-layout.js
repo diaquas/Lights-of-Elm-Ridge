@@ -46,6 +46,7 @@ function calculatePixelCount(el, displayAs) {
     case "arches":
       return parm1 * parm2 * Math.max(parm3, 1);
     case "tree 360":
+    case "tree 180":
     case "tree flat":
       return parm1 * parm2;
     case "single line":
@@ -66,7 +67,9 @@ function calculatePixelCount(el, displayAs) {
     case "matrix":
     case "horiz matrix":
     case "vert matrix":
-      return parm2 * parm3;
+      // parm1 = strings (physical connections), parm2 = nodes per string
+      // parm3 = strands per string (zigzag folds, not additional pixels)
+      return parm1 * parm2;
     case "window frame":
       return parm1 + parm2 * 2 + parm3;
     default:
