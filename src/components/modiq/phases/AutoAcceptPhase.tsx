@@ -68,7 +68,10 @@ export function AutoAcceptPhase() {
   // Pass 1: Each dest claimed only once (highest-scoring source wins).
   // Pass 2: Items with no unique dest get their top suggestion for display,
   //   marked as "conflicted" so they're auto-rejected and sent to manual phases.
-  const { suggestions, conflictedNames } = useMemo(() => {
+  // Items with zero suggestions at all (e.g. spinner submodel groups when
+  // the user has no spinner submodel destinations) are tracked separately
+  // as noSuggestionNames and hidden from the auto-accept display entirely.
+  const { suggestions, conflictedNames, noSuggestionNames } = useMemo(() => {
     type Suggestion = {
       name: string;
       score: number;
@@ -77,6 +80,19 @@ export function AutoAcceptPhase() {
     };
     const map = new Map<string, Suggestion>();
     const unique = new Set<string>();
+
+    // Pre-compute suggestions for each item (avoids calling getSuggestionsForLayer
+    // multiple times for the same item across Pass 1 and Pass 2)
+    const suggestionsCache = new Map<
+      string,
+      ReturnType<typeof interactive.getSuggestionsForLayer>
+    >();
+    for (const item of phaseItems) {
+      suggestionsCache.set(
+        item.sourceModel.name,
+        interactive.getSuggestionsForLayer(item.sourceModel),
+      );
+    }
 
     const sortedItems = [...phaseItems].sort((a, b) => {
       const sa = scoreMap.get(a.sourceModel.name) ?? 0;
@@ -87,7 +103,7 @@ export function AutoAcceptPhase() {
     // Pass 1 — greedy unique assignment
     const usedDests = new Set<string>();
     for (const item of sortedItems) {
-      const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
+      const suggs = suggestionsCache.get(item.sourceModel.name) ?? [];
       for (const sugg of suggs) {
         if (!usedDests.has(sugg.model.name)) {
           usedDests.add(sugg.model.name);
@@ -103,46 +119,63 @@ export function AutoAcceptPhase() {
       }
     }
 
-    // Pass 2 — fallback for items with no unique dest (display only)
+    // Pass 2 — fallback for items with no unique dest
     const conflicted = new Set<string>();
+    const noSugg = new Set<string>();
     for (const item of phaseItems) {
       if (map.has(item.sourceModel.name)) continue;
-      const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
+      const suggs = suggestionsCache.get(item.sourceModel.name) ?? [];
       if (suggs.length > 0) {
+        // Has suggestions but all dests are claimed — conflicted, show with "(taken)"
         map.set(item.sourceModel.name, {
           name: suggs[0].model.name,
           score: suggs[0].score,
           pixelCount: suggs[0].model.pixelCount,
           factors: suggs[0].factors,
         });
+        conflicted.add(item.sourceModel.name);
+      } else {
+        // Truly zero suggestions — hide from display, send to manual phase
+        noSugg.add(item.sourceModel.name);
       }
-      conflicted.add(item.sourceModel.name);
     }
 
-    return { suggestions: map, conflictedNames: conflicted };
+    return {
+      suggestions: map,
+      conflictedNames: conflicted,
+      noSuggestionNames: noSugg,
+    };
   }, [phaseItems, interactive, scoreMap]);
 
   // Auto-reject conflicted items on first load so they go to manual phases
   const didAutoReject = useRef(false);
   useEffect(() => {
-    if (didAutoReject.current || conflictedNames.size === 0) return;
+    if (didAutoReject.current) return;
+    if (conflictedNames.size === 0 && noSuggestionNames.size === 0) return;
     didAutoReject.current = true;
     setRejectedNames((prev) => {
       const next = new Set(prev);
       for (const name of conflictedNames) next.add(name);
+      for (const name of noSuggestionNames) next.add(name);
       return next;
     });
-  }, [conflictedNames]);
+  }, [conflictedNames, noSuggestionNames]);
 
-  // Compute stats for header
+  // Items actually shown in the UI (exclude items with zero suggestions)
+  const visiblePhaseItems = useMemo(
+    () => phaseItems.filter((i) => !noSuggestionNames.has(i.sourceModel.name)),
+    [phaseItems, noSuggestionNames],
+  );
+
+  // Compute stats for header (uses visiblePhaseItems, not all phaseItems)
   const { stats, typeCounts } = useMemo(() => {
-    const accepted = phaseItems.filter(
+    const accepted = visiblePhaseItems.filter(
       (i) => !rejectedNames.has(i.sourceModel.name),
     );
 
     let strongCount = 0;
     let reviewCount = 0;
-    for (const item of phaseItems) {
+    for (const item of visiblePhaseItems) {
       if ((scoreMap.get(item.sourceModel.name) ?? 0) >= STRONG_THRESHOLD)
         strongCount++;
       else reviewCount++;
@@ -159,12 +192,16 @@ export function AutoAcceptPhase() {
     );
 
     const typeCounts = {
-      all: { total: phaseItems.length, high: strongCount, review: reviewCount },
+      all: {
+        total: visiblePhaseItems.length,
+        high: strongCount,
+        review: reviewCount,
+      },
       groups: { total: 0, high: 0, review: 0 },
       models: { total: 0, high: 0, review: 0 },
       submodelGroups: { total: 0, high: 0, review: 0 },
     };
-    for (const item of phaseItems) {
+    for (const item of visiblePhaseItems) {
       const key = getItemTypeKey(item);
       const isStrong =
         (scoreMap.get(item.sourceModel.name) ?? 0) >= STRONG_THRESHOLD;
@@ -175,7 +212,7 @@ export function AutoAcceptPhase() {
 
     return {
       stats: {
-        total: phaseItems.length,
+        total: visiblePhaseItems.length,
         accepted: accepted.length,
         strongCount,
         reviewCount,
@@ -185,11 +222,11 @@ export function AutoAcceptPhase() {
       },
       typeCounts,
     };
-  }, [phaseItems, rejectedNames, scoreMap]);
+  }, [visiblePhaseItems, rejectedNames, scoreMap]);
 
   // Coverage preview (promoted to inline header)
   const coveragePreview = useMemo(() => {
-    const accepted = phaseItems.filter(
+    const accepted = visiblePhaseItems.filter(
       (i) => !rejectedNames.has(i.sourceModel.name),
     );
     const acceptedEffects = accepted.reduce((sum, i) => sum + i.effectCount, 0);
@@ -223,7 +260,7 @@ export function AutoAcceptPhase() {
       },
     };
   }, [
-    phaseItems,
+    visiblePhaseItems,
     rejectedNames,
     interactive.effectsCoverage.total,
     interactive.displayCoverage.total,
@@ -245,7 +282,7 @@ export function AutoAcceptPhase() {
 
   // Filtered + stably sorted items
   const filteredItems = useMemo(() => {
-    let items = [...phaseItems];
+    let items = [...visiblePhaseItems];
 
     if (typeFilter !== "all") {
       items = items.filter((i) => getItemTypeKey(i) === typeFilter);
@@ -284,7 +321,7 @@ export function AutoAcceptPhase() {
       return oa - ob;
     });
   }, [
-    phaseItems,
+    visiblePhaseItems,
     typeFilter,
     search,
     sortBy,
@@ -342,9 +379,17 @@ export function AutoAcceptPhase() {
   const handleContinue = useCallback(() => {
     const toReassign = new Set(rejectedNames);
 
+    // Items with zero suggestions always go to manual phases
+    for (const name of noSuggestionNames) {
+      toReassign.add(name);
+    }
+
     for (const item of phaseItems) {
       if (item.isMapped) continue;
       const name = item.sourceModel.name;
+
+      // Already handled above
+      if (noSuggestionNames.has(name)) continue;
 
       if (conflictedNames.has(name)) {
         toReassign.add(name);
@@ -370,6 +415,7 @@ export function AutoAcceptPhase() {
     phaseItems,
     rejectedNames,
     conflictedNames,
+    noSuggestionNames,
     suggestions,
     interactive,
     reassignFromAutoAccept,
@@ -382,17 +428,21 @@ export function AutoAcceptPhase() {
     return () => registerOnContinue(null);
   }, [registerOnContinue, handleContinue]);
 
-  if (phaseItems.length === 0) {
+  if (visiblePhaseItems.length === 0) {
     return (
       <PhaseEmptyState
         icon={<span className="text-5xl">&#128170;</span>}
         title="Manual Matching Mode"
-        description="No 70%+ auto-matches this time — continue to map groups, models, and submodel groups manually."
+        description={
+          noSuggestionNames.size > 0
+            ? `No auto-matches available — ${noSuggestionNames.size} item${noSuggestionNames.size !== 1 ? "s" : ""} will be mapped manually in the next phases.`
+            : "No 70%+ auto-matches this time — continue to map groups, models, and submodel groups manually."
+        }
       />
     );
   }
 
-  const unmappedCount = phaseItems.filter((i) => !i.isMapped).length;
+  const unmappedCount = visiblePhaseItems.filter((i) => !i.isMapped).length;
   if (unmappedCount === 0) {
     return (
       <AllDoneView
@@ -453,12 +503,13 @@ export function AutoAcceptPhase() {
                     {stats.submodels !== 1 && "s"}
                   </>
                 )}
-                {conflictedNames.size > 0 && (
+                {(conflictedNames.size > 0 ||
+                  noSuggestionNames.size > 0) && (
                   <>
                     {" "}
                     &middot;{" "}
-                    <span className="text-red-400">
-                      {conflictedNames.size} manual
+                    <span className="text-foreground/35">
+                      {conflictedNames.size + noSuggestionNames.size} to manual
                     </span>
                   </>
                 )}
