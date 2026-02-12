@@ -4,26 +4,27 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
-import { SacrificeSummary } from "../SacrificeIndicator";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import type { ModelMapping } from "@/lib/modiq";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
-const GREEN_THRESHOLD = 0.9;
+const STRONG_THRESHOLD = 0.75;
 
 // ─── Type helpers ────────────────────────────────────────
 
 type ItemTypeFilter = "all" | "groups" | "models" | "submodelGroups";
 
-function getItemTypeKey(layer: SourceLayerMapping): Exclude<ItemTypeFilter, "all"> {
+function getItemTypeKey(
+  layer: SourceLayerMapping,
+): Exclude<ItemTypeFilter, "all"> {
   if (layer.sourceModel.groupType === "SUBMODEL_GROUP") return "submodelGroups";
   if (layer.isGroup) return "groups";
   return "models";
 }
 
 function getTypeLabel(layer: SourceLayerMapping): string {
-  if (layer.sourceModel.groupType === "SUBMODEL_GROUP") return "HD Group";
+  if (layer.sourceModel.groupType === "SUBMODEL_GROUP") return "Submodel";
   if (layer.isGroup) return "Group";
   return "Model";
 }
@@ -49,10 +50,11 @@ export function AutoAcceptPhase() {
 
   const [rejectedNames, setRejectedNames] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [summaryOpen, setSummaryOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<ItemTypeFilter>("all");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [sortVersion, setSortVersion] = useState(0);
+  const [reviewOpen, setReviewOpen] = useState(true);
+  const [strongOpen, setStrongOpen] = useState(true);
 
   const stableOrderRef = useRef<Map<string, number>>(new Map());
   const lastSortRef = useRef({
@@ -76,7 +78,6 @@ export function AutoAcceptPhase() {
     const map = new Map<string, Suggestion>();
     const unique = new Set<string>();
 
-    // Sort items by score descending so the best matches get first pick
     const sortedItems = [...phaseItems].sort((a, b) => {
       const sa = scoreMap.get(a.sourceModel.name) ?? 0;
       const sb = scoreMap.get(b.sourceModel.name) ?? 0;
@@ -133,48 +134,42 @@ export function AutoAcceptPhase() {
     });
   }, [conflictedNames]);
 
-  // Compute stats for header (no longer splits into separate arrays)
+  // Compute stats for header
   const { stats, typeCounts } = useMemo(() => {
     const accepted = phaseItems.filter(
       (i) => !rejectedNames.has(i.sourceModel.name),
     );
 
-    let greenCount = 0;
-    let yellowCount = 0;
+    let strongCount = 0;
+    let reviewCount = 0;
     for (const item of phaseItems) {
-      if ((scoreMap.get(item.sourceModel.name) ?? 0) >= GREEN_THRESHOLD) greenCount++;
-      else yellowCount++;
+      if ((scoreMap.get(item.sourceModel.name) ?? 0) >= STRONG_THRESHOLD)
+        strongCount++;
+      else reviewCount++;
     }
-
-    const greenAccepted = phaseItems.filter(
-      (i) =>
-        !rejectedNames.has(i.sourceModel.name) &&
-        (scoreMap.get(i.sourceModel.name) ?? 0) >= GREEN_THRESHOLD,
-    ).length;
-    const yellowAccepted = accepted.length - greenAccepted;
 
     const groups = accepted.filter(
       (i) => i.isGroup && i.sourceModel.groupType !== "SUBMODEL_GROUP",
     );
-    const hdGroups = accepted.filter(
+    const submodels = accepted.filter(
       (i) => i.sourceModel.groupType === "SUBMODEL_GROUP",
     );
     const models = accepted.filter(
       (i) => !i.isGroup && i.sourceModel.groupType !== "SUBMODEL_GROUP",
     );
 
-    // Per-type counts with high/review breakdown
     const typeCounts = {
-      all: { total: phaseItems.length, high: greenCount, review: yellowCount },
+      all: { total: phaseItems.length, high: strongCount, review: reviewCount },
       groups: { total: 0, high: 0, review: 0 },
       models: { total: 0, high: 0, review: 0 },
       submodelGroups: { total: 0, high: 0, review: 0 },
     };
     for (const item of phaseItems) {
       const key = getItemTypeKey(item);
-      const isHigh = (scoreMap.get(item.sourceModel.name) ?? 0) >= GREEN_THRESHOLD;
+      const isStrong =
+        (scoreMap.get(item.sourceModel.name) ?? 0) >= STRONG_THRESHOLD;
       typeCounts[key].total++;
-      if (isHigh) typeCounts[key].high++;
+      if (isStrong) typeCounts[key].high++;
       else typeCounts[key].review++;
     }
 
@@ -182,31 +177,28 @@ export function AutoAcceptPhase() {
       stats: {
         total: phaseItems.length,
         accepted: accepted.length,
-        greenCount,
-        yellowCount,
-        greenAccepted,
-        yellowAccepted,
+        strongCount,
+        reviewCount,
         groups: groups.length,
         models: models.length,
-        hdGroups: hdGroups.length,
+        submodels: submodels.length,
       },
       typeCounts,
     };
   }, [phaseItems, rejectedNames, scoreMap]);
 
-  // Preview coverage metrics for accepted items (before they're actually mapped)
+  // Coverage preview (promoted to inline header)
   const coveragePreview = useMemo(() => {
     const accepted = phaseItems.filter(
       (i) => !rejectedNames.has(i.sourceModel.name),
     );
-
-    // Effects: sum of effectCount for accepted items vs all effects
     const acceptedEffects = accepted.reduce((sum, i) => sum + i.effectCount, 0);
     const totalEffects = interactive.effectsCoverage.total;
     const effectsPercent =
-      totalEffects > 0 ? Math.round((acceptedEffects / totalEffects) * 100) : 0;
+      totalEffects > 0
+        ? Math.round((acceptedEffects / totalEffects) * 100)
+        : 0;
 
-    // Display: unique user models that would light up
     const uniqueDest = new Set<string>();
     for (const item of accepted) {
       const sugg = suggestions.get(item.sourceModel.name);
@@ -214,7 +206,9 @@ export function AutoAcceptPhase() {
     }
     const displayTotal = interactive.displayCoverage.total;
     const displayPercent =
-      displayTotal > 0 ? Math.round((uniqueDest.size / displayTotal) * 100) : 0;
+      displayTotal > 0
+        ? Math.round((uniqueDest.size / displayTotal) * 100)
+        : 0;
 
     return {
       effects: {
@@ -238,7 +232,10 @@ export function AutoAcceptPhase() {
 
   // Build a sortItems-compatible suggestions map for confidence sorting
   const sortSuggestionsMap = useMemo(() => {
-    const m = new Map<string, { model: { name: string }; score: number } | null>();
+    const m = new Map<
+      string,
+      { model: { name: string }; score: number } | null
+    >();
     for (const [name, score] of scoreMap) {
       const sugg = suggestions.get(name);
       m.set(name, { model: { name: sugg?.name ?? "" }, score });
@@ -246,16 +243,14 @@ export function AutoAcceptPhase() {
     return m;
   }, [scoreMap, suggestions]);
 
-  // Single unified list with stable sort (replaces yellow/green split)
+  // Filtered + stably sorted items
   const filteredItems = useMemo(() => {
     let items = [...phaseItems];
 
-    // Type filter
     if (typeFilter !== "all") {
       items = items.filter((i) => getItemTypeKey(i) === typeFilter);
     }
 
-    // Search
     if (search) {
       const q = search.toLowerCase();
       items = items.filter((i) => {
@@ -267,7 +262,6 @@ export function AutoAcceptPhase() {
       });
     }
 
-    // Stable sort — only re-sort when sort/filter/search changes
     const needsResort =
       sortBy !== lastSortRef.current.sortBy ||
       sortVersion !== lastSortRef.current.sortVersion ||
@@ -276,25 +270,71 @@ export function AutoAcceptPhase() {
 
     if (needsResort || stableOrderRef.current.size === 0) {
       const sorted = sortItems(items, sortBy, sortSuggestionsMap);
-      stableOrderRef.current = new Map(sorted.map((r, i) => [r.sourceModel.name, i]));
+      stableOrderRef.current = new Map(
+        sorted.map((r, i) => [r.sourceModel.name, i]),
+      );
       lastSortRef.current = { sortBy, sortVersion, search, typeFilter };
       return sorted;
     }
 
-    // Stable order fallback — rows never move on accept/reject toggle
     const order = stableOrderRef.current;
     return [...items].sort((a, b) => {
       const oa = order.get(a.sourceModel.name) ?? 999;
       const ob = order.get(b.sourceModel.name) ?? 999;
       return oa - ob;
     });
-  }, [phaseItems, typeFilter, search, sortBy, sortVersion, sortSuggestionsMap, suggestions]);
+  }, [
+    phaseItems,
+    typeFilter,
+    search,
+    sortBy,
+    sortVersion,
+    sortSuggestionsMap,
+    suggestions,
+  ]);
+
+  // Split filtered items into Strong / Needs Review sections
+  const strongItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (i) =>
+          (scoreMap.get(i.sourceModel.name) ?? 0) >= STRONG_THRESHOLD,
+      ),
+    [filteredItems, scoreMap],
+  );
+  const reviewItems = useMemo(
+    () =>
+      filteredItems.filter(
+        (i) =>
+          (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD,
+      ),
+    [filteredItems, scoreMap],
+  );
 
   const toggleReject = (name: string) => {
     setRejectedNames((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
       else next.add(name);
+      return next;
+    });
+  };
+
+  const rejectSection = (items: SourceLayerMapping[]) => {
+    setRejectedNames((prev) => {
+      const next = new Set(prev);
+      for (const item of items) next.add(item.sourceModel.name);
+      return next;
+    });
+  };
+
+  const acceptSection = (items: SourceLayerMapping[]) => {
+    setRejectedNames((prev) => {
+      const next = new Set(prev);
+      for (const item of items) {
+        if (!conflictedNames.has(item.sourceModel.name))
+          next.delete(item.sourceModel.name);
+      }
       return next;
     });
   };
@@ -306,7 +346,6 @@ export function AutoAcceptPhase() {
       if (item.isMapped) continue;
       const name = item.sourceModel.name;
 
-      // Conflicted items can't be auto-assigned even if user re-checked them
       if (conflictedNames.has(name)) {
         toReassign.add(name);
         continue;
@@ -318,7 +357,6 @@ export function AutoAcceptPhase() {
       if (sugg) {
         interactive.assignUserModelToLayer(name, sugg.name);
       } else {
-        // No suggestion at all — send to manual phases
         toReassign.add(name);
       }
     }
@@ -339,13 +377,11 @@ export function AutoAcceptPhase() {
     goToNextPhase,
   ]);
 
-  // Register the custom continue handler so the top nav button triggers it
   useEffect(() => {
     registerOnContinue(handleContinue);
     return () => registerOnContinue(null);
   }, [registerOnContinue, handleContinue]);
 
-  // No high-confidence matches at all
   if (phaseItems.length === 0) {
     return (
       <PhaseEmptyState
@@ -356,7 +392,6 @@ export function AutoAcceptPhase() {
     );
   }
 
-  // User came back — everything already mapped
   const unmappedCount = phaseItems.filter((i) => !i.isMapped).length;
   if (unmappedCount === 0) {
     return (
@@ -370,12 +405,20 @@ export function AutoAcceptPhase() {
     );
   }
 
+  // Section-level accepted counts (for section actions)
+  const strongAccepted = strongItems.filter(
+    (i) => !rejectedNames.has(i.sourceModel.name),
+  ).length;
+  const reviewAccepted = reviewItems.filter(
+    (i) => !rejectedNames.has(i.sourceModel.name),
+  ).length;
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* ── Compact Header ────────────────────────────── */}
+      {/* ── Header ────────────────────────────── */}
       <div className="px-6 pt-3 pb-3 flex-shrink-0 border-b border-border">
-        <div className="max-w-3xl mx-auto">
-          {/* Title row */}
+        <div className="max-w-4xl mx-auto">
+          {/* Title + inline coverage */}
           <div className="flex items-center gap-3 mb-2">
             <div className="h-9 w-9 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
               <svg
@@ -394,194 +437,55 @@ export function AutoAcceptPhase() {
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-bold text-foreground">
-                {stats.accepted} Items Auto-Matched
+                {stats.accepted} of {stats.total} Auto-Matched
               </h2>
               <p className="text-xs text-foreground/50">
                 {stats.groups > 0 && (
                   <>
-                    {stats.groups} Group{stats.groups !== 1 && "s"}{" "}
-                    &middot;{" "}
+                    {stats.groups} Group{stats.groups !== 1 && "s"} &middot;{" "}
                   </>
                 )}
                 {stats.models} Model{stats.models !== 1 && "s"}
-                {stats.hdGroups > 0 && (
+                {stats.submodels > 0 && (
                   <>
                     {" "}
-                    &middot; {stats.hdGroups} HD Group
-                    {stats.hdGroups !== 1 && "s"}
+                    &middot; {stats.submodels} Submodel
+                    {stats.submodels !== 1 && "s"}
                   </>
                 )}
-                {" "}&middot;{" "}
-                <span className="text-green-400">{stats.greenAccepted} high</span>
-                {" "}&middot;{" "}
-                <span className="text-amber-400">{stats.yellowAccepted} review</span>
                 {conflictedNames.size > 0 && (
                   <>
-                    {" "}&middot;{" "}
-                    <span className="text-red-400">{conflictedNames.size} manual</span>
+                    {" "}
+                    &middot;{" "}
+                    <span className="text-red-400">
+                      {conflictedNames.size} manual
+                    </span>
                   </>
                 )}
               </p>
             </div>
-          </div>
-
-          {/* Collapsible Summary Bar */}
-          <button
-            type="button"
-            onClick={() => setSummaryOpen(!summaryOpen)}
-            className="w-full flex items-center justify-between px-3 py-2 bg-foreground/5 hover:bg-foreground/[0.07] rounded-lg transition-colors mb-2"
-          >
-            <div className="flex items-center gap-3 text-xs">
-              <svg
-                className={`w-3 h-3 text-foreground/40 transition-transform ${summaryOpen ? "rotate-90" : ""}`}
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="font-medium text-foreground/60">
-                Coverage Preview
-              </span>
-              <span className="text-foreground/40 tabular-nums">
-                {coveragePreview.display.percent}% display &middot;{" "}
-                {coveragePreview.effects.percent}% effects
-              </span>
-            </div>
-            <svg
-              className={`w-3.5 h-3.5 text-foreground/30 transition-transform ${summaryOpen ? "rotate-180" : ""}`}
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clipRule="evenodd"
+            {/* Inline coverage preview */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <CoveragePill
+                label="Display"
+                percent={coveragePreview.display.percent}
+                color={
+                  coveragePreview.display.percent >= 80
+                    ? "text-green-400"
+                    : "text-amber-400"
+                }
               />
-            </svg>
-          </button>
-
-          {/* Expanded Summary Details */}
-          {summaryOpen && (
-            <div className="mb-2 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                {/* Your Display */}
-                <div
-                  className={`rounded-lg border p-3 text-center ${
-                    coveragePreview.display.percent >= 80
-                      ? "border-green-500/30 bg-green-500/5"
-                      : "border-amber-500/30 bg-amber-500/5"
-                  }`}
-                >
-                  <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1">
-                    Your Display
-                  </div>
-                  <div
-                    className={`text-2xl font-bold mb-1 ${
-                      coveragePreview.display.percent >= 80
-                        ? "text-green-400"
-                        : "text-amber-400"
-                    }`}
-                  >
-                    {coveragePreview.display.percent}%
-                  </div>
-                  <div className="h-1.5 bg-foreground/10 rounded-full overflow-hidden mb-1">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        coveragePreview.display.percent >= 80
-                          ? "bg-green-500"
-                          : "bg-amber-500"
-                      }`}
-                      style={{
-                        width: `${Math.min(coveragePreview.display.percent, 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-foreground/40">
-                    {coveragePreview.display.covered} / {coveragePreview.display.total} models
-                  </p>
-                </div>
-
-                {/* Sequence Effects */}
-                <div
-                  className={`rounded-lg border p-3 text-center ${
-                    coveragePreview.effects.percent >= 70
-                      ? "border-blue-500/30 bg-blue-500/5"
-                      : "border-amber-500/30 bg-amber-500/5"
-                  }`}
-                >
-                  <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1">
-                    Sequence Effects
-                  </div>
-                  <div
-                    className={`text-2xl font-bold mb-1 ${
-                      coveragePreview.effects.percent >= 70
-                        ? "text-blue-400"
-                        : "text-amber-400"
-                    }`}
-                  >
-                    {coveragePreview.effects.percent}%
-                  </div>
-                  <div className="h-1.5 bg-foreground/10 rounded-full overflow-hidden mb-1">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        coveragePreview.effects.percent >= 70
-                          ? "bg-blue-500"
-                          : "bg-amber-500"
-                      }`}
-                      style={{
-                        width: `${Math.min(coveragePreview.effects.percent, 100)}%`,
-                      }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-foreground/40">
-                    {coveragePreview.effects.covered.toLocaleString()} / {coveragePreview.effects.total.toLocaleString()} effects
-                  </p>
-                </div>
-              </div>
-
-              {/* Match Quality Bar */}
-              {stats.accepted > 0 && (
-                <div>
-                  <div className="flex justify-between text-[10px] text-foreground/40 mb-1">
-                    <span>Match Quality</span>
-                    <span>
-                      {stats.greenAccepted} high &middot;{" "}
-                      {stats.yellowAccepted} review
-                    </span>
-                  </div>
-                  <div className="h-1.5 rounded-full overflow-hidden bg-foreground/10 flex">
-                    {stats.greenAccepted > 0 && (
-                      <div
-                        className="bg-green-500 transition-all duration-500"
-                        style={{
-                          width: `${(stats.greenAccepted / stats.accepted) * 100}%`,
-                        }}
-                      />
-                    )}
-                    {stats.yellowAccepted > 0 && (
-                      <div
-                        className="bg-amber-400 transition-all duration-500"
-                        style={{
-                          width: `${(stats.yellowAccepted / stats.accepted) * 100}%`,
-                        }}
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
+              <CoveragePill
+                label="Effects"
+                percent={coveragePreview.effects.percent}
+                color={
+                  coveragePreview.effects.percent >= 70
+                    ? "text-blue-400"
+                    : "text-amber-400"
+                }
+              />
             </div>
-          )}
-
-          {/* Optimized Assignment Trade-offs */}
-          {interactive.sacrifices.length > 0 && (
-            <div className="mb-2">
-              <SacrificeSummary sacrifices={interactive.sacrifices} />
-            </div>
-          )}
+          </div>
 
           {/* Quick Type Filters */}
           <QuickFilterBar
@@ -592,9 +496,6 @@ export function AutoAcceptPhase() {
 
           {/* Search + sort toolbar */}
           <div className="flex items-center gap-2 mt-2">
-            <p className="text-xs text-foreground/40 shrink-0">
-              Uncheck to map manually:
-            </p>
             <div className="relative flex-1">
               <svg
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30"
@@ -636,41 +537,179 @@ export function AutoAcceptPhase() {
         </div>
       </div>
 
-      {/* ── Unified match list ────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2">
-        <div className="max-w-3xl mx-auto">
-          {filteredItems.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-foreground/30">
-              No matches{search ? " matching your search" : ""}
-            </div>
-          ) : (
-            <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/30">
-              {filteredItems.map((item) => {
-                const score = scoreMap.get(item.sourceModel.name) ?? 0;
-                const isHigh = score >= GREEN_THRESHOLD;
-                const leftBorder = isHigh
-                  ? "border-l-green-500/70"
-                  : "border-l-amber-400/70";
+      {/* ── Match sections (full width) ─────────── */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
+        {filteredItems.length === 0 ? (
+          <div className="px-4 py-6 text-center text-sm text-foreground/30">
+            No matches{search ? " matching your search" : ""}
+          </div>
+        ) : (
+          <>
+            {/* NEEDS REVIEW section */}
+            {reviewItems.length > 0 && (
+              <MatchSection
+                title="NEEDS REVIEW"
+                count={reviewItems.length}
+                acceptedCount={reviewAccepted}
+                isOpen={reviewOpen}
+                onToggle={() => setReviewOpen((v) => !v)}
+                onRejectAll={() => rejectSection(reviewItems)}
+                onAcceptAll={() => acceptSection(reviewItems)}
+                description="Matches below 75% — verify before accepting"
+                borderColor="border-l-amber-400/50"
+              >
+                <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/30">
+                  {reviewItems.map((item) => (
+                    <AutoMatchRow
+                      key={item.sourceModel.name}
+                      item={item}
+                      isRejected={rejectedNames.has(item.sourceModel.name)}
+                      isConflicted={conflictedNames.has(item.sourceModel.name)}
+                      suggestion={suggestions.get(item.sourceModel.name)}
+                      score={scoreMap.get(item.sourceModel.name) ?? 0}
+                      onToggle={() => toggleReject(item.sourceModel.name)}
+                    />
+                  ))}
+                </div>
+              </MatchSection>
+            )}
 
-                const isConflicted = conflictedNames.has(item.sourceModel.name);
+            {/* STRONG MATCH section */}
+            {strongItems.length > 0 && (
+              <MatchSection
+                title="STRONG MATCH"
+                count={strongItems.length}
+                acceptedCount={strongAccepted}
+                isOpen={strongOpen}
+                onToggle={() => setStrongOpen((v) => !v)}
+                onRejectAll={() => rejectSection(strongItems)}
+                onAcceptAll={() => acceptSection(strongItems)}
+                description="Matches at 75%+ confidence"
+                borderColor="border-l-green-500/50"
+              >
+                <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/30">
+                  {strongItems.map((item) => (
+                    <AutoMatchRow
+                      key={item.sourceModel.name}
+                      item={item}
+                      isRejected={rejectedNames.has(item.sourceModel.name)}
+                      isConflicted={conflictedNames.has(item.sourceModel.name)}
+                      suggestion={suggestions.get(item.sourceModel.name)}
+                      score={scoreMap.get(item.sourceModel.name) ?? 0}
+                      onToggle={() => toggleReject(item.sourceModel.name)}
+                    />
+                  ))}
+                </div>
+              </MatchSection>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
-                return (
-                  <AutoMatchRow
-                    key={item.sourceModel.name}
-                    item={item}
-                    isRejected={rejectedNames.has(item.sourceModel.name)}
-                    isConflicted={isConflicted}
-                    suggestion={suggestions.get(item.sourceModel.name)}
-                    score={score}
-                    onToggle={() => toggleReject(item.sourceModel.name)}
-                    leftBorder={isConflicted ? "border-l-red-400/70" : leftBorder}
-                  />
-                );
-              })}
-            </div>
+// ─── Coverage Pill (inline header) ───────────────────────
+
+function CoveragePill({
+  label,
+  percent,
+  color,
+}: {
+  label: string;
+  percent: number;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-foreground/5 border border-border/50">
+      <span className="text-[9px] font-semibold text-foreground/40 uppercase">
+        {label}
+      </span>
+      <span className={`text-sm font-bold tabular-nums ${color}`}>
+        {percent}%
+      </span>
+    </div>
+  );
+}
+
+// ─── Match Section (collapsible) ─────────────────────────
+
+function MatchSection({
+  title,
+  count,
+  acceptedCount,
+  isOpen,
+  onToggle,
+  onRejectAll,
+  onAcceptAll,
+  description,
+  borderColor,
+  children,
+}: {
+  title: string;
+  count: number;
+  acceptedCount: number;
+  isOpen: boolean;
+  onToggle: () => void;
+  onRejectAll: () => void;
+  onAcceptAll: () => void;
+  description: string;
+  borderColor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`mb-3 border-l-2 ${borderColor} pl-2`}>
+      <div className="flex items-center gap-2 py-1.5">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex items-center gap-2 flex-1 min-w-0"
+        >
+          <svg
+            className={`w-3 h-3 text-foreground/40 transition-transform duration-150 flex-shrink-0 ${isOpen ? "rotate-90" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+          <span className="text-[11px] font-bold text-foreground/50 uppercase tracking-wider">
+            {title}
+          </span>
+          <span className="text-[11px] text-foreground/30 tabular-nums">
+            ({acceptedCount}/{count})
+          </span>
+          <span className="text-[10px] text-foreground/25 hidden sm:inline">
+            {description}
+          </span>
+        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {acceptedCount < count && (
+            <button
+              type="button"
+              onClick={onAcceptAll}
+              className="text-[10px] font-medium px-2 py-0.5 rounded bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
+            >
+              Accept All
+            </button>
+          )}
+          {acceptedCount > 0 && (
+            <button
+              type="button"
+              onClick={onRejectAll}
+              className="text-[10px] font-medium px-2 py-0.5 rounded bg-foreground/5 text-foreground/40 hover:bg-foreground/10 transition-colors"
+            >
+              Reject All
+            </button>
           )}
         </div>
       </div>
+      {isOpen && children}
     </div>
   );
 }
@@ -684,7 +723,6 @@ function AutoMatchRow({
   suggestion,
   score,
   onToggle,
-  leftBorder,
 }: {
   item: SourceLayerMapping;
   isRejected: boolean;
@@ -699,11 +737,21 @@ function AutoMatchRow({
     | undefined;
   score: number;
   onToggle: () => void;
-  leftBorder: string;
 }) {
-  const isAccepted = !isRejected;
   const typeLabel = getTypeLabel(item);
   const typeBadgeClass = getTypeBadgeClass(item);
+  const memberCount =
+    item.isGroup || item.sourceModel.groupType === "SUBMODEL_GROUP"
+      ? item.sourceModel.memberModels.length
+      : 0;
+  const fxCount = item.effectCount;
+  const pct = Math.round(score * 100);
+  const leftBorder = isConflicted
+    ? "border-l-red-400/70"
+    : score >= STRONG_THRESHOLD
+      ? "border-l-green-500/70"
+      : "border-l-amber-400/70";
+
   const reasoning = useMemo(
     () =>
       suggestion
@@ -723,85 +771,110 @@ function AutoMatchRow({
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-1.5 min-h-[36px] border-l-[3px] ${leftBorder} transition-colors hover:bg-foreground/[0.02] ${
+      className={`flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] border-l-[3px] ${leftBorder} transition-colors hover:bg-foreground/[0.02] ${
         isRejected ? "opacity-40" : ""
       }`}
     >
-      {/* Checkbox — disabled for conflicted items */}
-      <button
-        type="button"
-        onClick={isConflicted ? undefined : onToggle}
-        disabled={isConflicted}
-        className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-          isConflicted
-            ? "border-red-400/40 cursor-not-allowed"
-            : isAccepted
-              ? "bg-green-500 border-green-500"
-              : "border-foreground/20 hover:border-foreground/40"
-        }`}
-        title={isConflicted ? "No unique destination available — will be mapped manually" : undefined}
-      >
-        {isAccepted && !isConflicted && (
-          <svg
-            className="w-2.5 h-2.5 text-white"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
-        )}
-        {isConflicted && (
-          <svg className="w-2.5 h-2.5 text-red-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        )}
-      </button>
-
-      {/* Source name */}
-      <span className="text-xs font-medium text-foreground truncate flex-1 min-w-0">
+      {/* Source name + child count */}
+      <span className="text-xs font-medium text-foreground truncate min-w-0 shrink">
         {item.sourceModel.name}
       </span>
+      {memberCount > 0 && (
+        <>
+          <span className="text-foreground/15 flex-shrink-0">&middot;</span>
+          <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
+            {memberCount} model{memberCount !== 1 && "s"}
+          </span>
+        </>
+      )}
 
       {/* Arrow */}
-      <svg
-        className="w-3 h-3 text-foreground/20 flex-shrink-0"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M14 5l7 7m0 0l-7 7m7-7H3"
-        />
-      </svg>
+      <span className="text-foreground/20 flex-shrink-0 mx-0.5">&rarr;</span>
 
-      {/* Dest name — show fallback suggestion for conflicted items */}
-      <span className={`text-xs truncate flex-1 min-w-0 text-right ${
-        isConflicted ? "text-red-400/50 italic" : "text-foreground/50"
-      }`}>
+      {/* Dest name */}
+      <span
+        className={`text-xs truncate min-w-0 shrink ${
+          isConflicted
+            ? "text-red-400/50 italic"
+            : "text-foreground/60"
+        }`}
+      >
         {suggestion?.name ?? "\u2014"}
         {isConflicted && suggestion?.name && (
-          <span className="text-[9px] ml-1 not-italic" title="Destination already claimed by a higher-scoring match">
+          <span
+            className="text-[9px] ml-1 not-italic"
+            title="Destination already claimed by a higher-scoring match"
+          >
             (taken)
           </span>
         )}
       </span>
 
-      {/* Type badge */}
+      {/* Metadata: type · fx · confidence */}
+      <span className="text-foreground/15 flex-shrink-0">&middot;</span>
       <span
         className={`text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${typeBadgeClass}`}
       >
         {typeLabel}
       </span>
-
-      {/* Confidence */}
+      <span className="text-foreground/15 flex-shrink-0">&middot;</span>
+      <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
+        {fxCount >= 1000 ? `${(fxCount / 1000).toFixed(1)}k` : fxCount} fx
+      </span>
+      <span className="text-foreground/15 flex-shrink-0">&middot;</span>
       <ConfidenceBadge score={score} reasoning={reasoning} size="sm" />
+
+      {/* ✕ / ↩ button */}
+      {isConflicted ? (
+        <span
+          className="ml-auto flex-shrink-0 text-[9px] text-red-400/40 px-1"
+          title="No unique destination — will be mapped manually"
+        >
+          manual
+        </span>
+      ) : isRejected ? (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="ml-auto p-1 rounded-full hover:bg-green-500/10 text-foreground/20 hover:text-green-400 transition-colors flex-shrink-0"
+          title="Restore auto-match"
+        >
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4"
+            />
+          </svg>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onToggle}
+          className="ml-auto p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors flex-shrink-0"
+          title="Remove — map manually"
+        >
+          <svg
+            className="w-3 h-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      )}
     </div>
   );
 }
@@ -829,15 +902,10 @@ function AllDoneView({
   displayCoverage: { covered: number; total: number; percent: number };
   effectsCoverage: { covered: number; total: number; percent: number };
 }) {
-  const greenCount = items.filter(
-    (i) => (scoreMap.get(i.sourceModel.name) ?? 0) >= GREEN_THRESHOLD,
-  ).length;
-  const yellowCount = items.length - greenCount;
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-6 pt-3 pb-3 flex-shrink-0 border-b border-border">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="flex items-center gap-3 mb-2">
             <div className="h-9 w-9 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
               <svg
@@ -862,87 +930,118 @@ function AllDoneView({
                 {items.length} items confirmed
               </p>
             </div>
-          </div>
-
-          {/* Inline coverage + quality summary */}
-          <div className="flex items-center gap-3 px-3 py-2 bg-foreground/5 rounded-lg text-xs mb-2">
-            <span className="text-foreground/40 tabular-nums">
-              {displayCoverage.percent}% display
-            </span>
-            <span className="text-foreground/20">&middot;</span>
-            <span className="text-foreground/40 tabular-nums">
-              {effectsCoverage.percent}% effects
-            </span>
-            <span className="text-foreground/20">|</span>
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-500/15 text-green-400">
-              {greenCount} high
-            </span>
-            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400">
-              {yellowCount} review
-            </span>
+            <CoveragePill
+              label="Display"
+              percent={displayCoverage.percent}
+              color={
+                displayCoverage.percent >= 80
+                  ? "text-green-400"
+                  : "text-amber-400"
+              }
+            />
+            <CoveragePill
+              label="Effects"
+              percent={effectsCoverage.percent}
+              color={
+                effectsCoverage.percent >= 70
+                  ? "text-blue-400"
+                  : "text-amber-400"
+              }
+            />
           </div>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-2">
-        <div className="max-w-3xl mx-auto rounded-xl border border-border overflow-hidden">
-          <div className="divide-y divide-border/30">
-            {items.map((item) => {
-              const score = scoreMap.get(item.sourceModel.name) ?? 0;
-              const isHigh = score >= GREEN_THRESHOLD;
-              const leftBorder = isHigh
-                ? "border-l-green-500/70"
-                : "border-l-amber-400/70";
-              const sugg = suggestions.get(item.sourceModel.name);
-              const reasoning = sugg
-                ? generateMatchReasoning(
-                    sugg.factors,
-                    score,
-                    item.sourceModel.pixelCount && sugg.pixelCount
-                      ? {
-                          source: item.sourceModel.pixelCount,
-                          dest: sugg.pixelCount,
-                        }
-                      : undefined,
-                  )
-                : undefined;
-              return (
-                <div
-                  key={item.sourceModel.name}
-                  className={`px-3 py-1.5 min-h-[36px] flex items-center gap-2 border-l-[3px] ${leftBorder} hover:bg-foreground/[0.02]`}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-2">
+        <div className="rounded-lg border border-border overflow-hidden divide-y divide-border/30">
+          {items.map((item) => {
+            const score = scoreMap.get(item.sourceModel.name) ?? 0;
+            const isStrong = score >= STRONG_THRESHOLD;
+            const leftBorder = isStrong
+              ? "border-l-green-500/70"
+              : "border-l-amber-400/70";
+            const sugg = suggestions.get(item.sourceModel.name);
+            const memberCount =
+              item.isGroup ||
+              item.sourceModel.groupType === "SUBMODEL_GROUP"
+                ? item.sourceModel.memberModels.length
+                : 0;
+            const fxCount = item.effectCount;
+            const reasoning = sugg
+              ? generateMatchReasoning(
+                  sugg.factors,
+                  score,
+                  item.sourceModel.pixelCount && sugg.pixelCount
+                    ? {
+                        source: item.sourceModel.pixelCount,
+                        dest: sugg.pixelCount,
+                      }
+                    : undefined,
+                )
+              : undefined;
+            return (
+              <div
+                key={item.sourceModel.name}
+                className={`px-3 py-1.5 min-h-[36px] flex items-center gap-1.5 border-l-[3px] ${leftBorder} hover:bg-foreground/[0.02]`}
+              >
+                <svg
+                  className="w-3.5 h-3.5 text-green-400 flex-shrink-0"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
                 >
-                  <svg
-                    className="w-3.5 h-3.5 text-green-400 flex-shrink-0"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-xs text-foreground/70 truncate flex-1">
-                    {item.sourceModel.name}
-                  </span>
-                  <span className="text-foreground/20 text-xs">&rarr;</span>
-                  <span className="text-xs text-foreground/50 truncate flex-1 text-right">
-                    {item.assignedUserModels[0]?.name}
-                  </span>
-                  <span
-                    className={`text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${getTypeBadgeClass(item)}`}
-                  >
-                    {getTypeLabel(item)}
-                  </span>
-                  <ConfidenceBadge
-                    score={score}
-                    reasoning={reasoning}
-                    size="sm"
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                    clipRule="evenodd"
                   />
-                </div>
-              );
-            })}
-          </div>
+                </svg>
+                <span className="text-xs text-foreground/70 truncate min-w-0 shrink">
+                  {item.sourceModel.name}
+                </span>
+                {memberCount > 0 && (
+                  <>
+                    <span className="text-foreground/15 flex-shrink-0">
+                      &middot;
+                    </span>
+                    <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
+                      {memberCount} model{memberCount !== 1 && "s"}
+                    </span>
+                  </>
+                )}
+                <span className="text-foreground/20 flex-shrink-0 mx-0.5">
+                  &rarr;
+                </span>
+                <span className="text-xs text-foreground/50 truncate min-w-0 shrink">
+                  {item.assignedUserModels[0]?.name}
+                </span>
+                <span className="text-foreground/15 flex-shrink-0">
+                  &middot;
+                </span>
+                <span
+                  className={`text-[9px] font-bold px-1 py-0.5 rounded flex-shrink-0 ${getTypeBadgeClass(item)}`}
+                >
+                  {getTypeLabel(item)}
+                </span>
+                <span className="text-foreground/15 flex-shrink-0">
+                  &middot;
+                </span>
+                <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
+                  {fxCount >= 1000
+                    ? `${(fxCount / 1000).toFixed(1)}k`
+                    : fxCount}{" "}
+                  fx
+                </span>
+                <span className="text-foreground/15 flex-shrink-0">
+                  &middot;
+                </span>
+                <ConfidenceBadge
+                  score={score}
+                  reasoning={reasoning}
+                  size="sm"
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -964,10 +1063,30 @@ const FILTER_OPTIONS: {
   color: string;
   activeColor: string;
 }[] = [
-  { key: "all", label: "All", color: "text-foreground/60", activeColor: "text-foreground" },
-  { key: "groups", label: "Groups", color: "text-blue-400/60", activeColor: "text-blue-400" },
-  { key: "models", label: "Models", color: "text-foreground/40", activeColor: "text-foreground/70" },
-  { key: "submodelGroups", label: "HD Groups", color: "text-purple-400/60", activeColor: "text-purple-400" },
+  {
+    key: "all",
+    label: "All",
+    color: "text-foreground/60",
+    activeColor: "text-foreground",
+  },
+  {
+    key: "groups",
+    label: "Groups",
+    color: "text-blue-400/60",
+    activeColor: "text-blue-400",
+  },
+  {
+    key: "models",
+    label: "Models",
+    color: "text-foreground/40",
+    activeColor: "text-foreground/70",
+  },
+  {
+    key: "submodelGroups",
+    label: "Submodels",
+    color: "text-purple-400/60",
+    activeColor: "text-purple-400",
+  },
 ];
 
 function QuickFilterBar({
@@ -1032,10 +1151,11 @@ function QuickFilterButton({
       }`}
     >
       <span className={`text-[10px] font-medium ${color}`}>{label}</span>
-      <span className={`text-lg font-bold tabular-nums leading-tight ${color}`}>
+      <span
+        className={`text-lg font-bold tabular-nums leading-tight ${color}`}
+      >
         {total}
       </span>
-      {/* Mini high/review progress bar */}
       <div className="w-full h-1 bg-foreground/10 rounded-full overflow-hidden mt-0.5 flex">
         {high > 0 && (
           <div
