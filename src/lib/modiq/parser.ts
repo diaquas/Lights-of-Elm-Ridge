@@ -209,6 +209,7 @@ function calculatePixelCount(
       // parm2 = total drops
       return parm2;
     case "matrix":
+    case "horiz matrix":
     case "vert matrix":
       // parm2 = pixels per strand, parm3 = strands
       return parm2 * parm3;
