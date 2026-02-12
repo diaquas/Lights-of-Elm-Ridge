@@ -12,7 +12,6 @@ import {
   MetadataBadges,
   HeroEffectBadge,
   InlineEffectBadge,
-  EffectsCoverageBar,
   AutoMatchBanner,
   Link2Badge,
 } from "../MetadataBadges";
@@ -25,8 +24,6 @@ import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 type StatusFilter = "all" | "unmapped" | "auto-strong" | "auto-review" | "mapped";
-type TypeFilter = "all" | "display-wide" | "groups" | "models";
-type ViewMode = "flat" | "hierarchy";
 
 export function IndividualsPhase() {
   const { phaseItems, goToNextPhase, interactive, autoMatchedNames, autoMatchStats, scoreMap } = useMappingPhase();
@@ -48,22 +45,37 @@ export function IndividualsPhase() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  // Banner filter: set by auto-match banner to show strong/review items (overrides statusFilter)
+  const [bannerFilter, setBannerFilter] = useState<"auto-strong" | "auto-review" | null>(null);
 
-  // Detect super groups and default to hierarchy view if any exist
+  // Auto-start with "needs review" filter when there are review items
+  const didAutoStartRef = useRef(false);
+  useEffect(() => {
+    if (didAutoStartRef.current) return;
+    if (autoMatchStats.reviewCount > 0) {
+      setBannerFilter("auto-review");
+      didAutoStartRef.current = true;
+    } else if (autoMatchStats.total > 0) {
+      didAutoStartRef.current = true;
+    }
+  }, [autoMatchStats]);
+
+  // Auto-clear banner filter when all review items are resolved
+  const [reviewClearToast, setReviewClearToast] = useState(false);
+  useEffect(() => {
+    if (bannerFilter === "auto-review" && autoMatchStats.reviewCount === 0) {
+      setBannerFilter(null);
+      setReviewClearToast(true);
+      const t = setTimeout(() => setReviewClearToast(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [bannerFilter, autoMatchStats.reviewCount]);
+
+  // Detect super groups for display-wide section
   const hasSuperGroups = useMemo(
     () => phaseItems.some((i) => i.isSuperGroup),
     [phaseItems],
   );
-  const [viewMode, setViewMode] = useState<ViewMode>("flat");
-  // Set hierarchy as default when super groups are detected (on first render)
-  const didInitViewRef = useRef(false);
-  useEffect(() => {
-    if (!didInitViewRef.current && hasSuperGroups) {
-      setViewMode("hierarchy");
-      didInitViewRef.current = true;
-    }
-  }, [hasSuperGroups]);
 
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
@@ -110,31 +122,16 @@ export function IndividualsPhase() {
     [phaseItems, autoMatchedNames],
   );
 
-  // Type filter counts (before status/search filters)
-  const typeFilterCounts = useMemo(() => {
-    let displayWide = 0, groups = 0, models = 0;
-    for (const item of phaseItems) {
-      if (item.isSuperGroup) displayWide++;
-      else if (item.isGroup) groups++;
-      else models++;
-    }
-    return { displayWide, groups, models, all: phaseItems.length };
-  }, [phaseItems]);
-
   // Filtered + stable-sorted items (single unified list)
   const filteredItems = useMemo(() => {
     let items = [...phaseItems];
 
-    // Type filter
-    if (typeFilter === "display-wide") items = items.filter((i) => i.isSuperGroup);
-    else if (typeFilter === "groups") items = items.filter((i) => i.isGroup && !i.isSuperGroup);
-    else if (typeFilter === "models") items = items.filter((i) => !i.isGroup);
-
-    // Status filter
-    if (statusFilter === "unmapped") items = items.filter((i) => !i.isMapped);
-    else if (statusFilter === "auto-strong") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) >= STRONG_THRESHOLD);
-    else if (statusFilter === "auto-review") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD);
-    else if (statusFilter === "mapped") items = items.filter((i) => i.isMapped && !autoMatchedNames.has(i.sourceModel.name));
+    // Banner filter overrides status filter when active
+    const activeFilter = bannerFilter ?? statusFilter;
+    if (activeFilter === "unmapped") items = items.filter((i) => !i.isMapped);
+    else if (activeFilter === "auto-strong") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) >= STRONG_THRESHOLD);
+    else if (activeFilter === "auto-review") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD);
+    else if (activeFilter === "mapped") items = items.filter((i) => i.isMapped);
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -165,7 +162,7 @@ export function IndividualsPhase() {
       if (ai !== bi) return ai - bi;
       return a.sourceModel.name.localeCompare(b.sourceModel.name, undefined, { numeric: true, sensitivity: "base" });
     });
-  }, [phaseItems, statusFilter, search, sortBy, sortVersion, topSuggestionsMap]);
+  }, [phaseItems, statusFilter, bannerFilter, search, sortBy, sortVersion, topSuggestionsMap]);
 
   // Build xLights group membership: memberName → most-specific parent group SourceLayerMapping
   // When a model belongs to multiple groups (e.g. "Arch 1" in both "All - Arches - GRP"
@@ -344,65 +341,31 @@ export function IndividualsPhase() {
       {/* Left: Model List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         <div className={PANEL_STYLES.header.wrapper}>
-          <h2 className={PANEL_STYLES.header.title}>
-            <svg
-              className="w-5 h-5 text-blue-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
-            Groups &amp; Models
-          </h2>
-          <p className={PANEL_STYLES.header.subtitle}>
-            {phaseItems.length} item{phaseItems.length !== 1 ? "s" : ""}
-            {mappedCount > 0 && <span> &middot; <span className="text-green-400/60">{mappedCount} mapped</span></span>}
-            {unmappedCount > 0 && <span> &middot; <span className="text-amber-400/60">{unmappedCount} unmapped</span></span>}
-          </p>
-          <EffectsCoverageBar
-            mappedEffects={phaseItems.filter((i) => i.isMapped).reduce(
-              (sum, i) => sum + i.effectCount,
-              0,
-            )}
-            totalEffects={phaseItems.reduce((sum, i) => sum + i.effectCount, 0)}
-          />
-        </div>
-
-        {/* Type Filter Pills + View Toggle */}
-        {(hasSuperGroups || typeFilterCounts.groups > 0) && (
-          <div className="px-4 pt-2 pb-1 flex items-center gap-1.5 flex-wrap border-b border-border/50">
-            {/* Type pills */}
-            <TypeFilterPill label={`All (${typeFilterCounts.all})`} active={typeFilter === "all"} onClick={() => { setTypeFilter("all"); setSortVersion((v) => v + 1); }} />
-            {typeFilterCounts.displayWide > 0 && (
-              <TypeFilterPill label={`Display-Wide (${typeFilterCounts.displayWide})`} active={typeFilter === "display-wide"} onClick={() => { setTypeFilter("display-wide"); setSortVersion((v) => v + 1); }} />
-            )}
-            {typeFilterCounts.groups > 0 && (
-              <TypeFilterPill label={`Groups (${typeFilterCounts.groups})`} active={typeFilter === "groups"} onClick={() => { setTypeFilter("groups"); setSortVersion((v) => v + 1); }} />
-            )}
-            <TypeFilterPill label={`Models (${typeFilterCounts.models})`} active={typeFilter === "models"} onClick={() => { setTypeFilter("models"); setSortVersion((v) => v + 1); }} />
-            {/* View toggle */}
-            <div className="ml-auto flex items-center gap-0.5 bg-foreground/5 rounded p-0.5">
-              <button type="button" onClick={() => setViewMode("hierarchy")}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${viewMode === "hierarchy" ? "bg-accent/15 text-accent font-semibold" : "text-foreground/40 hover:text-foreground/60"}`}
-                title="Hierarchy view">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10M4 18h10" /></svg>
-                Tree
-              </button>
-              <button type="button" onClick={() => setViewMode("flat")}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-colors ${viewMode === "flat" ? "bg-accent/15 text-accent font-semibold" : "text-foreground/40 hover:text-foreground/60"}`}
-                title="Flat view">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-                Flat
-              </button>
+          <div className="flex items-center gap-2">
+            <h2 className={PANEL_STYLES.header.title}>
+              <svg
+                className="w-5 h-5 text-blue-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
+              </svg>
+              Groups &amp; Models
+            </h2>
+            {/* Status filter pills */}
+            <div className="flex items-center gap-1 ml-3">
+              <TypeFilterPill label={`All (${phaseItems.length})`} active={statusFilter === "all" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("all"); setSortVersion((v) => v + 1); }} />
+              <TypeFilterPill label={`Mapped (${mappedCount})`} active={statusFilter === "mapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("mapped"); setSortVersion((v) => v + 1); }} />
+              <TypeFilterPill label={`Unmapped (${unmappedCount})`} active={statusFilter === "unmapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("unmapped"); setSortVersion((v) => v + 1); }} />
             </div>
           </div>
-        )}
+        </div>
 
         {/* Search + Sort */}
         <div className={PANEL_STYLES.search.wrapper}>
@@ -441,14 +404,6 @@ export function IndividualsPhase() {
                 </button>
               )}
             </div>
-            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as StatusFilter); setSortVersion((v) => v + 1); }}
-              className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent">
-              <option value="all">All</option>
-              <option value="unmapped">Unmapped</option>
-              {phaseAutoCount > 0 && <option value="auto-strong">Auto: Strong (&ge;75%)</option>}
-              {phaseAutoCount > 0 && <option value="auto-review">Auto: Review (&lt;75%)</option>}
-              <option value="mapped">Mapped (manual)</option>
-            </select>
             <SortDropdown value={sortBy} onChange={(v) => { setSortBy(v); setSortVersion((sv) => sv + 1); }} />
             <button type="button" onClick={() => setSortVersion((v) => v + 1)} className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1" title="Re-sort">&#x21bb;</button>
           </div>
@@ -465,7 +420,18 @@ export function IndividualsPhase() {
         <AutoMatchBanner
           stats={autoMatchStats}
           phaseAutoCount={phaseAutoCount}
+          bannerFilter={bannerFilter}
+          onFilterStrong={() => { setBannerFilter("auto-strong"); setSortVersion((v) => v + 1); }}
+          onFilterReview={() => { setBannerFilter("auto-review"); setSortVersion((v) => v + 1); }}
+          onClearFilter={() => { setBannerFilter(null); setSortVersion((v) => v + 1); }}
         />
+
+        {/* "All reviews complete" toast */}
+        {reviewClearToast && (
+          <div className="mx-4 mt-2 mb-1 px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-[12px] text-green-400 font-medium flex-shrink-0 animate-pulse">
+            All reviews complete
+          </div>
+        )}
 
         {/* Unified list — super groups → groups → ungrouped, with left border visual state */}
         <div className={PANEL_STYLES.scrollArea}>
@@ -491,7 +457,6 @@ export function IndividualsPhase() {
                 onSkipFamily={handleSkipFamily}
                 renderItemCard={renderItemCard}
                 phaseItemsByName={phaseItemsByName}
-                viewMode={viewMode}
               />
             )}
 
@@ -518,7 +483,7 @@ export function IndividualsPhase() {
 
             {filteredItems.length === 0 && (
               <p className="py-6 text-center text-[12px] text-foreground/30">
-                {search || statusFilter !== "all" || typeFilter !== "all" ? "No matches for current filters" : "No items"}
+                {search || statusFilter !== "all" || bannerFilter ? "No matches for current filters" : "No items"}
               </p>
             )}
           </div>
@@ -998,7 +963,6 @@ function SuperGroupSection({
   onSkipFamily,
   renderItemCard,
   phaseItemsByName,
-  viewMode,
 }: {
   superGroups: XLightsGroup[];
   expandedGroups: Set<string>;
@@ -1011,7 +975,6 @@ function SuperGroupSection({
   onSkipFamily: (items: SourceLayerMapping[]) => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
   phaseItemsByName: Map<string, SourceLayerMapping>;
-  viewMode: ViewMode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -1039,13 +1002,11 @@ function SuperGroupSection({
           </p>
           <div className="space-y-1">
             {superGroups.map((group) => {
-              // In hierarchy view, show nested child groups inside super groups
-              const childGroupNames = viewMode === "hierarchy"
-                ? group.groupItem.memberNames.filter((name) => {
-                    const item = phaseItemsByName.get(name);
-                    return item?.isGroup && !item.isSuperGroup && item.parentSuperGroup === group.groupItem.sourceModel.name;
-                  })
-                : [];
+              // Show nested child groups inside super groups
+              const childGroupNames = group.groupItem.memberNames.filter((name) => {
+                const item = phaseItemsByName.get(name);
+                return item?.isGroup && !item.isSuperGroup && item.parentSuperGroup === group.groupItem.sourceModel.name;
+              });
 
               return (
                 <SuperGroupCard
@@ -1063,7 +1024,6 @@ function SuperGroupSection({
                   onAccept={(userModelName) => onAccept(group.groupItem.sourceModel.name, userModelName)}
                   onSkip={() => onSkipFamily([group.groupItem, ...group.members])}
                   renderItemCard={renderItemCard}
-                  viewMode={viewMode}
                   expandedGroups={expandedGroups}
                   onToggleChild={onToggle}
                   onSelectChild={onSelect}
@@ -1097,7 +1057,6 @@ function SuperGroupCard({
   onAccept,
   onSkip,
   renderItemCard,
-  viewMode,
   expandedGroups,
   onToggleChild,
   onSelectChild,
@@ -1119,7 +1078,6 @@ function SuperGroupCard({
   onAccept: (userModelName: string) => void;
   onSkip: () => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
-  viewMode: ViewMode;
   expandedGroups: Set<string>;
   onToggleChild: (name: string) => void;
   onSelectChild: (name: string) => void;
@@ -1185,16 +1143,15 @@ function SuperGroupCard({
         </div>
       </div>
 
-      {/* Expanded: show child groups (hierarchy view) or direct members (flat view) */}
+      {/* Expanded: show child groups (hierarchy) or direct members */}
       {isExpanded && (
         <div className="px-3 pb-2 pl-5 space-y-1 border-t border-purple-400/10">
           <div className="pt-1">
-            {viewMode === "hierarchy" && childGroupNames.length > 0 ? (
+            {childGroupNames.length > 0 ? (
               <>
                 {childGroupNames.map((childName) => {
                   const childItem = phaseItemsByName.get(childName);
                   if (!childItem) return null;
-                  // Gather child group's individual members from filtered list
                   const childMembers = members.filter((m) =>
                     childItem.memberNames.includes(m.sourceModel.name),
                   );
