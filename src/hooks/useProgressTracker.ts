@@ -139,8 +139,9 @@ export function useProgressTracker(
 
   // Items mapped per category
   const itemsMapped = useMemo(() => {
-    const groupItems = getPhaseItems("groups");
-    const modelItems = getPhaseItems("individuals");
+    const allItems = getPhaseItems("individuals");
+    const groupItems = allItems.filter((i) => i.isGroup);
+    const modelItems = allItems.filter((i) => !i.isGroup);
     const spinnerItems = getPhaseItems("spinners");
 
     const compute = (items: SourceLayerMapping[]) => {

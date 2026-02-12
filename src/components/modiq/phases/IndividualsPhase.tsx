@@ -4,7 +4,6 @@ import { useState, useMemo, useCallback, memo } from "react";
 import {
   useMappingPhase,
   findNextUnmapped,
-  extractFamily,
 } from "@/contexts/MappingPhaseContext";
 import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
@@ -17,10 +16,8 @@ import {
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
-import { useItemFamilies, type ItemFamily } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
-import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
-import { PANEL_STYLES } from "../panelStyles";
+import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export function IndividualsPhase() {
@@ -100,45 +97,79 @@ export function IndividualsPhase() {
     return sortItems(items, sortBy, topSuggestionsMap);
   }, [mappedItems, search, sortBy, topSuggestionsMap]);
 
-  // Level 2 split: model groups (families with >1 item) vs individuals
-  const splitByGroupType = useCallback(
-    (items: SourceLayerMapping[]) => {
-      const familyMap = new Map<string, SourceLayerMapping[]>();
-      for (const item of items) {
-        const prefix = extractFamily(item.sourceModel.name);
-        const existing = familyMap.get(prefix);
-        if (existing) existing.push(item);
-        else familyMap.set(prefix, [item]);
-      }
-      const groups: ItemFamily[] = [];
-      const singles: SourceLayerMapping[] = [];
-      for (const [prefix, familyItems] of familyMap) {
-        if (familyItems.length > 1) {
-          groups.push({ prefix, items: familyItems });
-        } else {
-          singles.push(familyItems[0]);
+  // Build xLights group membership: memberName → parent group SourceLayerMapping
+  const sourceGroupMap = useMemo(() => {
+    const map = new Map<string, SourceLayerMapping>();
+    for (const layer of interactive.sourceLayerMappings) {
+      if (layer.isGroup) {
+        for (const member of layer.memberNames) {
+          map.set(member, layer);
         }
       }
-      // Groups sorted A→Z by prefix (fixed Level 2)
-      groups.sort((a, b) => a.prefix.localeCompare(b.prefix));
-      return { groups, singles };
+    }
+    return map;
+  }, [interactive.sourceLayerMappings]);
+
+  // Level 2 split: xLights groups with child models, plus ungrouped individuals
+  interface XLightsGroup { groupItem: SourceLayerMapping; members: SourceLayerMapping[] }
+  const splitByXLightsGroup = useCallback(
+    (items: SourceLayerMapping[]) => {
+      const groupMap = new Map<string, XLightsGroup>();
+      const order: string[] = [];
+      const ungrouped: SourceLayerMapping[] = [];
+
+      // First pass: create group entries for any group items in the list
+      for (const item of items) {
+        if (item.isGroup) {
+          groupMap.set(item.sourceModel.name, { groupItem: item, members: [] });
+          order.push(item.sourceModel.name);
+        }
+      }
+
+      // Second pass: assign non-group items to their parent group, or ungrouped
+      for (const item of items) {
+        if (item.isGroup) continue;
+        const parentGroup = sourceGroupMap.get(item.sourceModel.name);
+        if (parentGroup) {
+          const groupName = parentGroup.sourceModel.name;
+          if (groupMap.has(groupName)) {
+            groupMap.get(groupName)!.members.push(item);
+          } else {
+            // Parent group exists but isn't in this filtered list — create it as virtual header
+            groupMap.set(groupName, { groupItem: parentGroup, members: [item] });
+            order.push(groupName);
+          }
+        } else {
+          ungrouped.push(item);
+        }
+      }
+
+      const groups = order.map((name) => groupMap.get(name)!);
+      groups.sort((a, b) => a.groupItem.sourceModel.name.localeCompare(b.groupItem.sourceModel.name));
+      return { groups, ungrouped };
     },
-    [],
+    [sourceGroupMap],
   );
 
   const unmappedSplit = useMemo(
-    () => splitByGroupType(filteredUnmapped),
-    [filteredUnmapped, splitByGroupType],
+    () => splitByXLightsGroup(filteredUnmapped),
+    [filteredUnmapped, splitByXLightsGroup],
   );
   const mappedSplit = useMemo(
-    () => splitByGroupType(filteredMapped),
-    [filteredMapped, splitByGroupType],
+    () => splitByXLightsGroup(filteredMapped),
+    [filteredMapped, splitByXLightsGroup],
   );
 
-  const { families, toggle, isExpanded } = useItemFamilies(
-    filteredUnmapped,
-    selectedItemId,
-  );
+  // Expand/collapse state for xLights groups
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = useCallback((groupName: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupName)) next.delete(groupName);
+      else next.add(groupName);
+      return next;
+    });
+  }, []);
 
   // Section collapse state
   const [unmappedOpen, setUnmappedOpen] = useState(true);
@@ -152,18 +183,12 @@ export function IndividualsPhase() {
       .slice(0, 10);
   }, [interactive, selectedItem]);
 
-  // Type filter: exclude all group types from Individuals source panel
-  const individualSourceFilter = useCallback(
-    (m: { isGroup?: boolean }) => !m.isGroup,
-    [],
-  );
-
   if (phaseItems.length === 0) {
     return (
       <PhaseEmptyState
         icon={<span className="text-5xl">&#128077;</span>}
-        title="Models All Set!"
-        description="No individual models need manual matching — they were auto-matched or covered by groups."
+        title="Groups & Models All Set!"
+        description="No groups or models need manual matching — they were auto-matched or covered."
       />
     );
   }
@@ -172,8 +197,8 @@ export function IndividualsPhase() {
     return (
       <PhaseEmptyState
         icon={<span className="text-5xl">&#9989;</span>}
-        title="All Models Mapped!"
-        description={`${mappedItems.length} individual model${mappedItems.length === 1 ? "" : "s"} successfully matched. Nice work!`}
+        title="All Groups & Models Mapped!"
+        description={`${mappedItems.length} item${mappedItems.length === 1 ? "" : "s"} successfully matched. Nice work!`}
       />
     );
   }
@@ -248,7 +273,7 @@ export function IndividualsPhase() {
         <div className={PANEL_STYLES.header.wrapper}>
           <h2 className={PANEL_STYLES.header.title}>
             <svg
-              className="w-5 h-5 text-foreground/60"
+              className="w-5 h-5 text-blue-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -257,13 +282,13 @@ export function IndividualsPhase() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
               />
             </svg>
-            Individual Models
+            Groups &amp; Models
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
-            {unmappedItems.length} models need matching
+            {unmappedItems.length} item{unmappedItems.length !== 1 ? "s" : ""} need matching
             {mappedItems.length > 0 && (
               <span> &middot; {mappedItems.length} already mapped</span>
             )}
@@ -351,35 +376,37 @@ export function IndividualsPhase() {
               </button>
               {unmappedOpen && (
                 <div className="px-4 pb-3 space-y-3">
-                  {/* Level 2: Model Groups */}
+                  {/* xLights Groups with child models */}
                   {unmappedSplit.groups.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
-                        Model Groups ({unmappedSplit.groups.length})
-                      </div>
-                      <div className="space-y-2">
-                        {unmappedSplit.groups.map((group) => (
-                          <GroupCard
-                            key={group.prefix}
-                            family={group}
-                            isExpanded={isExpanded(group.prefix)}
-                            onToggle={() => toggle(group.prefix)}
-                            onSkipFamily={() => handleSkipFamily(group.items)}
-                            renderItemCard={renderItemCard}
-                          />
-                        ))}
-                      </div>
+                    <div className="space-y-2">
+                      {unmappedSplit.groups.map((group) => (
+                        <XLightsGroupCard
+                          key={group.groupItem.sourceModel.name}
+                          group={group.groupItem}
+                          members={group.members}
+                          isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
+                          isSelected={selectedItemId === group.groupItem.sourceModel.name}
+                          topSuggestion={topSuggestionsMap.get(group.groupItem.sourceModel.name) ?? null}
+                          onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
+                          onSelect={() => setSelectedItemId(group.groupItem.sourceModel.name)}
+                          onAccept={(userModelName) => handleAccept(group.groupItem.sourceModel.name, userModelName)}
+                          onSkip={() => handleSkipFamily([group.groupItem, ...group.members])}
+                          renderItemCard={renderItemCard}
+                        />
+                      ))}
                     </div>
                   )}
 
-                  {/* Level 2: Individual Models */}
-                  {unmappedSplit.singles.length > 0 && (
+                  {/* Ungrouped individual models */}
+                  {unmappedSplit.ungrouped.length > 0 && (
                     <div>
-                      <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
-                        Individual Models ({unmappedSplit.singles.length})
-                      </div>
+                      {unmappedSplit.groups.length > 0 && (
+                        <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
+                          Individual Models ({unmappedSplit.ungrouped.length})
+                        </div>
+                      )}
                       <div className="space-y-1.5">
-                        {unmappedSplit.singles.map((item) => renderItemCard(item))}
+                        {unmappedSplit.ungrouped.map((item) => renderItemCard(item))}
                       </div>
                     </div>
                   )}
@@ -417,30 +444,32 @@ export function IndividualsPhase() {
               {mappedOpen && (
                 <div className="px-4 pb-3 space-y-3">
                   {mappedSplit.groups.length > 0 && (
-                    <div>
-                      <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
-                        Model Groups ({mappedSplit.groups.length})
-                      </div>
-                      <div className="space-y-2">
-                        {mappedSplit.groups.map((group) => (
-                          <GroupCard
-                            key={group.prefix}
-                            family={group}
-                            isExpanded={isExpanded(group.prefix)}
-                            onToggle={() => toggle(group.prefix)}
-                            renderItemCard={renderItemCard}
-                          />
-                        ))}
-                      </div>
+                    <div className="space-y-2">
+                      {mappedSplit.groups.map((group) => (
+                        <XLightsGroupCard
+                          key={group.groupItem.sourceModel.name}
+                          group={group.groupItem}
+                          members={group.members}
+                          isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
+                          isSelected={selectedItemId === group.groupItem.sourceModel.name}
+                          topSuggestion={topSuggestionsMap.get(group.groupItem.sourceModel.name) ?? null}
+                          onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
+                          onSelect={() => setSelectedItemId(group.groupItem.sourceModel.name)}
+                          onAccept={(userModelName) => handleAccept(group.groupItem.sourceModel.name, userModelName)}
+                          renderItemCard={renderItemCard}
+                        />
+                      ))}
                     </div>
                   )}
-                  {mappedSplit.singles.length > 0 && (
+                  {mappedSplit.ungrouped.length > 0 && (
                     <div>
-                      <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
-                        Individual Models ({mappedSplit.singles.length})
-                      </div>
+                      {mappedSplit.groups.length > 0 && (
+                        <div className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wide mb-1.5 px-1">
+                          Individual Models ({mappedSplit.ungrouped.length})
+                        </div>
+                      )}
                       <div className="space-y-1.5">
-                        {mappedSplit.singles.map((item) => renderItemCard(item))}
+                        {mappedSplit.ungrouped.map((item) => renderItemCard(item))}
                       </div>
                     </div>
                   )}
@@ -494,23 +523,31 @@ export function IndividualsPhase() {
           <>
             {/* Item Info Header — compact, same height as left */}
             <div className={PANEL_STYLES.header.wrapper}>
-              <h3 className="text-sm font-semibold text-foreground truncate">
-                {selectedItem.sourceModel.name}
-              </h3>
+              <div className="flex items-center gap-2">
+                {selectedItem.isGroup && (
+                  <span className={`px-1.5 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.GRP} rounded`}>GRP</span>
+                )}
+                <h3 className="text-sm font-semibold text-foreground truncate">
+                  {selectedItem.sourceModel.name}
+                </h3>
+              </div>
               <div className="flex items-center gap-3 mt-0.5 text-[11px] text-foreground/40">
-                {selectedItem.sourceModel.pixelCount ? (
-                  <span>{selectedItem.sourceModel.pixelCount}px</span>
-                ) : null}
-                <span>{selectedItem.sourceModel.type}</span>
+                {selectedItem.isGroup ? (
+                  <span>{selectedItem.memberNames.length} members &middot; Scenario {selectedItem.scenario || "A"}</span>
+                ) : (
+                  <>
+                    {selectedItem.sourceModel.pixelCount ? <span>{selectedItem.sourceModel.pixelCount}px</span> : null}
+                    <span>{selectedItem.sourceModel.type}</span>
+                  </>
+                )}
               </div>
             </div>
 
-            {/* Universal Source Panel */}
+            {/* Universal Source Panel — no type filter, shows groups + models */}
             <div className="flex-1 min-h-0 overflow-hidden">
               <UniversalSourcePanel
                 allModels={interactive.allDestModels}
                 suggestions={suggestions}
-                sourceFilter={individualSourceFilter}
                 assignedNames={interactive.assignedUserModelNames}
                 selectedDestLabel={selectedItem.sourceModel.name}
                 sourcePixelCount={selectedItem.sourceModel.pixelCount}
@@ -535,7 +572,7 @@ export function IndividualsPhase() {
                 onClick={() => handleSkip(selectedItem.sourceModel.name)}
                 className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
               >
-                Skip This Model
+                Skip This {selectedItem.isGroup ? "Group" : "Model"}
               </button>
             </div>
           </>
@@ -555,7 +592,7 @@ export function IndividualsPhase() {
                   d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
                 />
               </svg>
-              <p className="text-sm">Select a model to see suggestions</p>
+              <p className="text-sm">Select a group or model to see suggestions</p>
             </div>
           </div>
         )}
@@ -564,74 +601,93 @@ export function IndividualsPhase() {
   );
 }
 
-// ─── Group Card (bordered container for model families) ────────
+// ─── xLights Group Card (bordered container for model groups) ────────
 
-function GroupCard({
-  family,
+function XLightsGroupCard({
+  group,
+  members,
   isExpanded,
+  isSelected,
+  topSuggestion,
   onToggle,
-  onSkipFamily,
+  onSelect,
+  onAccept,
+  onSkip,
   renderItemCard,
 }: {
-  family: ItemFamily;
+  group: SourceLayerMapping;
+  members: SourceLayerMapping[];
   isExpanded: boolean;
+  isSelected: boolean;
+  topSuggestion: { model: { name: string }; score: number } | null;
   onToggle: () => void;
-  onSkipFamily?: () => void;
+  onSelect: () => void;
+  onAccept?: (userModelName: string) => void;
+  onSkip?: () => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
 }) {
+  const mappedCount = members.filter((m) => m.isMapped).length;
+  const totalCount = members.length;
   return (
-    <div className="rounded-lg border border-border/60 bg-foreground/[0.02] overflow-hidden">
-      {/* Group header */}
+    <div className={`rounded-lg border overflow-hidden transition-all ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}>
+      {/* Group header — clickable to select for group-level mapping */}
       <div className="flex items-center gap-1 px-3 py-2">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex-1 flex items-center gap-2 text-left min-w-0"
-        >
-          <svg
-            className={`w-3.5 h-3.5 text-foreground/40 transition-transform duration-150 flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+        <button type="button" onClick={onToggle} className="flex-shrink-0 p-0.5">
+          <svg className={`w-3.5 h-3.5 text-foreground/40 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <svg
-            className="w-3.5 h-3.5 text-foreground/30 flex-shrink-0"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-          </svg>
-          <span className="text-[13px] font-semibold text-foreground/70 truncate">
-            {family.prefix}
-          </span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/8 text-foreground/40 font-semibold flex-shrink-0">
-            &times;{family.items.length}
-          </span>
         </button>
-        {onSkipFamily && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSkipFamily();
-            }}
-            title={`Skip all ${family.items.length} in ${family.prefix}`}
-            className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors flex-shrink-0"
-          >
+        <button type="button" onClick={onSelect} className="flex-1 flex items-center gap-2 text-left min-w-0">
+          <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>GRP</span>
+          <span className="text-[13px] font-semibold text-foreground/70 truncate">{group.sourceModel.name}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/8 text-foreground/40 font-semibold flex-shrink-0">
+            {totalCount}
+          </span>
+          {totalCount > 0 && (
+            <span className="text-[10px] text-foreground/30">
+              &middot; {mappedCount > 0 && <span className="text-green-400/60">{mappedCount}</span>}
+              {mappedCount > 0 && mappedCount < totalCount && "/"}
+              {mappedCount < totalCount && <span className="text-amber-400/60">{totalCount - mappedCount} unmapped</span>}
+            </span>
+          )}
+        </button>
+        {topSuggestion && onAccept && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
+            className="p-1.5 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors flex-shrink-0" title="Accept suggested match">
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
+            </svg>
+          </button>
+        )}
+        {onSkip && (
+          <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
+            title={`Skip group and ${totalCount} members`}
+            className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors flex-shrink-0">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         )}
       </div>
+      {/* Group-level suggestion preview */}
+      {!group.isMapped && topSuggestion && (
+        <div className="px-3 pb-1.5 flex items-center gap-2">
+          <span className="text-[10px] text-foreground/40 ml-6">Suggested:</span>
+          <span className="text-[12px] text-foreground/60 truncate">{topSuggestion.model.name}</span>
+          <ConfidenceBadge score={topSuggestion.score} size="sm" />
+        </div>
+      )}
+      {group.isMapped && (
+        <div className="px-3 pb-1.5 flex items-center gap-2 ml-6">
+          <span className="text-[10px] text-green-400/70">&rarr; {group.assignedUserModels[0]?.name}</span>
+          {group.coveredChildCount > 0 && <span className="text-[10px] text-teal-400/50">covers {group.coveredChildCount} children</span>}
+        </div>
+      )}
       {/* Expanded children */}
-      {isExpanded && (
+      {isExpanded && members.length > 0 && (
         <div className="px-3 pb-2 pl-5 space-y-1.5 border-t border-border/30">
           <div className="pt-1.5">
-            {family.items.map((item) => renderItemCard(item))}
+            {members.map((item) => renderItemCard(item))}
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
-import { useMappingPhase, extractFamily } from "@/contexts/MappingPhaseContext";
+import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 // ─── Types ──────────────────────────────────────────────
@@ -275,20 +275,41 @@ export function FinalizePhase() {
     return allGridRows.filter((r) => ignoredDisplay.has(r.destName)).sort((a, b) => naturalCompare(a.destName, b.destName));
   }, [allGridRows, ignoredDisplay]);
 
-  // Grouped grid rows
-  const groupedGridRows = useMemo((): GridGroup[] => {
-    const familyMap = new Map<string, GridRow[]>();
-    const order: string[] = [];
-    for (const row of gridRows) {
-      const family = extractFamily(row.destName);
-      if (!familyMap.has(family)) { familyMap.set(family, []); order.push(family); }
-      familyMap.get(family)!.push(row);
+  // xLights group membership: destModelName → parentGroupName
+  const destGroupMembership = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const model of allDestModels) {
+      if (model.isGroup && model.memberModels) {
+        for (const member of model.memberModels) {
+          map.set(member, model.name);
+        }
+      }
     }
-    return order.map((family) => {
-      const rows = familyMap.get(family)!;
+    return map;
+  }, [allDestModels]);
+
+  // Grouped grid rows — xLights groups as hierarchy source
+  const groupedGridRows = useMemo((): { grouped: GridGroup[]; ungrouped: GridRow[] } => {
+    const groupMap = new Map<string, GridRow[]>();
+    const order: string[] = [];
+    const ungrouped: GridRow[] = [];
+    for (const row of gridRows) {
+      // Skip group-level rows from appearing as children
+      if (row.isGroup) continue;
+      const parentGroup = destGroupMembership.get(row.destName);
+      if (parentGroup) {
+        if (!groupMap.has(parentGroup)) { groupMap.set(parentGroup, []); order.push(parentGroup); }
+        groupMap.get(parentGroup)!.push(row);
+      } else {
+        ungrouped.push(row);
+      }
+    }
+    const grouped = order.map((family) => {
+      const rows = groupMap.get(family)!;
       return { family, rows, mappedCount: rows.filter((r) => r.isMapped).length, unmappedCount: rows.filter((r) => !r.isMapped).length };
     });
-  }, [gridRows]);
+    return { grouped, ungrouped };
+  }, [gridRows, destGroupMembership]);
 
   // Grid dropdown sources
   const gridDropdownSources = useMemo(() => {
@@ -403,7 +424,7 @@ export function FinalizePhase() {
   }, []);
 
   const handleSelectGroup = useCallback((family: string) => {
-    const group = groupedGridRows.find((g) => g.family === family);
+    const group = groupedGridRows.grouped.find((g) => g.family === family);
     if (!group) return;
     const names = group.rows.map((r) => r.destName);
     setSelectedRows((prev) => {
@@ -696,22 +717,8 @@ export function FinalizePhase() {
                 </tr>
               </thead>
               <tbody>
-                {groupedGridRows.map((group) => {
-                  if (group.rows.length === 1) {
-                    const row = group.rows[0];
-                    return (
-                      <GridRowComponent key={row.destName} row={row} isSelected={selectedRows.has(row.destName)} isDropdownOpen={gridDropdown === row.destName}
-                        dropdownSources={gridDropdown === row.destName ? gridDropdownSources : null} dropdownSearch={gridDropdown === row.destName ? gridDropdownSearch : ""}
-                        draggingSource={draggingSource}
-                        onToggleSelect={() => handleSelectRow(row.destName)}
-                        onOpenDropdown={() => { setGridDropdown(row.destName); setGridDropdownSearch(""); }}
-                        onCloseDropdown={() => setGridDropdown(null)} onDropdownSearchChange={setGridDropdownSearch}
-                        onAssign={(s) => { assignUserModelToLayer(s, row.destName); setGridDropdown(null); }}
-                        onAcceptSuggestion={(s) => handleAcceptSuggestion(s, row.destName)}
-                        onRemoveLink={(s) => removeLinkFromLayer(s, row.destName)}
-                        onIgnore={() => handleIgnoreDisplay(row.destName)} />
-                    );
-                  }
+                {/* xLights groups */}
+                {groupedGridRows.grouped.map((group) => {
                   const isExpanded = expandedGridGroups.has(group.family);
                   const allSelected = group.rows.every((r) => selectedRows.has(r.destName));
                   const someSelected = !allSelected && group.rows.some((r) => selectedRows.has(r.destName));
@@ -755,6 +762,31 @@ export function FinalizePhase() {
                     </React.Fragment>
                   );
                 })}
+                {/* Ungrouped divider */}
+                {groupedGridRows.grouped.length > 0 && groupedGridRows.ungrouped.length > 0 && (
+                  <tr className="border-b border-border/30">
+                    <td colSpan={6} className="py-1 px-3">
+                      <div className="flex items-center gap-2 text-[10px] text-foreground/25">
+                        <div className="flex-1 h-px bg-border/40" />
+                        <span className="uppercase tracking-wider font-semibold">Ungrouped</span>
+                        <div className="flex-1 h-px bg-border/40" />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {/* Ungrouped models */}
+                {groupedGridRows.ungrouped.map((row) => (
+                  <GridRowComponent key={row.destName} row={row} isSelected={selectedRows.has(row.destName)} isDropdownOpen={gridDropdown === row.destName}
+                    dropdownSources={gridDropdown === row.destName ? gridDropdownSources : null} dropdownSearch={gridDropdown === row.destName ? gridDropdownSearch : ""}
+                    draggingSource={draggingSource}
+                    onToggleSelect={() => handleSelectRow(row.destName)}
+                    onOpenDropdown={() => { setGridDropdown(row.destName); setGridDropdownSearch(""); }}
+                    onCloseDropdown={() => setGridDropdown(null)} onDropdownSearchChange={setGridDropdownSearch}
+                    onAssign={(s) => { assignUserModelToLayer(s, row.destName); setGridDropdown(null); }}
+                    onAcceptSuggestion={(s) => handleAcceptSuggestion(s, row.destName)}
+                    onRemoveLink={(s) => removeLinkFromLayer(s, row.destName)}
+                    onIgnore={() => handleIgnoreDisplay(row.destName)} />
+                ))}
                 {gridRows.length === 0 && (
                   <tr><td colSpan={6} className="py-8 text-center text-foreground/30">{search ? "No matches" : "No models"}</td></tr>
                 )}

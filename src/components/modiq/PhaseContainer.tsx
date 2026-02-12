@@ -2,7 +2,6 @@
 
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { AutoAcceptPhase } from "./phases/AutoAcceptPhase";
-import { GroupsPhase } from "./phases/GroupsPhase";
 import { IndividualsPhase } from "./phases/IndividualsPhase";
 import { SpinnersPhase } from "./phases/SpinnersPhase";
 import { FinalizePhase } from "./phases/FinalizePhase";
@@ -20,9 +19,6 @@ export function PhaseContainer({ reviewProps }: PhaseContainerProps) {
   switch (currentPhase) {
     case "auto-accept":
       content = <AutoAcceptPhase />;
-      break;
-    case "groups":
-      content = <GroupsPhase />;
       break;
     case "individuals":
       content = <IndividualsPhase />;
