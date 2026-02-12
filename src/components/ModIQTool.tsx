@@ -418,16 +418,20 @@ export default function ModIQTool() {
     const estimate = Math.round(srcModels.length * 0.85);
     setProcessingStats((s) => ({ ...s, matchEstimate: estimate }));
 
-    // Yield to let React start the counter animation before blocking on matchModels
-    await delay(50);
-    const result = matchModels(srcModels, userLayout.models);
+    // Let the climb animation run visibly before the sync matchModels call
+    // blocks the main thread. Use setTimeout to flush pending rAF frames.
+    await delay(800);
+    const result = await new Promise<ReturnType<typeof matchModels>>((resolve) => {
+      setTimeout(() => resolve(matchModels(srcModels, userLayout.models)), 0);
+    });
 
-    // Set exact final number — counter jumps directly from climb position
+    // Animate from climb position up to actual result (600ms ease-out in counter)
     setProcessingStats((s) => ({
       ...s,
       matchesFound: result.mappedCount,
       matchEstimate: 0,
     }));
+    await delay(650);
 
     await advance(300); // "Resolving submodel structures" → active
     await delay(200);
@@ -3511,12 +3515,32 @@ function AnimatedCounter({
     return () => cancelAnimationFrame(rafRef.current);
   }, [estimate, value]);
 
-  // When final value arrives, stop climbing and set it directly
+  // When final value arrives, animate from current position to final
   useEffect(() => {
     if (value > 0) {
       cancelAnimationFrame(rafRef.current);
-      displayedRef.current = value;
-      setDisplayed(value);
+      const from = displayedRef.current;
+      const to = value;
+      if (from === to) return;
+
+      // Animate over 600ms with ease-out
+      const duration = 600;
+      const startTime = performance.now();
+
+      const tick = (now: number) => {
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        const eased = 1 - (1 - t) ** 3;
+        const current = Math.round(from + (to - from) * eased);
+        displayedRef.current = current;
+        setDisplayed(current);
+        if (t < 1) {
+          rafRef.current = requestAnimationFrame(tick);
+        }
+      };
+
+      rafRef.current = requestAnimationFrame(tick);
+      return () => cancelAnimationFrame(rafRef.current);
     } else if (estimate <= 0) {
       displayedRef.current = 0;
       setDisplayed(0);
