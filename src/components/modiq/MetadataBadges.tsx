@@ -39,6 +39,27 @@ export function HeroEffectBadge({ count }: { count: number }) {
 }
 
 /**
+ * Compact inline effect badge for single-line card layouts.
+ * Shows "+N fx" in a color-coded pill.
+ */
+export function InlineEffectBadge({ count }: { count: number }) {
+  const { text, bg, border } = getEffectColor(count);
+  const display = count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums border ${bg} ${border} ${text} flex-shrink-0`}
+      title={`${count.toLocaleString()} effects in sequence`}
+    >
+      <svg className="w-2 h-2 opacity-70" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      {display} fx
+    </span>
+  );
+}
+
+/**
  * Compact metadata badges for mapping cards.
  * Shows pixel count, member count, and submodel count (effect count is now the hero badge).
  */
