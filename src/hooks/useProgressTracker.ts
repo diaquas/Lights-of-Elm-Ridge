@@ -223,11 +223,10 @@ export function useProgressTracker(
       .sort((a, b) => b.count - a.count);
   }, [sourceLayerMappings]);
 
-  // Auto-matched count (items mapped in auto-accept phase)
+  // Auto-matched count (items pre-applied during loading)
   const autoMatchedCount = useMemo(() => {
-    const autoItems = getPhaseItems("auto-accept");
-    return autoItems.filter((i) => i.isMapped).length;
-  }, [getPhaseItems]);
+    return sourceLayerMappings.filter((l) => !l.isSkipped && l.isMapped).length;
+  }, [sourceLayerMappings]);
 
   return {
     display: {

@@ -13,7 +13,10 @@ import {
   HeroEffectBadge,
   InlineEffectBadge,
   EffectsCoverageBar,
+  AutoMatchBanner,
+  Link2Badge,
 } from "../MetadataBadges";
+import { STRONG_THRESHOLD } from "@/types/mappingPhases";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
@@ -21,8 +24,10 @@ import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
+type StatusFilter = "all" | "unmapped" | "auto-strong" | "auto-review" | "mapped";
+
 export function IndividualsPhase() {
-  const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
+  const { phaseItems, goToNextPhase, interactive, autoMatchedNames, autoMatchStats, scoreMap } = useMappingPhase();
   const dnd = useDragAndDrop();
 
   const bulk = useBulkInference(interactive, phaseItems);
@@ -40,7 +45,7 @@ export function IndividualsPhase() {
   const [showSwapSuggestions, setShowSwapSuggestions] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
-  const [statusFilter, setStatusFilter] = useState<"all" | "unmapped" | "mapped">("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
@@ -81,11 +86,19 @@ export function IndividualsPhase() {
     return map;
   }, [phaseItems, interactive]);
 
+  // Count auto-matched items in THIS phase for the banner
+  const phaseAutoCount = useMemo(
+    () => phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
+    [phaseItems, autoMatchedNames],
+  );
+
   // Filtered + stable-sorted items (single unified list)
   const filteredItems = useMemo(() => {
     let items = [...phaseItems];
     if (statusFilter === "unmapped") items = items.filter((i) => !i.isMapped);
-    else if (statusFilter === "mapped") items = items.filter((i) => i.isMapped);
+    else if (statusFilter === "auto-strong") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) >= STRONG_THRESHOLD);
+    else if (statusFilter === "auto-review") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD);
+    else if (statusFilter === "mapped") items = items.filter((i) => i.isMapped && !autoMatchedNames.has(i.sourceModel.name));
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -265,6 +278,7 @@ export function IndividualsPhase() {
       item={item}
       isSelected={selectedItemId === item.sourceModel.name}
       isDropTarget={dnd.state.activeDropTarget === item.sourceModel.name}
+      isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
       topSuggestion={topSuggestionsMap.get(item.sourceModel.name) ?? null}
       onClick={() => setSelectedItemId(item.sourceModel.name)}
       onAccept={(userModelName) =>
@@ -353,11 +367,13 @@ export function IndividualsPhase() {
                 </button>
               )}
             </div>
-            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setSortVersion((v) => v + 1); }}
+            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as StatusFilter); setSortVersion((v) => v + 1); }}
               className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent">
               <option value="all">All</option>
               <option value="unmapped">Unmapped</option>
-              <option value="mapped">Mapped</option>
+              {phaseAutoCount > 0 && <option value="auto-strong">Auto: Strong (&ge;75%)</option>}
+              {phaseAutoCount > 0 && <option value="auto-review">Auto: Review (&lt;75%)</option>}
+              <option value="mapped">Mapped (manual)</option>
             </select>
             <SortDropdown value={sortBy} onChange={(v) => { setSortBy(v); setSortVersion((sv) => sv + 1); }} />
             <button type="button" onClick={() => setSortVersion((v) => v + 1)} className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1" title="Re-sort">&#x21bb;</button>
@@ -371,6 +387,11 @@ export function IndividualsPhase() {
             onDismiss={bulk.dismiss}
           />
         )}
+
+        <AutoMatchBanner
+          stats={autoMatchStats}
+          phaseAutoCount={phaseAutoCount}
+        />
 
         {/* Unified list — groups → ungrouped, with left border visual state */}
         <div className={PANEL_STYLES.scrollArea}>
@@ -390,6 +411,7 @@ export function IndividualsPhase() {
                 members={group.members}
                 isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
                 isSelected={selectedItemId === group.groupItem.sourceModel.name}
+                isAutoMatched={autoMatchedNames.has(group.groupItem.sourceModel.name)}
                 topSuggestion={topSuggestionsMap.get(group.groupItem.sourceModel.name) ?? null}
                 onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
                 onSelect={() => setSelectedItemId(group.groupItem.sourceModel.name)}
@@ -557,6 +579,7 @@ function XLightsGroupCard({
   members,
   isExpanded,
   isSelected,
+  isAutoMatched,
   topSuggestion,
   onToggle,
   onSelect,
@@ -568,6 +591,7 @@ function XLightsGroupCard({
   members: SourceLayerMapping[];
   isExpanded: boolean;
   isSelected: boolean;
+  isAutoMatched: boolean;
   topSuggestion: { model: { name: string }; score: number } | null;
   onToggle: () => void;
   onSelect: () => void;
@@ -607,7 +631,8 @@ function XLightsGroupCard({
         {/* Right-aligned destination / suggestion */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
-            <span className="text-[10px] text-green-400/70 truncate max-w-[180px]">
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
+              {isAutoMatched && <Link2Badge />}
               &rarr; {group.assignedUserModels[0]?.name}
             </span>
           )}
@@ -654,6 +679,7 @@ function ItemCard({
   item,
   isSelected,
   isDropTarget,
+  isAutoMatched,
   topSuggestion,
   onClick,
   onAccept,
@@ -666,6 +692,7 @@ function ItemCard({
   item: SourceLayerMapping;
   isSelected: boolean;
   isDropTarget: boolean;
+  isAutoMatched: boolean;
   topSuggestion: { model: { name: string }; score: number } | null;
   onClick: () => void;
   onAccept: (userModelName: string) => void;
@@ -705,7 +732,10 @@ function ItemCard({
         {/* Right-aligned destination / suggestion */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {item.isMapped && (
-            <span className="text-[10px] text-green-400/70 truncate max-w-[160px]">&rarr; {item.assignedUserModels[0]?.name}</span>
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
+              {isAutoMatched && <Link2Badge />}
+              &rarr; {item.assignedUserModels[0]?.name}
+            </span>
           )}
           {!item.isMapped && topSuggestion && (
             <>
@@ -742,6 +772,7 @@ const ItemCardMemo = memo(
     prev.item.assignedUserModels === next.item.assignedUserModels &&
     prev.isSelected === next.isSelected &&
     prev.isDropTarget === next.isDropTarget &&
+    prev.isAutoMatched === next.isAutoMatched &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score,
 );

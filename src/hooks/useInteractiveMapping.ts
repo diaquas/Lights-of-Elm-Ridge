@@ -185,10 +185,9 @@ export interface InteractiveMappingState {
   unskipAllDestModels: () => void;
 }
 
-/** Items at or above this score bypass pre-mapping so they can be reviewed
- *  in the Auto-Accept phase first. Must match AUTO_ACCEPT_THRESHOLD in
- *  MappingPhaseContext.tsx. */
-const AUTO_ACCEPT_SCORE_THRESHOLD = 0.7;
+// All matchModels() results are pre-applied regardless of score.
+// The MappingPhaseContext auto-apply effect marks 70%+ items as auto-matched
+// and displays them with a Link2 badge in their natural phase.
 
 // ─── Hook ───────────────────────────────────────────────
 
@@ -215,10 +214,8 @@ export function useInteractiveMapping(
   };
 
   // Core state: dest model name → source model name (or null)
-  // Only include auto-mappings that reached a real confidence tier (HIGH/MED/LOW)
-  // AND are below the auto-accept threshold. Items at 70%+ are left unmapped so
-  // the Auto-Accept phase can show them for user review before confirming.
-  // Additionally, exclude items that will be zero-effect-filtered from the UI.
+  // Include all auto-mappings that reached a real confidence tier (HIGH/MED/LOW).
+  // Exclude items that will be zero-effect-filtered from the UI.
   const [assignments, setAssignments] = useState<Map<string, string | null>>(
     () => {
       if (!initialResult) return new Map();
@@ -227,7 +224,6 @@ export function useInteractiveMapping(
         if (
           m.destModel &&
           m.confidence !== "unmapped" &&
-          m.score < AUTO_ACCEPT_SCORE_THRESHOLD &&
           sourceWillBeVisible(m.sourceModel.name)
         ) {
           map.set(m.destModel.name, m.sourceModel.name);
@@ -250,8 +246,7 @@ export function useInteractiveMapping(
 
   // V3 link state: source layer name → set of user (dest) model names
   // Declared here (with other state) so toMappingResult can reference it.
-  // Items at 70%+ are excluded so the Auto-Accept phase can review them first.
-  // Items that will be zero-effect-filtered are also excluded to prevent
+  // Items that will be zero-effect-filtered are excluded to prevent
   // invisible mappings from ending up in the export.
   const [sourceDestLinks, setSourceDestLinks] = useState<
     Map<string, Set<string>>
@@ -262,7 +257,6 @@ export function useInteractiveMapping(
       if (
         m.destModel &&
         m.confidence !== "unmapped" &&
-        m.score < AUTO_ACCEPT_SCORE_THRESHOLD &&
         sourceWillBeVisible(m.sourceModel.name)
       ) {
         const set = map.get(m.sourceModel.name) ?? new Set();

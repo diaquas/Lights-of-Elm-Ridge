@@ -7,11 +7,12 @@ import {
   useMemo,
   useCallback,
   useRef,
+  useEffect,
   type ReactNode,
 } from "react";
 import type { InteractiveMappingState, SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 import type { MappingPhase } from "@/types/mappingPhases";
-import { PHASE_CONFIG } from "@/types/mappingPhases";
+import { PHASE_CONFIG, AUTO_ACCEPT_THRESHOLD, STRONG_THRESHOLD } from "@/types/mappingPhases";
 import { isSpinnerType } from "@/types/xLightsTypes";
 import { suggestMatchesForSource } from "@/lib/modiq/matcher";
 
@@ -21,6 +22,15 @@ export interface PhaseProgress {
   completed: number;
   total: number;
   percentage: number;
+}
+
+export interface AutoMatchStats {
+  /** Total number of auto-matched items */
+  total: number;
+  /** Items with score >= 75% */
+  strongCount: number;
+  /** Items with score 70–74% */
+  reviewCount: number;
 }
 
 interface PhaseContextValue {
@@ -44,10 +54,10 @@ interface PhaseContextValue {
   scoreMap: Map<string, number>;
   /** The full interactive mapping state (for phase components to dispatch actions) */
   interactive: InteractiveMappingState;
-  /** Move rejected auto-accept items to their natural fallback phases */
-  reassignFromAutoAccept: (rejectedNames: Set<string>) => void;
-  /** Register a callback that runs instead of the default goToNextPhase (for auto-accept) */
-  registerOnContinue: (cb: (() => void) | null) => void;
+  /** Set of source names that were auto-matched during loading (for Link2 badge) */
+  autoMatchedNames: ReadonlySet<string>;
+  /** Aggregate stats about auto-matched items */
+  autoMatchStats: AutoMatchStats;
 }
 
 const MappingPhaseContext = createContext<PhaseContextValue | null>(null);
@@ -108,22 +118,13 @@ export function MappingPhaseProvider({
   children,
   interactive,
 }: MappingPhaseProviderProps) {
-  const [currentPhase, setCurrentPhase] = useState<MappingPhase>("auto-accept");
-  const onContinueRef = useRef<(() => void) | null>(null);
-
-  const registerOnContinue = useCallback((cb: (() => void) | null) => {
-    onContinueRef.current = cb;
-  }, []);
+  const [currentPhase, setCurrentPhase] = useState<MappingPhase>("individuals");
 
   const phaseIndex = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
   const canGoNext = phaseIndex < PHASE_CONFIG.length - 1;
   const canGoPrevious = phaseIndex > 0;
 
   const goToNextPhase = useCallback(() => {
-    if (onContinueRef.current) {
-      onContinueRef.current();
-      return;
-    }
     const idx = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
     if (idx < PHASE_CONFIG.length - 1) {
       setCurrentPhase(PHASE_CONFIG[idx + 1].id);
@@ -138,18 +139,17 @@ export function MappingPhaseProvider({
   }, [currentPhase]);
 
   // Stable caches: scores and phase assignments are computed once per item
-  // and never change. This prevents items from migrating between phases when mapped
-  // (e.g., a group getting score 1.0 and jumping to auto-accept).
+  // and never change. This prevents items from migrating between phases when mapped.
   const stableScoreRef = useRef(new Map<string, number>());
   const phaseAssignmentRef = useRef(new Map<string, MappingPhase>());
-  /** For auto-accept items: the phase they'd belong to if rejected (groups/individuals/spinners) */
-  const fallbackPhaseRef = useRef(new Map<string, MappingPhase>());
 
-  /** Auto-accept threshold: items scored 70%+ go to auto-accept for bulk review */
-  const AUTO_ACCEPT_THRESHOLD = 0.70;
+  /** Names of items that were auto-matched (pre-applied). Persists across renders. */
+  const autoMatchedRef = useRef(new Set<string>());
+  const didAutoApply = useRef(false);
 
   // Compute stable scores and phase assignments for any new items.
   // Once an item's score/phase is cached, it never recalculates.
+  // All items go directly to their natural phase (spinners or individuals).
   const scoreMap = useMemo(() => {
     for (const layer of interactive.sourceLayerMappings) {
       if (layer.isSkipped) continue;
@@ -176,21 +176,9 @@ export function MappingPhaseProvider({
         }
       }
 
-      // Phase: assign once based on stable score, cache forever
+      // Phase: assign to natural phase based on entity type (no auto-accept phase)
       if (!phaseAssignmentRef.current.has(name)) {
-        const isSpinner = isSpinnerType(layer.sourceModel.groupType);
-        const bestScore = stableScoreRef.current.get(name) ?? 0;
-
-        // All entity types (groups, models, spinners) with 70%+ go to auto-accept
-        if (bestScore >= AUTO_ACCEPT_THRESHOLD) {
-          phaseAssignmentRef.current.set(name, "auto-accept");
-          // Store natural fallback for rejection routing
-          if (isSpinner) {
-            fallbackPhaseRef.current.set(name, "spinners");
-          } else {
-            fallbackPhaseRef.current.set(name, "individuals");
-          }
-        } else if (isSpinner) {
+        if (isSpinnerType(layer.sourceModel.groupType)) {
           phaseAssignmentRef.current.set(name, "spinners");
         } else {
           phaseAssignmentRef.current.set(name, "individuals");
@@ -202,18 +190,96 @@ export function MappingPhaseProvider({
   }, [interactive]);
 
   /**
-   * Move rejected auto-accept items to their natural fallback phases.
-   * Called by AutoAcceptPhase when user clicks Continue with unchecked items.
-   * The ref mutation is visible on next render (triggered by other state changes).
+   * Auto-apply matches: one-time side effect that runs the greedy assignment
+   * algorithm and pre-applies 70%+ matches. Items that were already mapped
+   * by matchModels() are also tracked as auto-matched.
+   *
+   * Uses the same two-pass greedy algorithm from the old AutoAcceptPhase:
+   * Pass 1: Each dest claimed only once (highest-scoring source wins)
+   * Pass 2: Conflicted items (all dests taken) are skipped
    */
-  const reassignFromAutoAccept = useCallback((rejectedNames: Set<string>) => {
-    for (const name of rejectedNames) {
-      const fallback = fallbackPhaseRef.current.get(name);
-      if (fallback) {
-        phaseAssignmentRef.current.set(name, fallback);
+  useEffect(() => {
+    if (didAutoApply.current) return;
+    if (interactive.sourceLayerMappings.length === 0) return;
+    if (stableScoreRef.current.size === 0) return;
+    didAutoApply.current = true;
+
+    // Collect eligible items (score >= 70% AND not yet mapped)
+    const eligible: SourceLayerMapping[] = [];
+    for (const layer of interactive.sourceLayerMappings) {
+      if (layer.isSkipped) continue;
+      const score = stableScoreRef.current.get(layer.sourceModel.name) ?? 0;
+      if (score >= AUTO_ACCEPT_THRESHOLD) {
+        if (layer.isMapped) {
+          // Already mapped by matchModels() — track as auto-matched
+          autoMatchedRef.current.add(layer.sourceModel.name);
+        } else {
+          eligible.push(layer);
+        }
       }
     }
-  }, []);
+
+    if (eligible.length === 0) return;
+
+    // Pre-compute suggestions cache
+    const suggestionsCache = new Map<
+      string,
+      ReturnType<typeof interactive.getSuggestionsForLayer>
+    >();
+    for (const item of eligible) {
+      suggestionsCache.set(
+        item.sourceModel.name,
+        interactive.getSuggestionsForLayer(item.sourceModel),
+      );
+    }
+
+    // Sort by score descending for greedy pass
+    const sorted = [...eligible].sort((a, b) => {
+      const sa = stableScoreRef.current.get(a.sourceModel.name) ?? 0;
+      const sb = stableScoreRef.current.get(b.sourceModel.name) ?? 0;
+      return sb - sa;
+    });
+
+    // Pass 1 — greedy unique assignment
+    const usedDests = new Set<string>();
+    const assignments = new Map<string, string>(); // sourceName → destName
+
+    for (const item of sorted) {
+      const suggs = suggestionsCache.get(item.sourceModel.name) ?? [];
+      for (const sugg of suggs) {
+        if (!usedDests.has(sugg.model.name)) {
+          usedDests.add(sugg.model.name);
+          assignments.set(item.sourceModel.name, sugg.model.name);
+          break;
+        }
+      }
+    }
+
+    // Apply assignments
+    for (const [sourceName, destName] of assignments) {
+      interactive.assignUserModelToLayer(sourceName, destName);
+      autoMatchedRef.current.add(sourceName);
+    }
+  }, [interactive, scoreMap]);
+
+  // Expose autoMatchedNames as a stable set (updates when the ref changes)
+  const [autoMatchedNames, setAutoMatchedNames] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    if (autoMatchedRef.current.size > 0 && autoMatchedRef.current.size !== autoMatchedNames.size) {
+      setAutoMatchedNames(new Set(autoMatchedRef.current));
+    }
+  }, [scoreMap, autoMatchedNames.size]);
+
+  const autoMatchStats = useMemo((): AutoMatchStats => {
+    let strongCount = 0;
+    let reviewCount = 0;
+    for (const name of autoMatchedNames) {
+      const score = stableScoreRef.current.get(name) ?? 0;
+      if (score >= STRONG_THRESHOLD) strongCount++;
+      else reviewCount++;
+    }
+    return { total: autoMatchedNames.size, strongCount, reviewCount };
+  }, [autoMatchedNames]);
 
   const getPhaseItems = useCallback(
     (phase: MappingPhase): SourceLayerMapping[] => {
@@ -222,24 +288,10 @@ export function MappingPhaseProvider({
       }
       return sortLayers(interactive.sourceLayerMappings.filter((layer) => {
         if (layer.isSkipped) return false;
-        const assigned = phaseAssignmentRef.current.get(layer.sourceModel.name);
-        if (assigned === phase) return true;
-        // After user completes auto-accept, include accepted (mapped) items
-        // in their natural phase so they appear in "already mapped" sections.
-        // Only do this once user has moved past auto-accept to avoid double-counting.
-        if (
-          assigned === "auto-accept" &&
-          layer.isMapped &&
-          phase !== "auto-accept" &&
-          currentPhase !== "auto-accept" &&
-          fallbackPhaseRef.current.get(layer.sourceModel.name) === phase
-        ) {
-          return true;
-        }
-        return false;
+        return phaseAssignmentRef.current.get(layer.sourceModel.name) === phase;
       }));
     },
-    [interactive.sourceLayerMappings, currentPhase],
+    [interactive.sourceLayerMappings],
   );
 
   const phaseItems = useMemo(
@@ -295,8 +347,8 @@ export function MappingPhaseProvider({
       phaseCounts,
       scoreMap,
       interactive,
-      reassignFromAutoAccept,
-      registerOnContinue,
+      autoMatchedNames,
+      autoMatchStats,
     }),
     [
       currentPhase,
@@ -311,8 +363,8 @@ export function MappingPhaseProvider({
       phaseCounts,
       scoreMap,
       interactive,
-      reassignFromAutoAccept,
-      registerOnContinue,
+      autoMatchedNames,
+      autoMatchStats,
     ],
   );
 
