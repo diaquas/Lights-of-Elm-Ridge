@@ -1636,19 +1636,7 @@ export default function ModIQTool() {
               <div className="absolute inset-0 bg-accent/5" />
               <div className="relative">
                 <div className="flex justify-center mb-2">
-                  <svg
-                    className="w-5 h-5 text-accent"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={1.5}
-                      d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m9.86-1.027a4.5 4.5 0 00-1.242-7.244l-4.5-4.5a4.5 4.5 0 00-6.364 6.364L4.343 8.07"
-                    />
-                  </svg>
+                  <span className="text-[20px] leading-none">&#129309;</span>
                 </div>
                 <div
                   className={`text-2xl font-bold text-accent font-display ${processingStats.matchesFound > 0 ? "proc-counter-bump" : ""}`}
