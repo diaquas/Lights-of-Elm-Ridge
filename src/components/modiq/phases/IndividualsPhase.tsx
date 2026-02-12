@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, memo } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import {
   useMappingPhase,
   findNextUnmapped,
@@ -37,6 +37,7 @@ export function IndividualsPhase() {
   }, [interactive.sourceLayerMappings]);
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [showSwapSuggestions, setShowSwapSuggestions] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<"all" | "unmapped" | "mapped">("all");
@@ -62,6 +63,9 @@ export function IndividualsPhase() {
   const selectedItem = selectedItemId
     ? (phaseItemsByName.get(selectedItemId) ?? null)
     : null;
+
+  // Reset swap panel when selection changes
+  useEffect(() => { setShowSwapSuggestions(false); }, [selectedItemId]);
 
   // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
   const topSuggestionsMap = useMemo(() => {
@@ -205,9 +209,19 @@ export function IndividualsPhase() {
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
 
   const handleAccept = (sourceName: string, userModelName: string) => {
+    // If re-mapping (swap), remove old link first
+    const current = phaseItemsByName.get(sourceName);
+    if (current?.isMapped) {
+      const oldDest = current.assignedUserModels[0]?.name;
+      if (oldDest && oldDest !== userModelName) {
+        interactive.removeLinkFromLayer(sourceName, oldDest);
+      }
+    }
     interactive.assignUserModelToLayer(sourceName, userModelName);
     bulk.checkForPattern(sourceName, userModelName);
-    setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
+    if (!current?.isMapped) {
+      setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
+    }
   };
 
   const handleBulkInferenceAccept = () => {
@@ -360,6 +374,13 @@ export function IndividualsPhase() {
 
         {/* Unified list — groups → ungrouped, with left border visual state */}
         <div className={PANEL_STYLES.scrollArea}>
+          {/* Expand/Collapse All (only if there are expandable groups) */}
+          {itemsSplit.groups.length > 0 && (
+            <div className="flex items-center gap-3 px-4 pb-1.5 text-[10px] text-foreground/30">
+              <button type="button" onClick={() => setExpandedGroups(new Set(itemsSplit.groups.map((g) => g.groupItem.sourceModel.name)))} className="hover:text-foreground/60 transition-colors">Expand All</button>
+              <button type="button" onClick={() => setExpandedGroups(new Set())} className="hover:text-foreground/60 transition-colors">Collapse All</button>
+            </div>
+          )}
           <div className="px-4 pb-3 space-y-1">
             {/* xLights Groups with child models */}
             {itemsSplit.groups.map((group) => (
@@ -429,7 +450,7 @@ export function IndividualsPhase() {
 
       {/* Right: Source Panel */}
       <div className="w-1/2 flex flex-col bg-surface/50 overflow-hidden">
-        {selectedItem && !selectedItem.isMapped ? (
+        {selectedItem ? (
           <>
             {/* Item Info Header — compact, same height as left */}
             <div className={PANEL_STYLES.header.wrapper}>
@@ -453,38 +474,55 @@ export function IndividualsPhase() {
               </div>
             </div>
 
-            {/* Universal Source Panel — no type filter, shows groups + models */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <UniversalSourcePanel
-                allModels={interactive.allDestModels}
-                suggestions={suggestions}
-                assignedNames={interactive.assignedUserModelNames}
-                selectedDestLabel={selectedItem.sourceModel.name}
-                sourcePixelCount={selectedItem.sourceModel.pixelCount}
-                onAccept={(userModelName) =>
-                  handleAccept(selectedItem.sourceModel.name, userModelName)
-                }
-                dnd={dnd}
-                destToSourcesMap={interactive.destToSourcesMap}
-                onRemoveLink={interactive.removeLinkFromLayer}
-                sourceEffectCounts={sourceEffectCounts}
-                skippedDestModels={interactive.skippedDestModels}
-                onSkipDest={interactive.skipDestModel}
-                onUnskipDest={interactive.unskipDestModel}
-                onUnskipAllDest={interactive.unskipAllDestModels}
+            {/* Current Mapping Card (for mapped items) */}
+            {selectedItem.isMapped && (
+              <CurrentMappingCard
+                item={selectedItem}
+                onRemoveMapping={() => {
+                  const destName = selectedItem.assignedUserModels[0]?.name;
+                  if (destName) interactive.removeLinkFromLayer(selectedItem.sourceModel.name, destName);
+                }}
+                onSwapSource={() => setShowSwapSuggestions((v) => !v)}
+                showSuggestions={showSwapSuggestions}
               />
-            </div>
+            )}
 
-            {/* Skip */}
-            <div className="px-6 py-3 border-t border-border flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => handleSkip(selectedItem.sourceModel.name)}
-                className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
-              >
-                Skip This {selectedItem.isGroup ? "Group" : "Model"}
-              </button>
-            </div>
+            {/* Universal Source Panel — shows suggestions for unmapped, or swap options */}
+            {(!selectedItem.isMapped || showSwapSuggestions) && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <UniversalSourcePanel
+                  allModels={interactive.allDestModels}
+                  suggestions={suggestions}
+                  assignedNames={interactive.assignedUserModelNames}
+                  selectedDestLabel={selectedItem.sourceModel.name}
+                  sourcePixelCount={selectedItem.sourceModel.pixelCount}
+                  onAccept={(userModelName) =>
+                    handleAccept(selectedItem.sourceModel.name, userModelName)
+                  }
+                  dnd={dnd}
+                  destToSourcesMap={interactive.destToSourcesMap}
+                  onRemoveLink={interactive.removeLinkFromLayer}
+                  sourceEffectCounts={sourceEffectCounts}
+                  skippedDestModels={interactive.skippedDestModels}
+                  onSkipDest={interactive.skipDestModel}
+                  onUnskipDest={interactive.unskipDestModel}
+                  onUnskipAllDest={interactive.unskipAllDestModels}
+                />
+              </div>
+            )}
+
+            {/* Skip (only for unmapped) */}
+            {!selectedItem.isMapped && (
+              <div className="px-6 py-3 border-t border-border flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSkip(selectedItem.sourceModel.name)}
+                  className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
+                >
+                  Skip This {selectedItem.isGroup ? "Group" : "Model"}
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground/30">
@@ -503,6 +541,7 @@ export function IndividualsPhase() {
                 />
               </svg>
               <p className="text-sm">Select a group or model to see suggestions</p>
+              <p className="text-xs text-foreground/20 mt-1.5">Already-mapped items can be clicked to review or swap</p>
             </div>
           </div>
         )}
@@ -538,20 +577,25 @@ function XLightsGroupCard({
 }) {
   const mappedCount = members.filter((m) => m.isMapped).length;
   const totalCount = members.length;
+  const groupFxCount = group.effectCount + members.reduce((sum, m) => sum + m.effectCount, 0);
   const groupBorder = group.isMapped || (totalCount > 0 && mappedCount === totalCount) ? "border-l-green-500/70" : mappedCount > 0 ? "border-l-amber-400/70" : "border-l-amber-400/70";
   return (
     <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}>
-      {/* Group header — single line: ▸ GRP  Name  (N)  ·  status  ·  suggestion    ★  ✕ */}
+      {/* Group header: ▸ GRP  Name  (N)  ·  fx  ·  status  →dest  ★  ✕ */}
       <div className="flex items-center gap-1.5 px-3 py-1.5">
         <button type="button" onClick={onToggle} className="flex-shrink-0 p-0.5">
           <svg className={`w-3 h-3 text-foreground/40 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-        <button type="button" onClick={onSelect} className="flex-1 flex items-center gap-1.5 text-left min-w-0">
+        <button type="button" onClick={onSelect} className="flex items-center gap-1.5 text-left min-w-0 shrink">
           <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>GRP</span>
           <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.sourceModel.name}</span>
           <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({totalCount})</span>
+          <span className="text-foreground/15 flex-shrink-0">&middot;</span>
+          <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
+            {groupFxCount >= 1000 ? `${(groupFxCount / 1000).toFixed(1)}k` : groupFxCount} fx
+          </span>
           {totalCount > 0 && (
             <span className="text-[10px] text-foreground/30 flex-shrink-0">
               &middot; {mappedCount > 0 && <span className="text-green-400/60">{mappedCount}</span>}
@@ -559,38 +603,38 @@ function XLightsGroupCard({
               {mappedCount < totalCount && <span className="text-amber-400/60">{totalCount - mappedCount} unmapped</span>}
             </span>
           )}
+        </button>
+        {/* Right-aligned destination / suggestion */}
+        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
-            <span className="text-[10px] text-foreground/30 flex-shrink-0">
-              &middot; <span className="text-green-400/70">&rarr; {group.assignedUserModels[0]?.name}</span>
-              {group.coveredChildCount > 0 && <span className="text-teal-400/50 ml-1">covers {group.coveredChildCount}</span>}
+            <span className="text-[10px] text-green-400/70 truncate max-w-[180px]">
+              &rarr; {group.assignedUserModels[0]?.name}
             </span>
           )}
           {!group.isMapped && topSuggestion && (
             <>
-              <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-              <span className="text-[10px] text-foreground/40 flex-shrink-0">Suggested:</span>
-              <span className="text-[11px] text-foreground/60 truncate">{topSuggestion.model.name}</span>
+              <span className="text-[11px] text-foreground/50 truncate max-w-[160px]">{topSuggestion.model.name}</span>
               <ConfidenceBadge score={topSuggestion.score} size="sm" />
             </>
           )}
-        </button>
-        {topSuggestion && onAccept && (
-          <button type="button" onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
-            className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors flex-shrink-0" title="Accept suggested match">
-            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
-            </svg>
-          </button>
-        )}
-        {onSkip && (
-          <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
-            title={`Skip group and ${totalCount} members`}
-            className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors flex-shrink-0">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+          {topSuggestion && onAccept && !group.isMapped && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
+              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors" title="Accept suggested match">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
+              </svg>
+            </button>
+          )}
+          {onSkip && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
+              title={`Skip group and ${totalCount} members`}
+              className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
       {/* Expanded children */}
       {isExpanded && members.length > 0 && (
@@ -655,19 +699,21 @@ function ItemCard({
       <div className="flex items-center gap-2 min-w-0">
         <InlineEffectBadge count={item.effectCount} />
         <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">{item.sourceModel.name}</span>
-        {px > 0 && (<><span className="text-foreground/15 flex-shrink-0">&middot;</span><span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{px}ch</span></>)}
+        {px > 0 && (<><span className="text-foreground/15 flex-shrink-0">&middot;</span><span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{px}px</span></>)}
         <span className="text-foreground/15 flex-shrink-0">&middot;</span>
         <span className="text-[10px] text-foreground/25 flex-shrink-0">{item.sourceModel.type}</span>
-        {topSuggestion && (
-          <>
-            <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-            <span className="text-[10px] text-foreground/40 flex-shrink-0">Suggested:</span>
-            <span className="text-[11px] text-foreground/60 truncate">{topSuggestion.model.name}</span>
-            <ConfidenceBadge score={topSuggestion.score} size="sm" />
-          </>
-        )}
-        <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-          {topSuggestion && (
+        {/* Right-aligned destination / suggestion */}
+        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+          {item.isMapped && (
+            <span className="text-[10px] text-green-400/70 truncate max-w-[160px]">&rarr; {item.assignedUserModels[0]?.name}</span>
+          )}
+          {!item.isMapped && topSuggestion && (
+            <>
+              <span className="text-[11px] text-foreground/50 truncate max-w-[140px]">{topSuggestion.model.name}</span>
+              <ConfidenceBadge score={topSuggestion.score} size="sm" />
+            </>
+          )}
+          {!item.isMapped && topSuggestion && (
             <button type="button" onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
               className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors" title="Accept suggested match">
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
@@ -693,8 +739,63 @@ const ItemCardMemo = memo(
     prev.item.sourceModel === next.item.sourceModel &&
     prev.item.isMapped === next.item.isMapped &&
     prev.item.effectCount === next.item.effectCount &&
+    prev.item.assignedUserModels === next.item.assignedUserModels &&
     prev.isSelected === next.isSelected &&
     prev.isDropTarget === next.isDropTarget &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score,
 );
+
+// ─── Current Mapping Card (Right Panel for mapped items) ────────
+
+function CurrentMappingCard({
+  item,
+  onRemoveMapping,
+  onSwapSource,
+  showSuggestions,
+}: {
+  item: SourceLayerMapping;
+  onRemoveMapping: () => void;
+  onSwapSource: () => void;
+  showSuggestions: boolean;
+}) {
+  const destName = item.assignedUserModels[0]?.name;
+  if (!destName) return null;
+
+  return (
+    <div className="px-5 py-3 border-b border-border flex-shrink-0">
+      <div className="rounded-lg border border-green-500/25 bg-green-500/5 p-3">
+        <div className="flex items-center gap-2 mb-1.5">
+          <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+          <span className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider">Currently Mapped To</span>
+        </div>
+        <p className="text-[14px] font-semibold text-foreground ml-5.5">{destName}</p>
+        {item.coveredChildCount > 0 && (
+          <p className="text-[11px] text-teal-400/60 mt-0.5 ml-5.5">covers {item.coveredChildCount} children</p>
+        )}
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            type="button"
+            onClick={onSwapSource}
+            className={`px-3 py-1.5 text-[11px] rounded-md border transition-colors ${
+              showSuggestions
+                ? "bg-accent/10 border-accent/30 text-accent"
+                : "border-border text-foreground/50 hover:border-foreground/30 hover:text-foreground/70"
+            }`}
+          >
+            {showSuggestions ? "Hide Suggestions" : "Swap Source"}
+          </button>
+          <button
+            type="button"
+            onClick={onRemoveMapping}
+            className="px-3 py-1.5 text-[11px] rounded-md border border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:border-red-500/40 transition-colors"
+          >
+            Remove Mapping
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

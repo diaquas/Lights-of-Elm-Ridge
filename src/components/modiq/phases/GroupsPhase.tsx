@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, useEffect, memo } from "react";
 import {
   useMappingPhase,
   findNextUnmapped,
@@ -39,6 +39,7 @@ export function GroupsPhase() {
   }, [interactive.sourceLayerMappings]);
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [showSwapSuggestions, setShowSwapSuggestions] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("effects-desc");
@@ -59,6 +60,9 @@ export function GroupsPhase() {
   const selectedGroup = selectedGroupId
     ? (phaseItemsByName.get(selectedGroupId) ?? null)
     : null;
+
+  // Reset swap panel when selection changes
+  useEffect(() => { setShowSwapSuggestions(false); }, [selectedGroupId]);
 
   // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
   const topSuggestionsMap = useMemo(() => {
@@ -130,9 +134,19 @@ export function GroupsPhase() {
   }
 
   const handleAcceptGroup = (groupName: string, userModelName: string) => {
+    // If re-mapping (swap), remove old link first
+    const current = phaseItemsByName.get(groupName);
+    if (current?.isMapped) {
+      const oldDest = current.assignedUserModels[0]?.name;
+      if (oldDest && oldDest !== userModelName) {
+        interactive.removeLinkFromLayer(groupName, oldDest);
+      }
+    }
     interactive.assignUserModelToLayer(groupName, userModelName);
     bulk.checkForPattern(groupName, userModelName);
-    setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
+    if (!current?.isMapped) {
+      setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
+    }
   };
 
   const handleBulkInferenceAccept = () => {
@@ -335,11 +349,16 @@ export function GroupsPhase() {
               <summary className="text-sm text-foreground/40 cursor-pointer hover:text-foreground/60">
                 {mappedGroups.length} groups already mapped
               </summary>
-              <div className="mt-3 space-y-2 opacity-50">
+              <div className="mt-3 space-y-2">
                 {mappedGroups.map((group) => (
                   <div
                     key={group.sourceModel.name}
-                    className="p-3 rounded-lg bg-green-500/5 border border-green-500/15"
+                    onClick={() => setSelectedGroupId(group.sourceModel.name)}
+                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                      selectedGroupId === group.sourceModel.name
+                        ? "bg-accent/5 border-accent/30 ring-1 ring-accent/20"
+                        : "bg-green-500/5 border-green-500/15 hover:border-green-500/30"
+                    }`}
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -350,9 +369,8 @@ export function GroupsPhase() {
                       <span className="text-[13px] text-foreground/60 truncate">
                         {group.sourceModel.name}
                       </span>
-                      <span className="text-foreground/20">&rarr;</span>
-                      <span className="text-[13px] text-green-400/70 truncate">
-                        {group.assignedUserModels[0]?.name}
+                      <span className="ml-auto text-[13px] text-green-400/70 truncate flex-shrink-0">
+                        &rarr; {group.assignedUserModels[0]?.name}
                       </span>
                     </div>
                     {group.coveredChildCount > 0 && (
@@ -422,42 +440,59 @@ export function GroupsPhase() {
               </div>
             </div>
 
-            {/* Universal Source Panel */}
-            <div className="flex-1 min-h-0 overflow-hidden">
-              <UniversalSourcePanel
-                allModels={interactive.allDestModels}
-                suggestions={suggestions}
-                sourceFilter={groupSourceFilter}
-                assignedNames={interactive.assignedUserModelNames}
-                selectedDestLabel={selectedGroup.sourceModel.name}
-                sourcePixelCount={selectedGroup.sourceModel.pixelCount}
-                onAccept={(userModelName) =>
-                  handleAcceptGroup(
-                    selectedGroup.sourceModel.name,
-                    userModelName,
-                  )
-                }
-                dnd={dnd}
-                destToSourcesMap={interactive.destToSourcesMap}
-                onRemoveLink={interactive.removeLinkFromLayer}
-                sourceEffectCounts={sourceEffectCounts}
-                skippedDestModels={interactive.skippedDestModels}
-                onSkipDest={interactive.skipDestModel}
-                onUnskipDest={interactive.unskipDestModel}
-                onUnskipAllDest={interactive.unskipAllDestModels}
+            {/* Current Mapping Card (for mapped groups) */}
+            {selectedGroup.isMapped && (
+              <MappedGroupCard
+                group={selectedGroup}
+                onRemoveMapping={() => {
+                  const destName = selectedGroup.assignedUserModels[0]?.name;
+                  if (destName) interactive.removeLinkFromLayer(selectedGroup.sourceModel.name, destName);
+                }}
+                onSwapSource={() => setShowSwapSuggestions((v) => !v)}
+                showSuggestions={showSwapSuggestions}
               />
-            </div>
+            )}
 
-            {/* Skip */}
-            <div className="px-6 py-3 border-t border-border flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => handleSkipGroup(selectedGroup.sourceModel.name)}
-                className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
-              >
-                Skip This Group
-              </button>
-            </div>
+            {/* Universal Source Panel */}
+            {(!selectedGroup.isMapped || showSwapSuggestions) && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <UniversalSourcePanel
+                  allModels={interactive.allDestModels}
+                  suggestions={suggestions}
+                  sourceFilter={groupSourceFilter}
+                  assignedNames={interactive.assignedUserModelNames}
+                  selectedDestLabel={selectedGroup.sourceModel.name}
+                  sourcePixelCount={selectedGroup.sourceModel.pixelCount}
+                  onAccept={(userModelName) =>
+                    handleAcceptGroup(
+                      selectedGroup.sourceModel.name,
+                      userModelName,
+                    )
+                  }
+                  dnd={dnd}
+                  destToSourcesMap={interactive.destToSourcesMap}
+                  onRemoveLink={interactive.removeLinkFromLayer}
+                  sourceEffectCounts={sourceEffectCounts}
+                  skippedDestModels={interactive.skippedDestModels}
+                  onSkipDest={interactive.skipDestModel}
+                  onUnskipDest={interactive.unskipDestModel}
+                  onUnskipAllDest={interactive.unskipAllDestModels}
+                />
+              </div>
+            )}
+
+            {/* Skip (only for unmapped) */}
+            {!selectedGroup.isMapped && (
+              <div className="px-6 py-3 border-t border-border flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSkipGroup(selectedGroup.sourceModel.name)}
+                  className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
+                >
+                  Skip This Group
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground/30">
@@ -476,6 +511,7 @@ export function GroupsPhase() {
                 />
               </svg>
               <p className="text-sm">Select a group to see suggestions</p>
+              <p className="text-xs text-foreground/20 mt-1.5">Already-mapped groups can be clicked to review or swap</p>
             </div>
           </div>
         )}
@@ -727,3 +763,57 @@ const GroupListCardMemo = memo(
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score,
 );
+
+// ─── Mapped Group Card (Right Panel) ────────────────────
+
+function MappedGroupCard({
+  group,
+  onRemoveMapping,
+  onSwapSource,
+  showSuggestions,
+}: {
+  group: SourceLayerMapping;
+  onRemoveMapping: () => void;
+  onSwapSource: () => void;
+  showSuggestions: boolean;
+}) {
+  const destName = group.assignedUserModels[0]?.name;
+  if (!destName) return null;
+
+  return (
+    <div className="px-5 py-3 border-b border-border flex-shrink-0">
+      <div className="rounded-lg border border-green-500/25 bg-green-500/5 p-3">
+        <div className="flex items-center gap-2 mb-1.5">
+          <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+          </svg>
+          <span className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider">Currently Mapped To</span>
+        </div>
+        <p className="text-[14px] font-semibold text-foreground ml-5.5">{destName}</p>
+        {group.coveredChildCount > 0 && (
+          <p className="text-[11px] text-teal-400/60 mt-0.5 ml-5.5">covers {group.coveredChildCount} children</p>
+        )}
+        <div className="flex items-center gap-2 mt-3">
+          <button
+            type="button"
+            onClick={onSwapSource}
+            className={`px-3 py-1.5 text-[11px] rounded-md border transition-colors ${
+              showSuggestions
+                ? "bg-accent/10 border-accent/30 text-accent"
+                : "border-border text-foreground/50 hover:border-foreground/30 hover:text-foreground/70"
+            }`}
+          >
+            {showSuggestions ? "Hide Suggestions" : "Swap Source"}
+          </button>
+          <button
+            type="button"
+            onClick={onRemoveMapping}
+            className="px-3 py-1.5 text-[11px] rounded-md border border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:border-red-500/40 transition-colors"
+          >
+            Remove Mapping
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

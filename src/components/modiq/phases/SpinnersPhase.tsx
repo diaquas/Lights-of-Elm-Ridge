@@ -632,7 +632,7 @@ function SpinnerListCard({
           <span className="px-1.5 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/30 rounded flex-shrink-0">{categoryLabel}</span>
         )}
         <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">{item.sourceModel.name}</span>
-        {px > 0 && (<><span className="text-foreground/15 flex-shrink-0">&middot;</span><span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{px}ch</span></>)}
+        {px > 0 && (<><span className="text-foreground/15 flex-shrink-0">&middot;</span><span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{px}px</span></>)}
         {topSuggestion && (
           <>
             <span className="text-foreground/15 flex-shrink-0">&middot;</span>
