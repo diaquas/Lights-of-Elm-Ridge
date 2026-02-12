@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useMappingPhase, extractFamily } from "@/contexts/MappingPhaseContext";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
@@ -58,24 +58,31 @@ interface SourceCardGroup {
   items: SourceGridRow[];
 }
 
+/** Grouped grid rows for display perspective */
+interface GridGroup {
+  family: string;
+  rows: GridRow[];
+  mappedCount: number;
+  unmappedCount: number;
+}
+
 // ─── Helpers ────────────────────────────────────────────
 
 function naturalCompare(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 }
 
-function coverageColor(pct: number): string {
-  if (pct >= 90) return "text-green-400";
-  if (pct >= 75) return "text-yellow-400";
-  if (pct >= 50) return "text-orange-400";
-  return "text-red-400";
+/** Extract base name and trailing number from a string like "Mini Pumpkin 3" → ["Mini Pumpkin", 3] */
+function extractNumberedName(name: string): { base: string; num: number } | null {
+  const match = name.match(/^(.+?)\s*(\d+)\s*$/);
+  if (!match) return null;
+  return { base: match[1].trim(), num: parseInt(match[2], 10) };
 }
 
-function coverageBarColor(pct: number): string {
-  if (pct >= 90) return "bg-green-500";
-  if (pct >= 75) return "bg-yellow-500";
-  if (pct >= 50) return "bg-orange-500";
-  return "bg-red-500";
+interface AutoCompleteSuggestion {
+  sourceBase: string;
+  destBase: string;
+  pairs: { sourceName: string; destName: string }[];
 }
 
 // ─── Component ──────────────────────────────────────────
@@ -113,6 +120,14 @@ export function FinalizePhase() {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [gridDropdown, setGridDropdown] = useState<string | null>(null);
   const [gridDropdownSearch, setGridDropdownSearch] = useState("");
+  const [expandedGridGroups, setExpandedGridGroups] = useState<Set<string>>(new Set());
+
+  // Auto-complete suggestion
+  const [autoComplete, setAutoComplete] = useState<AutoCompleteSuggestion | null>(null);
+
+  // Drag-from-tray state
+  const [draggingSource, setDraggingSource] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
 
   // Coverage delta toast
   const [deltaToast, setDeltaToast] = useState<string | null>(null);
@@ -238,25 +253,81 @@ export function FinalizePhase() {
     return count;
   }, [darkItems, darkSuggestions]);
 
-  // Filtered groups by search
+  // Filtered + sorted groups (card view)
   const filteredDarkGroups = useMemo(() => {
-    if (!search.trim()) return darkGroups;
-    const q = search.toLowerCase();
-    return darkGroups
-      .map((g) => ({
-        ...g,
-        items: g.items.filter((i) => i.model.name.toLowerCase().includes(q)),
-      }))
-      .filter((g) => g.items.length > 0);
-  }, [darkGroups, search]);
+    let groups = darkGroups;
+
+    // Filter by mode
+    if (filterMode === "suggested") {
+      groups = groups
+        .map((g) => ({ ...g, items: g.items.filter((i) => darkSuggestions.has(i.model.name)) }))
+        .filter((g) => g.items.length > 0);
+    }
+
+    // Filter by search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      groups = groups
+        .map((g) => ({
+          ...g,
+          items: g.items.filter((i) => i.model.name.toLowerCase().includes(q)),
+        }))
+        .filter((g) => g.items.length > 0);
+    }
+
+    // Sort items within groups
+    if (sortKey !== "unmapped-first") {
+      groups = groups.map((g) => {
+        const sorted = [...g.items];
+        switch (sortKey) {
+          case "name-asc":
+            sorted.sort((a, b) => naturalCompare(a.model.name, b.model.name));
+            break;
+          case "name-desc":
+            sorted.sort((a, b) => naturalCompare(b.model.name, a.model.name));
+            break;
+          case "match-desc":
+            sorted.sort((a, b) => {
+              const sa = darkSuggestions.get(a.model.name)?.[0]?.score ?? 0;
+              const sb = darkSuggestions.get(b.model.name)?.[0]?.score ?? 0;
+              return sb - sa || naturalCompare(a.model.name, b.model.name);
+            });
+            break;
+          case "fx-desc":
+            sorted.sort((a, b) => {
+              const fa = darkSuggestions.get(a.model.name)?.[0]?.effectCount ?? 0;
+              const fb = darkSuggestions.get(b.model.name)?.[0]?.effectCount ?? 0;
+              return fb - fa || naturalCompare(a.model.name, b.model.name);
+            });
+            break;
+        }
+        return { ...g, items: sorted };
+      });
+    }
+
+    return groups;
+  }, [darkGroups, search, filterMode, sortKey, darkSuggestions]);
 
   const filteredMapped = useMemo(() => {
-    if (!search.trim()) return mappedItems;
-    const q = search.toLowerCase();
-    return mappedItems.filter(
-      (i) => i.model.name.toLowerCase().includes(q) || i.sources.some((s) => s.toLowerCase().includes(q)),
-    );
-  }, [mappedItems, search]);
+    let items = mappedItems;
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter(
+        (i) => i.model.name.toLowerCase().includes(q) || i.sources.some((s) => s.toLowerCase().includes(q)),
+      );
+    }
+
+    // Sort
+    if (sortKey === "name-asc" || sortKey === "name-desc") {
+      const sorted = [...items];
+      if (sortKey === "name-asc") sorted.sort((a, b) => naturalCompare(a.model.name, b.model.name));
+      else sorted.sort((a, b) => naturalCompare(b.model.name, a.model.name));
+      items = sorted;
+    }
+
+    return items;
+  }, [mappedItems, search, sortKey]);
 
   // ── Source tray data ──
   const sourceTrayItems = useMemo(() => {
@@ -403,6 +474,29 @@ export function FinalizePhase() {
     return sorted;
   }, [allGridRows, filterMode, search, sortKey]);
 
+  // Grouped grid rows for display perspective (collapsed by default)
+  const groupedGridRows = useMemo((): GridGroup[] => {
+    const familyMap = new Map<string, GridRow[]>();
+    const order: string[] = [];
+    for (const row of gridRows) {
+      const family = extractFamily(row.destName);
+      if (!familyMap.has(family)) {
+        familyMap.set(family, []);
+        order.push(family);
+      }
+      familyMap.get(family)!.push(row);
+    }
+    return order.map((family) => {
+      const rows = familyMap.get(family)!;
+      return {
+        family,
+        rows,
+        mappedCount: rows.filter((r) => r.isMapped).length,
+        unmappedCount: rows.filter((r) => !r.isMapped).length,
+      };
+    });
+  }, [gridRows]);
+
   // Grid dropdown sources (for inline cell dropdown)
   const gridDropdownSources = useMemo(() => {
     if (!gridDropdown) return { suggested: [] as { name: string; effectCount: number; score: number }[], rest: [] as { name: string; effectCount: number; score: number }[] };
@@ -527,6 +621,39 @@ export function FinalizePhase() {
     return groups;
   }, [allSourceRows]);
 
+  // Filtered + sorted source card groups
+  const filteredSourceCardGroups = useMemo(() => {
+    let groups = sourceCardGroups;
+
+    if (filterMode === "unmapped") groups = groups.filter((g) => g.kind === "unmapped");
+    else if (filterMode === "mapped") groups = groups.filter((g) => g.kind === "single" || g.kind === "multi");
+    else if (filterMode === "many-to-one") groups = groups.filter((g) => g.kind === "multi");
+
+    // Sort items within groups
+    if (sortKey !== "unmapped-first") {
+      groups = groups.map((g) => {
+        const sorted = [...g.items];
+        switch (sortKey) {
+          case "name-asc":
+            sorted.sort((a, b) => naturalCompare(a.sourceName, b.sourceName));
+            break;
+          case "name-desc":
+            sorted.sort((a, b) => naturalCompare(b.sourceName, a.sourceName));
+            break;
+          case "fx-desc":
+            sorted.sort((a, b) => b.effectCount - a.effectCount || naturalCompare(a.sourceName, b.sourceName));
+            break;
+          case "dest-count-desc":
+            sorted.sort((a, b) => b.destCount - a.destCount || naturalCompare(a.sourceName, b.sourceName));
+            break;
+        }
+        return { ...g, items: sorted };
+      });
+    }
+
+    return groups;
+  }, [sourceCardGroups, filterMode, sortKey]);
+
   // Source summary
   const sourceSummary = useMemo(() => {
     const total = allSourceRows.length;
@@ -582,6 +709,31 @@ export function FinalizePhase() {
     });
   }, []);
 
+  const toggleGridGroup = useCallback((family: string) => {
+    setExpandedGridGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(family)) next.delete(family);
+      else next.add(family);
+      return next;
+    });
+  }, []);
+
+  const handleSelectGroup = useCallback((family: string) => {
+    const group = groupedGridRows.find((g) => g.family === family);
+    if (!group) return;
+    const names = group.rows.map((r) => r.destName);
+    setSelectedRows((prev) => {
+      const allSelected = names.every((n) => prev.has(n));
+      const next = new Set(prev);
+      if (allSelected) {
+        for (const n of names) next.delete(n);
+      } else {
+        for (const n of names) next.add(n);
+      }
+      return next;
+    });
+  }, [groupedGridRows]);
+
   const handleSelectAll = useCallback(() => {
     if (perspective === "source") {
       if (selectedRows.size === sourceGridRows.length) {
@@ -619,11 +771,57 @@ export function FinalizePhase() {
     [selectedRows, assignUserModelToLayer],
   );
 
+  // Detect sequential patterns after a mapping is created
+  const detectAutoComplete = useCallback(
+    (sourceName: string, destName: string) => {
+      const srcParsed = extractNumberedName(sourceName);
+      const destParsed = extractNumberedName(destName);
+      if (!srcParsed || !destParsed) return;
+      if (srcParsed.num !== destParsed.num) return;
+
+      // Find all numbered siblings on both sides
+      const sourceFamily = sourceLayerMappings
+        .filter((l) => !l.isSkipped && l.isMapped)
+        .filter((l) => {
+          const p = extractNumberedName(l.sourceModel.name);
+          return p && p.base === srcParsed.base;
+        })
+        .map((l) => ({ name: l.sourceModel.name, num: extractNumberedName(l.sourceModel.name)!.num }));
+
+      const destFamily = allDestModels
+        .filter((m) => !m.name.startsWith("DMX") && !m.isGroup)
+        .filter((m) => {
+          const p = extractNumberedName(m.name);
+          return p && p.base === destParsed.base;
+        })
+        .map((m) => ({ name: m.name, num: extractNumberedName(m.name)!.num }));
+
+      // Find unmapped pairs with matching numbers
+      const pairs: { sourceName: string; destName: string }[] = [];
+      for (const src of sourceFamily) {
+        if (src.name === sourceName) continue; // skip the one just mapped
+        const matchingDest = destFamily.find((d) => d.num === src.num);
+        if (!matchingDest) continue;
+        // Check dest isn't already mapped to this source
+        const existingLinks = destToSourcesMap.get(matchingDest.name);
+        if (existingLinks && existingLinks.has(src.name)) continue;
+        pairs.push({ sourceName: src.name, destName: matchingDest.name });
+      }
+
+      if (pairs.length > 0) {
+        pairs.sort((a, b) => naturalCompare(a.destName, b.destName));
+        setAutoComplete({ sourceBase: srcParsed.base, destBase: destParsed.base, pairs });
+      }
+    },
+    [sourceLayerMappings, allDestModels, destToSourcesMap],
+  );
+
   const handleAcceptSuggestion = useCallback(
     (sourceName: string, destName: string) => {
       assignUserModelToLayer(sourceName, destName);
+      detectAutoComplete(sourceName, destName);
     },
-    [assignUserModelToLayer],
+    [assignUserModelToLayer, detectAutoComplete],
   );
 
   const handleAcceptAllSuggestions = useCallback(() => {
@@ -675,6 +873,14 @@ export function FinalizePhase() {
     [assignUserModelToLayer],
   );
 
+  const handleApplyAutoComplete = useCallback(() => {
+    if (!autoComplete) return;
+    for (const pair of autoComplete.pairs) {
+      assignUserModelToLayer(pair.sourceName, pair.destName);
+    }
+    setAutoComplete(null);
+  }, [autoComplete, assignUserModelToLayer]);
+
   // ══════════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════════
@@ -684,47 +890,11 @@ export function FinalizePhase() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* ── Dual Coverage Bars ── */}
-      <div className="px-6 py-3 border-b border-border flex-shrink-0 bg-surface">
-        <div className="max-w-4xl mx-auto grid grid-cols-2 gap-6">
-          {/* Display Coverage */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] text-foreground/50">Display Coverage</span>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[13px] font-bold tabular-nums ${coverageColor(dispPct)}`}>{dispPct}%</span>
-                <span className="text-[10px] text-foreground/30 tabular-nums">({displayCoverage.covered}/{displayCoverage.total})</span>
-                {dispPct >= 100 && <span className="text-green-400 text-[11px]">&#10003;</span>}
-              </div>
-            </div>
-            <div className="w-full h-2 bg-foreground/10 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-500 ease-out ${coverageBarColor(dispPct)}`} style={{ width: `${Math.min(dispPct, 100)}%` }} />
-            </div>
-          </div>
-          {/* Sequence Coverage */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[11px] text-foreground/50">Sequence Coverage</span>
-              <div className="flex items-center gap-1.5">
-                <span className={`text-[13px] font-bold tabular-nums ${coverageColor(seqPct)}`}>{seqPct}%</span>
-                <span className="text-[10px] text-foreground/30 tabular-nums">({effectsCoverage.covered}/{effectsCoverage.total})</span>
-                {seqPct >= 100 && <span className="text-green-400 text-[11px]">&#10003;</span>}
-              </div>
-            </div>
-            <div className="w-full h-2 bg-foreground/10 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all duration-500 ease-out ${coverageBarColor(seqPct)}`} style={{ width: `${Math.min(seqPct, 100)}%` }} />
-            </div>
-          </div>
-        </div>
-        {deltaToast && (
-          <div className="text-center mt-1.5">
-            <span className="text-[11px] text-green-400 font-medium animate-pulse">{deltaToast}</span>
-          </div>
-        )}
-      </div>
-
       {/* ── Quick Actions + Perspective + View Toggle ── */}
       <div className="px-6 py-2 border-b border-border/50 flex-shrink-0 flex items-center gap-3">
+        {deltaToast && (
+          <span className="text-[11px] text-green-400 font-medium animate-pulse">{deltaToast}</span>
+        )}
         {perspective === "display" && darkItems.length > 0 && suggestedCount > 0 && (
           <button
             type="button"
@@ -798,6 +968,33 @@ export function FinalizePhase() {
         </div>
       </div>
 
+      {/* ── Auto-complete suggestion banner ── */}
+      {autoComplete && (
+        <div className="px-6 py-2 border-b border-accent/20 bg-accent/5 flex-shrink-0 flex items-center gap-3">
+          <span className="text-[9px]">&#128161;</span>
+          <span className="text-[12px] text-foreground/70 flex-1">
+            Auto-complete: Map {autoComplete.destBase} {autoComplete.pairs[0] && extractNumberedName(autoComplete.pairs[0].destName)?.num}–{autoComplete.pairs[autoComplete.pairs.length - 1] && extractNumberedName(autoComplete.pairs[autoComplete.pairs.length - 1].destName)?.num} &rarr; {autoComplete.sourceBase} {autoComplete.pairs[0] && extractNumberedName(autoComplete.pairs[0].sourceName)?.num}–{autoComplete.pairs[autoComplete.pairs.length - 1] && extractNumberedName(autoComplete.pairs[autoComplete.pairs.length - 1].sourceName)?.num}?
+          </span>
+          <span className="text-[11px] text-foreground/40 tabular-nums">
+            {autoComplete.pairs.length} mapping{autoComplete.pairs.length !== 1 ? "s" : ""}
+          </span>
+          <button
+            type="button"
+            onClick={handleApplyAutoComplete}
+            className="text-[12px] font-medium px-3 py-1 rounded-lg bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            onClick={() => setAutoComplete(null)}
+            className="text-[11px] text-foreground/30 hover:text-foreground/50 transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* ── Search (shared) + Grid controls ── */}
       <div className="px-6 py-2 border-b border-border/50 flex-shrink-0 flex items-center gap-3">
         <div className="relative flex-1 max-w-md">
@@ -822,8 +1019,8 @@ export function FinalizePhase() {
           )}
         </div>
 
-        {/* Grid-only: Sort + Filter */}
-        {viewMode === "grid" && perspective === "display" && (
+        {/* Sort + Filter */}
+        {perspective === "display" && (
           <>
             <select
               value={sortKey}
@@ -848,7 +1045,7 @@ export function FinalizePhase() {
             </select>
           </>
         )}
-        {viewMode === "grid" && perspective === "source" && (
+        {perspective === "source" && (
           <>
             <select
               value={sortKey}
@@ -892,7 +1089,7 @@ export function FinalizePhase() {
           )}
 
           {/* ═══ NEEDS ATTENTION ═══ */}
-          {darkItems.length > 0 && (
+          {darkItems.length > 0 && filterMode !== "mapped" && filterMode !== "many-to-one" && (
             <div className="border-b border-border/50">
               <button
                 type="button"
@@ -924,6 +1121,8 @@ export function FinalizePhase() {
                       onBatchAssign={() => {
                         setBatchPicker({ family: group.family });
                       }}
+                      draggingSource={draggingSource}
+                      onDropAssign={handleTrayAssign}
                     />
                   ))}
                   {filteredDarkGroups.length === 0 && (
@@ -937,40 +1136,42 @@ export function FinalizePhase() {
           )}
 
           {/* ═══ ALREADY MAPPED ═══ */}
-          <div>
-            <button
-              type="button"
-              onClick={() => setMappedOpen(!mappedOpen)}
-              className="w-full flex items-center justify-between px-6 py-2.5 text-left hover:bg-foreground/[0.02]"
-            >
-              <span className="text-[11px] font-semibold text-green-400/80 uppercase tracking-wider">
-                Already Mapped ({mappedItems.length})
-              </span>
-              <svg
-                className={`w-4 h-4 text-foreground/30 transition-transform ${mappedOpen ? "rotate-180" : ""}`}
-                fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          {filterMode !== "unmapped" && filterMode !== "suggested" && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setMappedOpen(!mappedOpen)}
+                className="w-full flex items-center justify-between px-6 py-2.5 text-left hover:bg-foreground/[0.02]"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+                <span className="text-[11px] font-semibold text-green-400/80 uppercase tracking-wider">
+                  Already Mapped ({mappedItems.length})
+                </span>
+                <svg
+                  className={`w-4 h-4 text-foreground/30 transition-transform ${mappedOpen ? "rotate-180" : ""}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-            {mappedOpen && (
-              <div className="px-4 pb-3 divide-y divide-border/20">
-                {filteredMapped.map((item) => (
-                  <MappedRow
-                    key={item.model.name}
-                    item={item}
-                    onRemoveLink={handleRemoveLink}
-                  />
-                ))}
-                {filteredMapped.length === 0 && (
-                  <div className="py-4 text-center text-[12px] text-foreground/30">
-                    {search ? "No matches" : "No mapped models"}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+              {mappedOpen && (
+                <div className="px-4 pb-3 divide-y divide-border/20">
+                  {filteredMapped.map((item) => (
+                    <MappedRow
+                      key={item.model.name}
+                      item={item}
+                      onRemoveLink={handleRemoveLink}
+                    />
+                  ))}
+                  {filteredMapped.length === 0 && (
+                    <div className="py-4 text-center text-[12px] text-foreground/30">
+                      {search ? "No matches" : "No mapped models"}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Inline picker popover ── */}
           {inlinePicker && (
@@ -1047,33 +1248,95 @@ export function FinalizePhase() {
                 </tr>
               </thead>
               <tbody>
-                {gridRows.map((row) => (
-                  <GridRowComponent
-                    key={row.destName}
-                    row={row}
-                    isSelected={selectedRows.has(row.destName)}
-                    isDropdownOpen={gridDropdown === row.destName}
-                    dropdownSources={gridDropdown === row.destName ? gridDropdownSources : null}
-                    dropdownSearch={gridDropdown === row.destName ? gridDropdownSearch : ""}
-                    onToggleSelect={() => handleSelectRow(row.destName)}
-                    onOpenDropdown={() => {
-                      setGridDropdown(row.destName);
-                      setGridDropdownSearch("");
-                    }}
-                    onCloseDropdown={() => setGridDropdown(null)}
-                    onDropdownSearchChange={setGridDropdownSearch}
-                    onAssign={(sourceName) => {
-                      assignUserModelToLayer(sourceName, row.destName);
-                      setGridDropdown(null);
-                    }}
-                    onAcceptSuggestion={(sourceName) => {
-                      assignUserModelToLayer(sourceName, row.destName);
-                    }}
-                    onRemoveLink={(sourceName) => {
-                      removeLinkFromLayer(sourceName, row.destName);
-                    }}
-                  />
-                ))}
+                {groupedGridRows.map((group) => {
+                  // Single-item groups: render row directly (no header)
+                  if (group.rows.length === 1) {
+                    const row = group.rows[0];
+                    return (
+                      <GridRowComponent
+                        key={row.destName}
+                        row={row}
+                        isSelected={selectedRows.has(row.destName)}
+                        isDropdownOpen={gridDropdown === row.destName}
+                        dropdownSources={gridDropdown === row.destName ? gridDropdownSources : null}
+                        dropdownSearch={gridDropdown === row.destName ? gridDropdownSearch : ""}
+                        draggingSource={draggingSource}
+                        onToggleSelect={() => handleSelectRow(row.destName)}
+                        onOpenDropdown={() => { setGridDropdown(row.destName); setGridDropdownSearch(""); }}
+                        onCloseDropdown={() => setGridDropdown(null)}
+                        onDropdownSearchChange={setGridDropdownSearch}
+                        onAssign={(sourceName) => { assignUserModelToLayer(sourceName, row.destName); setGridDropdown(null); }}
+                        onAcceptSuggestion={(sourceName) => { assignUserModelToLayer(sourceName, row.destName); }}
+                        onRemoveLink={(sourceName) => { removeLinkFromLayer(sourceName, row.destName); }}
+                      />
+                    );
+                  }
+
+                  // Multi-item groups: render collapsible header + children
+                  const isExpanded = expandedGridGroups.has(group.family);
+                  const allSelected = group.rows.every((r) => selectedRows.has(r.destName));
+                  const someSelected = !allSelected && group.rows.some((r) => selectedRows.has(r.destName));
+                  const statusIcon = group.unmappedCount === 0
+                    ? <span className="text-green-400 text-[11px]">&#10003;</span>
+                    : <span className="text-amber-400 text-[11px]">&#9888;</span>;
+
+                  return (
+                    <React.Fragment key={group.family}>
+                      <tr
+                        className="border-b border-border/30 bg-foreground/[0.02] cursor-pointer hover:bg-foreground/[0.04]"
+                        onClick={() => toggleGridGroup(group.family)}
+                      >
+                        <td className="px-2 py-1.5 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                            onChange={() => handleSelectGroup(group.family)}
+                            className="w-3.5 h-3.5 rounded border-border accent-accent"
+                          />
+                        </td>
+                        <td className="px-3 py-1.5" colSpan={3}>
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className={`w-3 h-3 text-foreground/40 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`}
+                              fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            <span className="text-[12px] font-medium text-foreground/70">{group.family}</span>
+                            <span className="text-[10px] text-foreground/30">({group.rows.length})</span>
+                            <span className="text-[10px] text-foreground/30 ml-1">
+                              {group.mappedCount > 0 && <span className="text-green-400/60">{group.mappedCount} mapped</span>}
+                              {group.mappedCount > 0 && group.unmappedCount > 0 && " · "}
+                              {group.unmappedCount > 0 && <span className="text-amber-400/60">{group.unmappedCount} unmapped</span>}
+                            </span>
+                          </div>
+                        </td>
+                        <td />
+                        <td className="px-3 py-1.5 text-center">{statusIcon}</td>
+                      </tr>
+                      {isExpanded && group.rows.map((row) => (
+                        <GridRowComponent
+                          key={row.destName}
+                          row={row}
+                          indent
+                          isSelected={selectedRows.has(row.destName)}
+                          isDropdownOpen={gridDropdown === row.destName}
+                          dropdownSources={gridDropdown === row.destName ? gridDropdownSources : null}
+                          dropdownSearch={gridDropdown === row.destName ? gridDropdownSearch : ""}
+                          draggingSource={draggingSource}
+                          onToggleSelect={() => handleSelectRow(row.destName)}
+                          onOpenDropdown={() => { setGridDropdown(row.destName); setGridDropdownSearch(""); }}
+                          onCloseDropdown={() => setGridDropdown(null)}
+                          onDropdownSearchChange={setGridDropdownSearch}
+                          onAssign={(sourceName) => { assignUserModelToLayer(sourceName, row.destName); setGridDropdown(null); }}
+                          onAcceptSuggestion={(sourceName) => { assignUserModelToLayer(sourceName, row.destName); }}
+                          onRemoveLink={(sourceName) => { removeLinkFromLayer(sourceName, row.destName); }}
+                        />
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
                 {gridRows.length === 0 && (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-foreground/30">
@@ -1112,7 +1375,7 @@ export function FinalizePhase() {
             </div>
           )}
 
-          {sourceCardGroups.map((group) => {
+          {filteredSourceCardGroups.map((group) => {
             const isOpen = group.kind === "unmapped" ? needsAttentionOpen : expandedGroups.has(group.label);
             const toggle = group.kind === "unmapped"
               ? () => setNeedsAttentionOpen(!needsAttentionOpen)
@@ -1351,24 +1614,38 @@ export function FinalizePhase() {
             </div>
 
             <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
-              {/* Display perspective: source chips */}
+              {/* Display perspective: source chips (draggable) */}
               {perspective === "display" && filteredTrayItems.map((layer) => {
                 const destCount = layer.assignedUserModels.length;
+                const srcName = layer.sourceModel.name;
                 return (
-                  <button
-                    key={layer.sourceModel.name}
-                    type="button"
+                  <div
+                    key={srcName}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", srcName);
+                      e.dataTransfer.effectAllowed = "link";
+                      setDraggingSource(srcName);
+                    }}
+                    onDragEnd={() => {
+                      setDraggingSource(null);
+                      setDropTarget(null);
+                    }}
                     onClick={() => {
                       if (inlinePicker) {
-                        handleTrayAssign(layer.sourceModel.name, inlinePicker.destName);
+                        handleTrayAssign(srcName, inlinePicker.destName);
                         setInlinePicker(null);
                       }
                     }}
-                    className="flex-shrink-0 flex flex-col items-center px-2.5 py-1.5 rounded-lg border border-border/50 bg-foreground/[0.03] hover:bg-foreground/[0.06] hover:border-accent/30 transition-colors min-w-[5rem] text-center"
-                    title={`${layer.sourceModel.name} — ${layer.effectCount} effects, ${destCount} dest${destCount !== 1 ? "s" : ""}`}
+                    className={`flex-shrink-0 flex flex-col items-center px-2.5 py-1.5 rounded-lg border transition-colors min-w-[5rem] text-center cursor-grab active:cursor-grabbing ${
+                      draggingSource === srcName
+                        ? "border-accent bg-accent/10 opacity-70"
+                        : "border-border/50 bg-foreground/[0.03] hover:bg-foreground/[0.06] hover:border-accent/30"
+                    }`}
+                    title={`${srcName} — ${layer.effectCount} effects, ${destCount} dest${destCount !== 1 ? "s" : ""} · Drag onto a model to map`}
                   >
                     <span className="text-[11px] font-medium text-foreground truncate max-w-[6rem]">
-                      {layer.sourceModel.name}
+                      {srcName}
                     </span>
                     <span className="text-[9px] text-foreground/30 tabular-nums">
                       {layer.effectCount} fx
@@ -1378,7 +1655,7 @@ export function FinalizePhase() {
                         &rarr; {destCount}
                       </span>
                     )}
-                  </button>
+                  </div>
                 );
               })}
 
@@ -1438,6 +1715,8 @@ function DarkGroupCard({
   onAcceptSuggestion,
   onOpenPicker,
   onBatchAssign,
+  draggingSource,
+  onDropAssign,
 }: {
   group: DarkGroup;
   isExpanded: boolean;
@@ -1446,7 +1725,10 @@ function DarkGroupCard({
   onAcceptSuggestion: (sourceName: string, destName: string) => void;
   onOpenPicker: (destName: string) => void;
   onBatchAssign: () => void;
+  draggingSource: string | null;
+  onDropAssign: (sourceName: string, destName: string) => void;
 }) {
+  const [localDropTarget, setLocalDropTarget] = useState<string | null>(null);
   return (
     <div className="rounded-lg border border-border/50 overflow-hidden">
       {/* Group header */}
@@ -1488,7 +1770,27 @@ function DarkGroupCard({
           {group.items.map((item) => {
             const suggs = darkSuggestions.get(item.model.name);
             return (
-              <div key={item.model.name} className="px-3 py-2 hover:bg-foreground/[0.02]">
+              <div
+                key={item.model.name}
+                className={`px-3 py-2 hover:bg-foreground/[0.02] transition-colors ${
+                  draggingSource && localDropTarget === item.model.name
+                    ? "bg-accent/10 ring-1 ring-accent/40 ring-inset"
+                    : ""
+                }`}
+                onDragOver={(e) => {
+                  if (!draggingSource) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "link";
+                  setLocalDropTarget(item.model.name);
+                }}
+                onDragLeave={() => setLocalDropTarget(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const src = e.dataTransfer.getData("text/plain");
+                  if (src) onDropAssign(src, item.model.name);
+                  setLocalDropTarget(null);
+                }}
+              >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-[12px] text-foreground/60 truncate flex-1">
                     {item.model.name}
@@ -1774,10 +2076,12 @@ function BatchAssignPicker({
 
 function GridRowComponent({
   row,
+  indent,
   isSelected,
   isDropdownOpen,
   dropdownSources,
   dropdownSearch,
+  draggingSource,
   onToggleSelect,
   onOpenDropdown,
   onCloseDropdown,
@@ -1787,10 +2091,12 @@ function GridRowComponent({
   onRemoveLink,
 }: {
   row: GridRow;
+  indent?: boolean;
   isSelected: boolean;
   isDropdownOpen: boolean;
   dropdownSources: { suggested: { name: string; effectCount: number; score: number }[]; rest: { name: string; effectCount: number; score: number }[] } | null;
   dropdownSearch: string;
+  draggingSource: string | null;
   onToggleSelect: () => void;
   onOpenDropdown: () => void;
   onCloseDropdown: () => void;
@@ -1799,6 +2105,7 @@ function GridRowComponent({
   onAcceptSuggestion: (sourceName: string) => void;
   onRemoveLink: (sourceName: string) => void;
 }) {
+  const [isDropHover, setIsDropHover] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1821,7 +2128,24 @@ function GridRowComponent({
   );
 
   return (
-    <tr className={`border-b border-border/20 hover:bg-foreground/[0.02] group/row ${isSelected ? "bg-accent/5" : ""}`}>
+    <tr
+      className={`border-b border-border/20 hover:bg-foreground/[0.02] group/row ${isSelected ? "bg-accent/5" : ""} ${
+        draggingSource && isDropHover ? "bg-accent/10 ring-1 ring-accent/40 ring-inset" : ""
+      }`}
+      onDragOver={(e) => {
+        if (!draggingSource) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "link";
+        setIsDropHover(true);
+      }}
+      onDragLeave={() => setIsDropHover(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        const src = e.dataTransfer.getData("text/plain");
+        if (src) onAssign(src);
+        setIsDropHover(false);
+      }}
+    >
       {/* Checkbox */}
       <td className="px-2 py-2 text-center">
         <input
@@ -1833,7 +2157,7 @@ function GridRowComponent({
       </td>
 
       {/* My Display */}
-      <td className="px-3 py-2">
+      <td className={`py-2 ${indent ? "pl-8 pr-3" : "px-3"}`}>
         <span className="text-foreground/80 font-medium">{row.destName}</span>
       </td>
 
