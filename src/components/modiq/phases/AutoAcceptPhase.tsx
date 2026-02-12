@@ -62,19 +62,19 @@ export function AutoAcceptPhase() {
     typeFilter: "" as string,
   });
 
-  // Build top-suggestion map for each item using greedy assignment.
-  // Each destination model can only be used once — once claimed by the
-  // highest-scoring source, subsequent sources fall back to their next-best.
-  const suggestions = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        name: string;
-        score: number;
-        pixelCount: number | undefined;
-        factors: ModelMapping["factors"];
-      }
-    >();
+  // Build top-suggestion map using two-pass greedy assignment.
+  // Pass 1: Each dest claimed only once (highest-scoring source wins).
+  // Pass 2: Items with no unique dest get their top suggestion for display,
+  //   marked as "conflicted" so they're auto-rejected and sent to manual phases.
+  const { suggestions, conflictedNames } = useMemo(() => {
+    type Suggestion = {
+      name: string;
+      score: number;
+      pixelCount: number | undefined;
+      factors: ModelMapping["factors"];
+    };
+    const map = new Map<string, Suggestion>();
+    const unique = new Set<string>();
 
     // Sort items by score descending so the best matches get first pick
     const sortedItems = [...phaseItems].sort((a, b) => {
@@ -83,11 +83,10 @@ export function AutoAcceptPhase() {
       return sb - sa;
     });
 
+    // Pass 1 — greedy unique assignment
     const usedDests = new Set<string>();
-
     for (const item of sortedItems) {
       const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
-      // Find the best suggestion whose destination hasn't been claimed yet
       for (const sugg of suggs) {
         if (!usedDests.has(sugg.model.name)) {
           usedDests.add(sugg.model.name);
@@ -97,13 +96,42 @@ export function AutoAcceptPhase() {
             pixelCount: sugg.model.pixelCount,
             factors: sugg.factors,
           });
+          unique.add(item.sourceModel.name);
           break;
         }
       }
     }
 
-    return map;
+    // Pass 2 — fallback for items with no unique dest (display only)
+    const conflicted = new Set<string>();
+    for (const item of phaseItems) {
+      if (map.has(item.sourceModel.name)) continue;
+      const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
+      if (suggs.length > 0) {
+        map.set(item.sourceModel.name, {
+          name: suggs[0].model.name,
+          score: suggs[0].score,
+          pixelCount: suggs[0].model.pixelCount,
+          factors: suggs[0].factors,
+        });
+      }
+      conflicted.add(item.sourceModel.name);
+    }
+
+    return { suggestions: map, conflictedNames: conflicted };
   }, [phaseItems, interactive, scoreMap]);
+
+  // Auto-reject conflicted items on first load so they go to manual phases
+  const didAutoReject = useRef(false);
+  useEffect(() => {
+    if (didAutoReject.current || conflictedNames.size === 0) return;
+    didAutoReject.current = true;
+    setRejectedNames((prev) => {
+      const next = new Set(prev);
+      for (const name of conflictedNames) next.add(name);
+      return next;
+    });
+  }, [conflictedNames]);
 
   // Compute stats for header (no longer splits into separate arrays)
   const { stats, typeCounts } = useMemo(() => {
@@ -272,25 +300,38 @@ export function AutoAcceptPhase() {
   };
 
   const handleContinue = useCallback(() => {
-    // Assign all non-rejected items with their top suggestion
+    const toReassign = new Set(rejectedNames);
+
     for (const item of phaseItems) {
       if (item.isMapped) continue;
-      if (rejectedNames.has(item.sourceModel.name)) continue;
-      const sugg = suggestions.get(item.sourceModel.name);
+      const name = item.sourceModel.name;
+
+      // Conflicted items can't be auto-assigned even if user re-checked them
+      if (conflictedNames.has(name)) {
+        toReassign.add(name);
+        continue;
+      }
+
+      if (rejectedNames.has(name)) continue;
+
+      const sugg = suggestions.get(name);
       if (sugg) {
-        interactive.assignUserModelToLayer(item.sourceModel.name, sugg.name);
+        interactive.assignUserModelToLayer(name, sugg.name);
+      } else {
+        // No suggestion at all — send to manual phases
+        toReassign.add(name);
       }
     }
-    // Reassign rejected items to their fallback phases
-    if (rejectedNames.size > 0) {
-      reassignFromAutoAccept(rejectedNames);
+
+    if (toReassign.size > 0) {
+      reassignFromAutoAccept(toReassign);
     }
-    // Clear override before navigating so other phases use default behavior
     registerOnContinue(null);
     goToNextPhase();
   }, [
     phaseItems,
     rejectedNames,
+    conflictedNames,
     suggestions,
     interactive,
     reassignFromAutoAccept,
@@ -374,6 +415,12 @@ export function AutoAcceptPhase() {
                 <span className="text-green-400">{stats.greenAccepted} high</span>
                 {" "}&middot;{" "}
                 <span className="text-amber-400">{stats.yellowAccepted} review</span>
+                {conflictedNames.size > 0 && (
+                  <>
+                    {" "}&middot;{" "}
+                    <span className="text-red-400">{conflictedNames.size} manual</span>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -605,15 +652,18 @@ export function AutoAcceptPhase() {
                   ? "border-l-green-500/70"
                   : "border-l-amber-400/70";
 
+                const isConflicted = conflictedNames.has(item.sourceModel.name);
+
                 return (
                   <AutoMatchRow
                     key={item.sourceModel.name}
                     item={item}
                     isRejected={rejectedNames.has(item.sourceModel.name)}
+                    isConflicted={isConflicted}
                     suggestion={suggestions.get(item.sourceModel.name)}
                     score={score}
                     onToggle={() => toggleReject(item.sourceModel.name)}
-                    leftBorder={leftBorder}
+                    leftBorder={isConflicted ? "border-l-red-400/70" : leftBorder}
                   />
                 );
               })}
@@ -630,6 +680,7 @@ export function AutoAcceptPhase() {
 function AutoMatchRow({
   item,
   isRejected,
+  isConflicted,
   suggestion,
   score,
   onToggle,
@@ -637,6 +688,7 @@ function AutoMatchRow({
 }: {
   item: SourceLayerMapping;
   isRejected: boolean;
+  isConflicted: boolean;
   suggestion:
     | {
         name: string;
@@ -675,17 +727,21 @@ function AutoMatchRow({
         isRejected ? "opacity-40" : ""
       }`}
     >
-      {/* Checkbox */}
+      {/* Checkbox — disabled for conflicted items */}
       <button
         type="button"
-        onClick={onToggle}
+        onClick={isConflicted ? undefined : onToggle}
+        disabled={isConflicted}
         className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-          isAccepted
-            ? "bg-green-500 border-green-500"
-            : "border-foreground/20 hover:border-foreground/40"
+          isConflicted
+            ? "border-red-400/40 cursor-not-allowed"
+            : isAccepted
+              ? "bg-green-500 border-green-500"
+              : "border-foreground/20 hover:border-foreground/40"
         }`}
+        title={isConflicted ? "No unique destination available — will be mapped manually" : undefined}
       >
-        {isAccepted && (
+        {isAccepted && !isConflicted && (
           <svg
             className="w-2.5 h-2.5 text-white"
             fill="currentColor"
@@ -696,6 +752,11 @@ function AutoMatchRow({
               d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
               clipRule="evenodd"
             />
+          </svg>
+        )}
+        {isConflicted && (
+          <svg className="w-2.5 h-2.5 text-red-400/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
           </svg>
         )}
       </button>
@@ -720,9 +781,16 @@ function AutoMatchRow({
         />
       </svg>
 
-      {/* Dest name */}
-      <span className="text-xs text-foreground/50 truncate flex-1 min-w-0 text-right">
+      {/* Dest name — show fallback suggestion for conflicted items */}
+      <span className={`text-xs truncate flex-1 min-w-0 text-right ${
+        isConflicted ? "text-red-400/50 italic" : "text-foreground/50"
+      }`}>
         {suggestion?.name ?? "\u2014"}
+        {isConflicted && suggestion?.name && (
+          <span className="text-[9px] ml-1 not-italic" title="Destination already claimed by a higher-scoring match">
+            (taken)
+          </span>
+        )}
       </span>
 
       {/* Type badge */}
