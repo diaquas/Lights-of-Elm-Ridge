@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { UnlinkIcon } from "./MetadataBadges";
 
 interface UsageBadgeProps {
   /** Number of source items using this dest model */
@@ -208,30 +209,18 @@ function UsagePopover({
                   )}
                 </div>
 
-                {/* De-map button */}
+                {/* Unlink button */}
                 {onRemoveLink && (
                   <button
                     type="button"
-                    className="p-1 rounded-md hover:bg-red-500/15 text-foreground/30 hover:text-red-400 transition-all flex-shrink-0"
+                    className="p-1 rounded-md hover:bg-amber-500/15 text-foreground/30 hover:text-amber-400 transition-all flex-shrink-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       onRemoveLink(sourceName);
                     }}
-                    title={`Remove mapping from ${sourceName}`}
+                    title={`Unlink ${sourceName}`}
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
+                    <UnlinkIcon className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>

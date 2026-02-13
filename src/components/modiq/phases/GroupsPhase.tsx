@@ -13,6 +13,7 @@ import {
   MetadataBadges,
   HeroEffectBadge,
   EffectsCoverageBar,
+  UnlinkIcon,
 } from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
@@ -778,13 +779,11 @@ function MappedGroupCard({
               <button
                 type="button"
                 onClick={() => onRemoveLink(m.name)}
-                className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0 opacity-0 group-hover/dest:opacity-100"
-                aria-label={`Remove ${m.name}`}
-                title={`Remove ${m.name}`}
+                className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-amber-400 hover:bg-amber-500/10 transition-colors flex-shrink-0 opacity-0 group-hover/dest:opacity-100"
+                aria-label={`Unlink ${m.name}`}
+                title={`Unlink ${m.name}`}
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <UnlinkIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           ))}
