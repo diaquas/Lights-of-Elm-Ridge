@@ -13,7 +13,6 @@ import {
   MetadataBadges,
   HeroEffectBadge,
   EffectsCoverageBar,
-  UnlinkIcon,
 } from "../MetadataBadges";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
@@ -22,6 +21,7 @@ import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
+import { CurrentMappingCard, CollapsibleMembers } from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export function GroupsPhase() {
@@ -433,8 +433,8 @@ export function GroupsPhase() {
 
             {/* Current Mapping Card (for mapped groups) */}
             {selectedGroup.isMapped && (
-              <MappedGroupCard
-                group={selectedGroup}
+              <CurrentMappingCard
+                item={selectedGroup}
                 onRemoveLink={(destName) =>
                   interactive.removeLinkFromLayer(selectedGroup.sourceModel.name, destName)
                 }
@@ -527,50 +527,6 @@ export function GroupsPhase() {
   );
 }
 
-// ─── Collapsible Member Pills ───────────────────────────
-
-function CollapsibleMembers({ members }: { members: string[] }) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (members.length === 0) return null;
-
-  return (
-    <div className="mt-1.5">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="text-[11px] text-foreground/40 hover:text-foreground/60 flex items-center gap-1 transition-colors"
-      >
-        <span>{members.length} members</span>
-        <svg
-          className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-      {expanded && (
-        <div className="flex flex-wrap gap-1 mt-1.5">
-          {members.map((member) => (
-            <span
-              key={member}
-              className="px-1.5 py-0.5 text-[10px] bg-foreground/5 text-foreground/40 rounded"
-            >
-              {member}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Group Card (Left Panel) ──────────────────────────
 
@@ -752,46 +708,3 @@ const GroupListCardMemo = memo(
     prev.topSuggestion?.score === next.topSuggestion?.score,
 );
 
-// ─── Mapped Group Card (Right Panel) ────────────────────
-
-function MappedGroupCard({
-  group,
-  onRemoveLink,
-}: {
-  group: SourceLayerMapping;
-  onRemoveLink: (destName: string) => void;
-}) {
-  if (group.assignedUserModels.length === 0) return null;
-
-  return (
-    <div className="px-5 py-3 border-b border-border flex-shrink-0">
-      <div className="rounded-lg border border-green-500/25 bg-green-500/5 p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-          <span className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider">Currently Mapped To</span>
-        </div>
-        <div className="space-y-1.5 ml-5.5">
-          {group.assignedUserModels.map((m) => (
-            <div key={m.name} className="flex items-center gap-2 group/dest">
-              <span className="text-[13px] font-semibold text-foreground truncate flex-1">{m.name}</span>
-              <button
-                type="button"
-                onClick={() => onRemoveLink(m.name)}
-                className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-amber-400 hover:bg-amber-500/10 transition-colors flex-shrink-0 opacity-0 group-hover/dest:opacity-100"
-                aria-label={`Unlink ${m.name}`}
-                title={`Unlink ${m.name}`}
-              >
-                <UnlinkIcon className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-        {group.coveredChildCount > 0 && (
-          <p className="text-[11px] text-teal-400/60 mt-1.5 ml-5.5">covers {group.coveredChildCount} children</p>
-        )}
-      </div>
-    </div>
-  );
-}

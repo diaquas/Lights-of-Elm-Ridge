@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { PANEL_STYLES } from "../panelStyles";
 import { UnlinkIcon } from "../MetadataBadges";
+import { FilterPill } from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 import type { ParsedModel } from "@/lib/modiq";
 
@@ -44,24 +45,6 @@ interface SourceSuggestion {
 
 function naturalCompare(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-}
-
-// ─── Color-coded filter pills ───────────────────────────
-
-const PILL_COLORS = {
-  blue:  { active: "bg-blue-500/15 text-blue-400 border-blue-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
-  green: { active: "bg-green-500/15 text-green-400 border-green-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
-  amber: { active: "bg-amber-500/15 text-amber-400 border-amber-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
-} as const;
-
-function FilterPill({ label, active, color, onClick }: { label: string; active: boolean; color: keyof typeof PILL_COLORS; onClick: () => void }) {
-  const c = PILL_COLORS[color];
-  return (
-    <button type="button" onClick={onClick}
-      className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${active ? c.active : c.inactive}`}>
-      {label}
-    </button>
-  );
 }
 
 // ─── Component ──────────────────────────────────────────
