@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useCart } from "@/contexts/CartContext";
 import CartDropdown from "@/components/CartDropdown";
@@ -30,6 +30,14 @@ export default function Navigation() {
   const supabase = createClient();
   const { itemCount } = useCart();
 
+  const toolsRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const closeAllDropdowns = useCallback(() => {
+    setToolsMenuOpen(false);
+    setUserMenuOpen(false);
+  }, []);
+
   useEffect(() => {
     if (!supabase) return;
 
@@ -47,6 +55,54 @@ export default function Navigation() {
 
     return () => subscription.unsubscribe();
   }, [supabase]);
+
+  // Close dropdowns on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        toolsMenuOpen &&
+        toolsRef.current &&
+        !toolsRef.current.contains(event.target as Node)
+      ) {
+        setToolsMenuOpen(false);
+      }
+      if (
+        userMenuOpen &&
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setUserMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [toolsMenuOpen, userMenuOpen]);
+
+  // Close dropdowns on Escape key
+  useEffect(() => {
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        closeAllDropdowns();
+        if (mobileMenuOpen) setMobileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [mobileMenuOpen, closeAllDropdowns]);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
 
   const handleSignOut = async () => {
     if (!supabase) return;
@@ -97,7 +153,7 @@ export default function Navigation() {
               ))}
 
               {/* Tools Dropdown */}
-              <div className="relative">
+              <div className="relative" ref={toolsRef}>
                 <button
                   onClick={() => setToolsMenuOpen(!toolsMenuOpen)}
                   className={`flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -153,7 +209,7 @@ export default function Navigation() {
 
               {/* Auth Button */}
               {user ? (
-                <div className="relative ml-2">
+                <div className="relative ml-2" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className="flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-surface-light transition-all"

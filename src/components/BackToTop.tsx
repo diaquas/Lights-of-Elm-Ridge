@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export default function BackToTop() {
   const [isVisible, setIsVisible] = useState(false);
@@ -11,26 +11,28 @@ export default function BackToTop() {
       setIsVisible(window.scrollY > 400);
     };
 
-    window.addEventListener('scroll', toggleVisibility);
-    return () => window.removeEventListener('scroll', toggleVisibility);
+    window.addEventListener("scroll", toggleVisibility);
+    return () => window.removeEventListener("scroll", toggleVisibility);
   }, []);
 
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
-      behavior: 'smooth',
+      behavior: "smooth",
     });
   };
-
-  if (!isVisible) {
-    return null;
-  }
 
   return (
     <button
       onClick={scrollToTop}
-      className="fixed bottom-8 right-8 z-50 p-3 bg-accent hover:bg-accent/80 text-white rounded-full shadow-lg transition-all duration-300 hover:scale-110"
+      className={`fixed bottom-8 right-8 z-50 p-3 bg-accent hover:bg-accent/80 text-white rounded-full shadow-lg transition-all duration-300 hover:scale-110 ${
+        isVisible
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 translate-y-4 pointer-events-none"
+      }`}
       aria-label="Back to top"
+      aria-hidden={!isVisible}
+      tabIndex={isVisible ? 0 : -1}
     >
       <svg
         className="w-6 h-6"

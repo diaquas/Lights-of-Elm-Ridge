@@ -354,7 +354,9 @@ export default function SequenceTabs({
             <span className="seq-cat-tab-count">
               ({christmasSequences.length})
             </span>
-            <span className="text-xs text-zinc-500 ml-1.5 font-normal">Coming Soon</span>
+            <span className="text-xs text-zinc-500 ml-1.5 font-normal">
+              Coming Soon
+            </span>
           </button>
         </div>
 
@@ -493,7 +495,7 @@ export default function SequenceTabs({
               <div className="mt-6 text-center">
                 <button
                   onClick={() => setShowAllNew(!showAllNew)}
-                  className="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 min-h-[44px] bg-[var(--seq-surface)] hover:bg-[var(--seq-surface-raised)] border border-[var(--seq-surface-border)] rounded-xl text-sm sm:text-base text-[var(--seq-text-secondary)] hover:text-[var(--seq-text-primary)] transition-colors"
+                  className="inline-flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 min-h-[44px] bg-[var(--seq-surface)] hover:bg-[var(--seq-surface-raised)] border border-[var(--seq-surface-border)] rounded-lg text-sm sm:text-base text-[var(--seq-text-secondary)] hover:text-[var(--seq-text-primary)] transition-colors"
                 >
                   {showAllNew ? (
                     <>

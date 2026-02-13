@@ -60,19 +60,19 @@ export default memo(function ExportDialog({
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             onClick={onExportAnyway}
-            className="flex-1 py-3 px-4 rounded-xl font-semibold text-sm bg-accent hover:bg-accent/90 text-white transition-colors"
+            className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm bg-accent hover:bg-accent/90 text-white transition-colors"
           >
             Export Anyway
           </button>
           <button
             onClick={onSkipAllAndExport}
-            className="flex-1 py-3 px-4 rounded-xl font-semibold text-sm text-foreground/70 bg-surface-light border border-border hover:bg-surface hover:text-foreground transition-colors"
+            className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm text-foreground/70 bg-surface-light border border-border hover:bg-surface hover:text-foreground transition-colors"
           >
             Skip All & Export
           </button>
           <button
             onClick={onKeepMapping}
-            className="flex-1 py-3 px-4 rounded-xl font-semibold text-sm text-foreground/50 hover:text-foreground bg-transparent border border-border hover:bg-surface-light transition-colors"
+            className="flex-1 py-3 px-4 rounded-lg font-semibold text-sm text-foreground/50 hover:text-foreground bg-transparent border border-border hover:bg-surface-light transition-colors"
           >
             Keep Mapping
           </button>

@@ -429,7 +429,7 @@ export default function SocialMediaDashboard() {
               setShowPostForm(!showPostForm);
               setShowLaunchForm(false);
             }}
-            className="px-5 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl transition-colors"
+            className="px-5 py-2.5 bg-accent hover:bg-accent/90 text-white font-semibold rounded-lg transition-colors"
           >
             + Log a Post
           </button>
@@ -438,7 +438,7 @@ export default function SocialMediaDashboard() {
               setShowLaunchForm(!showLaunchForm);
               setShowPostForm(false);
             }}
-            className="px-5 py-2.5 bg-surface hover:bg-surface-light border border-border text-foreground font-semibold rounded-xl transition-colors"
+            className="px-5 py-2.5 bg-surface hover:bg-surface-light border border-border text-foreground font-semibold rounded-lg transition-colors"
           >
             + Start a Launch
           </button>
