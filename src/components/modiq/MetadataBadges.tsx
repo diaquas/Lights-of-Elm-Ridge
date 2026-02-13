@@ -9,10 +9,29 @@ import type { AutoMatchStats } from "@/contexts/MappingPhaseContext";
  * green: 500+, amber: 50+, gray: 10+, red: <10
  */
 export function getEffectColor(count: number) {
-  if (count >= 500) return { text: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/20" };
-  if (count >= 50) return { text: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" };
-  if (count >= 10) return { text: "text-foreground/50", bg: "bg-foreground/5", border: "border-foreground/10" };
-  return { text: "text-red-400/70", bg: "bg-red-500/5", border: "border-red-500/10" };
+  if (count >= 500)
+    return {
+      text: "text-green-400",
+      bg: "bg-green-500/10",
+      border: "border-green-500/20",
+    };
+  if (count >= 50)
+    return {
+      text: "text-amber-400",
+      bg: "bg-amber-500/10",
+      border: "border-amber-500/20",
+    };
+  if (count >= 10)
+    return {
+      text: "text-foreground/50",
+      bg: "bg-foreground/5",
+      border: "border-foreground/10",
+    };
+  return {
+    text: "text-red-400/70",
+    bg: "bg-red-500/5",
+    border: "border-red-500/10",
+  };
 }
 
 /**
@@ -28,14 +47,20 @@ export function HeroEffectBadge({ count }: { count: number }) {
       title={`${count.toLocaleString()} effects in sequence`}
     >
       <div className="flex items-center gap-0.5">
-        <svg className="w-2.5 h-2.5 opacity-70" viewBox="0 0 24 24" fill="currentColor">
+        <svg
+          className="w-2.5 h-2.5 opacity-70"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
           <path d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
         <span className="text-sm font-bold tabular-nums leading-tight">
           {count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count}
         </span>
       </div>
-      <span className="text-[7px] uppercase tracking-wider opacity-50 leading-none mt-0.5">effects</span>
+      <span className="text-[7px] uppercase tracking-wider opacity-50 leading-none mt-0.5">
+        effects
+      </span>
     </div>
   );
 }
@@ -53,7 +78,11 @@ export function InlineEffectBadge({ count }: { count: number }) {
       className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums border ${bg} ${border} ${text} flex-shrink-0`}
       title={`${count.toLocaleString()} effects in sequence`}
     >
-      <svg className="w-2 h-2 opacity-70" viewBox="0 0 24 24" fill="currentColor">
+      <svg
+        className="w-2 h-2 opacity-70"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
         <path d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
       {display} fx
@@ -87,7 +116,13 @@ function PixelBadge({ count }: { count: number }) {
       className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[10px] font-medium tabular-nums text-foreground/35 bg-foreground/5"
       title={`${count} pixels`}
     >
-      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <svg
+        className="w-2.5 h-2.5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
         <rect x="3" y="3" width="7" height="7" rx="1" />
         <rect x="14" y="3" width="7" height="7" rx="1" />
         <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -104,8 +139,17 @@ function MemberBadge({ count }: { count: number }) {
       className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[10px] font-medium tabular-nums text-blue-400/60 bg-blue-500/8"
       title={`${count} member models`}
     >
-      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2" />
+      <svg
+        className="w-2.5 h-2.5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"
+        />
         <circle cx="9" cy="7" r="4" />
       </svg>
       {count}
@@ -119,7 +163,13 @@ function SubmodelBadge({ count }: { count: number }) {
       className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[10px] font-medium tabular-nums text-purple-400/60 bg-purple-500/8"
       title={`${count} submodels`}
     >
-      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+      <svg
+        className="w-2.5 h-2.5"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
         <path strokeLinecap="round" d="M9 3v12m0 0H5m4 0h4" />
       </svg>
       {count}
@@ -157,7 +207,8 @@ export function EffectsCoverageBar({
         />
       </div>
       <span className="text-[10px] text-foreground/35 tabular-nums whitespace-nowrap">
-        {mappedEffects.toLocaleString()} / {totalEffects.toLocaleString()} effects
+        {mappedEffects.toLocaleString()} / {totalEffects.toLocaleString()}{" "}
+        effects
       </span>
     </div>
   );
@@ -191,7 +242,11 @@ export function Link2Badge() {
  * Unlink SVG icon (broken chain) — used on mapped items to remove mapping
  * without skipping. Based on Lucide `Unlink` icon.
  */
-export function UnlinkIcon({ className = "w-3.5 h-3.5" }: { className?: string }) {
+export function UnlinkIcon({
+  className = "w-3.5 h-3.5",
+}: {
+  className?: string;
+}) {
   return (
     <svg
       className={className}
@@ -221,6 +276,7 @@ export function AutoMatchBanner({
   stats,
   phaseAutoCount,
   onAcceptAllStrong,
+  onApproveAllReview,
   bannerFilter,
   onFilterStrong,
   onFilterReview,
@@ -230,6 +286,8 @@ export function AutoMatchBanner({
   /** Number of auto-matched items visible in THIS phase (not global total) */
   phaseAutoCount: number;
   onAcceptAllStrong?: () => void;
+  /** Approve all items that need review */
+  onApproveAllReview?: () => void;
   /** Currently active banner filter (if any) */
   bannerFilter?: "auto-strong" | "auto-review" | null;
   /** Click handler for strong count pill */
@@ -244,33 +302,51 @@ export function AutoMatchBanner({
 
   // If banner filter is active, show the "Showing" state instead
   if (bannerFilter) {
-    const label = bannerFilter === "auto-review"
-      ? `${stats.reviewCount} needs review`
-      : `${stats.strongCount} strong matches`;
+    const label =
+      bannerFilter === "auto-review"
+        ? `${stats.reviewCount} needs review`
+        : `${stats.strongCount} strong matches`;
     return (
-      <div className={`mx-4 mt-2 mb-1 px-4 py-2 rounded-lg border flex items-center gap-3 flex-shrink-0 ${
-        bannerFilter === "auto-review"
-          ? "border-amber-500/20 bg-amber-500/5"
-          : "border-green-500/20 bg-green-500/5"
-      }`}>
+      <div
+        className={`mx-4 mt-2 mb-1 px-4 py-2 rounded-lg border flex items-center gap-3 flex-shrink-0 ${
+          bannerFilter === "auto-review"
+            ? "border-amber-500/20 bg-amber-500/5"
+            : "border-green-500/20 bg-green-500/5"
+        }`}
+      >
         <Link2Badge />
         <span className="text-[12px] font-semibold text-foreground/80">
           Showing: {label}
         </span>
         {bannerFilter === "auto-review" && stats.reviewCount > 0 && (
           <span className="text-[11px] text-foreground/40">
-            Review these before continuing
+            Review &amp; approve these before continuing
           </span>
         )}
-        {onClearFilter && (
-          <button
-            type="button"
-            onClick={onClearFilter}
-            className="ml-auto text-[11px] font-medium text-accent/70 hover:text-accent transition-colors flex-shrink-0"
-          >
-            {bannerFilter === "auto-review" ? "Skip review, show all" : "Clear filter"}
-          </button>
-        )}
+        <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+          {bannerFilter === "auto-review" &&
+            stats.reviewCount > 0 &&
+            onApproveAllReview && (
+              <button
+                type="button"
+                onClick={onApproveAllReview}
+                className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+              >
+                Approve All ({stats.reviewCount})
+              </button>
+            )}
+          {onClearFilter && (
+            <button
+              type="button"
+              onClick={onClearFilter}
+              className="text-[11px] font-medium text-accent/70 hover:text-accent transition-colors"
+            >
+              {bannerFilter === "auto-review"
+                ? "Skip review, show all"
+                : "Clear filter"}
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -316,8 +392,18 @@ export function AutoMatchBanner({
         className="p-1 text-foreground/20 hover:text-foreground/50 transition-colors flex-shrink-0"
         title="Dismiss"
       >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        <svg
+          className="w-3 h-3"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
       </button>
     </div>

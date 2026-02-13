@@ -58,6 +58,9 @@ export function SpinnersPhase() {
     goToNextPhase,
     interactive,
     autoMatchedNames,
+    approvedNames,
+    approveAutoMatch,
+    approveAllReviewItems,
     autoMatchStats,
     scoreMap,
     factorsMap,
@@ -156,6 +159,7 @@ export function SpinnersPhase() {
       items = items.filter(
         (i) =>
           autoMatchedNames.has(i.sourceModel.name) &&
+          !approvedNames.has(i.sourceModel.name) &&
           (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD,
       );
     else if (statusFilter === "mapped")
@@ -417,6 +421,7 @@ export function SpinnersPhase() {
         <AutoMatchBanner
           stats={autoMatchStats}
           phaseAutoCount={phaseAutoCount}
+          onApproveAllReview={approveAllReviewItems}
         />
 
         <div className={PANEL_STYLES.scrollArea}>
@@ -432,6 +437,7 @@ export function SpinnersPhase() {
                     dnd.state.activeDropTarget === item.sourceModel.name
                   }
                   isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
+                  isApproved={approvedNames.has(item.sourceModel.name)}
                   matchScore={scoreMap.get(item.sourceModel.name)}
                   matchFactors={factorsMap.get(item.sourceModel.name)}
                   topSuggestion={
@@ -450,6 +456,7 @@ export function SpinnersPhase() {
                   onAccept={(userModelName) =>
                     handleAccept(item.sourceModel.name, userModelName)
                   }
+                  onApprove={() => approveAutoMatch(item.sourceModel.name)}
                   onSkip={() => handleSkipItem(item.sourceModel.name)}
                   onUnlink={() => handleUnlink(item.sourceModel.name)}
                   onDragOver={(e) => {
@@ -568,6 +575,15 @@ export function SpinnersPhase() {
                 item={selectedItem}
                 matchScore={scoreMap.get(selectedItem.sourceModel.name)}
                 matchFactors={factorsMap.get(selectedItem.sourceModel.name)}
+                isNeedsReview={
+                  autoMatchedNames.has(selectedItem.sourceModel.name) &&
+                  !approvedNames.has(selectedItem.sourceModel.name) &&
+                  (scoreMap.get(selectedItem.sourceModel.name) ?? 1) <
+                    STRONG_THRESHOLD
+                }
+                onApprove={() =>
+                  approveAutoMatch(selectedItem.sourceModel.name)
+                }
                 onRemoveLink={(destName) =>
                   interactive.removeLinkFromLayer(
                     selectedItem.sourceModel.name,
@@ -673,12 +689,14 @@ function SpinnerListCard({
   isChecked,
   isDropTarget,
   isAutoMatched,
+  isApproved,
   matchScore,
   matchFactors,
   topSuggestion,
   onClick,
   onCheck,
   onAccept,
+  onApprove,
   onSkip,
   onUnlink,
   onDragOver,
@@ -691,6 +709,7 @@ function SpinnerListCard({
   isChecked: boolean;
   isDropTarget: boolean;
   isAutoMatched: boolean;
+  isApproved: boolean;
   matchScore?: number;
   matchFactors?: ModelMapping["factors"];
   topSuggestion: {
@@ -701,6 +720,7 @@ function SpinnerListCard({
   onClick: () => void;
   onCheck: () => void;
   onAccept: (userModelName: string) => void;
+  onApprove: () => void;
   onSkip: () => void;
   onUnlink: () => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -716,6 +736,7 @@ function SpinnerListCard({
   const isNeedsReview =
     item.isMapped &&
     isAutoMatched &&
+    !isApproved &&
     matchScore != null &&
     matchScore < STRONG_THRESHOLD;
   const leftBorder = item.isMapped
@@ -812,6 +833,19 @@ function SpinnerListCard({
                 size="sm"
               />
             )}
+            {isNeedsReview && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onApprove();
+                }}
+                className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors flex-shrink-0"
+                title="Approve this match"
+              >
+                Approve
+              </button>
+            )}
             <button
               type="button"
               onClick={(e) => {
@@ -899,6 +933,7 @@ const SpinnerListCardMemo = memo(
     prev.isChecked === next.isChecked &&
     prev.isDropTarget === next.isDropTarget &&
     prev.isAutoMatched === next.isAutoMatched &&
+    prev.isApproved === next.isApproved &&
     prev.matchScore === next.matchScore &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score &&

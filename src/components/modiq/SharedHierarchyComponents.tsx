@@ -14,16 +14,21 @@ export function CurrentMappingCard({
   item,
   matchScore,
   matchFactors,
+  isNeedsReview: isNeedsReviewProp,
+  onApprove,
   onRemoveLink,
 }: {
   item: SourceLayerMapping;
   matchScore?: number;
   matchFactors?: ModelMapping["factors"];
+  isNeedsReview?: boolean;
+  onApprove?: () => void;
   onRemoveLink: (destName: string) => void;
 }) {
   if (item.assignedUserModels.length === 0) return null;
 
-  const isNeedsReview = matchScore != null && matchScore < STRONG_THRESHOLD;
+  const isNeedsReview =
+    isNeedsReviewProp ?? (matchScore != null && matchScore < STRONG_THRESHOLD);
   const borderColor = isNeedsReview
     ? "border-amber-500/25 bg-amber-500/5"
     : "border-green-500/25 bg-green-500/5";
@@ -51,12 +56,21 @@ export function CurrentMappingCard({
             Currently Mapped To
           </span>
           {matchScore != null && matchScore > 0 && (
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <ConfidenceBadge
                 score={matchScore}
                 factors={matchFactors}
                 size="sm"
               />
+              {isNeedsReview && onApprove && (
+                <button
+                  type="button"
+                  onClick={onApprove}
+                  className="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                >
+                  Approve
+                </button>
+              )}
             </div>
           )}
         </div>

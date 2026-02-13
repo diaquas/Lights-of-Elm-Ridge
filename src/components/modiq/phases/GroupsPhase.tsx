@@ -37,6 +37,8 @@ export function GroupsPhase() {
     scoreMap,
     factorsMap,
     autoMatchedNames,
+    approvedNames,
+    approveAutoMatch,
   } = useMappingPhase();
   const dnd = useDragAndDrop();
 
@@ -299,6 +301,7 @@ export function GroupsPhase() {
                     dnd.state.activeDropTarget === group.sourceModel.name
                   }
                   isAutoMatched={autoMatchedNames.has(group.sourceModel.name)}
+                  isApproved={approvedNames.has(group.sourceModel.name)}
                   matchScore={scoreMap.get(group.sourceModel.name)}
                   matchFactors={factorsMap.get(group.sourceModel.name)}
                   topSuggestion={
@@ -317,6 +320,7 @@ export function GroupsPhase() {
                   onAccept={(userModelName) =>
                     handleAcceptGroup(group.sourceModel.name, userModelName)
                   }
+                  onApprove={() => approveAutoMatch(group.sourceModel.name)}
                   onSkip={() => handleSkipGroup(group.sourceModel.name)}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -373,6 +377,7 @@ export function GroupsPhase() {
                   const gFactors = factorsMap.get(group.sourceModel.name);
                   const gIsReview =
                     autoMatchedNames.has(group.sourceModel.name) &&
+                    !approvedNames.has(group.sourceModel.name) &&
                     gScore != null &&
                     gScore < STRONG_THRESHOLD;
                   return (
@@ -487,6 +492,15 @@ export function GroupsPhase() {
                 item={selectedGroup}
                 matchScore={scoreMap.get(selectedGroup.sourceModel.name)}
                 matchFactors={factorsMap.get(selectedGroup.sourceModel.name)}
+                isNeedsReview={
+                  autoMatchedNames.has(selectedGroup.sourceModel.name) &&
+                  !approvedNames.has(selectedGroup.sourceModel.name) &&
+                  (scoreMap.get(selectedGroup.sourceModel.name) ?? 1) <
+                    STRONG_THRESHOLD
+                }
+                onApprove={() =>
+                  approveAutoMatch(selectedGroup.sourceModel.name)
+                }
                 onRemoveLink={(destName) =>
                   interactive.removeLinkFromLayer(
                     selectedGroup.sourceModel.name,
@@ -600,12 +614,14 @@ function GroupListCard({
   isChecked,
   isDropTarget,
   isAutoMatched,
+  isApproved,
   matchScore,
   matchFactors,
   topSuggestion,
   onClick,
   onCheck,
   onAccept,
+  onApprove,
   onSkip,
   onDragOver,
   onDragEnter,
@@ -617,6 +633,7 @@ function GroupListCard({
   isChecked: boolean;
   isDropTarget: boolean;
   isAutoMatched: boolean;
+  isApproved: boolean;
   matchScore?: number;
   matchFactors?: ModelMapping["factors"];
   topSuggestion: {
@@ -627,6 +644,7 @@ function GroupListCard({
   onClick: () => void;
   onCheck: () => void;
   onAccept: (userModelName: string) => void;
+  onApprove: () => void;
   onSkip: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragEnter: () => void;
@@ -731,22 +749,44 @@ function GroupListCard({
           </div>
 
           {/* Mapped match preview */}
-          {group.isMapped && group.assignedUserModels.length > 0 && (
-            <div className="mt-1.5 flex items-center gap-2">
-              <span
-                className={`text-[10px] ${isAutoMatched && matchScore != null && matchScore < STRONG_THRESHOLD ? "text-amber-400/60" : "text-green-400/60"}`}
-              >
-                &rarr; {group.assignedUserModels[0].name}
-              </span>
-              {matchScore != null && matchScore > 0 && (
-                <ConfidenceBadge
-                  score={matchScore}
-                  factors={matchFactors}
-                  size="sm"
-                />
-              )}
-            </div>
-          )}
+          {group.isMapped &&
+            group.assignedUserModels.length > 0 &&
+            (() => {
+              const isReview =
+                isAutoMatched &&
+                !isApproved &&
+                matchScore != null &&
+                matchScore < STRONG_THRESHOLD;
+              return (
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span
+                    className={`text-[10px] ${isReview ? "text-amber-400/60" : "text-green-400/60"}`}
+                  >
+                    &rarr; {group.assignedUserModels[0].name}
+                  </span>
+                  {matchScore != null && matchScore > 0 && (
+                    <ConfidenceBadge
+                      score={matchScore}
+                      factors={matchFactors}
+                      size="sm"
+                    />
+                  )}
+                  {isReview && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onApprove();
+                      }}
+                      className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                      title="Approve this match"
+                    >
+                      Approve
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           {/* Best match preview */}
           {!group.isMapped && topSuggestion && (
             <div className="mt-1.5 flex items-center gap-2">
@@ -800,6 +840,7 @@ const GroupListCardMemo = memo(
     prev.isChecked === next.isChecked &&
     prev.isDropTarget === next.isDropTarget &&
     prev.isAutoMatched === next.isAutoMatched &&
+    prev.isApproved === next.isApproved &&
     prev.matchScore === next.matchScore &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score,
