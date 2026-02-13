@@ -222,7 +222,7 @@ export default async function SequencePage({ params }: PageProps) {
                   )}
                   {/* Price chip */}
                   <span className="seq-price-chip absolute top-4 left-4 z-10 bg-accent text-white font-display font-bold text-[15px] px-4 py-1.5 rounded-full tracking-tight">
-                    {sequence.price === 0 ? "FREE" : `$${sequence.price}`}
+                    {sequence.price === 0 ? "Free" : `$${sequence.price}`}
                   </span>
                 </div>
 
@@ -622,7 +622,7 @@ export default async function SequencePage({ params }: PageProps) {
                         {related.title} - {related.artist}
                       </h3>
                       <p className="text-accent font-semibold">
-                        {related.price === 0 ? "FREE" : `$${related.price}`}
+                        {related.price === 0 ? "Free" : `$${related.price}`}
                       </p>
                     </Link>
                   ))}
