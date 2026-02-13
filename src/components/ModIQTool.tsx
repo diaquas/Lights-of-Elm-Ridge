@@ -3289,7 +3289,7 @@ function GlobalFocusBar({
   const phaseLabel =
     currentPhase === "individuals" ? "Models" :
     currentPhase === "spinners" ? "Spinners" :
-    currentPhase === "finalize" ? "Finalize" : "Review";
+    currentPhase === "finalize" ? "Display Coverage" : "Review";
 
   return (
     <div className="px-4 py-1.5 border-b border-border bg-surface flex-shrink-0 flex items-center gap-4">

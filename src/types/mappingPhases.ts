@@ -27,7 +27,7 @@ export const UPLOAD_STEP = {
 /**
  * Phase definitions for the ModIQ mapping wizard.
  *
- * Ordering: [Upload (always done)] → Groups & Models → Submodels → Finalize → Review
+ * Ordering: [Upload (always done)] → Groups & Models → Submodels → Display Coverage → Review
  *
  * Auto-matches (70%+ confidence) are pre-applied during the loading screen
  * and appear inline in their natural phase with a Link2 badge.
@@ -59,10 +59,11 @@ export const PHASE_CONFIG: PhaseConfig[] = [
   },
   {
     id: "finalize",
-    label: "Finalize",
-    description: "Fine-tune mappings and fill coverage gaps",
+    label: "Display Coverage",
+    stepperLabel: "Coverage",
+    description: "Fill coverage gaps in your display",
     icon: "finalize",
-    filter: () => true, // Shows all non-skipped items (dual-pane working checklist)
+    filter: () => true, // Shows all non-skipped items
   },
   {
     id: "review",
