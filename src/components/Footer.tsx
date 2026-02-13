@@ -98,7 +98,7 @@ export default function Footer() {
 
         <div className="border-t border-border mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-foreground/40 text-sm">
-            © {new Date().getFullYear()} Light of Elm Ridge. All rights
+            © {new Date().getFullYear()} Lights of Elm Ridge. All rights
             reserved.
             <span className="ml-2 text-foreground/30">
               No pixels were harmed in the making of this site.

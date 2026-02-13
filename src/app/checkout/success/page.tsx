@@ -66,14 +66,14 @@ export default function CheckoutSuccessPage() {
           <div className="space-y-4">
             <Link
               href="/account"
-              className="block w-full py-3 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl transition-colors"
+              className="block w-full py-3 bg-accent hover:bg-accent/90 text-white font-semibold rounded-lg transition-colors"
             >
               Download My Sequences
             </Link>
 
             <Link
               href="/sequences"
-              className="block w-full py-3 bg-surface-light hover:bg-surface-light/80 text-foreground font-semibold rounded-xl border border-border transition-colors"
+              className="block w-full py-3 bg-surface-light hover:bg-surface-light/80 text-foreground font-semibold rounded-lg border border-border transition-colors"
             >
               Browse More Sequences
             </Link>

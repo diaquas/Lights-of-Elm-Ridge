@@ -47,7 +47,7 @@ export default function AddToCartButton({
   return (
     <button
       onClick={handleClick}
-      className={`flex items-center justify-center gap-2 w-full py-4 font-semibold rounded-xl transition-all text-lg ${
+      className={`flex items-center justify-center gap-2 w-full py-4 font-semibold rounded-lg transition-all text-lg ${
         inCart
           ? "bg-green-600 hover:bg-green-700 text-white"
           : "bg-accent hover:bg-accent/90 text-white"

@@ -102,6 +102,18 @@ body {
   background: #3f3f46;
 }
 
+/* ─── Focus-Visible Styles for Keyboard Navigation ─── */
+:focus-visible {
+  outline: 2px solid var(--accent-secondary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove default focus ring for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
 /* Site Logo — CSS wordmark */
 .site-logo {
   display: flex;
@@ -5017,7 +5029,6 @@ a.card-item {
   font-weight: 500;
 }
 
-
 /* Section Title */
 .about-page .section-title {
   font-size: 22px;
@@ -6381,37 +6392,74 @@ a.card-item {
 /* ── Enhanced Processing Screen ─────────────────────────── */
 
 @keyframes proc-progress {
-  from { stroke-dashoffset: var(--proc-circumference); }
+  from {
+    stroke-dashoffset: var(--proc-circumference);
+  }
 }
 
 @keyframes proc-pulse-ring {
-  0%, 100% { transform: scale(1); opacity: 0.15; }
-  50% { transform: scale(1.08); opacity: 0.35; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.15;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.35;
+  }
 }
 
 @keyframes proc-step-in {
-  from { opacity: 0; transform: translateX(-12px); }
-  to { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes proc-stat-in {
-  from { opacity: 0; transform: scale(0.9); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes proc-counter-bump {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.12); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
 }
 
 @keyframes proc-dot-pulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @keyframes proc-check-in {
-  from { transform: scale(0) rotate(-45deg); opacity: 0; }
-  to { transform: scale(1) rotate(0deg); opacity: 1; }
+  from {
+    transform: scale(0) rotate(-45deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
 }
 
 .proc-step-enter {
@@ -6447,8 +6495,14 @@ a.card-item {
   .proc-dot-pulse {
     animation: none !important;
   }
-  .proc-step-enter { opacity: 1; transform: none; }
-  .proc-stat-enter { opacity: 1; transform: none; }
+  .proc-step-enter {
+    opacity: 1;
+    transform: none;
+  }
+  .proc-stat-enter {
+    opacity: 1;
+    transform: none;
+  }
 
   /* Global: disable non-essential animations and transitions */
   *,

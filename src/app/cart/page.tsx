@@ -96,7 +96,7 @@ export default function CartPage() {
             </p>
             <Link
               href="/sequences"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-white font-semibold rounded-xl transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-white font-semibold rounded-lg transition-colors"
             >
               Browse Sequences
             </Link>
@@ -216,7 +216,7 @@ export default function CartPage() {
               <button
                 onClick={handleCheckout}
                 disabled={isLoading}
-                className="w-full py-3 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white font-semibold rounded-xl transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white font-semibold rounded-lg transition-colors disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isLoading ? (
                   <>
