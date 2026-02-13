@@ -26,7 +26,7 @@ import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
-import { CollapsibleMembers } from "../SharedHierarchyComponents";
+import { CurrentMappingCard, CollapsibleMembers } from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -460,7 +460,17 @@ export function SpinnersPhase() {
               </div>
             </div>
 
-            {/* Universal Source Panel */}
+            {/* Current Mapping Card (for mapped items) */}
+            {selectedItem.isMapped && (
+              <CurrentMappingCard
+                item={selectedItem}
+                onRemoveLink={(destName) =>
+                  interactive.removeLinkFromLayer(selectedItem.sourceModel.name, destName)
+                }
+              />
+            )}
+
+            {/* Universal Source Panel — always visible for suggestions + add another */}
             <div className="flex-1 min-h-0 overflow-hidden">
               <UniversalSourcePanel
                 allModels={interactive.allDestModels}
@@ -480,20 +490,23 @@ export function SpinnersPhase() {
                 onSkipDest={interactive.skipDestModel}
                 onUnskipDest={interactive.unskipDestModel}
                 onUnskipAllDest={interactive.unskipAllDestModels}
+                excludeNames={selectedItem.isMapped ? new Set(selectedItem.assignedUserModels.map((m) => m.name)) : undefined}
                 destSuperGroupNames={interactive.destSuperGroupNames}
               />
             </div>
 
-            {/* Skip */}
-            <div className="px-6 py-3 border-t border-border flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => handleSkipItem(selectedItem.sourceModel.name)}
-                className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
-              >
-                Skip This Group
-              </button>
-            </div>
+            {/* Skip (only for unmapped) */}
+            {!selectedItem.isMapped && (
+              <div className="px-6 py-3 border-t border-border flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleSkipItem(selectedItem.sourceModel.name)}
+                  className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
+                >
+                  Skip This Group
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground/30">
