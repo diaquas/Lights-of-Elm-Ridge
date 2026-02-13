@@ -457,10 +457,10 @@ export function UniversalSourcePanel({
         {filteredSuggestions.length > 0 && (
           <div className="px-6 py-3 border-b border-border bg-surface/50">
             <h4 className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
-              AI Suggestions ({Math.min(filteredSuggestions.length, 3)})
+              AI Suggestions ({Math.min(filteredSuggestions.length, 5)})
             </h4>
             <div className="space-y-1.5">
-              {filteredSuggestions.slice(0, 3).map((sugg, index) => (
+              {filteredSuggestions.slice(0, 5).map((sugg, index) => (
                 <SuggestionCard
                   key={sugg.model.name}
                   sugg={sugg}

@@ -41,6 +41,12 @@ interface SourceSuggestion {
   isAlreadyLinked: boolean;
 }
 
+interface SourceHierarchyGroup {
+  layer: SourceLayerMapping;
+  members: SourceSuggestion[];
+  isSuperGroup: boolean;
+}
+
 // ─── Helpers ────────────────────────────────────────────
 
 function naturalCompare(a: string, b: string): number {
@@ -73,6 +79,7 @@ export function FinalizePhase() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [expandedSourceGroups, setExpandedSourceGroups] = useState<Set<string>>(new Set());
 
   // ── Auto-skip: if display coverage is 100%, show a completion message ──
   const isFullCoverage = displayCoverage.percent >= 100;
@@ -279,6 +286,81 @@ export function FinalizePhase() {
     return { matchedSuggestions: matched, otherSources: others };
   }, [suggestionsForSelected]);
 
+  // ── Source hierarchy for "All Sources" section ──
+  const sourceHierarchy = useMemo(() => {
+    if (otherSources.length === 0) return null;
+
+    // Build lookup from source name → layer
+    const layerByName = new Map<string, SourceLayerMapping>();
+    for (const layer of sourceLayerMappings) {
+      layerByName.set(layer.sourceModel.name, layer);
+    }
+
+    // Build lookup from source name → SourceSuggestion
+    const suggByName = new Map<string, SourceSuggestion>();
+    for (const s of otherSources) suggByName.set(s.sourceName, s);
+
+    // Build member→group mapping from source layers
+    const memberToParent = new Map<string, string>();
+    const groupLayers: SourceLayerMapping[] = [];
+    for (const layer of sourceLayerMappings) {
+      if (layer.isGroup && !layer.isSkipped && layer.effectCount > 0) {
+        groupLayers.push(layer);
+        for (const memberName of layer.memberNames) {
+          // Prefer most-specific (smallest) group
+          const existingParent = memberToParent.get(memberName);
+          if (!existingParent) {
+            memberToParent.set(memberName, layer.sourceModel.name);
+          } else {
+            const existingLayer = layerByName.get(existingParent);
+            if (existingLayer && layer.memberNames.length < existingLayer.memberNames.length) {
+              memberToParent.set(memberName, layer.sourceModel.name);
+            }
+          }
+        }
+      }
+    }
+
+    // Build hierarchy groups — only include groups that have at least one member in otherSources
+    const groups: SourceHierarchyGroup[] = [];
+    const groupedSourceNames = new Set<string>();
+
+    for (const gl of groupLayers) {
+      const members: SourceSuggestion[] = [];
+      for (const memberName of gl.memberNames) {
+        const sugg = suggByName.get(memberName);
+        if (sugg) members.push(sugg);
+      }
+      // Also check if the group itself is in otherSources (it could be a suggestion)
+      const groupSugg = suggByName.get(gl.sourceModel.name);
+
+      if (members.length === 0 && !groupSugg) continue;
+
+      for (const m of members) groupedSourceNames.add(m.sourceName);
+      if (groupSugg) groupedSourceNames.add(groupSugg.sourceName);
+
+      groups.push({
+        layer: gl,
+        members,
+        isSuperGroup: gl.isSuperGroup,
+      });
+    }
+
+    // Ungrouped: sources not claimed by any group
+    const ungrouped = otherSources.filter((s) => !groupedSourceNames.has(s.sourceName));
+
+    const superGroups = groups.filter((g) => g.isSuperGroup);
+    const regularGroups = groups.filter((g) => !g.isSuperGroup);
+
+    // Sort: groups with more members first, then alphabetical
+    const sortFn = (a: SourceHierarchyGroup, b: SourceHierarchyGroup) =>
+      naturalCompare(a.layer.sourceModel.name, b.layer.sourceModel.name);
+    superGroups.sort(sortFn);
+    regularGroups.sort(sortFn);
+
+    return { superGroups, regularGroups, ungrouped };
+  }, [otherSources, sourceLayerMappings]);
+
   // ── Handlers ──
   const handleAssign = useCallback((sourceName: string, destName: string) => {
     assignUserModelToLayer(sourceName, destName);
@@ -300,6 +382,15 @@ export function FinalizePhase() {
   const handleAcceptSuggestion = useCallback((destName: string, sourceName: string) => {
     assignUserModelToLayer(sourceName, destName);
   }, [assignUserModelToLayer]);
+
+  const toggleSourceGroup = useCallback((name: string) => {
+    setExpandedSourceGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
 
   // ── Full coverage state ──
   if (isFullCoverage && !selectedDestName) {
@@ -535,25 +626,73 @@ export function FinalizePhase() {
                 </div>
               )}
 
-              {/* All available sources */}
+              {/* All available sources — organized by hierarchy */}
               <div className="px-6 py-3">
                 <h4 className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
                   All Sources ({otherSources.length})
                 </h4>
                 {otherSources.length === 0 && matchedSuggestions.length === 0 ? (
                   <p className="text-center py-6 text-[12px] text-foreground/30">No available sources</p>
+                ) : sourceHierarchy ? (
+                  <div className="space-y-1">
+                    {/* Display-Wide Super Groups */}
+                    {sourceHierarchy.superGroups.length > 0 && (
+                      <div className="mb-2">
+                        <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-purple-400/60">
+                          <span className="font-bold uppercase tracking-wider">Display-Wide</span>
+                          <span>({sourceHierarchy.superGroups.length})</span>
+                        </div>
+                        <div className="space-y-1">
+                          {sourceHierarchy.superGroups.map((group) => (
+                            <SourceGroupRow
+                              key={group.layer.sourceModel.name}
+                              group={group}
+                              isExpanded={expandedSourceGroups.has(group.layer.sourceModel.name)}
+                              onToggle={() => toggleSourceGroup(group.layer.sourceModel.name)}
+                              onAssign={(sourceName) => handleAssign(sourceName, selectedItem!.model.name)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Regular Source Groups */}
+                    {sourceHierarchy.regularGroups.map((group) => (
+                      <SourceGroupRow
+                        key={group.layer.sourceModel.name}
+                        group={group}
+                        isExpanded={expandedSourceGroups.has(group.layer.sourceModel.name)}
+                        onToggle={() => toggleSourceGroup(group.layer.sourceModel.name)}
+                        onAssign={(sourceName) => handleAssign(sourceName, selectedItem!.model.name)}
+                      />
+                    ))}
+
+                    {/* Ungrouped divider */}
+                    {(sourceHierarchy.superGroups.length + sourceHierarchy.regularGroups.length) > 0 && sourceHierarchy.ungrouped.length > 0 && (
+                      <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
+                        <div className="flex-1 h-px bg-border/40" />
+                        <span className="uppercase tracking-wider font-semibold">Ungrouped</span>
+                        <div className="flex-1 h-px bg-border/40" />
+                      </div>
+                    )}
+
+                    {/* Ungrouped individual sources */}
+                    {sourceHierarchy.ungrouped.map((sugg) => (
+                      <SourceItemButton
+                        key={sugg.sourceName}
+                        sugg={sugg}
+                        onAssign={(sourceName) => handleAssign(sourceName, selectedItem!.model.name)}
+                      />
+                    ))}
+                  </div>
                 ) : (
                   <div className="space-y-1">
                     {otherSources.map((sugg) => (
-                      <button key={sugg.sourceName} type="button"
-                        onClick={() => handleAssign(sugg.sourceName, selectedItem.model.name)}
-                        className="w-full flex items-center gap-2 rounded-lg min-h-[34px] px-2.5 py-1.5 transition-all duration-150 border border-border bg-surface hover:border-foreground/20 hover:bg-foreground/[0.02] cursor-pointer">
-                        <span className="text-[12px] font-medium truncate flex-1 min-w-0 text-foreground/70">{sugg.sourceName}</span>
-                        <span className="text-[10px] text-foreground/25 flex-shrink-0 tabular-nums">{sugg.effectCount} fx</span>
-                        {sugg.score > 0 && (
-                          <span className="text-[10px] text-foreground/30 flex-shrink-0 tabular-nums">{Math.round(sugg.score * 100)}%</span>
-                        )}
-                      </button>
+                      <SourceItemButton
+                        key={sugg.sourceName}
+                        sugg={sugg}
+                        onAssign={(sourceName) => handleAssign(sourceName, selectedItem!.model.name)}
+                      />
                     ))}
                   </div>
                 )}
@@ -576,6 +715,80 @@ export function FinalizePhase() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Source Item Button (Right Panel — individual source) ────────
+
+function SourceItemButton({ sugg, onAssign }: {
+  sugg: SourceSuggestion;
+  onAssign: (sourceName: string) => void;
+}) {
+  return (
+    <button type="button"
+      onClick={() => onAssign(sugg.sourceName)}
+      className="w-full flex items-center gap-2 rounded-lg min-h-[34px] px-2.5 py-1.5 transition-all duration-150 border border-border bg-surface hover:border-foreground/20 hover:bg-foreground/[0.02] cursor-pointer">
+      <span className="text-[12px] font-medium truncate flex-1 min-w-0 text-foreground/70">{sugg.sourceName}</span>
+      <span className="text-[10px] text-foreground/25 flex-shrink-0 tabular-nums">{sugg.effectCount} fx</span>
+      {sugg.score > 0 && (
+        <span className="text-[10px] text-foreground/30 flex-shrink-0 tabular-nums">{Math.round(sugg.score * 100)}%</span>
+      )}
+    </button>
+  );
+}
+
+// ─── Source Group Row (Right Panel — collapsible group) ────────
+
+function SourceGroupRow({ group, isExpanded, onToggle, onAssign }: {
+  group: SourceHierarchyGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onAssign: (sourceName: string) => void;
+}) {
+  const groupBorder = group.isSuperGroup
+    ? "border-l-purple-400/40"
+    : "border-l-blue-400/40";
+  const bgClass = group.isSuperGroup
+    ? "border-border/60 bg-purple-500/[0.03]"
+    : "border-border/60 bg-foreground/[0.02]";
+
+  return (
+    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${bgClass}`}>
+      {/* Group header — clicking assigns the group itself */}
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+        <button type="button" onClick={onToggle} className="flex-shrink-0 p-0.5">
+          <svg
+            className={`w-3 h-3 ${group.isSuperGroup ? "text-purple-400/60" : "text-foreground/40"} transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        {group.isSuperGroup
+          ? <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">SUPER</span>
+          : <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded flex-shrink-0">GRP</span>
+        }
+        <button type="button" onClick={() => onAssign(group.layer.sourceModel.name)}
+          className="text-[12px] font-semibold text-foreground/70 truncate hover:text-foreground transition-colors text-left flex-1 min-w-0">
+          {group.layer.sourceModel.name}
+        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="text-[10px] text-foreground/25 tabular-nums">{group.layer.effectCount} fx</span>
+          <span className="text-[10px] text-foreground/30 tabular-nums">{group.members.length}m</span>
+        </div>
+      </div>
+
+      {/* Expanded members */}
+      {isExpanded && group.members.length > 0 && (
+        <div className={`px-2.5 pb-2 pl-5 space-y-0.5 border-t ${group.isSuperGroup ? "border-purple-400/10" : "border-border/30"}`}>
+          <div className="pt-1">
+            {group.members.map((sugg) => (
+              <SourceItemButton key={sugg.sourceName} sugg={sugg} onAssign={onAssign} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

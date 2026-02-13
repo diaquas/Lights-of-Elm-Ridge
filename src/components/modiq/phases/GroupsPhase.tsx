@@ -99,7 +99,7 @@ export function GroupsPhase() {
     if (!selectedGroup) return [];
     return interactive
       .getSuggestionsForLayer(selectedGroup.sourceModel)
-      .slice(0, 8);
+      .slice(0, 10);
   }, [interactive, selectedGroup]);
 
   // Type filter: only show model-level groups (not individual models or submodel groups)
