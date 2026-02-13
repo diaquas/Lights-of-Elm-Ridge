@@ -154,7 +154,7 @@ export function SpinnersPhase() {
     if (!selectedItem) return [];
     return interactive
       .getSuggestionsForLayer(selectedItem.sourceModel)
-      .slice(0, 8);
+      .slice(0, 10);
   }, [interactive, selectedItem]);
 
   // Type filter: only show SUBMODEL_GROUP in Spinners source panel
