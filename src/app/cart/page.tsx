@@ -10,6 +10,7 @@ export default function CartPage() {
   const { items, removeItem, clearCart, total, itemCount } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const handleCheckout = async () => {
     setIsLoading(true);
@@ -112,12 +113,35 @@ export default function CartPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Your Cart</h1>
-          <button
-            onClick={clearCart}
-            className="text-sm text-foreground/60 hover:text-foreground transition-colors"
-          >
-            Clear cart
-          </button>
+          {showClearConfirm ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground/60">
+                Clear all items?
+              </span>
+              <button
+                onClick={() => {
+                  clearCart();
+                  setShowClearConfirm(false);
+                }}
+                className="text-sm min-h-[44px] min-w-[44px] px-3 py-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors font-medium"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                className="text-sm min-h-[44px] min-w-[44px] px-3 py-2 text-foreground/60 hover:text-foreground hover:bg-surface-light rounded-lg transition-colors"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              className="text-sm min-h-[44px] px-3 py-2 text-foreground/60 hover:text-foreground hover:bg-surface-light rounded-lg transition-colors"
+            >
+              Clear cart
+            </button>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -171,7 +195,7 @@ export default function CartPage() {
                   </span>
                   <button
                     onClick={() => removeItem(item.id)}
-                    className="text-xs sm:text-sm px-2 py-1 text-foreground/60 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                    className="text-sm min-h-[44px] min-w-[44px] px-3 py-2 text-foreground/60 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                   >
                     Remove
                   </button>

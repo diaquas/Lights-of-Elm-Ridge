@@ -120,7 +120,7 @@ export default function CartDropdown() {
                       </span>
                       <button
                         onClick={() => removeItem(item.id)}
-                        className="text-xs px-1 py-0.5 text-foreground/50 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                        className="text-xs min-h-[44px] min-w-[44px] px-2 py-2 text-foreground/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
                       >
                         Remove
                       </button>

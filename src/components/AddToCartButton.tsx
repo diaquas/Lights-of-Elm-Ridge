@@ -1,6 +1,7 @@
 "use client";
 
 import { useCart, CartItem } from "@/contexts/CartContext";
+import { showToast } from "@/components/Toast";
 
 interface AddToCartButtonProps {
   sequence: {
@@ -37,6 +38,7 @@ export default function AddToCartButton({
         thumbnailUrl: sequence.thumbnailUrl,
       };
       addItem(cartItem);
+      showToast(`"${sequence.title}" added to cart`);
     }
   };
 
