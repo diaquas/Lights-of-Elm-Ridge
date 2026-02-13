@@ -6,7 +6,7 @@ import TheShowTabs from "@/components/TheShowTabs";
 import BackToTop from "@/components/BackToTop";
 
 export const metadata: Metadata = {
-  title: "The Show | Lights of Elm Ridge",
+  title: "The Show",
   description:
     "Watch real footage from our RGB pixel light show, browse the full playlist, and explore the technical specs behind 35,000+ pixels.",
 };

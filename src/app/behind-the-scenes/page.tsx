@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import NewsletterForm from "@/components/NewsletterForm";
 
 export const metadata: Metadata = {
-  title: "Behind the Scenes | Lights of Elm Ridge",
+  title: "Behind the Scenes",
   description:
     "Learn how we build our light show. Tutorials, deep dives, and honest stories about what works (and what spectacularly doesn't).",
 };
