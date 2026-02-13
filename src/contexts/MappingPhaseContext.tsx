@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/refs -- Intentional: refs used as lazy-init caches in useMemo,
+   scores/phases are computed once and never change, so stale-ref is not a concern. */
 "use client";
 
 import {
@@ -10,11 +12,21 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
-import type { InteractiveMappingState, SourceLayerMapping } from "@/hooks/useInteractiveMapping";
+import type {
+  InteractiveMappingState,
+  SourceLayerMapping,
+} from "@/hooks/useInteractiveMapping";
 import type { MappingPhase } from "@/types/mappingPhases";
-import { PHASE_CONFIG, AUTO_ACCEPT_THRESHOLD, STRONG_THRESHOLD } from "@/types/mappingPhases";
+import {
+  PHASE_CONFIG,
+  AUTO_ACCEPT_THRESHOLD,
+  STRONG_THRESHOLD,
+} from "@/types/mappingPhases";
 import { isSpinnerType } from "@/types/xLightsTypes";
-import { suggestMatchesForSource } from "@/lib/modiq/matcher";
+import {
+  suggestMatchesForSource,
+  type ModelMapping,
+} from "@/lib/modiq/matcher";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -52,6 +64,8 @@ interface PhaseContextValue {
   phaseCounts: Map<MappingPhase, number>;
   /** Best match score per layer (source name → score) */
   scoreMap: Map<string, number>;
+  /** Factor breakdown per layer (source name → 6-factor scores). Used to generate reasoning tooltips. */
+  factorsMap: Map<string, ModelMapping["factors"]>;
   /** The full interactive mapping state (for phase components to dispatch actions) */
   interactive: InteractiveMappingState;
   /** Set of source names that were auto-matched during loading (for Link2 badge) */
@@ -149,6 +163,7 @@ export function MappingPhaseProvider({
   // Stable caches: scores and phase assignments are computed once per item
   // and never change. This prevents items from migrating between phases when mapped.
   const stableScoreRef = useRef(new Map<string, number>());
+  const stableFactorsRef = useRef(new Map<string, ModelMapping["factors"]>());
   const phaseAssignmentRef = useRef(new Map<string, MappingPhase>());
 
   /** Names of items that were auto-matched (pre-applied). Persists across renders. */
@@ -158,7 +173,7 @@ export function MappingPhaseProvider({
   // Compute stable scores and phase assignments for any new items.
   // Once an item's score/phase is cached, it never recalculates.
   // All items go directly to their natural phase (spinners or individuals).
-  const scoreMap = useMemo(() => {
+  const _scoreMaps = useMemo(() => {
     for (const layer of interactive.sourceLayerMappings) {
       if (layer.isSkipped) continue;
       const name = layer.sourceModel.name;
@@ -176,11 +191,20 @@ export function MappingPhaseProvider({
             interactive.allSourceModels,
             interactive.allDestModels,
           );
-          stableScoreRef.current.set(name, result.length > 0 ? result[0].score : 0);
+          stableScoreRef.current.set(
+            name,
+            result.length > 0 ? result[0].score : 0,
+          );
+          if (result.length > 0)
+            stableFactorsRef.current.set(name, result[0].factors);
         } else {
-          const suggestions = interactive.getSuggestionsForLayer(layer.sourceModel);
+          const suggestions = interactive.getSuggestionsForLayer(
+            layer.sourceModel,
+          );
           const topScore = suggestions.length > 0 ? suggestions[0].score : 0;
           stableScoreRef.current.set(name, topScore);
+          if (suggestions.length > 0)
+            stableFactorsRef.current.set(name, suggestions[0].factors);
         }
       }
 
@@ -194,8 +218,14 @@ export function MappingPhaseProvider({
       }
     }
 
-    return new Map(stableScoreRef.current);
+    return {
+      scores: new Map(stableScoreRef.current),
+      factors: new Map(stableFactorsRef.current),
+    };
   }, [interactive]);
+
+  const scoreMap = _scoreMaps.scores;
+  const factorsMap = _scoreMaps.factors;
 
   /**
    * Auto-apply matches: one-time side effect that runs the greedy assignment
@@ -271,9 +301,14 @@ export function MappingPhaseProvider({
   }, [interactive, scoreMap]);
 
   // Expose autoMatchedNames as a stable set (updates when the ref changes)
-  const [autoMatchedNames, setAutoMatchedNames] = useState<ReadonlySet<string>>(new Set());
+  const [autoMatchedNames, setAutoMatchedNames] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
   useEffect(() => {
-    if (autoMatchedRef.current.size > 0 && autoMatchedRef.current.size !== autoMatchedNames.size) {
+    if (
+      autoMatchedRef.current.size > 0 &&
+      autoMatchedRef.current.size !== autoMatchedNames.size
+    ) {
       setAutoMatchedNames(new Set(autoMatchedRef.current));
     }
   }, [scoreMap, autoMatchedNames.size]);
@@ -292,12 +327,18 @@ export function MappingPhaseProvider({
   const getPhaseItems = useCallback(
     (phase: MappingPhase): SourceLayerMapping[] => {
       if (phase === "review" || phase === "finalize") {
-        return sortLayers(interactive.sourceLayerMappings.filter((l) => !l.isSkipped));
+        return sortLayers(
+          interactive.sourceLayerMappings.filter((l) => !l.isSkipped),
+        );
       }
-      return sortLayers(interactive.sourceLayerMappings.filter((layer) => {
-        if (layer.isSkipped) return false;
-        return phaseAssignmentRef.current.get(layer.sourceModel.name) === phase;
-      }));
+      return sortLayers(
+        interactive.sourceLayerMappings.filter((layer) => {
+          if (layer.isSkipped) return false;
+          return (
+            phaseAssignmentRef.current.get(layer.sourceModel.name) === phase
+          );
+        }),
+      );
     },
     [interactive.sourceLayerMappings],
   );
@@ -318,7 +359,9 @@ export function MappingPhaseProvider({
   }, [phaseItems]);
 
   const overallProgress = useMemo((): PhaseProgress => {
-    const nonSkipped = interactive.sourceLayerMappings.filter((l) => !l.isSkipped);
+    const nonSkipped = interactive.sourceLayerMappings.filter(
+      (l) => !l.isSkipped,
+    );
     const total = nonSkipped.length;
     const completed = nonSkipped.filter((l) => l.isMapped).length;
     return {
@@ -332,7 +375,10 @@ export function MappingPhaseProvider({
     const counts = new Map<MappingPhase, number>();
     for (const config of PHASE_CONFIG) {
       if (config.id === "review" || config.id === "finalize") {
-        counts.set(config.id, interactive.sourceLayerMappings.filter((l) => !l.isSkipped).length);
+        counts.set(
+          config.id,
+          interactive.sourceLayerMappings.filter((l) => !l.isSkipped).length,
+        );
       } else {
         counts.set(config.id, getPhaseItems(config.id).length);
       }
@@ -354,6 +400,7 @@ export function MappingPhaseProvider({
       overallProgress,
       phaseCounts,
       scoreMap,
+      factorsMap,
       interactive,
       autoMatchedNames,
       autoMatchStats,
@@ -372,6 +419,7 @@ export function MappingPhaseProvider({
       overallProgress,
       phaseCounts,
       scoreMap,
+      factorsMap,
       interactive,
       autoMatchedNames,
       autoMatchStats,
