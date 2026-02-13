@@ -14,6 +14,7 @@ import {
   InlineEffectBadge,
   AutoMatchBanner,
   Link2Badge,
+  UnlinkIcon,
 } from "../MetadataBadges";
 import { STRONG_THRESHOLD } from "@/types/mappingPhases";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
@@ -283,6 +284,10 @@ export function IndividualsPhase() {
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
+  const handleUnlink = (sourceName: string) => {
+    interactive.clearLayerMapping(sourceName);
+  };
+
   const handleSkipFamily = (familyItems: SourceLayerMapping[]) => {
     for (const item of familyItems) {
       interactive.skipSourceLayer(item.sourceModel.name);
@@ -316,6 +321,7 @@ export function IndividualsPhase() {
         handleAccept(item.sourceModel.name, userModelName)
       }
       onSkip={() => handleSkip(item.sourceModel.name)}
+      onUnlink={() => handleUnlink(item.sourceModel.name)}
       onDragOver={(e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
@@ -443,6 +449,7 @@ export function IndividualsPhase() {
                 onSelect={setSelectedItemId}
                 onAccept={handleAccept}
                 onSkipFamily={handleSkipFamily}
+                onUnlink={handleUnlink}
                 renderItemCard={renderItemCard}
                 phaseItemsByName={phaseItemsByName}
               />
@@ -462,6 +469,7 @@ export function IndividualsPhase() {
                 onSelect={() => setSelectedItemId(group.groupItem.sourceModel.name)}
                 onAccept={(userModelName) => handleAccept(group.groupItem.sourceModel.name, userModelName)}
                 onSkip={() => handleSkipFamily([group.groupItem, ...group.members])}
+                onUnlink={() => handleUnlink(group.groupItem.sourceModel.name)}
                 renderItemCard={renderItemCard}
               />
             ))}
@@ -635,6 +643,7 @@ function XLightsGroupCard({
   onSelect,
   onAccept,
   onSkip,
+  onUnlink,
   renderItemCard,
 }: {
   group: SourceLayerMapping;
@@ -647,6 +656,7 @@ function XLightsGroupCard({
   onSelect: () => void;
   onAccept?: (userModelName: string) => void;
   onSkip?: () => void;
+  onUnlink?: () => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
 }) {
   const mappedCount = members.filter((m) => m.isMapped).length;
@@ -693,10 +703,18 @@ function XLightsGroupCard({
         {/* Right-aligned destination / suggestion */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
-              {isAutoMatched && <Link2Badge />}
-              &rarr; {group.assignedUserModels[0]?.name}
-            </span>
+            <>
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
+                {isAutoMatched && <Link2Badge />}
+                &rarr; {group.assignedUserModels[0]?.name}
+              </span>
+              {onUnlink && (
+                <button type="button" onClick={(e) => { e.stopPropagation(); onUnlink(); }}
+                  className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors" title="Remove mapping (keep group)">
+                  <UnlinkIcon className="w-3 h-3" />
+                </button>
+              )}
+            </>
           )}
           {!group.isMapped && topSuggestion && (
             <>
@@ -751,6 +769,7 @@ function ItemCard({
   onClick,
   onAccept,
   onSkip,
+  onUnlink,
   onDragOver,
   onDragEnter,
   onDragLeave,
@@ -764,11 +783,13 @@ function ItemCard({
   onClick: () => void;
   onAccept: (userModelName: string) => void;
   onSkip: () => void;
+  onUnlink: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragEnter: () => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
 }) {
+  const [confirmSkip, setConfirmSkip] = useState(false);
   const px = item.sourceModel.pixelCount;
   const leftBorder = item.isMapped ? "border-l-green-500/70" : topSuggestion ? "border-l-red-400/70" : "border-l-amber-400/70";
 
@@ -799,10 +820,16 @@ function ItemCard({
         {/* Right-aligned destination / suggestion */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {item.isMapped && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
-              {isAutoMatched && <Link2Badge />}
-              &rarr; {item.assignedUserModels[0]?.name}
-            </span>
+            <>
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
+                {isAutoMatched && <Link2Badge />}
+                &rarr; {item.assignedUserModels[0]?.name}
+              </span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); onUnlink(); }}
+                className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors" title="Remove mapping (keep item)">
+                <UnlinkIcon className="w-3 h-3" />
+              </button>
+            </>
           )}
           {!item.isMapped && topSuggestion && (
             <>
@@ -818,12 +845,23 @@ function ItemCard({
               </svg>
             </button>
           )}
-          <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
-            className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors" title="Skip this model">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {/* Skip (dismiss) button — with confirmation for mapped items */}
+          {confirmSkip ? (
+            <span className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-[9px] text-red-400/70">Skip?</span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmSkip(false); onSkip(); }}
+                className="px-1 py-0.5 text-[9px] font-medium text-red-400 bg-red-500/10 rounded hover:bg-red-500/20 transition-colors">Yes</button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmSkip(false); }}
+                className="px-1 py-0.5 text-[9px] font-medium text-foreground/40 hover:text-foreground/60 transition-colors">No</button>
+            </span>
+          ) : (
+            <button type="button" onClick={(e) => { e.stopPropagation(); if (item.isMapped) { setConfirmSkip(true); } else { onSkip(); } }}
+              className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors" title="Skip — dismiss from workflow">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -841,7 +879,8 @@ const ItemCardMemo = memo(
     prev.isDropTarget === next.isDropTarget &&
     prev.isAutoMatched === next.isAutoMatched &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
-    prev.topSuggestion?.score === next.topSuggestion?.score,
+    prev.topSuggestion?.score === next.topSuggestion?.score &&
+    prev.onUnlink === next.onUnlink,
 );
 
 // ─── Current Mapping Card (Right Panel for mapped items) ────────
@@ -871,13 +910,11 @@ function CurrentMappingCard({
               <button
                 type="button"
                 onClick={() => onRemoveLink(m.name)}
-                className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0 opacity-0 group-hover/dest:opacity-100"
-                aria-label={`Remove ${m.name}`}
-                title={`Remove ${m.name}`}
+                className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-amber-400 hover:bg-amber-500/10 transition-colors flex-shrink-0 opacity-0 group-hover/dest:opacity-100"
+                aria-label={`Unlink ${m.name}`}
+                title={`Unlink ${m.name}`}
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <UnlinkIcon className="w-3.5 h-3.5" />
               </button>
             </div>
           ))}
@@ -939,6 +976,7 @@ function SuperGroupSection({
   onSelect,
   onAccept,
   onSkipFamily,
+  onUnlink,
   renderItemCard,
   phaseItemsByName,
 }: {
@@ -951,6 +989,7 @@ function SuperGroupSection({
   onSelect: (name: string) => void;
   onAccept: (sourceName: string, userModelName: string) => void;
   onSkipFamily: (items: SourceLayerMapping[]) => void;
+  onUnlink: (sourceName: string) => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
   phaseItemsByName: Map<string, SourceLayerMapping>;
 }) {
@@ -1001,6 +1040,7 @@ function SuperGroupSection({
                   onSelect={() => onSelect(group.groupItem.sourceModel.name)}
                   onAccept={(userModelName) => onAccept(group.groupItem.sourceModel.name, userModelName)}
                   onSkip={() => onSkipFamily([group.groupItem, ...group.members])}
+                  onUnlink={() => onUnlink(group.groupItem.sourceModel.name)}
                   renderItemCard={renderItemCard}
                   expandedGroups={expandedGroups}
                   onToggleChild={onToggle}
@@ -1009,6 +1049,7 @@ function SuperGroupSection({
                   topSuggestionsMap={topSuggestionsMap}
                   onAcceptChild={onAccept}
                   onSkipChild={(items) => onSkipFamily(items)}
+                  onUnlinkChild={onUnlink}
                 />
               );
             })}
@@ -1034,6 +1075,7 @@ function SuperGroupCard({
   onSelect,
   onAccept,
   onSkip,
+  onUnlink,
   renderItemCard,
   expandedGroups,
   onToggleChild,
@@ -1042,6 +1084,7 @@ function SuperGroupCard({
   topSuggestionsMap,
   onAcceptChild,
   onSkipChild,
+  onUnlinkChild,
 }: {
   group: SourceLayerMapping;
   members: SourceLayerMapping[];
@@ -1055,6 +1098,7 @@ function SuperGroupCard({
   onSelect: () => void;
   onAccept: (userModelName: string) => void;
   onSkip: () => void;
+  onUnlink: () => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
   expandedGroups: Set<string>;
   onToggleChild: (name: string) => void;
@@ -1063,6 +1107,7 @@ function SuperGroupCard({
   topSuggestionsMap: Map<string, { model: { name: string }; score: number } | null>;
   onAcceptChild: (sourceName: string, userModelName: string) => void;
   onSkipChild: (items: SourceLayerMapping[]) => void;
+  onUnlinkChild: (sourceName: string) => void;
 }) {
   const totalCount = group.memberNames.length;
   const groupFxCount = group.effectCount + members.reduce((sum, m) => sum + m.effectCount, 0);
@@ -1090,10 +1135,16 @@ function SuperGroupCard({
         {/* Right-aligned destination */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
-              {isAutoMatched && <Link2Badge />}
-              &rarr; {group.assignedUserModels[0]?.name}
-            </span>
+            <>
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
+                {isAutoMatched && <Link2Badge />}
+                &rarr; {group.assignedUserModels[0]?.name}
+              </span>
+              <button type="button" onClick={(e) => { e.stopPropagation(); onUnlink(); }}
+                className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors" title="Remove mapping (keep group)">
+                <UnlinkIcon className="w-3 h-3" />
+              </button>
+            </>
           )}
           {!group.isMapped && topSuggestion && (
             <>
@@ -1144,6 +1195,7 @@ function SuperGroupCard({
                       onSelect={() => onSelectChild(childName)}
                       onAccept={(userModelName) => onAcceptChild(childName, userModelName)}
                       onSkip={() => onSkipChild(childMembers.length > 0 ? [childItem, ...childMembers] : [childItem])}
+                      onUnlink={() => onUnlinkChild(childName)}
                       renderItemCard={renderItemCard}
                     />
                   );

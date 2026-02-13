@@ -16,6 +16,7 @@ import {
   EffectsCoverageBar,
   AutoMatchBanner,
   Link2Badge,
+  UnlinkIcon,
 } from "../MetadataBadges";
 import { STRONG_THRESHOLD } from "@/types/mappingPhases";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
@@ -218,6 +219,10 @@ export function SpinnersPhase() {
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
 
+  const handleUnlink = (sourceName: string) => {
+    interactive.clearLayerMapping(sourceName);
+  };
+
   const handleSkipFamily = (familyItems: SourceLayerMapping[]) => {
     for (const item of familyItems) {
       interactive.skipSourceLayer(item.sourceModel.name);
@@ -345,6 +350,7 @@ export function SpinnersPhase() {
                     handleAccept(item.sourceModel.name, userModelName)
                   }
                   onSkip={() => handleSkipItem(item.sourceModel.name)}
+                  onUnlink={() => handleUnlink(item.sourceModel.name)}
                   onDragOver={(e) => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
@@ -590,6 +596,7 @@ function SpinnerListCard({
   onCheck,
   onAccept,
   onSkip,
+  onUnlink,
   onDragOver,
   onDragEnter,
   onDragLeave,
@@ -605,6 +612,7 @@ function SpinnerListCard({
   onCheck: () => void;
   onAccept: (userModelName: string) => void;
   onSkip: () => void;
+  onUnlink: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDragEnter: () => void;
   onDragLeave: () => void;
@@ -658,10 +666,16 @@ function SpinnerListCard({
         <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">{item.sourceModel.name}</span>
         {px > 0 && (<><span className="text-foreground/15 flex-shrink-0">&middot;</span><span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{px}px</span></>)}
         {item.isMapped && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px] ml-auto flex-shrink-0">
-            {isAutoMatched && <Link2Badge />}
-            &rarr; {item.assignedUserModels[0]?.name}
-          </span>
+          <>
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px] ml-auto flex-shrink-0">
+              {isAutoMatched && <Link2Badge />}
+              &rarr; {item.assignedUserModels[0]?.name}
+            </span>
+            <button type="button" onClick={(e) => { e.stopPropagation(); onUnlink(); }}
+              className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors flex-shrink-0" title="Remove mapping (keep item)">
+              <UnlinkIcon className="w-3 h-3" />
+            </button>
+          </>
         )}
         {!item.isMapped && topSuggestion && (
           <>
@@ -681,7 +695,7 @@ function SpinnerListCard({
             </button>
           )}
           <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
-            className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors" title="Skip this group">
+            className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors" title="Skip — dismiss from workflow">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -704,5 +718,6 @@ const SpinnerListCardMemo = memo(
     prev.isDropTarget === next.isDropTarget &&
     prev.isAutoMatched === next.isAutoMatched &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
-    prev.topSuggestion?.score === next.topSuggestion?.score,
+    prev.topSuggestion?.score === next.topSuggestion?.score &&
+    prev.onUnlink === next.onUnlink,
 );
