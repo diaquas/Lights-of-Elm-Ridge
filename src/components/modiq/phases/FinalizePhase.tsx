@@ -8,7 +8,7 @@ import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 type Perspective = "display" | "source";
 type TypeFilter = "all" | "groups" | "models" | "submodels";
-type StatusFilter = "all" | "unmapped" | "suggested" | "mapped" | "multi-mapped";
+type StatusFilter = "all" | "unmapped" | "suggested" | "mapped";
 type SortKey =
   | "unmapped-first"
   | "name-asc"
@@ -51,6 +51,8 @@ interface SourceGridRow {
 interface GridGroup {
   family: string;
   rows: GridRow[];
+  /** The group's own GridRow (for group-level mapping display) */
+  groupRow: GridRow | null;
   mappedCount: number;
   unmappedCount: number;
 }
@@ -92,7 +94,7 @@ export function FinalizePhase() {
   // ── State ──
   const [perspective, setPerspective] = useState<Perspective>("display");
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("name-asc");
+  const [sortKey, setSortKey] = useState<SortKey>("unmapped-first");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
@@ -227,7 +229,6 @@ export function FinalizePhase() {
     if (statusFilter === "unmapped") rows = rows.filter((r) => !r.isMapped);
     else if (statusFilter === "suggested") rows = rows.filter((r) => !r.isMapped && r.topSuggestion !== null);
     else if (statusFilter === "mapped") rows = rows.filter((r) => r.isMapped);
-    else if (statusFilter === "multi-mapped") rows = rows.filter((r) => r.sources.length >= 2);
     return {
       all: rows.length,
       groups: rows.filter((r) => r.isGroup).length,
@@ -249,7 +250,6 @@ export function FinalizePhase() {
     if (statusFilter === "unmapped") rows = rows.filter((r) => !r.isMapped);
     else if (statusFilter === "suggested") rows = rows.filter((r) => !r.isMapped && r.topSuggestion !== null);
     else if (statusFilter === "mapped") rows = rows.filter((r) => r.isMapped);
-    else if (statusFilter === "multi-mapped") rows = rows.filter((r) => r.sources.length >= 2);
 
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -331,11 +331,15 @@ export function FinalizePhase() {
   // Grouped grid rows — xLights groups as hierarchy source
   const groupedGridRows = useMemo((): { grouped: GridGroup[]; ungrouped: GridRow[] } => {
     const groupMap = new Map<string, GridRow[]>();
+    const groupRowMap = new Map<string, GridRow>();
     const order: string[] = [];
     const ungrouped: GridRow[] = [];
+    // First pass: collect group-level rows
     for (const row of gridRows) {
-      // Skip group-level rows from appearing as children
-      if (row.isGroup) continue;
+      if (row.isGroup) {
+        groupRowMap.set(row.destName, row);
+        continue;
+      }
       const parentGroup = destGroupMembership.get(row.destName);
       if (parentGroup) {
         if (!groupMap.has(parentGroup)) { groupMap.set(parentGroup, []); order.push(parentGroup); }
@@ -346,12 +350,21 @@ export function FinalizePhase() {
     }
     const grouped = order.map((family) => {
       const rows = groupMap.get(family)!;
-      return { family, rows, mappedCount: rows.filter((r) => r.isMapped).length, unmappedCount: rows.filter((r) => !r.isMapped).length };
+      return { family, rows, groupRow: groupRowMap.get(family) ?? null, mappedCount: rows.filter((r) => r.isMapped).length, unmappedCount: rows.filter((r) => !r.isMapped).length };
     });
-    // Groups always alphabetical (Tier 1); within-group order from gridRows sort
-    grouped.sort((a, b) => naturalCompare(a.family, b.family));
+    // Sort groups: unmapped-first when that sort is active, otherwise alphabetical
+    if (sortKey === "unmapped-first") {
+      grouped.sort((a, b) => {
+        const aGroupMapped = a.groupRow?.isMapped ?? false;
+        const bGroupMapped = b.groupRow?.isMapped ?? false;
+        if (aGroupMapped !== bGroupMapped) return aGroupMapped ? 1 : -1;
+        return naturalCompare(a.family, b.family);
+      });
+    } else {
+      grouped.sort((a, b) => naturalCompare(a.family, b.family));
+    }
     return { grouped, ungrouped };
-  }, [gridRows, destGroupMembership]);
+  }, [gridRows, destGroupMembership, sortKey]);
 
   // Grid dropdown sources
   const gridDropdownSources = useMemo(() => {
@@ -359,7 +372,7 @@ export function FinalizePhase() {
       return { suggested: [] as { name: string; effectCount: number; score: number }[], rest: [] as { name: string; effectCount: number; score: number }[] };
     const suggs = darkSuggestions.get(gridDropdown) ?? [];
     const suggNames = new Set(suggs.map((s) => s.sourceName));
-    const allSources = sourceLayerMappings.filter((l) => !l.isSkipped && l.isMapped).sort((a, b) => b.effectCount - a.effectCount);
+    const allSources = sourceLayerMappings.filter((l) => !l.isSkipped && l.effectCount > 0).sort((a, b) => b.effectCount - a.effectCount);
     const q = gridDropdownSearch.toLowerCase();
     const filter = (l: SourceLayerMapping) => !q || l.sourceModel.name.toLowerCase().includes(q);
     return {
@@ -405,7 +418,6 @@ export function FinalizePhase() {
     let rows = allSourceRows.filter((r) => !ignoredSource.has(r.sourceName));
     if (statusFilter === "unmapped") rows = rows.filter((r) => !r.isMapped);
     else if (statusFilter === "mapped") rows = rows.filter((r) => r.isMapped);
-    else if (statusFilter === "multi-mapped") rows = rows.filter((r) => r.destCount >= 2);
     if (search.trim()) {
       const q = search.toLowerCase();
       rows = rows.filter((r) => r.sourceName.toLowerCase().includes(q) || r.destinations.some((d) => d.toLowerCase().includes(q)));
@@ -722,7 +734,6 @@ export function FinalizePhase() {
           <option value="unmapped">Unmapped</option>
           <option value="suggested">Suggested</option>
           <option value="mapped">Mapped</option>
-          <option value="multi-mapped">Multi-mapped</option>
         </select>
         {perspective === "display" ? (
           <select value={sortKey} onChange={(e) => { setSortKey(e.target.value as SortKey); setSortVersion((v) => v + 1); }}
@@ -785,29 +796,53 @@ export function FinalizePhase() {
                   const isExpanded = expandedGridGroups.has(group.family);
                   const allSelected = group.rows.every((r) => selectedRows.has(r.destName));
                   const someSelected = !allSelected && group.rows.some((r) => selectedRows.has(r.destName));
-                  const groupBorder = group.unmappedCount === 0 ? "border-l-green-500/70" : "border-l-amber-400/70";
+                  const gr = group.groupRow;
+                  const groupIsMapped = gr ? gr.isMapped : false;
+                  const groupBorder = groupIsMapped ? "border-l-green-500/70" : "border-l-amber-400/70";
                   return (
                     <React.Fragment key={group.family}>
-                      <tr className={`border-b border-border/30 border-l-[3px] ${groupBorder} bg-foreground/[0.03] cursor-pointer hover:bg-foreground/[0.05]`} onClick={() => toggleGridGroup(group.family)}>
-                        <td className="px-2 py-0.5 text-center" onClick={(e) => e.stopPropagation()}>
+                      <tr className={`border-b border-border/30 border-l-[3px] ${groupBorder} bg-foreground/[0.03] hover:bg-foreground/[0.05]`}>
+                        <td className="px-2 py-1 text-center">
                           <input type="checkbox" checked={allSelected} ref={(el) => { if (el) el.indeterminate = someSelected; }} onChange={() => handleSelectGroup(group.family)} className="w-3.5 h-3.5 rounded border-border accent-accent" />
                         </td>
-                        <td className="py-0.5 px-3" colSpan={4}>
+                        <td className="py-1 px-3 cursor-pointer" onClick={() => toggleGridGroup(group.family)}>
                           <div className="flex items-center gap-2">
                             <svg className={`w-2.5 h-2.5 text-foreground/40 transition-transform flex-shrink-0 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <span className="text-[11px] font-medium text-foreground/60">{group.family}</span>
+                            <span className="text-[11px] font-semibold text-foreground/70">{group.family}</span>
                             <span className="text-[10px] text-foreground/25">({group.rows.length})</span>
-                            <span className="text-[10px] text-foreground/30">&middot;</span>
-                            <span className="text-[10px] text-foreground/30">
-                              {group.mappedCount > 0 && <span className="text-green-400/60">{group.mappedCount}/{group.rows.length}</span>}
-                              {group.unmappedCount > 0 && <span className="text-amber-400/60 ml-1">{group.unmappedCount} unmapped</span>}
-                            </span>
                           </div>
                         </td>
-                        <td className="w-7 py-0.5 text-center">
-                          {group.unmappedCount > 0 && <span className="text-amber-400/70 text-[10px]">&#9888;</span>}
+                        <td className="px-3 py-1 relative">
+                          {gr && gr.isMapped ? (
+                            <div className="flex flex-wrap items-center gap-1">
+                              {gr.sources.map((src) => (
+                                <span key={src} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-foreground/[0.06] text-[11px] text-foreground/70 group/src hover:bg-foreground/10 transition-colors">
+                                  <span className="truncate max-w-[14rem]">{src}</span>
+                                  <button type="button" onClick={() => handleRemoveLink(src, group.family)} className="text-foreground/30 hover:text-red-400 opacity-0 group-hover/src:opacity-100 transition-opacity text-[9px] leading-none flex-shrink-0">&times;</button>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => { setGridDropdown(group.family); setGridDropdownSearch(""); }} className="text-[11px] text-foreground/30 hover:text-foreground/50 px-2 py-0.5 rounded bg-foreground/5 hover:bg-foreground/8 transition-colors">+ Assign</button>
+                          )}
+                          {gridDropdown === group.family && (
+                            <GroupDropdown
+                              dropdownSearch={gridDropdownSearch}
+                              dropdownSources={gridDropdownSources}
+                              onSearchChange={setGridDropdownSearch}
+                              onAssign={(s) => { assignWithFlash(s, group.family); setGridDropdown(null); }}
+                              onClose={() => setGridDropdown(null)}
+                            />
+                          )}
+                        </td>
+                        <td className="px-2 py-1 text-right tabular-nums w-[50px]" />
+                        <td className="px-2 py-1 text-right tabular-nums w-[40px]">
+                          {gr && gr.effectCount > 0 && <span className="text-foreground/50 text-[11px]">{gr.effectCount}</span>}
+                        </td>
+                        <td className="w-7 py-1 text-center">
+                          {groupIsMapped ? <span className="text-green-400/70 text-[10px]">&#10003;</span> : <span className="text-amber-400/70 text-[10px]">&#9888;</span>}
                         </td>
                       </tr>
                       {isExpanded && group.rows.map((row) => (
@@ -1013,14 +1048,12 @@ function GridRowComponent({ row, indent, isSelected, isFlashing, isDropdownOpen,
       </td>
       <td className="px-3 py-1 relative">
         {row.isMapped ? (
-          <div className="flex flex-wrap items-center gap-1">
-            {row.sources.map((src) => (
-              <span key={src} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-foreground/[0.06] text-[11px] text-foreground/70 group/src hover:bg-foreground/10 transition-colors">
-                <span className="truncate max-w-[14rem]">{src}</span>
-                <button type="button" onClick={() => onRemoveLink(src)} className="text-foreground/30 hover:text-red-400 opacity-0 group-hover/src:opacity-100 transition-opacity text-[9px] leading-none flex-shrink-0">&times;</button>
-              </span>
-            ))}
-            <button type="button" onClick={onOpenDropdown} className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors opacity-0 group-hover/row:opacity-100">+ Add</button>
+          <div className="flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-foreground/[0.06] text-[11px] text-foreground/70 group/src hover:bg-foreground/10 transition-colors">
+              <span className="truncate max-w-[14rem]">{row.sources[0]}</span>
+              <button type="button" onClick={() => onRemoveLink(row.sources[0])} className="text-foreground/30 hover:text-red-400 opacity-0 group-hover/src:opacity-100 transition-opacity text-[9px] leading-none flex-shrink-0">&times;</button>
+            </span>
+            <button type="button" onClick={onOpenDropdown} className="text-[10px] text-foreground/25 hover:text-foreground/50 transition-colors opacity-0 group-hover/row:opacity-100">Swap</button>
           </div>
         ) : row.topSuggestion ? (
           <div className="flex items-center gap-2">
@@ -1154,6 +1187,53 @@ function SourceGridRowComponent({ row, isSelected, isDropdownOpen, dropdownItems
         <button type="button" onClick={onIgnore} className="text-[9px] text-foreground/20 hover:text-foreground/50 opacity-0 group-hover/row:opacity-100 transition-all" title="Ignore">&#10005;</button>
       </td>
     </tr>
+  );
+}
+
+// ─── Group Inline Dropdown (for group-level mapping) ──────
+
+function GroupDropdown({ dropdownSearch, dropdownSources, onSearchChange, onAssign, onClose }: {
+  dropdownSearch: string;
+  dropdownSources: { suggested: { name: string; effectCount: number; score: number }[]; rest: { name: string; effectCount: number; score: number }[] };
+  onSearchChange: (v: string) => void;
+  onAssign: (sourceName: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+  return (
+    <div ref={ref} className="absolute left-0 top-full mt-1 z-20 bg-surface border border-border rounded-lg shadow-xl w-[20rem] max-h-[16rem] flex flex-col overflow-hidden">
+      <div className="px-3 py-2 border-b border-border/50">
+        <input type="text" placeholder="Search sources..." value={dropdownSearch} onChange={(e) => onSearchChange(e.target.value)}
+          className="w-full text-[11px] px-2 py-1 rounded bg-foreground/5 border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30" autoFocus />
+      </div>
+      <div className="flex-1 overflow-y-auto">
+        {dropdownSources.suggested.length > 0 && (<>
+          <div className="px-3 py-1 text-[9px] font-semibold text-foreground/30 uppercase tracking-wider">Suggested</div>
+          {dropdownSources.suggested.map((s) => (
+            <button key={s.name} type="button" onClick={() => onAssign(s.name)} className="w-full text-left px-3 py-1.5 hover:bg-accent/10 transition-colors flex items-center gap-2">
+              <span className="text-[11px] text-foreground truncate flex-1">{s.name}</span>
+              <span className="text-[9px] text-foreground/25 tabular-nums">{s.effectCount} fx</span>
+              <span className="text-[9px] text-accent/60 tabular-nums">{Math.round(s.score * 100)}%</span>
+            </button>
+          ))}
+          {dropdownSources.rest.length > 0 && <div className="mx-3 my-0.5 border-t border-border/30" />}
+        </>)}
+        {dropdownSources.rest.map((s) => (
+          <button key={s.name} type="button" onClick={() => onAssign(s.name)} className="w-full text-left px-3 py-1.5 hover:bg-accent/10 transition-colors flex items-center gap-2">
+            <span className="text-[11px] text-foreground truncate flex-1">{s.name}</span>
+            <span className="text-[9px] text-foreground/25 tabular-nums">{s.effectCount} fx</span>
+          </button>
+        ))}
+        {dropdownSources.suggested.length === 0 && dropdownSources.rest.length === 0 && (
+          <div className="px-3 py-3 text-center text-[11px] text-foreground/30">No matches</div>
+        )}
+      </div>
+    </div>
   );
 }
 

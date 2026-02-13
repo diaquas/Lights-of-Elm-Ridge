@@ -84,8 +84,8 @@ export function IndividualsPhase() {
   const skippedItems = interactive.sourceLayerMappings.filter(
     (l) => l.isSkipped,
   );
-  const unmappedCount = phaseItems.filter((item) => !item.isMapped).length;
-  const mappedCount = phaseItems.filter((item) => item.isMapped).length;
+  const unmappedCount = phaseItems.filter((item) => !item.isMapped && !item.isCoveredByMappedGroup).length;
+  const mappedCount = phaseItems.filter((item) => item.isMapped || item.isCoveredByMappedGroup).length;
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {

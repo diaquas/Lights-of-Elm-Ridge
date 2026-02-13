@@ -212,18 +212,18 @@ export function MappingPhaseProvider({
     if (stableScoreRef.current.size === 0) return;
     didAutoApply.current = true;
 
-    // Collect eligible items (score >= 70% AND not yet mapped)
+    // Track ALL pre-mapped items as auto-matched (ticket-73 §4: all matches
+    // must be visible in Groups & Models, regardless of confidence level).
+    // Also collect eligible unmapped items for greedy auto-apply (score >= 70%).
     const eligible: SourceLayerMapping[] = [];
     for (const layer of interactive.sourceLayerMappings) {
       if (layer.isSkipped) continue;
       const score = stableScoreRef.current.get(layer.sourceModel.name) ?? 0;
-      if (score >= AUTO_ACCEPT_THRESHOLD) {
-        if (layer.isMapped) {
-          // Already mapped by matchModels() — track as auto-matched
-          autoMatchedRef.current.add(layer.sourceModel.name);
-        } else {
-          eligible.push(layer);
-        }
+      if (layer.isMapped) {
+        // Already mapped by matchModels() — track as auto-matched
+        autoMatchedRef.current.add(layer.sourceModel.name);
+      } else if (score >= AUTO_ACCEPT_THRESHOLD) {
+        eligible.push(layer);
       }
     }
 
