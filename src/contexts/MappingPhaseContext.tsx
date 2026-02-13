@@ -70,6 +70,12 @@ interface PhaseContextValue {
   interactive: InteractiveMappingState;
   /** Set of source names that were auto-matched during loading (for Link2 badge) */
   autoMatchedNames: ReadonlySet<string>;
+  /** Set of source names that the user has explicitly approved (removes from "needs review") */
+  approvedNames: ReadonlySet<string>;
+  /** Approve a single auto-matched item (removes it from "needs review" status) */
+  approveAutoMatch: (name: string) => void;
+  /** Approve all remaining review items at once */
+  approveAllReviewItems: () => void;
   /** Aggregate stats about auto-matched items */
   autoMatchStats: AutoMatchStats;
   /** Global focus mode — expands work area to full viewport */
@@ -313,16 +319,38 @@ export function MappingPhaseProvider({
     }
   }, [scoreMap, autoMatchedNames.size]);
 
+  // Track user-approved items (removes them from "needs review" status)
+  const [approvedNames, setApprovedNames] = useState<ReadonlySet<string>>(
+    new Set(),
+  );
+  const approveAutoMatch = useCallback((name: string) => {
+    setApprovedNames((prev) => {
+      const next = new Set(prev);
+      next.add(name);
+      return next;
+    });
+  }, []);
+  const approveAllReviewItems = useCallback(() => {
+    setApprovedNames((prev) => {
+      const next = new Set(prev);
+      for (const name of autoMatchedNames) {
+        const score = stableScoreRef.current.get(name) ?? 0;
+        if (score < STRONG_THRESHOLD) next.add(name);
+      }
+      return next;
+    });
+  }, [autoMatchedNames]);
+
   const autoMatchStats = useMemo((): AutoMatchStats => {
     let strongCount = 0;
     let reviewCount = 0;
     for (const name of autoMatchedNames) {
       const score = stableScoreRef.current.get(name) ?? 0;
-      if (score >= STRONG_THRESHOLD) strongCount++;
+      if (score >= STRONG_THRESHOLD || approvedNames.has(name)) strongCount++;
       else reviewCount++;
     }
     return { total: autoMatchedNames.size, strongCount, reviewCount };
-  }, [autoMatchedNames]);
+  }, [autoMatchedNames, approvedNames]);
 
   const getPhaseItems = useCallback(
     (phase: MappingPhase): SourceLayerMapping[] => {
@@ -403,6 +431,9 @@ export function MappingPhaseProvider({
       factorsMap,
       interactive,
       autoMatchedNames,
+      approvedNames,
+      approveAutoMatch,
+      approveAllReviewItems,
       autoMatchStats,
       focusMode,
       toggleFocusMode,
@@ -422,6 +453,9 @@ export function MappingPhaseProvider({
       factorsMap,
       interactive,
       autoMatchedNames,
+      approvedNames,
+      approveAutoMatch,
+      approveAllReviewItems,
       autoMatchStats,
       focusMode,
       toggleFocusMode,

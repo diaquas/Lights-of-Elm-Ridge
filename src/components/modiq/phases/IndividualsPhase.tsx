@@ -44,6 +44,9 @@ export function IndividualsPhase() {
     goToNextPhase,
     interactive,
     autoMatchedNames,
+    approvedNames,
+    approveAutoMatch,
+    approveAllReviewItems,
     autoMatchStats,
     scoreMap,
     factorsMap,
@@ -181,6 +184,7 @@ export function IndividualsPhase() {
       items = items.filter(
         (i) =>
           autoMatchedNames.has(i.sourceModel.name) &&
+          !approvedNames.has(i.sourceModel.name) &&
           (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD,
       );
     else if (activeFilter === "mapped") items = items.filter((i) => i.isMapped);
@@ -227,6 +231,7 @@ export function IndividualsPhase() {
     sortBy,
     sortVersion,
     topSuggestionsMap,
+    approvedNames,
   ]);
 
   // Build xLights group membership: memberName → most-specific parent group SourceLayerMapping
@@ -395,6 +400,7 @@ export function IndividualsPhase() {
       isSelected={selectedItemId === item.sourceModel.name}
       isDropTarget={dnd.state.activeDropTarget === item.sourceModel.name}
       isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
+      isApproved={approvedNames.has(item.sourceModel.name)}
       matchScore={scoreMap.get(item.sourceModel.name)}
       matchFactors={factorsMap.get(item.sourceModel.name)}
       topSuggestion={topSuggestionsMap.get(item.sourceModel.name) ?? null}
@@ -402,6 +408,7 @@ export function IndividualsPhase() {
       onAccept={(userModelName) =>
         handleAccept(item.sourceModel.name, userModelName)
       }
+      onApprove={() => approveAutoMatch(item.sourceModel.name)}
       onSkip={() => handleSkip(item.sourceModel.name)}
       onUnlink={() => handleUnlink(item.sourceModel.name)}
       onDragOver={(e) => {
@@ -559,6 +566,7 @@ export function IndividualsPhase() {
             setBannerFilter(null);
             setSortVersion((v) => v + 1);
           }}
+          onApproveAllReview={approveAllReviewItems}
         />
 
         {/* "All reviews complete" toast */}
@@ -607,12 +615,14 @@ export function IndividualsPhase() {
                 expandedGroups={expandedGroups}
                 selectedItemId={selectedItemId}
                 autoMatchedNames={autoMatchedNames}
+                approvedNames={approvedNames}
                 scoreMap={scoreMap}
                 factorsMap={factorsMap}
                 topSuggestionsMap={topSuggestionsMap}
                 onToggle={toggleGroup}
                 onSelect={setSelectedItemId}
                 onAccept={handleAccept}
+                onApprove={approveAutoMatch}
                 onSkipFamily={handleSkipFamily}
                 onUnlink={handleUnlink}
                 renderItemCard={renderItemCard}
@@ -633,6 +643,7 @@ export function IndividualsPhase() {
                 isAutoMatched={autoMatchedNames.has(
                   group.groupItem.sourceModel.name,
                 )}
+                isApproved={approvedNames.has(group.groupItem.sourceModel.name)}
                 matchScore={scoreMap.get(group.groupItem.sourceModel.name)}
                 matchFactors={factorsMap.get(group.groupItem.sourceModel.name)}
                 topSuggestion={
@@ -645,6 +656,9 @@ export function IndividualsPhase() {
                 }
                 onAccept={(userModelName) =>
                   handleAccept(group.groupItem.sourceModel.name, userModelName)
+                }
+                onApprove={() =>
+                  approveAutoMatch(group.groupItem.sourceModel.name)
                 }
                 onSkip={() =>
                   handleSkipFamily([group.groupItem, ...group.members])
@@ -763,6 +777,15 @@ export function IndividualsPhase() {
                 item={selectedItem}
                 matchScore={scoreMap.get(selectedItem.sourceModel.name)}
                 matchFactors={factorsMap.get(selectedItem.sourceModel.name)}
+                isNeedsReview={
+                  autoMatchedNames.has(selectedItem.sourceModel.name) &&
+                  !approvedNames.has(selectedItem.sourceModel.name) &&
+                  (scoreMap.get(selectedItem.sourceModel.name) ?? 1) <
+                    STRONG_THRESHOLD
+                }
+                onApprove={() =>
+                  approveAutoMatch(selectedItem.sourceModel.name)
+                }
                 onRemoveLink={(destName) =>
                   interactive.removeLinkFromLayer(
                     selectedItem.sourceModel.name,
@@ -854,12 +877,14 @@ function XLightsGroupCard({
   isExpanded,
   isSelected,
   isAutoMatched,
+  isApproved,
   matchScore,
   matchFactors,
   topSuggestion,
   onToggle,
   onSelect,
   onAccept,
+  onApprove,
   onSkip,
   onUnlink,
   renderItemCard,
@@ -869,6 +894,7 @@ function XLightsGroupCard({
   isExpanded: boolean;
   isSelected: boolean;
   isAutoMatched: boolean;
+  isApproved?: boolean;
   matchScore?: number;
   matchFactors?: ModelMapping["factors"];
   topSuggestion: {
@@ -879,6 +905,7 @@ function XLightsGroupCard({
   onToggle: () => void;
   onSelect: () => void;
   onAccept?: (userModelName: string) => void;
+  onApprove?: () => void;
   onSkip?: () => void;
   onUnlink?: () => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
@@ -892,6 +919,7 @@ function XLightsGroupCard({
   const isGroupNeedsReview =
     group.isMapped &&
     isAutoMatched &&
+    !isApproved &&
     matchScore != null &&
     matchScore < STRONG_THRESHOLD;
   const groupBorder =
@@ -997,6 +1025,19 @@ function XLightsGroupCard({
                   size="sm"
                 />
               )}
+              {isGroupNeedsReview && onApprove && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onApprove();
+                  }}
+                  className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                  title="Approve this match"
+                >
+                  Approve
+                </button>
+              )}
               {onUnlink && (
                 <button
                   type="button"
@@ -1090,11 +1131,13 @@ function ItemCard({
   isSelected,
   isDropTarget,
   isAutoMatched,
+  isApproved,
   matchScore,
   matchFactors,
   topSuggestion,
   onClick,
   onAccept,
+  onApprove,
   onSkip,
   onUnlink,
   onDragOver,
@@ -1106,6 +1149,7 @@ function ItemCard({
   isSelected: boolean;
   isDropTarget: boolean;
   isAutoMatched: boolean;
+  isApproved: boolean;
   matchScore?: number;
   matchFactors?: ModelMapping["factors"];
   topSuggestion: {
@@ -1115,6 +1159,7 @@ function ItemCard({
   } | null;
   onClick: () => void;
   onAccept: (userModelName: string) => void;
+  onApprove: () => void;
   onSkip: () => void;
   onUnlink: () => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -1127,6 +1172,7 @@ function ItemCard({
   const isNeedsReview =
     item.isMapped &&
     isAutoMatched &&
+    !isApproved &&
     matchScore != null &&
     matchScore < STRONG_THRESHOLD;
   const leftBorder = item.isMapped
@@ -1188,6 +1234,19 @@ function ItemCard({
                   factors={matchFactors}
                   size="sm"
                 />
+              )}
+              {isNeedsReview && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onApprove();
+                  }}
+                  className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                  title="Approve this match"
+                >
+                  Approve
+                </button>
               )}
               <button
                 type="button"
@@ -1300,6 +1359,7 @@ const ItemCardMemo = memo(
     prev.isSelected === next.isSelected &&
     prev.isDropTarget === next.isDropTarget &&
     prev.isAutoMatched === next.isAutoMatched &&
+    prev.isApproved === next.isApproved &&
     prev.matchScore === next.matchScore &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score &&
@@ -1318,12 +1378,14 @@ function SuperGroupSection({
   expandedGroups,
   selectedItemId,
   autoMatchedNames,
+  approvedNames,
   scoreMap,
   factorsMap,
   topSuggestionsMap,
   onToggle,
   onSelect,
   onAccept,
+  onApprove,
   onSkipFamily,
   onUnlink,
   renderItemCard,
@@ -1333,6 +1395,7 @@ function SuperGroupSection({
   expandedGroups: Set<string>;
   selectedItemId: string | null;
   autoMatchedNames: ReadonlySet<string>;
+  approvedNames: ReadonlySet<string>;
   scoreMap: Map<string, number>;
   factorsMap: Map<string, ModelMapping["factors"]>;
   topSuggestionsMap: Map<
@@ -1346,6 +1409,7 @@ function SuperGroupSection({
   onToggle: (name: string) => void;
   onSelect: (name: string) => void;
   onAccept: (sourceName: string, userModelName: string) => void;
+  onApprove: (name: string) => void;
   onSkipFamily: (items: SourceLayerMapping[]) => void;
   onUnlink: (sourceName: string) => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
@@ -1419,6 +1483,9 @@ function SuperGroupSection({
                   isAutoMatched={autoMatchedNames.has(
                     group.groupItem.sourceModel.name,
                   )}
+                  isApproved={approvedNames.has(
+                    group.groupItem.sourceModel.name,
+                  )}
                   matchScore={scoreMap.get(group.groupItem.sourceModel.name)}
                   matchFactors={factorsMap.get(
                     group.groupItem.sourceModel.name,
@@ -1432,6 +1499,7 @@ function SuperGroupSection({
                   onAccept={(userModelName) =>
                     onAccept(group.groupItem.sourceModel.name, userModelName)
                   }
+                  onApprove={() => onApprove(group.groupItem.sourceModel.name)}
                   onSkip={() =>
                     onSkipFamily([group.groupItem, ...group.members])
                   }
@@ -1441,10 +1509,12 @@ function SuperGroupSection({
                   onToggleChild={onToggle}
                   onSelectChild={onSelect}
                   autoMatchedNames={autoMatchedNames}
+                  approvedNames={approvedNames}
                   scoreMap={scoreMap}
                   factorsMap={factorsMap}
                   topSuggestionsMap={topSuggestionsMap}
                   onAcceptChild={onAccept}
+                  onApproveChild={onApprove}
                   onSkipChild={(items) => onSkipFamily(items)}
                   onUnlinkChild={onUnlink}
                 />
@@ -1467,12 +1537,14 @@ function SuperGroupCard({
   isExpanded,
   isSelected,
   isAutoMatched,
+  isApproved,
   matchScore,
   matchFactors,
   topSuggestion,
   onToggle,
   onSelect,
   onAccept,
+  onApprove,
   onSkip,
   onUnlink,
   renderItemCard,
@@ -1480,10 +1552,12 @@ function SuperGroupCard({
   onToggleChild,
   onSelectChild,
   autoMatchedNames,
+  approvedNames,
   scoreMap,
   factorsMap,
   topSuggestionsMap,
   onAcceptChild,
+  onApproveChild,
   onSkipChild,
   onUnlinkChild,
 }: {
@@ -1494,6 +1568,7 @@ function SuperGroupCard({
   isExpanded: boolean;
   isSelected: boolean;
   isAutoMatched: boolean;
+  isApproved?: boolean;
   matchScore?: number;
   matchFactors?: ModelMapping["factors"];
   topSuggestion: {
@@ -1504,6 +1579,7 @@ function SuperGroupCard({
   onToggle: () => void;
   onSelect: () => void;
   onAccept: (userModelName: string) => void;
+  onApprove: () => void;
   onSkip: () => void;
   onUnlink: () => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
@@ -1511,6 +1587,7 @@ function SuperGroupCard({
   onToggleChild: (name: string) => void;
   onSelectChild: (name: string) => void;
   autoMatchedNames: ReadonlySet<string>;
+  approvedNames: ReadonlySet<string>;
   scoreMap: Map<string, number>;
   factorsMap: Map<string, ModelMapping["factors"]>;
   topSuggestionsMap: Map<
@@ -1522,6 +1599,7 @@ function SuperGroupCard({
     } | null
   >;
   onAcceptChild: (sourceName: string, userModelName: string) => void;
+  onApproveChild: (name: string) => void;
   onSkipChild: (items: SourceLayerMapping[]) => void;
   onUnlinkChild: (sourceName: string) => void;
 }) {
@@ -1531,6 +1609,7 @@ function SuperGroupCard({
   const isSuperNeedsReview =
     group.isMapped &&
     isAutoMatched &&
+    !isApproved &&
     matchScore != null &&
     matchScore < STRONG_THRESHOLD;
   const groupBorder = group.isMapped
@@ -1605,6 +1684,19 @@ function SuperGroupCard({
                   factors={matchFactors}
                   size="sm"
                 />
+              )}
+              {isSuperNeedsReview && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onApprove();
+                  }}
+                  className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                  title="Approve this match"
+                >
+                  Approve
+                </button>
               )}
               <button
                 type="button"
@@ -1692,6 +1784,7 @@ function SuperGroupCard({
                       isExpanded={expandedGroups.has(childName)}
                       isSelected={false}
                       isAutoMatched={autoMatchedNames.has(childName)}
+                      isApproved={approvedNames.has(childName)}
                       matchScore={scoreMap.get(childName)}
                       matchFactors={factorsMap.get(childName)}
                       topSuggestion={topSuggestionsMap.get(childName) ?? null}
@@ -1700,6 +1793,7 @@ function SuperGroupCard({
                       onAccept={(userModelName) =>
                         onAcceptChild(childName, userModelName)
                       }
+                      onApprove={() => onApproveChild(childName)}
                       onSkip={() =>
                         onSkipChild(
                           childMembers.length > 0
