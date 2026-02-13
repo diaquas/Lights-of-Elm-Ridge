@@ -24,6 +24,7 @@ import {
   findSpinnerBoostSuggestions,
   parseXsqModels,
   parseXsqEffectCounts,
+  detectModelSuperGroups,
 } from "@/lib/modiq";
 import type {
   ParsedLayout,
@@ -422,8 +423,11 @@ export default function ModIQTool() {
     // Let the climb animation run visibly before the sync matchModels call
     // blocks the main thread. Use setTimeout to flush pending rAF frames.
     await delay(800);
+    const srcSuperGroups = detectModelSuperGroups(srcModels);
+    const destSuperGroups = detectModelSuperGroups(userLayout.models);
+    const superGroupSets = { source: srcSuperGroups, dest: destSuperGroups };
     const result = await new Promise<ReturnType<typeof matchModels>>((resolve) => {
-      setTimeout(() => resolve(matchModels(srcModels, userLayout.models)), 0);
+      setTimeout(() => resolve(matchModels(srcModels, userLayout.models, superGroupSets)), 0);
     });
 
     // Animate from climb position up to actual result (600ms ease-out in counter)

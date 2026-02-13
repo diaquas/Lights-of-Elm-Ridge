@@ -2319,6 +2319,7 @@ function mapSubmodels(
 export function matchModels(
   sourceModels: ParsedModel[],
   destModels: ParsedModel[],
+  superGroups?: { source?: Set<string>; dest?: Set<string> },
 ): MappingResult {
   const sourceBounds = getNormalizedBounds(sourceModels);
   const destBounds = getNormalizedBounds(destModels);
@@ -2340,6 +2341,8 @@ export function matchModels(
     destGroups,
     sourceBounds,
     destBounds,
+    undefined,
+    superGroups,
   );
   for (const m of groupResult.mappings) {
     allMappings.push(m);
@@ -2363,6 +2366,8 @@ export function matchModels(
     remainingDest,
     sourceBounds,
     destBounds,
+    undefined,
+    superGroups,
   );
   for (const m of individualResult.mappings) {
     allMappings.push(m);
@@ -2821,6 +2826,7 @@ function optimalMatch(
   sourceBounds: NormalizedBounds,
   destBounds: NormalizedBounds,
   effectTypeMap?: Record<string, Record<string, number>>,
+  superGroups?: { source?: Set<string>; dest?: Set<string> },
 ): OptimalMatchResult {
   if (sources.length === 0) return { mappings: [], sacrifices: [] };
 
@@ -2839,6 +2845,16 @@ function optimalMatch(
         scoreRow.push(0);
         factorsRow.push(null);
         continue;
+      }
+      // Super group restriction: skip if one side is super and other is not
+      if (superGroups) {
+        const srcIsSuper = superGroups.source?.has(sources[s].name) ?? false;
+        const destIsSuper = superGroups.dest?.has(dests[d].name) ?? false;
+        if (srcIsSuper !== destIsSuper) {
+          scoreRow.push(0);
+          factorsRow.push(null);
+          continue;
+        }
       }
       const { score, factors } = computeScore(
         sources[s],
@@ -3007,6 +3023,7 @@ export function suggestMatches(
   allSourceModels: ParsedModel[],
   allDestModels: ParsedModel[],
   effectTypeMap?: Record<string, Record<string, number>>,
+  superGroups?: { source?: Set<string>; dest?: Set<string> },
 ): {
   model: ParsedModel;
   score: number;
@@ -3015,6 +3032,9 @@ export function suggestMatches(
 }[] {
   const sourceBounds = getNormalizedBounds(allSourceModels);
   const destBounds = getNormalizedBounds(allDestModels);
+
+  // Super group isolation: only suggest super↔super matches
+  const destIsSuperGroup = superGroups?.dest?.has(destModel.name) ?? false;
 
   const suggestions: {
     model: ParsedModel;
@@ -3026,6 +3046,12 @@ export function suggestMatches(
   for (const source of sourcePool) {
     // Fast pre-filter: skip incompatible pairs
     if (shouldSkipPair(source, destModel)) continue;
+
+    // Super group restriction: skip if one side is super and other is not
+    if (superGroups) {
+      const sourceIsSuperGroup = superGroups.source?.has(source.name) ?? false;
+      if (sourceIsSuperGroup !== destIsSuperGroup) continue;
+    }
 
     const { score, factors } = computeScore(
       source,
@@ -3059,6 +3085,7 @@ export function suggestMatchesForSource(
   allSourceModels: ParsedModel[],
   allDestModels: ParsedModel[],
   sourceEffectTypes?: Record<string, number>,
+  superGroups?: { source?: Set<string>; dest?: Set<string> },
 ): {
   model: ParsedModel;
   score: number;
@@ -3067,6 +3094,9 @@ export function suggestMatchesForSource(
 }[] {
   const sourceBounds = getNormalizedBounds(allSourceModels);
   const destBounds = getNormalizedBounds(allDestModels);
+
+  // Super group isolation: only suggest super↔super matches
+  const sourceIsSuperGroup = superGroups?.source?.has(sourceModel.name) ?? false;
 
   const suggestions: {
     model: ParsedModel;
@@ -3078,6 +3108,12 @@ export function suggestMatchesForSource(
   for (const dest of destPool) {
     // Fast pre-filter: skip incompatible pairs
     if (shouldSkipPair(sourceModel, dest)) continue;
+
+    // Super group restriction: skip if one side is super and other is not
+    if (superGroups) {
+      const destIsSuperGroup = superGroups.dest?.has(dest.name) ?? false;
+      if (sourceIsSuperGroup !== destIsSuperGroup) continue;
+    }
 
     const { score, factors } = computeScore(
       sourceModel,

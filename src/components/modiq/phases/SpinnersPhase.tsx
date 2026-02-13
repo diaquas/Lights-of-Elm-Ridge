@@ -473,6 +473,7 @@ export function SpinnersPhase() {
                 onSkipDest={interactive.skipDestModel}
                 onUnskipDest={interactive.unskipDestModel}
                 onUnskipAllDest={interactive.unskipAllDestModels}
+                destSuperGroupNames={interactive.destSuperGroupNames}
               />
             </div>
 

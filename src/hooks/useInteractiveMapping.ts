@@ -21,6 +21,7 @@ import {
   analyzeSequenceEffects,
   findHiddenGems,
   getEffectSuggestionContext,
+  detectModelSuperGroups,
 } from "@/lib/modiq";
 import type {
   SequenceEffectAnalysis,
@@ -195,6 +196,12 @@ export interface InteractiveMappingState {
   unskipDestModel: (destName: string) => void;
   /** Restore all skipped destination models */
   unskipAllDestModels: () => void;
+
+  // ── Super group classification ──
+  /** Set of source model names that are super groups (display-wide, contain 3+ groups) */
+  sourceSuperGroupNames: Set<string>;
+  /** Set of destination model names that are super groups */
+  destSuperGroupNames: Set<string>;
 }
 
 // All matchModels() results are pre-applied regardless of score.
@@ -1367,6 +1374,19 @@ export function useInteractiveMapping(
     setSkippedDestModels(new Set());
   }, []);
 
+  // ── Super group classification ──
+  // Source super groups come from the effect tree (already computed)
+  const sourceSuperGroupNames = useMemo(() => {
+    if (!effectTree) return new Set<string>();
+    return new Set(effectTree.superGroups.map((sg) => sg.model.name));
+  }, [effectTree]);
+
+  // Dest super groups: detect from user's layout models using same algorithm
+  const destSuperGroupNames = useMemo(
+    () => detectModelSuperGroups(destModels),
+    [destModels],
+  );
+
   // Stable effect type map for the current sequence (used by suggestions)
   const effectTypeMap = useMemo(
     () =>
@@ -1383,6 +1403,11 @@ export function useInteractiveMapping(
 
   // V3 suggestions: given a source layer, rank user models.
   // Scores are cached permanently (full pool); assigned models are filtered at read time.
+  const superGroupSets = useMemo(
+    () => ({ source: sourceSuperGroupNames, dest: destSuperGroupNames }),
+    [sourceSuperGroupNames, destSuperGroupNames],
+  );
+
   const getSuggestionsForLayer = useCallback(
     (sourceModel: ParsedModel) => {
       const cacheKey = sourceModel.name;
@@ -1395,6 +1420,7 @@ export function useInteractiveMapping(
           sourceModels,
           destModels,
           effectTypeMap?.[sourceModel.name],
+          superGroupSets,
         );
         fullSuggestionCacheRef.current.set(cacheKey, fullResults);
       }
@@ -1411,6 +1437,7 @@ export function useInteractiveMapping(
       assignedUserModelNames,
       skippedDestModels,
       effectTypeMap,
+      superGroupSets,
     ],
   );
 
@@ -1518,6 +1545,10 @@ export function useInteractiveMapping(
     skipDestModel,
     unskipDestModel,
     unskipAllDestModels,
+
+    // Super group classification
+    sourceSuperGroupNames,
+    destSuperGroupNames,
 
     /** Serialize mapping state for session recovery */
     getSerializedState: useCallback(

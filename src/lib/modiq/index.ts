@@ -74,6 +74,7 @@ export {
   buildEffectTree,
   getActiveSourceModels,
   getActiveSourceNamesForExport,
+  detectModelSuperGroups,
 } from "./effect-tree";
 export type {
   EffectTree,
