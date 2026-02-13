@@ -16,6 +16,8 @@ interface DestItem {
   isMapped: boolean;
   isGroup: boolean;
   isSuperGroup: boolean;
+  /** True if this individual model's parent group has a source mapped (group-level coverage) */
+  isCoveredByGroup: boolean;
   /** Best suggestion from mapped source layers */
   topSuggestion: { sourceName: string; score: number; effectCount: number } | null;
 }
@@ -25,7 +27,9 @@ interface DestGroup {
   groupModel: DestItem | null;
   members: DestItem[];
   mappedCount: number;
-  unmappedCount: number;
+  totalCount: number;
+  /** True when unmapped members are irrelevant (group mapped or all sources accounted for) */
+  membersEffectivelyCovered: boolean;
 }
 
 interface SourceSuggestion {
@@ -73,7 +77,12 @@ export function FinalizePhase() {
     destToSourcesMap,
     allDestModels,
     destSuperGroupNames,
+    unmappedLayerCount,
   } = interactive;
+
+  // When all source models are accounted for, unmapped individuals inside
+  // mapped groups become irrelevant — there's nothing left to assign them.
+  const allSourcesAccountedFor = unmappedLayerCount === 0;
 
   // ── State ──
   const [selectedDestName, setSelectedDestName] = useState<string | null>(null);
@@ -86,11 +95,32 @@ export function FinalizePhase() {
 
   // ── Build dest items ──
   const destItems = useMemo((): DestItem[] => {
+    // First pass: identify which dest groups have sources mapped
+    const mappedGroupNames = new Set<string>();
+    for (const model of allDestModels) {
+      if (model.isGroup) {
+        const srcs = destToSourcesMap.get(model.name);
+        if (srcs && srcs.size > 0) mappedGroupNames.add(model.name);
+      }
+    }
+
     return allDestModels
       .filter((m) => !m.name.startsWith("DMX"))
       .map((model) => {
         const srcs = destToSourcesMap.get(model.name);
         const sourceNames = srcs ? Array.from(srcs) : [];
+
+        // Check if this individual model's parent group is mapped
+        let isCoveredByGroup = false;
+        if (!model.isGroup) {
+          for (const destModel of allDestModels) {
+            if (destModel.isGroup && mappedGroupNames.has(destModel.name) && destModel.memberModels?.includes(model.name)) {
+              isCoveredByGroup = true;
+              break;
+            }
+          }
+        }
+
         // Find best suggestion from mapped source layers
         let topSugg: DestItem["topSuggestion"] = null;
         if (sourceNames.length === 0) {
@@ -109,15 +139,11 @@ export function FinalizePhase() {
           isMapped: sourceNames.length > 0,
           isGroup: model.isGroup,
           isSuperGroup: destSuperGroupNames.has(model.name),
+          isCoveredByGroup,
           topSuggestion: topSugg,
         };
       });
   }, [allDestModels, destToSourcesMap, sourceLayerMappings, getSuggestionsForLayer, destSuperGroupNames]);
-
-  // ── Counts for filter pills ──
-  const totalCount = destItems.length;
-  const mappedCount = destItems.filter((d) => d.isMapped).length;
-  const unmappedCount = totalCount - mappedCount;
 
   // ── xLights group membership ──
   const destGroupMembership = useMemo(() => {
@@ -132,11 +158,25 @@ export function FinalizePhase() {
     return map;
   }, [allDestModels]);
 
+  // ── Counts for filter pills ──
+  // An item is "effectively mapped" if: directly mapped, OR covered by its group's mapping,
+  // OR all source models are accounted for and it sits inside a group
+  const isEffectivelyMapped = useCallback((item: DestItem) => {
+    if (item.isMapped) return true;
+    if (item.isCoveredByGroup) return true;
+    if (allSourcesAccountedFor && destGroupMembership.has(item.model.name)) return true;
+    return false;
+  }, [allSourcesAccountedFor, destGroupMembership]);
+
+  const totalCount = destItems.filter((d) => !d.isGroup).length;
+  const mappedCount = destItems.filter((d) => !d.isGroup && isEffectivelyMapped(d)).length;
+  const unmappedCount = totalCount - mappedCount;
+
   // ── Filtered items ──
   const filteredItems = useMemo(() => {
     let items = destItems;
-    if (statusFilter === "mapped") items = items.filter((d) => d.isMapped);
-    else if (statusFilter === "unmapped") items = items.filter((d) => !d.isMapped);
+    if (statusFilter === "mapped") items = items.filter((d) => isEffectivelyMapped(d));
+    else if (statusFilter === "unmapped") items = items.filter((d) => !isEffectivelyMapped(d));
     if (search.trim()) {
       const q = search.toLowerCase();
       items = items.filter((d) =>
@@ -145,10 +185,12 @@ export function FinalizePhase() {
     }
     // Sort: unmapped first, then alphabetical
     return [...items].sort((a, b) => {
-      if (a.isMapped !== b.isMapped) return a.isMapped ? 1 : -1;
+      const aMapped = isEffectivelyMapped(a);
+      const bMapped = isEffectivelyMapped(b);
+      if (aMapped !== bMapped) return aMapped ? 1 : -1;
       return naturalCompare(a.model.name, b.model.name);
     });
-  }, [destItems, statusFilter, search]);
+  }, [destItems, statusFilter, search, isEffectivelyMapped]);
 
   // ── Grouped display ──
   const { superGroups, regularGroups, ungrouped } = useMemo(() => {
@@ -173,20 +215,28 @@ export function FinalizePhase() {
 
     const groups: DestGroup[] = order.map((family) => {
       const members = groupMap.get(family)!;
+      const gm = groupModels.get(family) ?? null;
+      const groupIsMapped = gm?.isMapped ?? false;
+      // Members are effectively covered if the group itself is mapped
+      // or all source models are already accounted for
+      const membersEffectivelyCovered = groupIsMapped || allSourcesAccountedFor;
       return {
         family,
-        groupModel: groupModels.get(family) ?? null,
+        groupModel: gm,
         members,
-        mappedCount: members.filter((m) => m.isMapped).length,
-        unmappedCount: members.filter((m) => !m.isMapped).length,
+        mappedCount: membersEffectivelyCovered
+          ? members.length // all count as mapped when covered
+          : members.filter((m) => m.isMapped).length,
+        totalCount: members.length,
+        membersEffectivelyCovered,
       };
     });
 
-    // Sort groups: unmapped-first
+    // Sort groups: groups with real unmapped members first
     groups.sort((a, b) => {
-      const aAllMapped = a.unmappedCount === 0;
-      const bAllMapped = b.unmappedCount === 0;
-      if (aAllMapped !== bAllMapped) return aAllMapped ? 1 : -1;
+      const aAllCovered = a.mappedCount >= a.totalCount;
+      const bAllCovered = b.mappedCount >= b.totalCount;
+      if (aAllCovered !== bAllCovered) return aAllCovered ? 1 : -1;
       return naturalCompare(a.family, b.family);
     });
 
@@ -195,7 +245,7 @@ export function FinalizePhase() {
     const regulars = groups.filter((g) => !destSuperGroupNames.has(g.family));
 
     return { superGroups: supers, regularGroups: regulars, ungrouped: ung };
-  }, [filteredItems, destGroupMembership, destSuperGroupNames]);
+  }, [filteredItems, destGroupMembership, destSuperGroupNames, allSourcesAccountedFor]);
 
   // ── Selected item ──
   const selectedItem = useMemo((): DestItem | null => {
@@ -421,7 +471,10 @@ export function FinalizePhase() {
                 {selectedItem.isMapped && (
                   <span className="text-green-400/70">{selectedItem.sources.length} source{selectedItem.sources.length !== 1 ? "s" : ""} mapped</span>
                 )}
-                {!selectedItem.isMapped && (
+                {!selectedItem.isMapped && selectedItem.isCoveredByGroup && (
+                  <span className="text-green-400/50">covered by group</span>
+                )}
+                {!selectedItem.isMapped && !selectedItem.isCoveredByGroup && (
                   <span className="text-amber-400/70">unmapped</span>
                 )}
               </div>
@@ -556,9 +609,11 @@ function DestItemCard({ item, isSelected, indent, onSelect, onAcceptSuggestion }
 }) {
   const leftBorder = item.isMapped
     ? "border-l-green-500/70"
-    : item.topSuggestion
-      ? "border-l-red-400/70"
-      : "border-l-amber-400/70";
+    : item.isCoveredByGroup
+      ? "border-l-green-500/30"
+      : item.topSuggestion
+        ? "border-l-red-400/70"
+        : "border-l-amber-400/70";
 
   return (
     <div
@@ -586,7 +641,10 @@ function DestItemCard({ item, isSelected, indent, onSelect, onAcceptSuggestion }
               &larr; {item.sources[0]}{item.sources.length > 1 ? ` +${item.sources.length - 1}` : ""}
             </span>
           )}
-          {!item.isMapped && item.topSuggestion && (
+          {!item.isMapped && item.isCoveredByGroup && (
+            <span className="text-[10px] text-green-400/40 italic">via group</span>
+          )}
+          {!item.isMapped && !item.isCoveredByGroup && item.topSuggestion && (
             <>
               <span className="text-[11px] text-foreground/50 truncate max-w-[140px]">{item.topSuggestion.sourceName}</span>
               <span className={`text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded ${
@@ -669,10 +727,10 @@ function DestGroupCard({ group, isSuperGroup, isExpanded, selectedDestName, onTo
   onSelect: (name: string) => void;
   onAcceptSuggestion: (destName: string, sourceName: string) => void;
 }) {
-  const allMapped = group.unmappedCount === 0;
+  const allCovered = group.mappedCount >= group.totalCount;
   const groupBorder = isSuperGroup
-    ? (allMapped ? "border-l-purple-500/70" : "border-l-purple-400/40")
-    : (allMapped ? "border-l-green-500/70" : "border-l-amber-400/70");
+    ? (allCovered ? "border-l-purple-500/70" : "border-l-purple-400/40")
+    : (allCovered ? "border-l-green-500/70" : "border-l-amber-400/70");
   const isGroupSelected = selectedDestName === group.family;
   const bgClass = isSuperGroup
     ? (isGroupSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-purple-500/[0.03]")
@@ -692,13 +750,13 @@ function DestGroupCard({ group, isSuperGroup, isExpanded, selectedDestName, onTo
           : <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded">GRP</span>
         }
         <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.family}</span>
-        <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({group.members.length})</span>
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-[10px] text-foreground/30 flex-shrink-0">
-            {group.mappedCount > 0 && <span className="text-green-400/60">{group.mappedCount}</span>}
-            {group.mappedCount > 0 && group.unmappedCount > 0 && "/"}
-            {group.unmappedCount > 0 && <span className="text-amber-400/60">{group.unmappedCount} unmapped</span>}
+          <span className={`text-[10px] font-semibold tabular-nums flex-shrink-0 ${allCovered ? "text-green-400/60" : "text-foreground/40"}`}>
+            {group.mappedCount}/{group.totalCount}
           </span>
+          {group.membersEffectivelyCovered && !allCovered && (
+            <span className="text-[9px] text-foreground/25 italic">covered</span>
+          )}
           {group.groupModel?.isMapped && (
             <span className="text-[10px] text-green-400/70 truncate max-w-[120px]">
               &larr; {group.groupModel.sources[0]}
