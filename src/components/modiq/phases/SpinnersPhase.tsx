@@ -26,6 +26,7 @@ import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
+import { CollapsibleMembers } from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -538,50 +539,6 @@ export function SpinnersPhase() {
   );
 }
 
-// ─── Collapsible Member Pills ───────────────────────────
-
-function CollapsibleMembers({ members }: { members: string[] }) {
-  const [expanded, setExpanded] = useState(false);
-
-  if (members.length === 0) return null;
-
-  return (
-    <div className="mt-1.5">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="text-[11px] text-foreground/40 hover:text-foreground/60 flex items-center gap-1 transition-colors"
-      >
-        <span>{members.length} members</span>
-        <svg
-          className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-      {expanded && (
-        <div className="flex flex-wrap gap-1 mt-1.5">
-          {members.map((member) => (
-            <span
-              key={member}
-              className="px-1.5 py-0.5 text-[10px] bg-foreground/5 text-foreground/40 rounded"
-            >
-              {member}
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Spinner Card (Left Panel) ──────────────────────────
 
