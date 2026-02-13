@@ -84,6 +84,8 @@ export interface SourceLayerMapping {
   isSkipped: boolean;
   /** True if at least one user model is assigned */
   isMapped: boolean;
+  /** True if this individual model's parent group is mapped (group coverage suppresses unmapped) */
+  isCoveredByMappedGroup: boolean;
   /** Number of effects for this model in the current sequence */
   effectCount: number;
   /** Per-effect-type breakdown (e.g., { Faces: 29, Plasma: 8 }) */
@@ -160,6 +162,8 @@ export interface InteractiveMappingState {
   coveragePercentage: number;
   /** Number of zero-effect items hidden from mapping (no visual impact) */
   hiddenZeroEffectCount: number;
+  /** Set of source model names covered by a mapped parent group */
+  sourcesCoveredByGroup: Set<string>;
   /** Find next unmapped source layer */
   nextUnmappedLayer: () => string | null;
   /** Effects-weighted coverage: what % of sequence effects are mapped to user models */
@@ -980,6 +984,7 @@ export function useInteractiveMapping(
         coveredChildCount,
         isSkipped: skippedSourceLayers.has(gInfo.model.name),
         isMapped: userModels.length > 0,
+        isCoveredByMappedGroup: false,
         effectCount: effectCounts?.[gInfo.model.name] ?? 0,
         effectTypeCounts: effectTypeMap?.[gInfo.model.name],
         isSuperGroup: gInfo.isSuperGroup,
@@ -1013,6 +1018,7 @@ export function useInteractiveMapping(
         coveredChildCount: 0,
         isSkipped: skippedSourceLayers.has(mInfo.model.name),
         isMapped: userModels.length > 0,
+        isCoveredByMappedGroup: false,
         effectCount: effectCounts?.[mInfo.model.name] ?? 0,
         effectTypeCounts: effectTypeMap?.[mInfo.model.name],
         isSuperGroup: false,
@@ -1020,6 +1026,25 @@ export function useInteractiveMapping(
         parentSuperGroup: null,
         superGroupLayers: modelSuperGroupMap.get(mInfo.model.name) ?? [],
       });
+    }
+
+    // Smart group coverage: when a group is mapped, its individual member
+    // models are effectively covered (ticket-73 §1). Mark them so the UI
+    // can suppress their unmapped indicators and adjust counts.
+    const mappedGroupMembers = new Set<string>();
+    for (const layer of layers) {
+      if (layer.isGroup && layer.isMapped && !layer.isSkipped) {
+        for (const memberName of layer.memberNames) {
+          mappedGroupMembers.add(memberName);
+        }
+      }
+    }
+    if (mappedGroupMembers.size > 0) {
+      for (const layer of layers) {
+        if (!layer.isGroup && !layer.isMapped && mappedGroupMembers.has(layer.sourceModel.name)) {
+          layer.isCoveredByMappedGroup = true;
+        }
+      }
     }
 
     // Filter out zero-effect items when effect counts are available.
@@ -1049,6 +1074,15 @@ export function useInteractiveMapping(
     externalEffectCounts,
   ]);
 
+  // Set of source model names covered by a mapped parent group (ticket-73 §1)
+  const sourcesCoveredByGroup = useMemo(() => {
+    const set = new Set<string>();
+    for (const sl of sourceLayerMappings) {
+      if (sl.isCoveredByMappedGroup) set.add(sl.sourceModel.name);
+    }
+    return set;
+  }, [sourceLayerMappings]);
+
   // V3 source-centric stats
   const sourceStats = useMemo(() => {
     let mapped = 0;
@@ -1072,6 +1106,10 @@ export function useInteractiveMapping(
         } else {
           direct++;
         }
+      } else if (sl.isCoveredByMappedGroup) {
+        // Covered by parent group mapping — count as effectively mapped
+        mapped++;
+        coveredChildren++;
       } else {
         unmapped++;
       }
@@ -1152,7 +1190,9 @@ export function useInteractiveMapping(
 
   // V3 actions — many-to-many
 
-  /** Add a link from user model to source layer (additive, never replaces) */
+  /** Add a link from user model to source layer.
+   *  Enforces one-source-per-destination: if the dest already has a different
+   *  source, that old link is removed first (ticket-73 §3). */
   const assignUserModelToLayer = useCallback(
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
     (sourceLayerName: string, userModelName: string) => {
@@ -1173,6 +1213,15 @@ export function useInteractiveMapping(
         ]);
         setSourceDestLinks((prev) => {
           const next = new Map(prev);
+          // Enforce one-source-per-destination: remove dest from any other source
+          for (const [otherSource, dests] of next) {
+            if (otherSource !== sourceLayerName && dests.has(userModelName)) {
+              const newDests = new Set(dests);
+              newDests.delete(userModelName);
+              if (newDests.size === 0) next.delete(otherSource);
+              else next.set(otherSource, newDests);
+            }
+          }
           const set = new Set(next.get(sourceLayerName) ?? []);
           set.add(userModelName);
           next.set(sourceLayerName, set);
@@ -1455,6 +1504,7 @@ export function useInteractiveMapping(
     unmappedLayerCount: sourceStats.unmapped,
     coveragePercentage: sourceStats.pct,
     hiddenZeroEffectCount,
+    sourcesCoveredByGroup,
     nextUnmappedLayer,
     effectsCoverage,
     displayCoverage,
