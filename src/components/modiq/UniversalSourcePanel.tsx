@@ -920,6 +920,8 @@ const ModelCard = memo(function ModelCard({
     [mappedSources],
   );
 
+  const leftBorder = isAssigned ? "border-l-green-500/70" : usageCount > 0 ? "border-l-green-500/40" : "border-l-amber-400/70";
+
   return (
     <div
       draggable={!!dnd}
@@ -929,6 +931,7 @@ const ModelCard = memo(function ModelCard({
       className={`
         flex items-center gap-2 rounded-lg min-h-[34px] px-2.5 py-1.5 transition-all duration-150
         border border-border bg-surface hover:border-foreground/20 hover:bg-foreground/[0.02]
+        border-l-[3px] ${leftBorder}
         ${dnd ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
         ${isAssigned ? "opacity-50" : ""}
       `}
