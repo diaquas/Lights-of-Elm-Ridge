@@ -41,7 +41,6 @@ export function IndividualsPhase() {
   }, [interactive.sourceLayerMappings]);
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [showSwapSuggestions, setShowSwapSuggestions] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -99,8 +98,6 @@ export function IndividualsPhase() {
     ? (phaseItemsByName.get(selectedItemId) ?? null)
     : null;
 
-  // Reset swap panel when selection changes
-  useEffect(() => { setShowSwapSuggestions(false); }, [selectedItemId]);
 
   // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
   const topSuggestionsMap = useMemo(() => {
@@ -263,16 +260,9 @@ export function IndividualsPhase() {
   const unmappedItems = phaseItems.filter((item) => !item.isMapped);
 
   const handleAccept = (sourceName: string, userModelName: string) => {
-    // If re-mapping (swap), remove old link first
-    const current = phaseItemsByName.get(sourceName);
-    if (current?.isMapped) {
-      const oldDest = current.assignedUserModels[0]?.name;
-      if (oldDest && oldDest !== userModelName) {
-        interactive.removeLinkFromLayer(sourceName, oldDest);
-      }
-    }
     interactive.assignUserModelToLayer(sourceName, userModelName);
     bulk.checkForPattern(sourceName, userModelName);
+    const current = phaseItemsByName.get(sourceName);
     if (!current?.isMapped) {
       setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
     }
@@ -341,29 +331,27 @@ export function IndividualsPhase() {
       {/* Left: Model List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         <div className={PANEL_STYLES.header.wrapper}>
-          <div className="flex items-center gap-2">
-            <h2 className={PANEL_STYLES.header.title}>
-              <svg
-                className="w-5 h-5 text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
-              Groups &amp; Models
-            </h2>
-            {/* Status filter pills */}
-            <div className="flex items-center gap-1 ml-3">
-              <TypeFilterPill label={`All (${phaseItems.length})`} active={statusFilter === "all" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("all"); setSortVersion((v) => v + 1); }} />
-              <TypeFilterPill label={`Mapped (${mappedCount})`} active={statusFilter === "mapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("mapped"); setSortVersion((v) => v + 1); }} />
-              <TypeFilterPill label={`Unmapped (${unmappedCount})`} active={statusFilter === "unmapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("unmapped"); setSortVersion((v) => v + 1); }} />
-            </div>
+          <h2 className={PANEL_STYLES.header.title}>
+            <svg
+              className="w-5 h-5 text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
+            </svg>
+            Groups &amp; Models
+          </h2>
+          {/* Status filter pills — own row below title */}
+          <div className="flex items-center gap-1 mt-1.5">
+            <TypeFilterPill label={`All (${phaseItems.length})`} color="blue" active={statusFilter === "all" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("all"); setSortVersion((v) => v + 1); }} />
+            <TypeFilterPill label={`Mapped (${mappedCount})`} color="green" active={statusFilter === "mapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("mapped"); setSortVersion((v) => v + 1); }} />
+            <TypeFilterPill label={`Unmapped (${unmappedCount})`} color="amber" active={statusFilter === "unmapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("unmapped"); setSortVersion((v) => v + 1); }} />
           </div>
         </div>
 
@@ -565,38 +553,34 @@ export function IndividualsPhase() {
             {selectedItem.isMapped && (
               <CurrentMappingCard
                 item={selectedItem}
-                onRemoveMapping={() => {
-                  const destName = selectedItem.assignedUserModels[0]?.name;
-                  if (destName) interactive.removeLinkFromLayer(selectedItem.sourceModel.name, destName);
-                }}
-                onSwapSource={() => setShowSwapSuggestions((v) => !v)}
-                showSuggestions={showSwapSuggestions}
+                onRemoveLink={(destName) =>
+                  interactive.removeLinkFromLayer(selectedItem.sourceModel.name, destName)
+                }
               />
             )}
 
-            {/* Universal Source Panel — shows suggestions for unmapped, or swap options */}
-            {(!selectedItem.isMapped || showSwapSuggestions) && (
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <UniversalSourcePanel
-                  allModels={interactive.allDestModels}
-                  suggestions={suggestions}
-                  assignedNames={interactive.assignedUserModelNames}
-                  selectedDestLabel={selectedItem.sourceModel.name}
-                  sourcePixelCount={selectedItem.sourceModel.pixelCount}
-                  onAccept={(userModelName) =>
-                    handleAccept(selectedItem.sourceModel.name, userModelName)
-                  }
-                  dnd={dnd}
-                  destToSourcesMap={interactive.destToSourcesMap}
-                  onRemoveLink={interactive.removeLinkFromLayer}
-                  sourceEffectCounts={sourceEffectCounts}
-                  skippedDestModels={interactive.skippedDestModels}
-                  onSkipDest={interactive.skipDestModel}
-                  onUnskipDest={interactive.unskipDestModel}
-                  onUnskipAllDest={interactive.unskipAllDestModels}
-                />
-              </div>
-            )}
+            {/* Universal Source Panel — always visible for suggestions + add another */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <UniversalSourcePanel
+                allModels={interactive.allDestModels}
+                suggestions={suggestions}
+                assignedNames={interactive.assignedUserModelNames}
+                selectedDestLabel={selectedItem.sourceModel.name}
+                sourcePixelCount={selectedItem.sourceModel.pixelCount}
+                onAccept={(userModelName) =>
+                  handleAccept(selectedItem.sourceModel.name, userModelName)
+                }
+                dnd={dnd}
+                destToSourcesMap={interactive.destToSourcesMap}
+                onRemoveLink={interactive.removeLinkFromLayer}
+                sourceEffectCounts={sourceEffectCounts}
+                skippedDestModels={interactive.skippedDestModels}
+                onSkipDest={interactive.skipDestModel}
+                onUnskipDest={interactive.unskipDestModel}
+                onUnskipAllDest={interactive.unskipAllDestModels}
+                excludeNames={selectedItem.isMapped ? new Set(selectedItem.assignedUserModels.map((m) => m.name)) : undefined}
+              />
+            </div>
 
             {/* Skip (only for unmapped) */}
             {!selectedItem.isMapped && (
@@ -863,51 +847,43 @@ const ItemCardMemo = memo(
 
 function CurrentMappingCard({
   item,
-  onRemoveMapping,
-  onSwapSource,
-  showSuggestions,
+  onRemoveLink,
 }: {
   item: SourceLayerMapping;
-  onRemoveMapping: () => void;
-  onSwapSource: () => void;
-  showSuggestions: boolean;
+  onRemoveLink: (destName: string) => void;
 }) {
-  const destName = item.assignedUserModels[0]?.name;
-  if (!destName) return null;
+  if (item.assignedUserModels.length === 0) return null;
 
   return (
     <div className="px-5 py-3 border-b border-border flex-shrink-0">
       <div className="rounded-lg border border-green-500/25 bg-green-500/5 p-3">
-        <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex items-center gap-2 mb-2">
           <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
           </svg>
           <span className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider">Currently Mapped To</span>
         </div>
-        <p className="text-[14px] font-semibold text-foreground ml-5.5">{destName}</p>
-        {item.coveredChildCount > 0 && (
-          <p className="text-[11px] text-teal-400/60 mt-0.5 ml-5.5">covers {item.coveredChildCount} children</p>
-        )}
-        <div className="flex items-center gap-2 mt-3">
-          <button
-            type="button"
-            onClick={onSwapSource}
-            className={`px-3 py-1.5 text-[11px] rounded-md border transition-colors ${
-              showSuggestions
-                ? "bg-accent/10 border-accent/30 text-accent"
-                : "border-border text-foreground/50 hover:border-foreground/30 hover:text-foreground/70"
-            }`}
-          >
-            {showSuggestions ? "Hide Suggestions" : "Swap Source"}
-          </button>
-          <button
-            type="button"
-            onClick={onRemoveMapping}
-            className="px-3 py-1.5 text-[11px] rounded-md border border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:border-red-500/40 transition-colors"
-          >
-            Remove Mapping
-          </button>
+        <div className="space-y-1.5 ml-5.5">
+          {item.assignedUserModels.map((m) => (
+            <div key={m.name} className="flex items-center gap-2 group/dest">
+              <span className="text-[13px] font-semibold text-foreground truncate flex-1">{m.name}</span>
+              <button
+                type="button"
+                onClick={() => onRemoveLink(m.name)}
+                className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0 opacity-0 group-hover/dest:opacity-100"
+                aria-label={`Remove ${m.name}`}
+                title={`Remove ${m.name}`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
         </div>
+        {item.coveredChildCount > 0 && (
+          <p className="text-[11px] text-teal-400/60 mt-1.5 ml-5.5">covers {item.coveredChildCount} children</p>
+        )}
       </div>
     </div>
   );
@@ -929,16 +905,19 @@ function GhostMemberRow({ name }: { name: string }) {
 
 // ─── Type Filter Pill ────────────────────────────────
 
-function TypeFilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+const PILL_COLORS = {
+  blue:  { active: "bg-blue-500/15 text-blue-400 border-blue-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
+  green: { active: "bg-green-500/15 text-green-400 border-green-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
+  amber: { active: "bg-amber-500/15 text-amber-400 border-amber-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
+} as const;
+
+function TypeFilterPill({ label, active, color, onClick }: { label: string; active: boolean; color: keyof typeof PILL_COLORS; onClick: () => void }) {
+  const c = PILL_COLORS[color];
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
-        active
-          ? "bg-accent/15 text-accent border border-accent/30"
-          : "bg-foreground/5 text-foreground/40 border border-transparent hover:text-foreground/60 hover:bg-foreground/8"
-      }`}
+      className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${active ? c.active : c.inactive}`}
     >
       {label}
     </button>

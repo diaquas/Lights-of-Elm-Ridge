@@ -63,6 +63,8 @@ export interface UniversalSourcePanelProps {
   onUnskipDest?: (destName: string) => void;
   /** Restore all skipped destination models */
   onUnskipAllDest?: () => void;
+  /** Exclude these model names from suggestions and all-models lists (already mapped to current source) */
+  excludeNames?: Set<string>;
 }
 
 // ─── Component ──────────────────────────────────────────
@@ -83,6 +85,7 @@ export function UniversalSourcePanel({
   onSkipDest,
   onUnskipDest,
   onUnskipAllDest,
+  excludeNames,
 }: UniversalSourcePanelProps) {
   const [search, setSearch] = useState("");
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(
@@ -91,15 +94,18 @@ export function UniversalSourcePanel({
   const [unmappedOpen, setUnmappedOpen] = useState(true);
   const [mappedOpen, setMappedOpen] = useState(false);
 
-  // Available models = filtered + not skipped
+  // Available models = filtered + not skipped + not excluded
   const availableModels = useMemo(() => {
     let models = allModels;
     if (sourceFilter) models = models.filter(sourceFilter);
     if (skippedDestModels && skippedDestModels.size > 0) {
       models = models.filter((m) => !skippedDestModels.has(m.name));
     }
+    if (excludeNames && excludeNames.size > 0) {
+      models = models.filter((m) => !excludeNames.has(m.name));
+    }
     return models;
-  }, [allModels, sourceFilter, skippedDestModels]);
+  }, [allModels, sourceFilter, skippedDestModels, excludeNames]);
 
   // Skipped models list (for the restore section)
   const skippedModels = useMemo(() => {
@@ -115,16 +121,20 @@ export function UniversalSourcePanel({
     [suggestions],
   );
 
-  // Filtered suggestions (when searching)
+  // Filtered suggestions (when searching + exclude already-mapped)
   const filteredSuggestions = useMemo(() => {
-    if (!search) return suggestions;
+    let result = suggestions;
+    if (excludeNames && excludeNames.size > 0) {
+      result = result.filter((s) => !excludeNames.has(s.model.name));
+    }
+    if (!search) return result;
     const q = search.toLowerCase();
-    return suggestions.filter(
+    return result.filter(
       (s) =>
         s.model.name.toLowerCase().includes(q) ||
         s.model.type.toLowerCase().includes(q),
     );
-  }, [search, suggestions]);
+  }, [search, suggestions, excludeNames]);
 
   // Filtered all-models list (always computed from availableModels)
   const filteredModels = useMemo(() => {
@@ -314,6 +324,12 @@ export function UniversalSourcePanel({
 
       {/* Scrollable area: Suggestions + All Models together */}
       <div className="flex-1 overflow-y-auto">
+        {/* Section label when adding to an already-mapped item */}
+        {excludeNames && excludeNames.size > 0 && (
+          <div className="px-6 py-2 border-b border-border/50">
+            <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">Add Another Source</span>
+          </div>
+        )}
         {/* AI Suggestions section */}
         {filteredSuggestions.length > 0 && (
           <div className="px-6 py-3 border-b border-border bg-surface/50">
