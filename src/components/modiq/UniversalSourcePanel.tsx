@@ -65,6 +65,8 @@ export interface UniversalSourcePanelProps {
   onUnskipAllDest?: () => void;
   /** Exclude these model names from suggestions and all-models lists (already mapped to current source) */
   excludeNames?: Set<string>;
+  /** Set of destination model names that are super groups (for SUPER badge) */
+  destSuperGroupNames?: Set<string>;
 }
 
 // ─── Component ──────────────────────────────────────────
@@ -86,6 +88,7 @@ export function UniversalSourcePanel({
   onUnskipDest,
   onUnskipAllDest,
   excludeNames,
+  destSuperGroupNames,
 }: UniversalSourcePanelProps) {
   const [search, setSearch] = useState("");
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(
@@ -228,6 +231,7 @@ export function UniversalSourcePanel({
           onRemoveLink={onRemoveLink}
           sourceEffectCounts={sourceEffectCounts}
           currentSourceSelection={selectedDestLabel}
+          isSuperGroup={destSuperGroupNames?.has(model.name) ?? false}
         />
       ));
     }
@@ -658,6 +662,7 @@ const ModelCard = memo(function ModelCard({
   onRemoveLink,
   sourceEffectCounts,
   currentSourceSelection,
+  isSuperGroup,
 }: {
   model: ParsedModel;
   isAssigned: boolean;
@@ -668,6 +673,7 @@ const ModelCard = memo(function ModelCard({
   onRemoveLink?: (sourceName: string, destName: string) => void;
   sourceEffectCounts?: Map<string, number>;
   currentSourceSelection?: string;
+  isSuperGroup?: boolean;
 }) {
   const dragItem = useMemo<DragItem>(
     () => ({ sourceModelName: model.name }),
@@ -684,15 +690,17 @@ const ModelCard = memo(function ModelCard({
     [dnd, dragItem],
   );
 
-  const typeLabel = model.isGroup
-    ? model.groupType === "SUBMODEL_GROUP"
-      ? "SUB"
-      : model.groupType === "META_GROUP"
-        ? "META"
-        : model.groupType === "MIXED_GROUP"
-          ? "MIX"
-          : "GRP"
-    : model.type.toUpperCase().slice(0, 6);
+  const typeLabel = isSuperGroup
+    ? "SUPER"
+    : model.isGroup
+      ? model.groupType === "SUBMODEL_GROUP"
+        ? "SUB"
+        : model.groupType === "META_GROUP"
+          ? "META"
+          : model.groupType === "MIXED_GROUP"
+            ? "MIX"
+            : "GRP"
+      : model.type.toUpperCase().slice(0, 6);
 
   const memberCount = model.memberModels?.length ?? 0;
 
@@ -743,14 +751,16 @@ const ModelCard = memo(function ModelCard({
         </span>
       )}
 
-      {/* Type badge — with hierarchy icon for SUB */}
+      {/* Type badge — with hierarchy icon for SUB, purple for SUPER */}
       <span
         className={`text-[9px] px-1 py-0.5 rounded flex-shrink-0 uppercase tracking-wide ${
-          typeLabel === "SUB"
-            ? "bg-purple-500/10 text-purple-400"
-            : typeLabel === "GRP"
-              ? "bg-blue-500/10 text-blue-400"
-              : "bg-foreground/5 text-foreground/30"
+          typeLabel === "SUPER"
+            ? "bg-purple-500/15 text-purple-400 font-bold"
+            : typeLabel === "SUB"
+              ? "bg-purple-500/10 text-purple-400"
+              : typeLabel === "GRP"
+                ? "bg-blue-500/10 text-blue-400"
+                : "bg-foreground/5 text-foreground/30"
         }`}
       >
         {typeLabel === "SUB" && (

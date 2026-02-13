@@ -464,6 +464,7 @@ export function GroupsPhase() {
                 onUnskipDest={interactive.unskipDestModel}
                 onUnskipAllDest={interactive.unskipAllDestModels}
                 excludeNames={selectedGroup.isMapped ? new Set(selectedGroup.assignedUserModels.map((m) => m.name)) : undefined}
+                destSuperGroupNames={interactive.destSuperGroupNames}
               />
             </div>
 

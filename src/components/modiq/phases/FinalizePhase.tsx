@@ -15,6 +15,7 @@ interface DestItem {
   sources: string[];
   isMapped: boolean;
   isGroup: boolean;
+  isSuperGroup: boolean;
   /** Best suggestion from mapped source layers */
   topSuggestion: { sourceName: string; score: number; effectCount: number } | null;
 }
@@ -71,6 +72,7 @@ export function FinalizePhase() {
     getSuggestionsForLayer,
     destToSourcesMap,
     allDestModels,
+    destSuperGroupNames,
   } = interactive;
 
   // ── State ──
@@ -106,10 +108,11 @@ export function FinalizePhase() {
           sources: sourceNames,
           isMapped: sourceNames.length > 0,
           isGroup: model.isGroup,
+          isSuperGroup: destSuperGroupNames.has(model.name),
           topSuggestion: topSugg,
         };
       });
-  }, [allDestModels, destToSourcesMap, sourceLayerMappings, getSuggestionsForLayer]);
+  }, [allDestModels, destToSourcesMap, sourceLayerMappings, getSuggestionsForLayer, destSuperGroupNames]);
 
   // ── Counts for filter pills ──
   const totalCount = destItems.length;
@@ -148,7 +151,7 @@ export function FinalizePhase() {
   }, [destItems, statusFilter, search]);
 
   // ── Grouped display ──
-  const { grouped, ungrouped } = useMemo(() => {
+  const { superGroups, regularGroups, ungrouped } = useMemo(() => {
     const groupMap = new Map<string, DestItem[]>();
     const groupModels = new Map<string, DestItem>();
     const order: string[] = [];
@@ -187,8 +190,12 @@ export function FinalizePhase() {
       return naturalCompare(a.family, b.family);
     });
 
-    return { grouped: groups, ungrouped: ung };
-  }, [filteredItems, destGroupMembership]);
+    // Separate super groups from regular groups
+    const supers = groups.filter((g) => destSuperGroupNames.has(g.family));
+    const regulars = groups.filter((g) => !destSuperGroupNames.has(g.family));
+
+    return { superGroups: supers, regularGroups: regulars, ungrouped: ung };
+  }, [filteredItems, destGroupMembership, destSuperGroupNames]);
 
   // ── Selected item ──
   const selectedItem = useMemo((): DestItem | null => {
@@ -335,8 +342,20 @@ export function FinalizePhase() {
         {/* Scrollable list */}
         <div className={PANEL_STYLES.scrollArea}>
           <div className="px-4 pb-3 space-y-1">
-            {/* Grouped dest models */}
-            {grouped.map((group) => (
+            {/* Display-Wide Super Groups section */}
+            {superGroups.length > 0 && (
+              <DestSuperGroupSection
+                superGroups={superGroups}
+                expandedGroups={expandedGroups}
+                selectedDestName={selectedDestName}
+                onToggle={toggleGroup}
+                onSelect={setSelectedDestName}
+                onAcceptSuggestion={handleAcceptSuggestion}
+              />
+            )}
+
+            {/* Regular grouped dest models */}
+            {regularGroups.map((group) => (
               <DestGroupCard
                 key={group.family}
                 group={group}
@@ -349,7 +368,7 @@ export function FinalizePhase() {
             ))}
 
             {/* Divider */}
-            {grouped.length > 0 && ungrouped.length > 0 && (
+            {(superGroups.length + regularGroups.length) > 0 && ungrouped.length > 0 && (
               <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
                 <div className="flex-1 h-px bg-border/40" />
                 <span className="uppercase tracking-wider font-semibold">Ungrouped</span>
@@ -386,7 +405,10 @@ export function FinalizePhase() {
             {/* Selected item header */}
             <div className={PANEL_STYLES.header.wrapper}>
               <div className="flex items-center gap-2">
-                {selectedItem.isGroup && (
+                {selectedItem.isSuperGroup && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/15 text-purple-400 rounded">SUPER</span>
+                )}
+                {selectedItem.isGroup && !selectedItem.isSuperGroup && (
                   <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded">GRP</span>
                 )}
                 <h3 className="text-sm font-semibold text-foreground truncate">
@@ -586,10 +608,61 @@ function DestItemCard({ item, isSelected, indent, onSelect, onAcceptSuggestion }
   );
 }
 
+// ─── Dest Super Group Section ────────────────────────────
+
+function DestSuperGroupSection({ superGroups, expandedGroups, selectedDestName, onToggle, onSelect, onAcceptSuggestion }: {
+  superGroups: DestGroup[];
+  expandedGroups: Set<string>;
+  selectedDestName: string | null;
+  onToggle: (name: string) => void;
+  onSelect: (name: string) => void;
+  onAcceptSuggestion: (destName: string, sourceName: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  return (
+    <div className="mb-3">
+      <button type="button" onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center gap-2 px-1 py-1.5 text-left group">
+        <svg className={`w-3 h-3 text-purple-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="text-[11px] font-bold text-purple-400/80 uppercase tracking-wider">
+          Display-Wide Groups
+        </span>
+        <span className="text-[10px] text-purple-400/50">({superGroups.length})</span>
+      </button>
+
+      {!collapsed && (
+        <>
+          <p className="text-[10px] text-foreground/30 px-1 pb-2 leading-relaxed">
+            These groups span your entire display or large sections. They will only be suggested for matching with equivalent display-wide source groups.
+          </p>
+          <div className="space-y-1">
+            {superGroups.map((group) => (
+              <DestGroupCard
+                key={group.family}
+                group={group}
+                isSuperGroup
+                isExpanded={expandedGroups.has(group.family)}
+                selectedDestName={selectedDestName}
+                onToggle={() => onToggle(group.family)}
+                onSelect={onSelect}
+                onAcceptSuggestion={onAcceptSuggestion}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Dest Group Card (Left Panel) ────────────────────────
 
-function DestGroupCard({ group, isExpanded, selectedDestName, onToggle, onSelect, onAcceptSuggestion }: {
+function DestGroupCard({ group, isSuperGroup, isExpanded, selectedDestName, onToggle, onSelect, onAcceptSuggestion }: {
   group: DestGroup;
+  isSuperGroup?: boolean;
   isExpanded: boolean;
   selectedDestName: string | null;
   onToggle: () => void;
@@ -597,19 +670,27 @@ function DestGroupCard({ group, isExpanded, selectedDestName, onToggle, onSelect
   onAcceptSuggestion: (destName: string, sourceName: string) => void;
 }) {
   const allMapped = group.unmappedCount === 0;
-  const groupBorder = allMapped ? "border-l-green-500/70" : "border-l-amber-400/70";
+  const groupBorder = isSuperGroup
+    ? (allMapped ? "border-l-purple-500/70" : "border-l-purple-400/40")
+    : (allMapped ? "border-l-green-500/70" : "border-l-amber-400/70");
   const isGroupSelected = selectedDestName === group.family;
+  const bgClass = isSuperGroup
+    ? (isGroupSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-purple-500/[0.03]")
+    : (isGroupSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]");
 
   return (
-    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isGroupSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}>
+    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${bgClass}`}>
       {/* Group header */}
       <div className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer" onClick={() => group.groupModel ? onSelect(group.family) : onToggle()}>
         <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex-shrink-0 p-0.5">
-          <svg className={`w-3 h-3 text-foreground/40 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`w-3 h-3 ${isSuperGroup ? "text-purple-400/60" : "text-foreground/40"} transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-        <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded">GRP</span>
+        {isSuperGroup
+          ? <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded">SUPER</span>
+          : <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded">GRP</span>
+        }
         <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.family}</span>
         <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">({group.members.length})</span>
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
@@ -627,7 +708,7 @@ function DestGroupCard({ group, isExpanded, selectedDestName, onToggle, onSelect
       </div>
       {/* Expanded children */}
       {isExpanded && (
-        <div className="px-3 pb-2 pl-5 space-y-1 border-t border-border/30">
+        <div className={`px-3 pb-2 pl-5 space-y-1 border-t ${isSuperGroup ? "border-purple-400/10" : "border-border/30"}`}>
           <div className="pt-1">
             {group.members.map((item) => (
               <DestItemCard

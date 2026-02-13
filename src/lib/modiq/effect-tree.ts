@@ -611,6 +611,53 @@ export function buildEffectTree(
  * Use this to filter the xmap export to only include layers with effects,
  * eliminating "red rows" in xLights for submodels that have no effects.
  */
+/**
+ * Detect super groups from a flat array of ParsedModel objects.
+ * Works for both source and destination model sets — no effect data needed.
+ * Uses the same thresholds as the effect-tree super group detection.
+ *
+ * Returns a Set of group names that qualify as super groups.
+ */
+export function detectModelSuperGroups(models: ParsedModel[]): Set<string> {
+  const groups = models.filter((m) => m.isGroup && m.memberModels.length > 0);
+  if (groups.length < SUPER_GROUP_CONTAINED_THRESHOLD) return new Set();
+
+  const totalIndividuals = models.filter((m) => !m.isGroup).length;
+  const minMembers = Math.min(
+    SUPER_GROUP_MIN_MEMBERS,
+    Math.floor(totalIndividuals * SUPER_GROUP_MEMBER_RATIO),
+  );
+
+  // Build member sets
+  const memberSets = new Map<string, Set<string>>();
+  for (const g of groups) {
+    memberSets.set(g.name, new Set(g.memberModels));
+  }
+
+  const result = new Set<string>();
+  for (const g of groups) {
+    if (g.memberModels.length < minMembers) continue;
+
+    const gMembers = memberSets.get(g.name)!;
+    let containedCount = 0;
+
+    for (const h of groups) {
+      if (h.name === g.name) continue;
+      if (h.memberModels.length === 0) continue;
+      if (h.memberModels.length >= g.memberModels.length) continue;
+
+      const allContained = h.memberModels.every((m) => gMembers.has(m));
+      if (allContained) containedCount++;
+    }
+
+    if (containedCount >= SUPER_GROUP_CONTAINED_THRESHOLD) {
+      result.add(g.name);
+    }
+  }
+
+  return result;
+}
+
 export function getActiveSourceNamesForExport(effectTree: EffectTree): Set<string> {
   const names = new Set<string>();
 
