@@ -652,6 +652,13 @@ html {
   }
 }
 
+@media (max-width: 374px) {
+  .latest-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
 /* ═══════════════════════════════════════════════════════════
    SEQUENCE DETAIL PAGE STYLES
    ═══════════════════════════════════════════════════════════ */
