@@ -783,7 +783,7 @@ export default function GearPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/display"
+              href="/the-show#display"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-accent hover:bg-accent/80 text-white font-semibold rounded-lg transition-colors"
             >
               View Our Setup
