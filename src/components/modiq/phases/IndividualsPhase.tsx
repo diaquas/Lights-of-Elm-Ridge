@@ -331,29 +331,27 @@ export function IndividualsPhase() {
       {/* Left: Model List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         <div className={PANEL_STYLES.header.wrapper}>
-          <div className="flex items-center gap-2">
-            <h2 className={PANEL_STYLES.header.title}>
-              <svg
-                className="w-5 h-5 text-blue-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
-              Groups &amp; Models
-            </h2>
-            {/* Status filter pills */}
-            <div className="flex items-center gap-1 ml-3">
-              <TypeFilterPill label={`All (${phaseItems.length})`} active={statusFilter === "all" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("all"); setSortVersion((v) => v + 1); }} />
-              <TypeFilterPill label={`Mapped (${mappedCount})`} active={statusFilter === "mapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("mapped"); setSortVersion((v) => v + 1); }} />
-              <TypeFilterPill label={`Unmapped (${unmappedCount})`} active={statusFilter === "unmapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("unmapped"); setSortVersion((v) => v + 1); }} />
-            </div>
+          <h2 className={PANEL_STYLES.header.title}>
+            <svg
+              className="w-5 h-5 text-blue-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+              />
+            </svg>
+            Groups &amp; Models
+          </h2>
+          {/* Status filter pills — own row below title */}
+          <div className="flex items-center gap-1 mt-1.5">
+            <TypeFilterPill label={`All (${phaseItems.length})`} color="blue" active={statusFilter === "all" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("all"); setSortVersion((v) => v + 1); }} />
+            <TypeFilterPill label={`Mapped (${mappedCount})`} color="green" active={statusFilter === "mapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("mapped"); setSortVersion((v) => v + 1); }} />
+            <TypeFilterPill label={`Unmapped (${unmappedCount})`} color="amber" active={statusFilter === "unmapped" && !bannerFilter} onClick={() => { setBannerFilter(null); setStatusFilter("unmapped"); setSortVersion((v) => v + 1); }} />
           </div>
         </div>
 
@@ -907,16 +905,19 @@ function GhostMemberRow({ name }: { name: string }) {
 
 // ─── Type Filter Pill ────────────────────────────────
 
-function TypeFilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+const PILL_COLORS = {
+  blue:  { active: "bg-blue-500/15 text-blue-400 border-blue-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
+  green: { active: "bg-green-500/15 text-green-400 border-green-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
+  amber: { active: "bg-amber-500/15 text-amber-400 border-amber-500/30", inactive: "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5" },
+} as const;
+
+function TypeFilterPill({ label, active, color, onClick }: { label: string; active: boolean; color: keyof typeof PILL_COLORS; onClick: () => void }) {
+  const c = PILL_COLORS[color];
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`px-2.5 py-1 rounded-full text-[10px] font-medium transition-colors ${
-        active
-          ? "bg-accent/15 text-accent border border-accent/30"
-          : "bg-foreground/5 text-foreground/40 border border-transparent hover:text-foreground/60 hover:bg-foreground/8"
-      }`}
+      className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${active ? c.active : c.inactive}`}
     >
       {label}
     </button>
