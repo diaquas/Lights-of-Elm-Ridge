@@ -32,6 +32,14 @@ interface ModelFamily {
   pixelCount: number;
 }
 
+/** Hierarchy group definition for right panel display */
+interface HierarchyGroup {
+  model: ParsedModel;
+  members: ParsedModel[];
+  isSuperGroup: boolean;
+  mappedCount: number;
+}
+
 export interface UniversalSourcePanelProps {
   /** All available user models to display */
   allModels: ParsedModel[];
@@ -67,6 +75,8 @@ export interface UniversalSourcePanelProps {
   excludeNames?: Set<string>;
   /** Set of destination model names that are super groups (for SUPER badge) */
   destSuperGroupNames?: Set<string>;
+  /** When true, organize models by xLights group hierarchy (super groups → groups → individuals) instead of family prefix */
+  hierarchyMode?: boolean;
 }
 
 // ─── Component ──────────────────────────────────────────
@@ -89,11 +99,13 @@ export function UniversalSourcePanel({
   onUnskipAllDest,
   excludeNames,
   destSuperGroupNames,
+  hierarchyMode,
 }: UniversalSourcePanelProps) {
   const [search, setSearch] = useState("");
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(
     new Set(),
   );
+  const [expandedHierarchyGroups, setExpandedHierarchyGroups] = useState<Set<string>>(new Set());
   const [unmappedOpen, setUnmappedOpen] = useState(true);
   const [mappedOpen, setMappedOpen] = useState(false);
 
@@ -214,6 +226,92 @@ export function UniversalSourcePanel({
     },
     [onSkipDest],
   );
+
+  // ── Hierarchy-aware grouping (when hierarchyMode=true) ──
+  const hierarchyData = useMemo(() => {
+    if (!hierarchyMode) return null;
+
+    const modelsToOrganize = search
+      ? filteredModels
+      : filteredModels.filter((m) => !suggestionNames.has(m.name));
+
+    const modelsByName = new Map<string, ParsedModel>();
+    for (const m of modelsToOrganize) modelsByName.set(m.name, m);
+
+    // Build group membership: member name → parent group name
+    const memberToGroup = new Map<string, string>();
+    const groupModels: ParsedModel[] = [];
+    for (const m of modelsToOrganize) {
+      if (m.isGroup && m.groupType !== "SUBMODEL_GROUP") {
+        groupModels.push(m);
+        if (m.memberModels) {
+          for (const member of m.memberModels) {
+            // Prefer smallest group (most specific parent)
+            const existing = memberToGroup.get(member);
+            if (!existing) {
+              memberToGroup.set(member, m.name);
+            } else {
+              const existingModel = modelsByName.get(existing);
+              if (existingModel && m.memberModels && existingModel.memberModels &&
+                  m.memberModels.length < existingModel.memberModels.length) {
+                memberToGroup.set(member, m.name);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Build hierarchy groups
+    const groups: HierarchyGroup[] = [];
+    const groupedMemberNames = new Set<string>();
+
+    for (const gm of groupModels) {
+      const members = (gm.memberModels ?? [])
+        .map((name) => modelsByName.get(name))
+        .filter((m): m is ParsedModel => m != null && !m.isGroup);
+
+      for (const m of members) groupedMemberNames.add(m.name);
+
+      const mappedCount = members.filter((m) => assignedNames?.has(m.name)).length;
+      groups.push({
+        model: gm,
+        members,
+        isSuperGroup: destSuperGroupNames?.has(gm.name) ?? false,
+        mappedCount,
+      });
+    }
+
+    // Ungrouped individuals
+    const ungrouped = modelsToOrganize.filter(
+      (m) => !m.isGroup && !groupedMemberNames.has(m.name),
+    );
+
+    // Separate super groups from regular groups
+    const superGroups = groups.filter((g) => g.isSuperGroup);
+    const regularGroups = groups.filter((g) => !g.isSuperGroup);
+
+    // Sort: unmapped first, then alphabetical
+    const sortGroups = (a: HierarchyGroup, b: HierarchyGroup) => {
+      const aAll = a.mappedCount >= a.members.length;
+      const bAll = b.mappedCount >= b.members.length;
+      if (aAll !== bAll) return aAll ? 1 : -1;
+      return a.model.name.localeCompare(b.model.name);
+    };
+    superGroups.sort(sortGroups);
+    regularGroups.sort(sortGroups);
+
+    return { superGroups, regularGroups, ungrouped };
+  }, [hierarchyMode, filteredModels, search, suggestionNames, assignedNames, destSuperGroupNames]);
+
+  const toggleHierarchyGroup = useCallback((name: string) => {
+    setExpandedHierarchyGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }, []);
 
   // Shared renderer for a family (used in both unmapped + mapped sections)
   const renderFamily = (family: ModelFamily) => {
@@ -355,89 +453,178 @@ export function UniversalSourcePanel({
           </div>
         )}
 
-        {/* All Models — split into Unmapped / Mapped sections */}
+        {/* All Models */}
         <div className="px-6 py-3">
-          {unmappedFamilies.length === 0 && mappedFamilies.length === 0 ? (
-            <div className="text-center py-8 text-foreground/40">
-              <p className="text-sm">
-                {search ? (
-                  <>No models matching &ldquo;{search}&rdquo;</>
-                ) : (
-                  "No models available"
-                )}
-              </p>
-            </div>
-          ) : (
+          {hierarchyMode && hierarchyData ? (
+            /* ── Hierarchy Mode: super groups → groups → individuals ── */
             <>
-              {/* ── UNMAPPED section ── */}
-              {unmappedFamilies.length > 0 && (
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setUnmappedOpen((p) => !p)}
-                    className="flex items-center gap-2 w-full py-2 text-left group"
-                  >
-                    <svg
-                      className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${unmappedOpen ? "rotate-90" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                    <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
-                      Unmapped
-                    </span>
-                    <span className="text-[12px] font-semibold text-foreground/35">
-                      ({unmappedFamilies.reduce((n, f) => n + f.models.length, 0)})
-                    </span>
-                  </button>
-                  {unmappedOpen && (
-                    <div className="space-y-1 pb-2">
-                      {unmappedFamilies.map((family) =>
-                        renderFamily(family),
+              {hierarchyData.superGroups.length === 0 && hierarchyData.regularGroups.length === 0 && hierarchyData.ungrouped.length === 0 ? (
+                <div className="text-center py-8 text-foreground/40">
+                  <p className="text-sm">
+                    {search ? <>No models matching &ldquo;{search}&rdquo;</> : "No models available"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {/* Display-Wide Super Groups */}
+                  {hierarchyData.superGroups.length > 0 && (
+                    <div className="mb-2">
+                      <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-purple-400/60">
+                        <span className="font-bold uppercase tracking-wider">Display-Wide</span>
+                        <span>({hierarchyData.superGroups.length})</span>
+                      </div>
+                      <div className="space-y-1">
+                        {hierarchyData.superGroups.map((group) => (
+                          <HierarchyGroupRow
+                            key={group.model.name}
+                            group={group}
+                            isExpanded={expandedHierarchyGroups.has(group.model.name)}
+                            onToggle={() => toggleHierarchyGroup(group.model.name)}
+                            onAccept={onAccept}
+                            onSkip={onSkipDest}
+                            dnd={dnd}
+                            destToSourcesMap={destToSourcesMap}
+                            onRemoveLink={onRemoveLink}
+                            sourceEffectCounts={sourceEffectCounts}
+                            currentSourceSelection={selectedDestLabel}
+                            assignedNames={assignedNames}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Regular xLights Groups */}
+                  {hierarchyData.regularGroups.map((group) => (
+                    <HierarchyGroupRow
+                      key={group.model.name}
+                      group={group}
+                      isExpanded={expandedHierarchyGroups.has(group.model.name)}
+                      onToggle={() => toggleHierarchyGroup(group.model.name)}
+                      onAccept={onAccept}
+                      onSkip={onSkipDest}
+                      dnd={dnd}
+                      destToSourcesMap={destToSourcesMap}
+                      onRemoveLink={onRemoveLink}
+                      sourceEffectCounts={sourceEffectCounts}
+                      currentSourceSelection={selectedDestLabel}
+                      assignedNames={assignedNames}
+                    />
+                  ))}
+
+                  {/* Ungrouped divider */}
+                  {(hierarchyData.superGroups.length + hierarchyData.regularGroups.length) > 0 && hierarchyData.ungrouped.length > 0 && (
+                    <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
+                      <div className="flex-1 h-px bg-border/40" />
+                      <span className="uppercase tracking-wider font-semibold">Ungrouped</span>
+                      <div className="flex-1 h-px bg-border/40" />
+                    </div>
+                  )}
+
+                  {/* Ungrouped individuals */}
+                  {hierarchyData.ungrouped.map((model) => (
+                    <ModelCard
+                      key={model.name}
+                      model={model}
+                      isAssigned={assignedNames?.has(model.name) ?? false}
+                      onAccept={onAccept}
+                      onSkip={onSkipDest}
+                      dnd={dnd}
+                      destToSourcesMap={destToSourcesMap}
+                      onRemoveLink={onRemoveLink}
+                      sourceEffectCounts={sourceEffectCounts}
+                      currentSourceSelection={selectedDestLabel}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            /* ── Family Mode (default): Unmapped / Mapped sections ── */
+            <>
+              {unmappedFamilies.length === 0 && mappedFamilies.length === 0 ? (
+                <div className="text-center py-8 text-foreground/40">
+                  <p className="text-sm">
+                    {search ? (
+                      <>No models matching &ldquo;{search}&rdquo;</>
+                    ) : (
+                      "No models available"
+                    )}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* ── UNMAPPED section ── */}
+                  {unmappedFamilies.length > 0 && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setUnmappedOpen((p) => !p)}
+                        className="flex items-center gap-2 w-full py-2 text-left group"
+                      >
+                        <svg
+                          className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${unmappedOpen ? "rotate-90" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
+                          Unmapped
+                        </span>
+                        <span className="text-[12px] font-semibold text-foreground/35">
+                          ({unmappedFamilies.reduce((n, f) => n + f.models.length, 0)})
+                        </span>
+                      </button>
+                      {unmappedOpen && (
+                        <div className="space-y-1 pb-2">
+                          {unmappedFamilies.map((family) =>
+                            renderFamily(family),
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
-                </div>
-              )}
 
-              {/* ── Divider between sections ── */}
-              {unmappedFamilies.length > 0 && mappedFamilies.length > 0 && (
-                <div className="border-t border-border/40 my-1" />
-              )}
+                  {/* ── Divider between sections ── */}
+                  {unmappedFamilies.length > 0 && mappedFamilies.length > 0 && (
+                    <div className="border-t border-border/40 my-1" />
+                  )}
 
-              {/* ── MAPPED section ── */}
-              {mappedFamilies.length > 0 && (
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setMappedOpen((p) => !p)}
-                    className="flex items-center gap-2 w-full py-2 text-left group"
-                  >
-                    <svg
-                      className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${mappedOpen ? "rotate-90" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                    <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
-                      Mapped
-                    </span>
-                    <span className="text-[12px] font-semibold text-foreground/35">
-                      ({mappedFamilies.reduce((n, f) => n + f.models.length, 0)})
-                    </span>
-                  </button>
-                  {mappedOpen && (
-                    <div className="space-y-1 pb-2">
-                      {mappedFamilies.map((family) =>
-                        renderFamily(family),
+                  {/* ── MAPPED section ── */}
+                  {mappedFamilies.length > 0 && (
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setMappedOpen((p) => !p)}
+                        className="flex items-center gap-2 w-full py-2 text-left group"
+                      >
+                        <svg
+                          className={`w-3.5 h-3.5 text-foreground/40 transition-transform ${mappedOpen ? "rotate-90" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
+                          Mapped
+                        </span>
+                        <span className="text-[12px] font-semibold text-foreground/35">
+                          ({mappedFamilies.reduce((n, f) => n + f.models.length, 0)})
+                        </span>
+                      </button>
+                      {mappedOpen && (
+                        <div className="space-y-1 pb-2">
+                          {mappedFamilies.map((family) =>
+                            renderFamily(family),
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
-                </div>
+                </>
               )}
             </>
           )}
@@ -830,6 +1017,92 @@ const ModelCard = memo(function ModelCard({
     </div>
   );
 });
+
+// ─── Hierarchy Group Row (for hierarchyMode) ─────────────
+
+function HierarchyGroupRow({
+  group,
+  isExpanded,
+  onToggle,
+  onAccept,
+  onSkip,
+  dnd,
+  destToSourcesMap,
+  onRemoveLink,
+  sourceEffectCounts,
+  currentSourceSelection,
+  assignedNames,
+}: {
+  group: HierarchyGroup;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onAccept: (name: string) => void;
+  onSkip?: (name: string) => void;
+  dnd?: DragAndDropHandlers;
+  destToSourcesMap?: Map<string, Set<string>>;
+  onRemoveLink?: (sourceName: string, destName: string) => void;
+  sourceEffectCounts?: Map<string, number>;
+  currentSourceSelection?: string;
+  assignedNames?: Set<string>;
+}) {
+  const allMapped = group.mappedCount >= group.members.length && group.members.length > 0;
+  const groupBorder = group.isSuperGroup
+    ? (allMapped ? "border-l-purple-500/70" : "border-l-purple-400/40")
+    : (allMapped ? "border-l-green-500/70" : "border-l-amber-400/70");
+  const bgClass = group.isSuperGroup
+    ? "border-border/60 bg-purple-500/[0.03]"
+    : "border-border/60 bg-foreground/[0.02]";
+
+  return (
+    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${bgClass}`}>
+      {/* Group header */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 w-full text-left"
+      >
+        <svg
+          className={`w-3 h-3 ${group.isSuperGroup ? "text-purple-400/60" : "text-foreground/40"} transition-transform duration-150 ${isExpanded ? "rotate-90" : ""} flex-shrink-0`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+        {group.isSuperGroup
+          ? <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">SUPER</span>
+          : <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded flex-shrink-0">GRP</span>
+        }
+        <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.model.name}</span>
+        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+          <span className={`text-[10px] font-semibold tabular-nums ${allMapped ? "text-green-400/60" : "text-foreground/40"}`}>
+            {group.mappedCount}/{group.members.length}
+          </span>
+        </div>
+      </button>
+
+      {/* Expanded members */}
+      {isExpanded && group.members.length > 0 && (
+        <div className={`px-2.5 pb-2 pl-5 space-y-0.5 border-t ${group.isSuperGroup ? "border-purple-400/10" : "border-border/30"}`}>
+          <div className="pt-1">
+            {group.members.map((model) => (
+              <ModelCard
+                key={model.name}
+                model={model}
+                isAssigned={assignedNames?.has(model.name) ?? false}
+                onAccept={onAccept}
+                onSkip={onSkip}
+                dnd={dnd}
+                destToSourcesMap={destToSourcesMap}
+                onRemoveLink={onRemoveLink}
+                sourceEffectCounts={sourceEffectCounts}
+                currentSourceSelection={currentSourceSelection}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Skipped Destination Items Section ───────────────────
 
