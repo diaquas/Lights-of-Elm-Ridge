@@ -88,6 +88,9 @@ export const SEMANTIC_SYNONYMS: string[][] = [
   // Net/Mesh synonyms
   ["net", "mesh", "netting"],
 
+  // Fan/Firework synonyms
+  ["fan", "fans", "firework", "fireworks"],
+
   // Spiral synonyms
   ["spiral", "spirals", "helix", "coil"],
 
