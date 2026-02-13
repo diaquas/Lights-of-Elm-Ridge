@@ -21,7 +21,6 @@ interface TheShowTabsProps {
   vendors: { name: string; url: string; count: number }[];
   displayStats: {
     totalPixels: string;
-    universes: string;
     controllers: string;
     fmStation: string;
   };
@@ -338,10 +337,6 @@ export default function TheShowTabs({
             <div className="display-stat-label">Total Pixels</div>
           </div>
           <div className="display-stat">
-            <div className="display-stat-num">{displayStats.universes}</div>
-            <div className="display-stat-label">Universes</div>
-          </div>
-          <div className="display-stat">
             <div className="display-stat-num">{displayStats.controllers}</div>
             <div className="display-stat-label">Controllers</div>
           </div>
@@ -521,7 +516,9 @@ export default function TheShowTabs({
               <span className="show-pl-tab-count">
                 ({christmasSongs.length})
               </span>
-              <span className="text-xs text-zinc-500 ml-1.5 font-normal">Coming Soon</span>
+              <span className="text-xs text-zinc-500 ml-1.5 font-normal">
+                Coming Soon
+              </span>
             </button>
           </div>
           <span className="show-pl-original-count">

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getAllLiveVideos } from "@/data/youtube-loader";
 import { YOUTUBE_PLAYLISTS } from "@/data/youtube-config";
-import { songlist, getSongsByCategory, getStats } from "@/data/songlist";
+import { songlist, getSongsByCategory } from "@/data/songlist";
 import TheShowTabs from "@/components/TheShowTabs";
 import BackToTop from "@/components/BackToTop";
 
@@ -14,7 +14,6 @@ export const metadata: Metadata = {
 // Display specifications
 const displayStats = {
   totalPixels: "35k+",
-  universes: "190",
   controllers: "3",
   fmStation: "87.9",
 };
@@ -36,7 +35,6 @@ export default function TheShowPage() {
   // Get song data
   const halloweenSongs = getSongsByCategory("Halloween");
   const christmasSongs = getSongsByCategory("Christmas");
-  const stats = getStats();
 
   // Get vendor data
   const vendors = [
@@ -82,18 +80,6 @@ export default function TheShowPage() {
                 Real performances, full playlist, and the tech behind the
                 pixels.
               </p>
-            </div>
-            <div className="show-stat-pills">
-              <span className="show-stat-pill">
-                <span className="show-stat-pill-num">35k+</span> pixels
-              </span>
-              <span className="show-stat-pill">
-                <span className="show-stat-pill-num">{stats.totalSongs}</span>{" "}
-                songs
-              </span>
-              <span className="show-stat-pill">
-                <span className="show-stat-pill-num">190</span> universes
-              </span>
             </div>
           </div>
         </header>
