@@ -39,7 +39,6 @@ export function GroupsPhase() {
   }, [interactive.sourceLayerMappings]);
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [showSwapSuggestions, setShowSwapSuggestions] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("effects-desc");
@@ -61,8 +60,6 @@ export function GroupsPhase() {
     ? (phaseItemsByName.get(selectedGroupId) ?? null)
     : null;
 
-  // Reset swap panel when selection changes
-  useEffect(() => { setShowSwapSuggestions(false); }, [selectedGroupId]);
 
   // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
   const topSuggestionsMap = useMemo(() => {
@@ -134,16 +131,9 @@ export function GroupsPhase() {
   }
 
   const handleAcceptGroup = (groupName: string, userModelName: string) => {
-    // If re-mapping (swap), remove old link first
-    const current = phaseItemsByName.get(groupName);
-    if (current?.isMapped) {
-      const oldDest = current.assignedUserModels[0]?.name;
-      if (oldDest && oldDest !== userModelName) {
-        interactive.removeLinkFromLayer(groupName, oldDest);
-      }
-    }
     interactive.assignUserModelToLayer(groupName, userModelName);
     bulk.checkForPattern(groupName, userModelName);
+    const current = phaseItemsByName.get(groupName);
     if (!current?.isMapped) {
       setSelectedGroupId(findNextUnmapped(unmappedGroups, groupName));
     }
@@ -444,42 +434,38 @@ export function GroupsPhase() {
             {selectedGroup.isMapped && (
               <MappedGroupCard
                 group={selectedGroup}
-                onRemoveMapping={() => {
-                  const destName = selectedGroup.assignedUserModels[0]?.name;
-                  if (destName) interactive.removeLinkFromLayer(selectedGroup.sourceModel.name, destName);
-                }}
-                onSwapSource={() => setShowSwapSuggestions((v) => !v)}
-                showSuggestions={showSwapSuggestions}
+                onRemoveLink={(destName) =>
+                  interactive.removeLinkFromLayer(selectedGroup.sourceModel.name, destName)
+                }
               />
             )}
 
-            {/* Universal Source Panel */}
-            {(!selectedGroup.isMapped || showSwapSuggestions) && (
-              <div className="flex-1 min-h-0 overflow-hidden">
-                <UniversalSourcePanel
-                  allModels={interactive.allDestModels}
-                  suggestions={suggestions}
-                  sourceFilter={groupSourceFilter}
-                  assignedNames={interactive.assignedUserModelNames}
-                  selectedDestLabel={selectedGroup.sourceModel.name}
-                  sourcePixelCount={selectedGroup.sourceModel.pixelCount}
-                  onAccept={(userModelName) =>
-                    handleAcceptGroup(
-                      selectedGroup.sourceModel.name,
-                      userModelName,
-                    )
-                  }
-                  dnd={dnd}
-                  destToSourcesMap={interactive.destToSourcesMap}
-                  onRemoveLink={interactive.removeLinkFromLayer}
-                  sourceEffectCounts={sourceEffectCounts}
-                  skippedDestModels={interactive.skippedDestModels}
-                  onSkipDest={interactive.skipDestModel}
-                  onUnskipDest={interactive.unskipDestModel}
-                  onUnskipAllDest={interactive.unskipAllDestModels}
-                />
-              </div>
-            )}
+            {/* Universal Source Panel — always visible for suggestions + add another */}
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <UniversalSourcePanel
+                allModels={interactive.allDestModels}
+                suggestions={suggestions}
+                sourceFilter={groupSourceFilter}
+                assignedNames={interactive.assignedUserModelNames}
+                selectedDestLabel={selectedGroup.sourceModel.name}
+                sourcePixelCount={selectedGroup.sourceModel.pixelCount}
+                onAccept={(userModelName) =>
+                  handleAcceptGroup(
+                    selectedGroup.sourceModel.name,
+                    userModelName,
+                  )
+                }
+                dnd={dnd}
+                destToSourcesMap={interactive.destToSourcesMap}
+                onRemoveLink={interactive.removeLinkFromLayer}
+                sourceEffectCounts={sourceEffectCounts}
+                skippedDestModels={interactive.skippedDestModels}
+                onSkipDest={interactive.skipDestModel}
+                onUnskipDest={interactive.unskipDestModel}
+                onUnskipAllDest={interactive.unskipAllDestModels}
+                excludeNames={selectedGroup.isMapped ? new Set(selectedGroup.assignedUserModels.map((m) => m.name)) : undefined}
+              />
+            </div>
 
             {/* Skip (only for unmapped) */}
             {!selectedGroup.isMapped && (
@@ -768,51 +754,43 @@ const GroupListCardMemo = memo(
 
 function MappedGroupCard({
   group,
-  onRemoveMapping,
-  onSwapSource,
-  showSuggestions,
+  onRemoveLink,
 }: {
   group: SourceLayerMapping;
-  onRemoveMapping: () => void;
-  onSwapSource: () => void;
-  showSuggestions: boolean;
+  onRemoveLink: (destName: string) => void;
 }) {
-  const destName = group.assignedUserModels[0]?.name;
-  if (!destName) return null;
+  if (group.assignedUserModels.length === 0) return null;
 
   return (
     <div className="px-5 py-3 border-b border-border flex-shrink-0">
       <div className="rounded-lg border border-green-500/25 bg-green-500/5 p-3">
-        <div className="flex items-center gap-2 mb-1.5">
+        <div className="flex items-center gap-2 mb-2">
           <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
           </svg>
           <span className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider">Currently Mapped To</span>
         </div>
-        <p className="text-[14px] font-semibold text-foreground ml-5.5">{destName}</p>
-        {group.coveredChildCount > 0 && (
-          <p className="text-[11px] text-teal-400/60 mt-0.5 ml-5.5">covers {group.coveredChildCount} children</p>
-        )}
-        <div className="flex items-center gap-2 mt-3">
-          <button
-            type="button"
-            onClick={onSwapSource}
-            className={`px-3 py-1.5 text-[11px] rounded-md border transition-colors ${
-              showSuggestions
-                ? "bg-accent/10 border-accent/30 text-accent"
-                : "border-border text-foreground/50 hover:border-foreground/30 hover:text-foreground/70"
-            }`}
-          >
-            {showSuggestions ? "Hide Suggestions" : "Swap Source"}
-          </button>
-          <button
-            type="button"
-            onClick={onRemoveMapping}
-            className="px-3 py-1.5 text-[11px] rounded-md border border-red-500/20 text-red-400/70 hover:bg-red-500/10 hover:border-red-500/40 transition-colors"
-          >
-            Remove Mapping
-          </button>
+        <div className="space-y-1.5 ml-5.5">
+          {group.assignedUserModels.map((m) => (
+            <div key={m.name} className="flex items-center gap-2 group/dest">
+              <span className="text-[13px] font-semibold text-foreground truncate flex-1">{m.name}</span>
+              <button
+                type="button"
+                onClick={() => onRemoveLink(m.name)}
+                className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0 opacity-0 group-hover/dest:opacity-100"
+                aria-label={`Remove ${m.name}`}
+                title={`Remove ${m.name}`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
         </div>
+        {group.coveredChildCount > 0 && (
+          <p className="text-[11px] text-teal-400/60 mt-1.5 ml-5.5">covers {group.coveredChildCount} children</p>
+        )}
       </div>
     </div>
   );
