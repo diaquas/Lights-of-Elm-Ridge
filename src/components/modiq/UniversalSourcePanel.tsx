@@ -8,6 +8,7 @@ import { UsageBadge } from "./UsageBadge";
 import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import { extractFamily } from "@/contexts/MappingPhaseContext";
 import { PANEL_STYLES } from "./panelStyles";
+import { FilterPill } from "./SharedHierarchyComponents";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -108,6 +109,7 @@ export function UniversalSourcePanel({
   const [expandedHierarchyGroups, setExpandedHierarchyGroups] = useState<Set<string>>(new Set());
   const [unmappedOpen, setUnmappedOpen] = useState(true);
   const [mappedOpen, setMappedOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | "unmapped" | "mapped">("all");
 
   // Available models = filtered + not skipped + not excluded
   const availableModels = useMemo(() => {
@@ -151,15 +153,26 @@ export function UniversalSourcePanel({
     );
   }, [search, suggestions, excludeNames]);
 
-  // Filtered all-models list (always computed from availableModels)
+  // Counts for status filter pills
+  const allModelCount = availableModels.length;
+  const mappedModelCount = useMemo(
+    () => availableModels.filter((m) => assignedNames?.has(m.name)).length,
+    [availableModels, assignedNames],
+  );
+  const unmappedModelCount = allModelCount - mappedModelCount;
+
+  // Filtered all-models list (search + status filter)
   const filteredModels = useMemo(() => {
-    if (!search) return availableModels;
+    let models = availableModels;
+    if (statusFilter === "unmapped") models = models.filter((m) => !assignedNames?.has(m.name));
+    else if (statusFilter === "mapped") models = models.filter((m) => assignedNames?.has(m.name));
+    if (!search) return models;
     const q = search.toLowerCase();
-    return availableModels.filter(
+    return models.filter(
       (m) =>
         m.name.toLowerCase().includes(q) || m.type.toLowerCase().includes(q),
     );
-  }, [search, availableModels]);
+  }, [search, availableModels, statusFilter, assignedNames]);
 
   // Group models by family for collapsed display
   const modelFamilies = useMemo(() => {
@@ -421,6 +434,14 @@ export function UniversalSourcePanel({
             Showing {filteredSuggestions.length + filteredModels.length} of{" "}
             {suggestions.length + availableModels.length}
           </p>
+        )}
+        {/* Status filter pills */}
+        {allModelCount > 0 && (
+          <div className="flex items-center gap-1 mt-1.5">
+            <FilterPill label={`All (${allModelCount})`} color="blue" active={statusFilter === "all"} onClick={() => setStatusFilter("all")} />
+            <FilterPill label={`Mapped (${mappedModelCount})`} color="green" active={statusFilter === "mapped"} onClick={() => setStatusFilter("mapped")} />
+            <FilterPill label={`Unmapped (${unmappedModelCount})`} color="amber" active={statusFilter === "unmapped"} onClick={() => setStatusFilter("unmapped")} />
+          </div>
         )}
       </div>
 
