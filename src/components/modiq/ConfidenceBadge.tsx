@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { MatchReasoning } from "@/types/matching";
+import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
+import type { ModelMapping } from "@/lib/modiq/matcher";
 
 interface ConfidenceBadgeProps {
   score: number;
   reasoning?: MatchReasoning;
+  /** Pass raw factors to auto-generate reasoning (alternative to passing pre-built reasoning) */
+  factors?: ModelMapping["factors"];
   size?: "sm" | "md" | "lg";
 }
 
@@ -32,13 +36,21 @@ const SIZE_CLASSES = {
 
 export function ConfidenceBadge({
   score,
-  reasoning,
+  reasoning: reasoningProp,
+  factors,
   size = "md",
 }: ConfidenceBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const badgeRef = useRef<HTMLDivElement>(null);
   const tier = getConfidenceTier(score);
   const percentage = Math.round(score * 100);
+
+  // Auto-generate reasoning from factors if not provided
+  const reasoning = useMemo(() => {
+    if (reasoningProp) return reasoningProp;
+    if (factors) return generateMatchReasoning(factors, score);
+    return undefined;
+  }, [reasoningProp, factors, score]);
 
   return (
     <div className="relative inline-block" ref={badgeRef}>

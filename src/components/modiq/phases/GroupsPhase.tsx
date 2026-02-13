@@ -21,11 +21,23 @@ import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
-import { CurrentMappingCard, CollapsibleMembers } from "../SharedHierarchyComponents";
+import {
+  CurrentMappingCard,
+  CollapsibleMembers,
+} from "../SharedHierarchyComponents";
+import { STRONG_THRESHOLD } from "@/types/mappingPhases";
+import type { ModelMapping } from "@/lib/modiq/matcher";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 export function GroupsPhase() {
-  const { phaseItems, goToNextPhase, interactive } = useMappingPhase();
+  const {
+    phaseItems,
+    goToNextPhase,
+    interactive,
+    scoreMap,
+    factorsMap,
+    autoMatchedNames,
+  } = useMappingPhase();
   const dnd = useDragAndDrop();
 
   const bulk = useBulkInference(interactive, phaseItems);
@@ -61,17 +73,29 @@ export function GroupsPhase() {
     ? (phaseItemsByName.get(selectedGroupId) ?? null)
     : null;
 
-
   // Pre-compute top suggestion for each unmapped card (avoids per-card scoring)
   const topSuggestionsMap = useMemo(() => {
     const map = new Map<
       string,
-      { model: { name: string }; score: number } | null
+      {
+        model: { name: string };
+        score: number;
+        factors?: ModelMapping["factors"];
+      } | null
     >();
     for (const item of phaseItems) {
       if (item.isMapped) continue;
       const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
-      map.set(item.sourceModel.name, suggs[0] ?? null);
+      map.set(
+        item.sourceModel.name,
+        suggs[0]
+          ? {
+              model: suggs[0].model,
+              score: suggs[0].score,
+              factors: suggs[0].factors,
+            }
+          : null,
+      );
     }
     return map;
   }, [phaseItems, interactive]);
@@ -274,6 +298,9 @@ export function GroupsPhase() {
                   isDropTarget={
                     dnd.state.activeDropTarget === group.sourceModel.name
                   }
+                  isAutoMatched={autoMatchedNames.has(group.sourceModel.name)}
+                  matchScore={scoreMap.get(group.sourceModel.name)}
+                  matchFactors={factorsMap.get(group.sourceModel.name)}
                   topSuggestion={
                     topSuggestionsMap.get(group.sourceModel.name) ?? null
                   }
@@ -341,36 +368,59 @@ export function GroupsPhase() {
                 {mappedGroups.length} groups already mapped
               </summary>
               <div className="mt-3 space-y-2">
-                {mappedGroups.map((group) => (
-                  <div
-                    key={group.sourceModel.name}
-                    onClick={() => setSelectedGroupId(group.sourceModel.name)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all ${
-                      selectedGroupId === group.sourceModel.name
-                        ? "bg-accent/5 border-accent/30 ring-1 ring-accent/20"
-                        : "bg-green-500/5 border-green-500/15 hover:border-green-500/30"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}
-                      >
-                        GRP
-                      </span>
-                      <span className="text-[13px] text-foreground/60 truncate">
-                        {group.sourceModel.name}
-                      </span>
-                      <span className="ml-auto text-[13px] text-green-400/70 truncate flex-shrink-0">
-                        &rarr; {group.assignedUserModels[0]?.name}
-                      </span>
-                    </div>
-                    {group.coveredChildCount > 0 && (
-                      <div className="text-[11px] text-green-400/50 mt-1 ml-6">
-                        {group.coveredChildCount} children auto-resolved
+                {mappedGroups.map((group) => {
+                  const gScore = scoreMap.get(group.sourceModel.name);
+                  const gFactors = factorsMap.get(group.sourceModel.name);
+                  const gIsReview =
+                    autoMatchedNames.has(group.sourceModel.name) &&
+                    gScore != null &&
+                    gScore < STRONG_THRESHOLD;
+                  return (
+                    <div
+                      key={group.sourceModel.name}
+                      onClick={() => setSelectedGroupId(group.sourceModel.name)}
+                      className={`p-3 rounded-lg border cursor-pointer transition-all ${
+                        selectedGroupId === group.sourceModel.name
+                          ? "bg-accent/5 border-accent/30 ring-1 ring-accent/20"
+                          : gIsReview
+                            ? "bg-amber-500/5 border-amber-500/15 hover:border-amber-500/30"
+                            : "bg-green-500/5 border-green-500/15 hover:border-green-500/30"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}
+                        >
+                          GRP
+                        </span>
+                        <span className="text-[13px] text-foreground/60 truncate">
+                          {group.sourceModel.name}
+                        </span>
+                        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
+                          <span
+                            className={`text-[13px] truncate ${gIsReview ? "text-amber-400/70" : "text-green-400/70"}`}
+                          >
+                            &rarr; {group.assignedUserModels[0]?.name}
+                          </span>
+                          {gScore != null && gScore > 0 && (
+                            <ConfidenceBadge
+                              score={gScore}
+                              factors={gFactors}
+                              size="sm"
+                            />
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      {group.coveredChildCount > 0 && (
+                        <div
+                          className={`text-[11px] mt-1 ml-6 ${gIsReview ? "text-amber-400/50" : "text-green-400/50"}`}
+                        >
+                          {group.coveredChildCount} children auto-resolved
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </details>
           )}
@@ -435,8 +485,13 @@ export function GroupsPhase() {
             {selectedGroup.isMapped && (
               <CurrentMappingCard
                 item={selectedGroup}
+                matchScore={scoreMap.get(selectedGroup.sourceModel.name)}
+                matchFactors={factorsMap.get(selectedGroup.sourceModel.name)}
                 onRemoveLink={(destName) =>
-                  interactive.removeLinkFromLayer(selectedGroup.sourceModel.name, destName)
+                  interactive.removeLinkFromLayer(
+                    selectedGroup.sourceModel.name,
+                    destName,
+                  )
                 }
               />
             )}
@@ -464,7 +519,13 @@ export function GroupsPhase() {
                 onSkipDest={interactive.skipDestModel}
                 onUnskipDest={interactive.unskipDestModel}
                 onUnskipAllDest={interactive.unskipAllDestModels}
-                excludeNames={selectedGroup.isMapped ? new Set(selectedGroup.assignedUserModels.map((m) => m.name)) : undefined}
+                excludeNames={
+                  selectedGroup.isMapped
+                    ? new Set(
+                        selectedGroup.assignedUserModels.map((m) => m.name),
+                      )
+                    : undefined
+                }
                 destSuperGroupNames={interactive.destSuperGroupNames}
               />
             </div>
@@ -474,7 +535,9 @@ export function GroupsPhase() {
               <div className="px-6 py-3 border-t border-border flex-shrink-0">
                 <button
                   type="button"
-                  onClick={() => handleSkipGroup(selectedGroup.sourceModel.name)}
+                  onClick={() =>
+                    handleSkipGroup(selectedGroup.sourceModel.name)
+                  }
                   className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
                 >
                   Skip This Group
@@ -499,7 +562,9 @@ export function GroupsPhase() {
                 />
               </svg>
               <p className="text-sm">Select a group to see suggestions</p>
-              <p className="text-xs text-foreground/20 mt-1.5">Already-mapped groups can be clicked to review or swap</p>
+              <p className="text-xs text-foreground/20 mt-1.5">
+                Already-mapped groups can be clicked to review or swap
+              </p>
             </div>
           </div>
         )}
@@ -527,7 +592,6 @@ export function GroupsPhase() {
   );
 }
 
-
 // ─── Group Card (Left Panel) ──────────────────────────
 
 function GroupListCard({
@@ -535,6 +599,9 @@ function GroupListCard({
   isSelected,
   isChecked,
   isDropTarget,
+  isAutoMatched,
+  matchScore,
+  matchFactors,
   topSuggestion,
   onClick,
   onCheck,
@@ -549,7 +616,14 @@ function GroupListCard({
   isSelected: boolean;
   isChecked: boolean;
   isDropTarget: boolean;
-  topSuggestion: { model: { name: string }; score: number } | null;
+  isAutoMatched: boolean;
+  matchScore?: number;
+  matchFactors?: ModelMapping["factors"];
+  topSuggestion: {
+    model: { name: string };
+    score: number;
+    factors?: ModelMapping["factors"];
+  } | null;
   onClick: () => void;
   onCheck: () => void;
   onAccept: (userModelName: string) => void;
@@ -656,14 +730,35 @@ function GroupListCard({
             )}
           </div>
 
+          {/* Mapped match preview */}
+          {group.isMapped && group.assignedUserModels.length > 0 && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span
+                className={`text-[10px] ${isAutoMatched && matchScore != null && matchScore < STRONG_THRESHOLD ? "text-amber-400/60" : "text-green-400/60"}`}
+              >
+                &rarr; {group.assignedUserModels[0].name}
+              </span>
+              {matchScore != null && matchScore > 0 && (
+                <ConfidenceBadge
+                  score={matchScore}
+                  factors={matchFactors}
+                  size="sm"
+                />
+              )}
+            </div>
+          )}
           {/* Best match preview */}
-          {topSuggestion && (
+          {!group.isMapped && topSuggestion && (
             <div className="mt-1.5 flex items-center gap-2">
               <span className="text-[10px] text-foreground/40">Suggested:</span>
               <span className="text-[12px] text-foreground/60 truncate">
                 {topSuggestion.model.name}
               </span>
-              <ConfidenceBadge score={topSuggestion.score} size="sm" />
+              <ConfidenceBadge
+                score={topSuggestion.score}
+                factors={topSuggestion.factors}
+                size="sm"
+              />
             </div>
           )}
         </div>
@@ -704,7 +799,8 @@ const GroupListCardMemo = memo(
     prev.isSelected === next.isSelected &&
     prev.isChecked === next.isChecked &&
     prev.isDropTarget === next.isDropTarget &&
+    prev.isAutoMatched === next.isAutoMatched &&
+    prev.matchScore === next.matchScore &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score,
 );
-

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs -- Refs used as stable caches (sort order, scores); intentional lazy-init in useMemo. */
 "use client";
 
 import { useState, useMemo, useCallback, useRef, memo } from "react";
@@ -19,6 +20,7 @@ import {
   UnlinkIcon,
 } from "../MetadataBadges";
 import { STRONG_THRESHOLD } from "@/types/mappingPhases";
+import type { ModelMapping } from "@/lib/modiq/matcher";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
@@ -26,7 +28,10 @@ import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
-import { CurrentMappingCard, CollapsibleMembers } from "../SharedHierarchyComponents";
+import {
+  CurrentMappingCard,
+  CollapsibleMembers,
+} from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -40,10 +45,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   outline: "Outline",
 };
 
-type StatusFilter = "all" | "unmapped" | "auto-strong" | "auto-review" | "mapped";
+type StatusFilter =
+  | "all"
+  | "unmapped"
+  | "auto-strong"
+  | "auto-review"
+  | "mapped";
 
 export function SpinnersPhase() {
-  const { phaseItems, goToNextPhase, interactive, autoMatchedNames, autoMatchStats, scoreMap } = useMappingPhase();
+  const {
+    phaseItems,
+    goToNextPhase,
+    interactive,
+    autoMatchedNames,
+    autoMatchStats,
+    scoreMap,
+    factorsMap,
+  } = useMappingPhase();
   const dnd = useDragAndDrop();
 
   const bulk = useBulkInference(interactive, phaseItems);
@@ -66,7 +84,12 @@ export function SpinnersPhase() {
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
   const stableOrderRef = useRef<Map<string, number>>(new Map());
-  const lastSortRef = useRef({ sortBy: "" as SortOption, sortVersion: -1, search: "", statusFilter: "" as string });
+  const lastSortRef = useRef({
+    sortBy: "" as SortOption,
+    sortVersion: -1,
+    search: "",
+    statusFilter: "" as string,
+  });
 
   const skippedItems = interactive.sourceLayerMappings.filter(
     (l) => l.isSkipped,
@@ -89,19 +112,33 @@ export function SpinnersPhase() {
   const topSuggestionsMap = useMemo(() => {
     const map = new Map<
       string,
-      { model: { name: string }; score: number } | null
+      {
+        model: { name: string };
+        score: number;
+        factors?: ModelMapping["factors"];
+      } | null
     >();
     for (const item of phaseItems) {
       if (item.isMapped) continue;
       const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
-      map.set(item.sourceModel.name, suggs[0] ?? null);
+      map.set(
+        item.sourceModel.name,
+        suggs[0]
+          ? {
+              model: suggs[0].model,
+              score: suggs[0].score,
+              factors: suggs[0].factors,
+            }
+          : null,
+      );
     }
     return map;
   }, [phaseItems, interactive]);
 
   // Count auto-matched items in THIS phase for the banner
   const phaseAutoCount = useMemo(
-    () => phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
+    () =>
+      phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
     [phaseItems, autoMatchedNames],
   );
 
@@ -109,9 +146,22 @@ export function SpinnersPhase() {
   const filteredItems = useMemo(() => {
     let items = [...phaseItems];
     if (statusFilter === "unmapped") items = items.filter((i) => !i.isMapped);
-    else if (statusFilter === "auto-strong") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) >= STRONG_THRESHOLD);
-    else if (statusFilter === "auto-review") items = items.filter((i) => autoMatchedNames.has(i.sourceModel.name) && (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD);
-    else if (statusFilter === "mapped") items = items.filter((i) => i.isMapped && !autoMatchedNames.has(i.sourceModel.name));
+    else if (statusFilter === "auto-strong")
+      items = items.filter(
+        (i) =>
+          autoMatchedNames.has(i.sourceModel.name) &&
+          (scoreMap.get(i.sourceModel.name) ?? 0) >= STRONG_THRESHOLD,
+      );
+    else if (statusFilter === "auto-review")
+      items = items.filter(
+        (i) =>
+          autoMatchedNames.has(i.sourceModel.name) &&
+          (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD,
+      );
+    else if (statusFilter === "mapped")
+      items = items.filter(
+        (i) => i.isMapped && !autoMatchedNames.has(i.sourceModel.name),
+      );
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -130,7 +180,9 @@ export function SpinnersPhase() {
 
     if (needsResort) {
       const sorted = sortItems(items, sortBy, topSuggestionsMap);
-      stableOrderRef.current = new Map(sorted.map((r, i) => [r.sourceModel.name, i]));
+      stableOrderRef.current = new Map(
+        sorted.map((r, i) => [r.sourceModel.name, i]),
+      );
       lastSortRef.current = { sortBy, sortVersion, search, statusFilter };
       return sorted;
     }
@@ -140,9 +192,19 @@ export function SpinnersPhase() {
       const ai = order.get(a.sourceModel.name) ?? Infinity;
       const bi = order.get(b.sourceModel.name) ?? Infinity;
       if (ai !== bi) return ai - bi;
-      return a.sourceModel.name.localeCompare(b.sourceModel.name, undefined, { numeric: true, sensitivity: "base" });
+      return a.sourceModel.name.localeCompare(b.sourceModel.name, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      });
     });
-  }, [phaseItems, statusFilter, search, sortBy, sortVersion, topSuggestionsMap]);
+  }, [
+    phaseItems,
+    statusFilter,
+    search,
+    sortBy,
+    sortVersion,
+    topSuggestionsMap,
+  ]);
 
   const { families, toggle, isExpanded } = useItemFamilies(
     filteredItems,
@@ -258,14 +320,27 @@ export function SpinnersPhase() {
           </h2>
           <p className={PANEL_STYLES.header.subtitle}>
             {phaseItems.length} group{phaseItems.length !== 1 ? "s" : ""}
-            {mappedCount > 0 && <span> &middot; <span className="text-green-400/60">{mappedCount} mapped</span></span>}
-            {unmappedCount > 0 && <span> &middot; <span className="text-amber-400/60">{unmappedCount} unmapped</span></span>}
+            {mappedCount > 0 && (
+              <span>
+                {" "}
+                &middot;{" "}
+                <span className="text-green-400/60">{mappedCount} mapped</span>
+              </span>
+            )}
+            {unmappedCount > 0 && (
+              <span>
+                {" "}
+                &middot;{" "}
+                <span className="text-amber-400/60">
+                  {unmappedCount} unmapped
+                </span>
+              </span>
+            )}
           </p>
           <EffectsCoverageBar
-            mappedEffects={phaseItems.filter((i) => i.isMapped).reduce(
-              (sum, i) => sum + i.effectCount,
-              0,
-            )}
+            mappedEffects={phaseItems
+              .filter((i) => i.isMapped)
+              .reduce((sum, i) => sum + i.effectCount, 0)}
             totalEffects={phaseItems.reduce((sum, i) => sum + i.effectCount, 0)}
           />
         </div>
@@ -295,16 +370,39 @@ export function SpinnersPhase() {
                 className={PANEL_STYLES.search.input}
               />
             </div>
-            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as StatusFilter); setSortVersion((v) => v + 1); }}
-              className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent">
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as StatusFilter);
+                setSortVersion((v) => v + 1);
+              }}
+              className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent"
+            >
               <option value="all">All</option>
               <option value="unmapped">Unmapped</option>
-              {phaseAutoCount > 0 && <option value="auto-strong">Auto: Strong (&ge;75%)</option>}
-              {phaseAutoCount > 0 && <option value="auto-review">Auto: Review (&lt;75%)</option>}
+              {phaseAutoCount > 0 && (
+                <option value="auto-strong">Auto: Strong (&ge;75%)</option>
+              )}
+              {phaseAutoCount > 0 && (
+                <option value="auto-review">Auto: Review (&lt;75%)</option>
+              )}
               <option value="mapped">Mapped (manual)</option>
             </select>
-            <SortDropdown value={sortBy} onChange={(v) => { setSortBy(v); setSortVersion((sv) => sv + 1); }} />
-            <button type="button" onClick={() => setSortVersion((v) => v + 1)} className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1" title="Re-sort">&#x21bb;</button>
+            <SortDropdown
+              value={sortBy}
+              onChange={(v) => {
+                setSortBy(v);
+                setSortVersion((sv) => sv + 1);
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setSortVersion((v) => v + 1)}
+              className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1"
+              title="Re-sort"
+            >
+              &#x21bb;
+            </button>
           </div>
         </div>
 
@@ -334,6 +432,8 @@ export function SpinnersPhase() {
                     dnd.state.activeDropTarget === item.sourceModel.name
                   }
                   isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
+                  matchScore={scoreMap.get(item.sourceModel.name)}
+                  matchFactors={factorsMap.get(item.sourceModel.name)}
                   topSuggestion={
                     topSuggestionsMap.get(item.sourceModel.name) ?? null
                   }
@@ -394,7 +494,9 @@ export function SpinnersPhase() {
 
           {filteredItems.length === 0 && (
             <p className="py-6 text-center text-[12px] text-foreground/30">
-              {search || statusFilter !== "all" ? "No matches for current filters" : "No items"}
+              {search || statusFilter !== "all"
+                ? "No matches for current filters"
+                : "No items"}
             </p>
           )}
 
@@ -464,8 +566,13 @@ export function SpinnersPhase() {
             {selectedItem.isMapped && (
               <CurrentMappingCard
                 item={selectedItem}
+                matchScore={scoreMap.get(selectedItem.sourceModel.name)}
+                matchFactors={factorsMap.get(selectedItem.sourceModel.name)}
                 onRemoveLink={(destName) =>
-                  interactive.removeLinkFromLayer(selectedItem.sourceModel.name, destName)
+                  interactive.removeLinkFromLayer(
+                    selectedItem.sourceModel.name,
+                    destName,
+                  )
                 }
               />
             )}
@@ -490,7 +597,13 @@ export function SpinnersPhase() {
                 onSkipDest={interactive.skipDestModel}
                 onUnskipDest={interactive.unskipDestModel}
                 onUnskipAllDest={interactive.unskipAllDestModels}
-                excludeNames={selectedItem.isMapped ? new Set(selectedItem.assignedUserModels.map((m) => m.name)) : undefined}
+                excludeNames={
+                  selectedItem.isMapped
+                    ? new Set(
+                        selectedItem.assignedUserModels.map((m) => m.name),
+                      )
+                    : undefined
+                }
                 destSuperGroupNames={interactive.destSuperGroupNames}
               />
             </div>
@@ -552,7 +665,6 @@ export function SpinnersPhase() {
   );
 }
 
-
 // ─── Spinner Card (Left Panel) ──────────────────────────
 
 function SpinnerListCard({
@@ -561,6 +673,8 @@ function SpinnerListCard({
   isChecked,
   isDropTarget,
   isAutoMatched,
+  matchScore,
+  matchFactors,
   topSuggestion,
   onClick,
   onCheck,
@@ -577,7 +691,13 @@ function SpinnerListCard({
   isChecked: boolean;
   isDropTarget: boolean;
   isAutoMatched: boolean;
-  topSuggestion: { model: { name: string }; score: number } | null;
+  matchScore?: number;
+  matchFactors?: ModelMapping["factors"];
+  topSuggestion: {
+    model: { name: string };
+    score: number;
+    factors?: ModelMapping["factors"];
+  } | null;
   onClick: () => void;
   onCheck: () => void;
   onAccept: (userModelName: string) => void;
@@ -593,7 +713,18 @@ function SpinnerListCard({
       item.sourceModel.semanticCategory)
     : null;
   const px = item.sourceModel.pixelCount;
-  const leftBorder = item.isMapped ? "border-l-green-500/70" : topSuggestion ? "border-l-red-400/70" : "border-l-amber-400/70";
+  const isNeedsReview =
+    item.isMapped &&
+    isAutoMatched &&
+    matchScore != null &&
+    matchScore < STRONG_THRESHOLD;
+  const leftBorder = item.isMapped
+    ? isNeedsReview
+      ? "border-l-amber-400/70"
+      : "border-l-green-500/70"
+    : topSuggestion
+      ? "border-l-red-400/70"
+      : "border-l-amber-400/70";
 
   return (
     <div
@@ -616,33 +747,80 @@ function SpinnerListCard({
       <div className="flex items-center gap-2 min-w-0">
         <InlineEffectBadge count={item.effectCount} />
         {/* Checkbox */}
-        <button type="button" onClick={(e) => { e.stopPropagation(); onCheck(); }}
-          className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isChecked ? "bg-accent border-accent" : "border-foreground/20 hover:border-foreground/40"}`}>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onCheck();
+          }}
+          className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isChecked ? "bg-accent border-accent" : "border-foreground/20 hover:border-foreground/40"}`}
+        >
           {isChecked && (
-            <svg className="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            <svg
+              className="w-2 h-2 text-white"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
             </svg>
           )}
         </button>
         <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.SUB}`}>
-          <svg className="w-2.5 h-2.5 inline-block mr-0.5 -mt-px" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+          <svg
+            className="w-2.5 h-2.5 inline-block mr-0.5 -mt-px"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.5}
+          >
             <path strokeLinecap="round" d="M9 3v12m0 0H5m4 0h4" />
           </svg>
           SUB
         </span>
         {categoryLabel && (
-          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/30 rounded flex-shrink-0">{categoryLabel}</span>
+          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/30 rounded flex-shrink-0">
+            {categoryLabel}
+          </span>
         )}
-        <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">{item.sourceModel.name}</span>
-        {px > 0 && (<><span className="text-foreground/15 flex-shrink-0">&middot;</span><span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{px}px</span></>)}
+        <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">
+          {item.sourceModel.name}
+        </span>
+        {px > 0 && (
+          <>
+            <span className="text-foreground/15 flex-shrink-0">&middot;</span>
+            <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">
+              {px}px
+            </span>
+          </>
+        )}
         {item.isMapped && (
           <>
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px] ml-auto flex-shrink-0">
+            <span
+              className={`inline-flex items-center gap-0.5 text-[10px] truncate max-w-[180px] ml-auto flex-shrink-0 ${isNeedsReview ? "text-amber-400/70" : "text-green-400/70"}`}
+            >
               {isAutoMatched && <Link2Badge />}
               &rarr; {item.assignedUserModels[0]?.name}
             </span>
-            <button type="button" onClick={(e) => { e.stopPropagation(); onUnlink(); }}
-              className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors flex-shrink-0" title="Remove mapping (keep item)">
+            {matchScore != null && matchScore > 0 && (
+              <ConfidenceBadge
+                score={matchScore}
+                factors={matchFactors}
+                size="sm"
+              />
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnlink();
+              }}
+              className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors flex-shrink-0"
+              title="Remove mapping (keep item)"
+            >
               <UnlinkIcon className="w-3 h-3" />
             </button>
           </>
@@ -650,24 +828,58 @@ function SpinnerListCard({
         {!item.isMapped && topSuggestion && (
           <>
             <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-            <span className="text-[10px] text-foreground/40 flex-shrink-0">Suggested:</span>
-            <span className="text-[11px] text-foreground/60 truncate">{topSuggestion.model.name}</span>
-            <ConfidenceBadge score={topSuggestion.score} size="sm" />
+            <span className="text-[10px] text-foreground/40 flex-shrink-0">
+              Suggested:
+            </span>
+            <span className="text-[11px] text-foreground/60 truncate">
+              {topSuggestion.model.name}
+            </span>
+            <ConfidenceBadge
+              score={topSuggestion.score}
+              factors={topSuggestion.factors}
+              size="sm"
+            />
           </>
         )}
-        <div className={`${!item.isMapped ? "ml-auto" : ""} flex items-center gap-1 flex-shrink-0`}>
+        <div
+          className={`${!item.isMapped ? "ml-auto" : ""} flex items-center gap-1 flex-shrink-0`}
+        >
           {topSuggestion && (
-            <button type="button" onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
-              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors" title="Accept suggested match">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAccept(topSuggestion.model.name);
+              }}
+              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+              title="Accept suggested match"
+            >
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
               </svg>
             </button>
           )}
-          <button type="button" onClick={(e) => { e.stopPropagation(); onSkip(); }}
-            className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors" title="Skip — dismiss from workflow">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSkip();
+            }}
+            className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors"
+            title="Skip — dismiss from workflow"
+          >
+            <svg
+              className="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -687,6 +899,7 @@ const SpinnerListCardMemo = memo(
     prev.isChecked === next.isChecked &&
     prev.isDropTarget === next.isDropTarget &&
     prev.isAutoMatched === next.isAutoMatched &&
+    prev.matchScore === next.matchScore &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score &&
     prev.onUnlink === next.onUnlink,
