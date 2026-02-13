@@ -4,7 +4,7 @@ import SequenceTabs from "@/components/SequenceTabs";
 import BackToTop from "@/components/BackToTop";
 
 export const metadata: Metadata = {
-  title: "xLights Sequences | Lights of Elm Ridge",
+  title: "xLights Sequences",
   description:
     "Browse and download professional xLights sequences. Halloween and Christmas sequences with video previews. Built for pixel displays.",
 };

@@ -511,6 +511,7 @@ export default function TheShowTabs({
               className="show-pl-tab opacity-50 cursor-not-allowed pointer-events-none"
               aria-disabled="true"
               tabIndex={-1}
+              title="Christmas sequences will be added closer to the holiday season"
             >
               <span className="show-pl-tab-icon">🎄</span> Christmas{" "}
               <span className="show-pl-tab-count">

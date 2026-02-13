@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Recommended Gear | Lights of Elm Ridge",
+  title: "Recommended Gear",
   description:
     "The gear, props, and supplies used in the Lights of Elm Ridge display. Direct links to controllers, pixels, spinners, and more.",
 };

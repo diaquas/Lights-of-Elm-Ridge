@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import NewsletterForm from "@/components/NewsletterForm";
 
 export const metadata: Metadata = {
-  title: "Behind the Scenes | Lights of Elm Ridge",
+  title: "Behind the Scenes",
   description:
     "Learn how we build our light show. Tutorials, deep dives, and honest stories about what works (and what spectacularly doesn't).",
 };
@@ -134,20 +134,8 @@ export default function BehindTheScenesPage() {
                 </div>
                 <p className="text-foreground/60 mb-4">{series.description}</p>
                 <div className="flex items-center gap-2 text-sm text-foreground/40">
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"
-                    />
-                  </svg>
-                  <span>{series.episodeCount} episodes</span>
+                  <span className="w-2 h-2 bg-accent-warm rounded-full animate-pulse"></span>
+                  <span>In development</span>
                 </div>
               </div>
             ))}

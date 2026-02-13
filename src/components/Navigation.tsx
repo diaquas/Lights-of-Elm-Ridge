@@ -318,7 +318,8 @@ export default function Navigation() {
             <div
               id="mobile-menu"
               className="md:hidden py-4 border-t border-border"
-              role="menu"
+              role="navigation"
+              aria-label="Mobile navigation"
             >
               {navLinks.map((link) => (
                 <Link

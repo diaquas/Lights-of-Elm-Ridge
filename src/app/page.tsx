@@ -117,7 +117,7 @@ export default function Home() {
             <div className="latest-card-thumb">
               <Image
                 src="https://i.scdn.co/image/ab67616d0000b2731e2565cb9cc67c378d2a8f31"
-                alt=""
+                alt="I Think We're Alone Now by Hidden Citizens"
                 width={300}
                 height={300}
                 className="latest-card-img"
@@ -139,7 +139,7 @@ export default function Home() {
             <div className="latest-card-thumb">
               <Image
                 src="https://dm3v96wjcnps9.cloudfront.net/icpn/00602475886266/00602475886266-cover-zoom.jpg"
-                alt=""
+                alt="Abracadabra by Lady Gaga"
                 width={300}
                 height={300}
                 className="latest-card-img"
@@ -159,7 +159,7 @@ export default function Home() {
             <div className="latest-card-thumb">
               <Image
                 src="https://i.scdn.co/image/ab67616d0000b2737073748b25a091da2589a6df"
-                alt=""
+                alt="This Is Halloween by Danny Elfman"
                 width={300}
                 height={300}
                 className="latest-card-img"
@@ -181,7 +181,7 @@ export default function Home() {
             <div className="latest-card-thumb">
               <Image
                 src="/spookymain.png"
-                alt=""
+                alt="Spooky Scary Skeletons by Andrew Gold"
                 width={300}
                 height={300}
                 className="latest-card-img"
@@ -215,7 +215,13 @@ export default function Home() {
         </div>
         <div className="reviews-strip-grid">
           <div className="review-card">
-            <div className="review-stars">★★★★★</div>
+            <div
+              className="review-stars"
+              role="img"
+              aria-label="5 out of 5 stars"
+            >
+              ★★★★★
+            </div>
             <p className="review-quote">
               &ldquo;My kiddo&apos;s favorite song so had to find a sequence for
               it and this one hit just right. Love the classic Skeleton Dance
@@ -228,7 +234,13 @@ export default function Home() {
           </div>
 
           <div className="review-card">
-            <div className="review-stars">★★★★★</div>
+            <div
+              className="review-stars"
+              role="img"
+              aria-label="5 out of 5 stars"
+            >
+              ★★★★★
+            </div>
             <p className="review-quote">
               &ldquo;Pretty dang good, and easy to apply&rdquo;
             </p>
@@ -239,7 +251,13 @@ export default function Home() {
           </div>
 
           <div className="review-card">
-            <div className="review-stars">★★★★★</div>
+            <div
+              className="review-stars"
+              role="img"
+              aria-label="5 out of 5 stars"
+            >
+              ★★★★★
+            </div>
             <p className="review-quote">&ldquo;Great Job on this.&rdquo;</p>
             <div className="review-meta">
               <span className="review-user">joeally06</span>

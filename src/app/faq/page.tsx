@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "FAQ | Lights of Elm Ridge",
+  title: "FAQ",
   description:
     "Frequently asked questions about xLights sequences, licensing, compatibility, and the Lights of Elm Ridge display.",
 };
