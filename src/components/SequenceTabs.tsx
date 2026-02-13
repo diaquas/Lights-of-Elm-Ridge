@@ -292,7 +292,7 @@ export default function SequenceTabs({
           </svg>
           <input
             type="text"
-            placeholder="Search by title, artist, or tags..."
+            placeholder="Search sequences..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -348,6 +348,7 @@ export default function SequenceTabs({
             aria-selected={false}
             aria-disabled="true"
             tabIndex={-1}
+            title="Christmas sequences will be added closer to the holiday season"
           >
             <span className="seq-cat-tab-icon">🎄</span>
             Christmas
