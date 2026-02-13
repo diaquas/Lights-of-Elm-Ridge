@@ -589,6 +589,7 @@ export function IndividualsPhase() {
                 onUnskipAllDest={interactive.unskipAllDestModels}
                 excludeNames={selectedItem.isMapped ? new Set(selectedItem.assignedUserModels.map((m) => m.name)) : undefined}
                 destSuperGroupNames={interactive.destSuperGroupNames}
+                hierarchyMode
               />
             </div>
 
