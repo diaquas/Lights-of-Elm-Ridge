@@ -34,6 +34,8 @@ export default function AccountPage() {
     PurchasedSequence[]
   >([]);
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -56,11 +58,19 @@ export default function AccountPage() {
       setUser(user);
 
       // Fetch purchases
-      const { data: purchases } = await supabase
+      const { data: purchases, error: purchaseError } = await supabase
         .from("purchases")
         .select("id, sequence_ids, created_at, amount_total")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
+
+      if (purchaseError) {
+        setFetchError(
+          "Unable to load your purchases. Please try refreshing the page.",
+        );
+        setLoading(false);
+        return;
+      }
 
       if (purchases) {
         const allPurchasedIds = new Set<number>();
@@ -159,10 +169,37 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-8 w-8 border-4 border-accent border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-foreground/60">Loading...</p>
+      <div className="min-h-screen py-12 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <div className="h-9 w-48 bg-surface-light rounded-lg animate-pulse mb-2" />
+            <div className="h-5 w-80 bg-surface-light rounded-lg animate-pulse" />
+          </div>
+          <div className="bg-surface rounded-xl p-6 border border-border mb-8">
+            <div className="h-6 w-48 bg-surface-light rounded-lg animate-pulse mb-4" />
+            <div className="space-y-3">
+              <div className="h-4 w-32 bg-surface-light rounded animate-pulse" />
+              <div className="h-5 w-56 bg-surface-light rounded animate-pulse" />
+            </div>
+          </div>
+          <div className="bg-surface rounded-xl p-6 border border-border mb-8">
+            <div className="h-6 w-36 bg-surface-light rounded-lg animate-pulse mb-4" />
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="flex gap-4 p-4 bg-background rounded-lg border border-border"
+                >
+                  <div className="w-20 h-20 bg-surface-light rounded-lg animate-pulse shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-5 w-40 bg-surface-light rounded animate-pulse" />
+                    <div className="h-4 w-28 bg-surface-light rounded animate-pulse" />
+                    <div className="h-3 w-24 bg-surface-light rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -201,6 +238,26 @@ export default function AccountPage() {
             </div>
           </div>
         </div>
+
+        {/* Error State */}
+        {fetchError && (
+          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-400 flex items-center gap-3">
+            <svg
+              className="w-5 h-5 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+            {fetchError}
+          </div>
+        )}
 
         {/* Purchased Sequences */}
         <div className="bg-surface rounded-xl p-6 border border-border mb-8">
@@ -365,12 +422,30 @@ export default function AccountPage() {
           >
             &larr; Back to home
           </Link>
-          <button
-            onClick={handleSignOut}
-            className="px-4 py-2 bg-surface hover:bg-surface-light text-foreground border border-border rounded-lg transition-colors"
-          >
-            Sign Out
-          </button>
+          {showSignOutConfirm ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-foreground/60">Sign out?</span>
+              <button
+                onClick={handleSignOut}
+                className="min-h-[44px] px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors font-medium"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setShowSignOutConfirm(false)}
+                className="min-h-[44px] px-4 py-2 text-sm text-foreground/60 hover:text-foreground hover:bg-surface-light rounded-lg transition-colors"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowSignOutConfirm(true)}
+              className="px-4 py-2 min-h-[44px] bg-surface hover:bg-surface-light text-foreground border border-border rounded-lg transition-colors"
+            >
+              Sign Out
+            </button>
+          )}
         </div>
       </div>
     </div>
