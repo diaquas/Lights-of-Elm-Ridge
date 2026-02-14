@@ -23,7 +23,7 @@ export function CelebrationToast({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
+    <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50" role="status" aria-live="polite">
       <div
         className="bg-surface border border-green-500/30 rounded-2xl p-8 shadow-2xl shadow-green-500/10 text-center animate-[bounce-in_0.4s_cubic-bezier(0.68,-0.55,0.265,1.55)]"
       >

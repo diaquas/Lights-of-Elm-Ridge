@@ -36,12 +36,15 @@ export default memo(function ExportDialog({
       <div
         ref={dialogRef}
         tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-dialog-title"
         onClick={(e) => e.stopPropagation()}
         className="bg-surface border border-border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-5 outline-none"
         style={{ willChange: "transform" }}
       >
         <div>
-          <h3 className="text-lg font-display font-bold mb-2">
+          <h3 id="export-dialog-title" className="text-lg font-display font-bold mb-2">
             {unmappedNames.length} of your models don&apos;t have a mapping yet
           </h3>
           <p className="text-sm text-foreground/60">

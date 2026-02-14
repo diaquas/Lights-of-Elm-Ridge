@@ -46,7 +46,7 @@ export default memo(function PersistentProgressTracker({
       onMouseLeave={handleMouseLeave}
     >
       {/* Compact bar (always visible) */}
-      <div className="flex items-center gap-3 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-foreground/10">
+      <div className="flex items-center gap-3 px-3 py-1.5 bg-surface-light rounded-lg border border-foreground/10">
         {/* Display coverage mini ring */}
         <MiniRing
           percent={displayCoverage.percent}

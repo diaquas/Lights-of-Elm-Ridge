@@ -238,7 +238,7 @@ export default memo(function PickMatchPopover({
       <div
         ref={popoverRef}
         role="listbox"
-        className="fixed flex flex-col overflow-hidden rounded-[10px] border border-[#2a2a2a] bg-[#141414] shadow-[0_12px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03)]"
+        className="fixed flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03)]"
         style={{
           top: position.top,
           left: position.left,
@@ -248,7 +248,7 @@ export default memo(function PickMatchPopover({
         }}
       >
         {/* Search input */}
-        <div className="p-2 border-b border-[#2a2a2a] flex-shrink-0">
+        <div className="p-2 border-b border-border flex-shrink-0">
           <div className="relative">
             <svg
               className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none"

@@ -51,7 +51,6 @@ type ViewMode = "hierarchy" | "flat";
 export function IndividualsPhase() {
   const {
     phaseItems,
-    goToNextPhase,
     interactive,
     autoMatchedNames,
     approvedNames,
