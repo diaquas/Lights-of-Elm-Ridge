@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { UnlinkIcon } from "./MetadataBadges";
+import { UnlinkIcon, StatusCheck, FxBadge } from "./MetadataBadges";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { STRONG_THRESHOLD } from "@/types/mappingPhases";
+import { MODEL_GRID } from "./panelStyles";
 import type { ModelMapping } from "@/lib/modiq/matcher";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
@@ -145,22 +146,30 @@ export function FilterPill({
   );
 }
 
-// ─── Ghost Member Row (0-effect members shown for structural clarity) ────────
+// ─── Ghost Member Row — CSS Grid aligned ─────────────────
 
 export function GhostMemberRow({ name }: { name: string }) {
   return (
-    <div className="w-full px-3 py-1 rounded-lg border-l-[3px] border-l-foreground/10 bg-foreground/[0.01] border border-border/30 opacity-40">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-[10px] text-foreground/25 tabular-nums flex-shrink-0">
-          0 fx
-        </span>
-        <span className="text-[11px] text-foreground/30 truncate flex-shrink min-w-0">
-          {name}
-        </span>
-        <span className="ml-auto text-[9px] text-foreground/20 flex-shrink-0">
-          covered by group
-        </span>
-      </div>
+    <div
+      className="rounded border-l-[3px] border-l-foreground/15 mb-px"
+      style={{
+        display: "grid",
+        gridTemplateColumns: MODEL_GRID,
+        alignItems: "center",
+        padding: "3px 10px 3px 8px",
+        gap: "0 6px",
+        minHeight: 26,
+        opacity: 0.35,
+      }}
+    >
+      <StatusCheck status="covered" />
+      <FxBadge count={0} />
+      <span className="text-[12px] text-foreground/40 truncate">{name}</span>
+      <span className="text-[11px] text-foreground/30 italic text-right whitespace-nowrap">
+        covered by group
+      </span>
+      <div />
+      <div style={{ width: 50 }} />
     </div>
   );
 }

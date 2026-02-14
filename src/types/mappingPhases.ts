@@ -1,11 +1,7 @@
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 import { isSpinnerType } from "@/types/xLightsTypes";
 
-export type MappingPhase =
-  | "individuals"
-  | "spinners"
-  | "finalize"
-  | "review";
+export type MappingPhase = "individuals" | "spinners" | "finalize" | "review";
 
 export interface PhaseConfig {
   id: MappingPhase;
@@ -74,11 +70,14 @@ export const PHASE_CONFIG: PhaseConfig[] = [
   },
 ];
 
-/** Score threshold: items at or above are considered "strong" auto-matches */
-export const STRONG_THRESHOLD = 0.75;
+/** Score threshold: items at or above are considered "strong" auto-matches (green) */
+export const STRONG_THRESHOLD = 0.6;
+
+/** Score threshold: items below this are "weak" matches (red); 40-59% = needs review (yellow) */
+export const WEAK_THRESHOLD = 0.4;
 
 /** Score threshold: items at or above are auto-matched during loading */
-export const AUTO_ACCEPT_THRESHOLD = 0.70;
+export const AUTO_ACCEPT_THRESHOLD = 0.7;
 
 export function getLayerBestScoreFromMap(
   layer: SourceLayerMapping,
