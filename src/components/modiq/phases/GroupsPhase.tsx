@@ -23,6 +23,7 @@ import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
 import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
 import {
   CurrentMappingCard,
+  NotMappedBanner,
   CollapsibleMembers,
 } from "../SharedHierarchyComponents";
 import { STRONG_THRESHOLD } from "@/types/mappingPhases";
@@ -486,8 +487,8 @@ export function GroupsPhase() {
               </div>
             </div>
 
-            {/* Current Mapping Card (for mapped groups) */}
-            {selectedGroup.isMapped && (
+            {/* Mapping state card: SUGGESTED MATCH / ✓ MAPPED TO / NOT MAPPED */}
+            {selectedGroup.isMapped ? (
               <CurrentMappingCard
                 item={selectedGroup}
                 matchScore={scoreMap.get(selectedGroup.sourceModel.name)}
@@ -508,6 +509,8 @@ export function GroupsPhase() {
                   )
                 }
               />
+            ) : (
+              <NotMappedBanner />
             )}
 
             {/* Universal Source Panel — always visible for suggestions + add another */}

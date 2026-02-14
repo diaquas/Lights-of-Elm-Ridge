@@ -32,6 +32,7 @@ import {
 } from "../panelStyles";
 import {
   CurrentMappingCard,
+  NotMappedBanner,
   FilterPill,
   GhostMemberRow,
 } from "../SharedHierarchyComponents";
@@ -982,8 +983,8 @@ export function IndividualsPhase() {
               </div>
             </div>
 
-            {/* Current Mapping Card (for mapped items) */}
-            {selectedItem.isMapped && (
+            {/* Mapping state card: SUGGESTED MATCH / ✓ MAPPED TO / NOT MAPPED */}
+            {selectedItem.isMapped ? (
               <CurrentMappingCard
                 item={selectedItem}
                 matchScore={scoreMap.get(selectedItem.sourceModel.name)}
@@ -1004,6 +1005,8 @@ export function IndividualsPhase() {
                   )
                 }
               />
+            ) : (
+              <NotMappedBanner />
             )}
 
             {/* Universal Source Panel — always visible for suggestions + add another */}
@@ -1258,6 +1261,8 @@ function XLightsGroupCard({
                 name={group.assignedUserModels[0]?.name ?? ""}
                 confidence={confidencePct}
                 autoMatched={isAutoMatched}
+                matchScore={matchScore}
+                matchFactors={matchFactors}
               />
               {onUnlink && (
                 <button
@@ -1558,6 +1563,8 @@ function ItemCard({
               name={item.assignedUserModels[0]?.name ?? ""}
               confidence={confidencePct}
               autoMatched={isAutoMatched}
+              matchScore={matchScore}
+              matchFactors={matchFactors}
             />
             {/* Unlink icon — inline with destination pill (hover-only) */}
             <button
@@ -1989,6 +1996,8 @@ function SuperGroupCard({
                 name={group.assignedUserModels[0]?.name ?? ""}
                 confidence={confidencePct}
                 autoMatched={isAutoMatched}
+                matchScore={matchScore}
+                matchFactors={matchFactors}
               />
               <button
                 type="button"

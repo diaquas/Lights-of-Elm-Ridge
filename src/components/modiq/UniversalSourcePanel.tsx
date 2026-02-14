@@ -583,11 +583,10 @@ export function UniversalSourcePanel({
               AI Suggestions ({Math.min(filteredSuggestions.length, 5)})
             </h4>
             <div className="space-y-1.5">
-              {filteredSuggestions.slice(0, 5).map((sugg, index) => (
+              {filteredSuggestions.slice(0, 5).map((sugg) => (
                 <SuggestionCard
                   key={sugg.model.name}
                   sugg={sugg}
-                  isBest={index === 0 && !search}
                   sourcePixelCount={sourcePixelCount}
                   onAccept={onAccept}
                   dnd={dnd}
@@ -932,13 +931,11 @@ function FamilyRow({
 
 const SuggestionCard = memo(function SuggestionCard({
   sugg,
-  isBest,
   sourcePixelCount,
   onAccept,
   dnd,
 }: {
   sugg: SuggestionItem;
-  isBest: boolean;
   sourcePixelCount?: number;
   onAccept: (name: string) => void;
   dnd?: DragAndDropHandlers;
@@ -981,21 +978,12 @@ const SuggestionCard = memo(function SuggestionCard({
       onClick={() => onAccept(sugg.model.name)}
       className={`
         w-full p-2.5 rounded-lg text-left transition-all duration-200
-        ${
-          isBest
-            ? "bg-accent/8 border border-accent/25 hover:border-accent/40"
-            : "bg-foreground/3 border border-border hover:border-foreground/20"
-        }
+        bg-foreground/3 border border-border hover:border-foreground/20
         ${dnd ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}
       `}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          {isBest && (
-            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent/15 text-accent rounded flex-shrink-0">
-              BEST
-            </span>
-          )}
           <span className="text-[13px] font-medium text-foreground truncate">
             {sugg.model.name}
           </span>
@@ -1251,22 +1239,38 @@ function HierarchyGroupRow({
       {/* Group header */}
       <button
         type="button"
-        onClick={onToggle}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 w-full text-left"
+        onClick={() => onAccept(group.model.name)}
+        className="flex items-center gap-1.5 px-2.5 py-1.5 w-full text-left hover:bg-foreground/[0.04] transition-colors"
       >
-        <svg
-          className={`w-3 h-3 ${group.isSuperGroup ? "text-purple-400/60" : "text-foreground/40"} transition-transform duration-150 ${isExpanded ? "rotate-90" : ""} flex-shrink-0`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+        <span
+          role="button"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.stopPropagation();
+              onToggle();
+            }
+          }}
+          className="cursor-pointer p-0.5 -m-0.5 rounded hover:bg-foreground/10"
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
+          <svg
+            className={`w-3 h-3 ${group.isSuperGroup ? "text-purple-400/60" : "text-foreground/40"} transition-transform duration-150 ${isExpanded ? "rotate-90" : ""} flex-shrink-0`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        </span>
         {group.isSuperGroup ? (
           <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">
             SUPER
