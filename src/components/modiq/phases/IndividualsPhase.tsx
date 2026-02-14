@@ -1066,6 +1066,14 @@ function XLightsGroupCard({
   }, [members, scoreMap, amNames, apNames, fullMemberCount, activeMemberCount]);
 
   const allHandled = memberStats.unmapped === 0 && memberStats.review === 0;
+
+  // Total pixels across group + all members
+  const totalPixels = useMemo(() => {
+    let px = group.sourceModel.pixelCount ?? 0;
+    for (const m of members) px += m.sourceModel.pixelCount ?? 0;
+    return px;
+  }, [group.sourceModel.pixelCount, members]);
+
   const groupBorder =
     group.isMapped ||
     (activeMemberCount > 0 && mappedCount === activeMemberCount)
@@ -1169,6 +1177,17 @@ function XLightsGroupCard({
             /{memberStats.total}
           </span>
         </div>
+        {totalPixels > 0 && (
+          <span
+            className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0"
+            title={`${totalPixels.toLocaleString()} total pixels`}
+          >
+            {totalPixels >= 1000
+              ? `${(totalPixels / 1000).toFixed(1)}k`
+              : totalPixels}
+            px
+          </span>
+        )}
         {/* Right-aligned destination / suggestion */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
@@ -1800,6 +1819,13 @@ function SuperGroupCard({
   const superAllHandled =
     superMemberStats.unmapped === 0 && superMemberStats.review === 0;
 
+  // Total pixels across super group + all members
+  const superTotalPixels = useMemo(() => {
+    let px = group.sourceModel.pixelCount ?? 0;
+    for (const m of members) px += m.sourceModel.pixelCount ?? 0;
+    return px;
+  }, [group.sourceModel.pixelCount, members]);
+
   const groupBorder = group.isMapped
     ? isSuperNeedsReview
       ? "border-l-amber-400/70"
@@ -1884,6 +1910,17 @@ function SuperGroupCard({
             /{superMemberStats.total}
           </span>
         </div>
+        {superTotalPixels > 0 && (
+          <span
+            className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0"
+            title={`${superTotalPixels.toLocaleString()} total pixels`}
+          >
+            {superTotalPixels >= 1000
+              ? `${(superTotalPixels / 1000).toFixed(1)}k`
+              : superTotalPixels}
+            px
+          </span>
+        )}
         {/* Right-aligned destination */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
