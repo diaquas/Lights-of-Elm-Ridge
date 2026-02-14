@@ -6,44 +6,25 @@ import {
   useMappingPhase,
   findNextUnmapped,
 } from "@/contexts/MappingPhaseContext";
-import { ConfidenceBadge } from "../ConfidenceBadge";
-import { BulkActionBar } from "../BulkActionBar";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import {
-  MetadataBadges,
-  HeroEffectBadge,
-  InlineEffectBadge,
-  EffectsCoverageBar,
   AutoMatchBanner,
-  Link2Badge,
   UnlinkIcon,
+  StatusCheck,
+  FxBadge,
+  DestinationPill,
+  type StatusCheckStatus,
 } from "../MetadataBadges";
-import { STRONG_THRESHOLD } from "@/types/mappingPhases";
+import { STRONG_THRESHOLD, WEAK_THRESHOLD } from "@/types/mappingPhases";
 import type { ModelMapping } from "@/lib/modiq/matcher";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
-import { useItemFamilies } from "@/hooks/useItemFamilies";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
-import { FamilyAccordionHeader } from "../FamilyAccordionHeader";
-import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
-import {
-  CurrentMappingCard,
-  CollapsibleMembers,
-} from "../SharedHierarchyComponents";
+import { PANEL_STYLES, TYPE_BADGE_COLORS, MODEL_GRID } from "../panelStyles";
+import { CurrentMappingCard, FilterPill } from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  spokes: "Spokes",
-  rings: "Rings",
-  florals: "Florals",
-  scallops: "Scallops",
-  spirals: "Spirals",
-  triangles: "Triangles",
-  effects: "Effects",
-  outline: "Outline",
-};
 
 type StatusFilter =
   | "all"
@@ -79,7 +60,6 @@ export function SpinnersPhase() {
   }, [interactive.sourceLayerMappings]);
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -406,11 +386,6 @@ export function SpinnersPhase() {
     topSuggestionsMap,
   ]);
 
-  const { families, toggle, isExpanded } = useItemFamilies(
-    filteredItems,
-    selectedItemId,
-  );
-
   // Suggestions for selected item
   const suggestions = useMemo(() => {
     if (!selectedItem) return [];
@@ -418,15 +393,6 @@ export function SpinnersPhase() {
       .getSuggestionsForLayer(selectedItem.sourceModel)
       .slice(0, 10);
   }, [interactive, selectedItem]);
-
-  // Type filter: only show SUBMODEL_GROUP in Spinners source panel
-  // With monogamy: further scope to only the paired source's submodel groups
-  const pairedSourceSubGroups = useMemo(() => {
-    if (!pairedSource) return null;
-    const entry = parentModelIndex.get(pairedSource);
-    if (!entry) return null;
-    return new Set(entry.items.map((i) => i.sourceModel.name));
-  }, [pairedSource, parentModelIndex]);
 
   const spinnerSourceFilter = useCallback(
     (m: { groupType?: string; parentModels?: string[] }) => {
@@ -469,20 +435,6 @@ export function SpinnersPhase() {
     setSelectedItemId(remaining[0]?.sourceModel.name ?? null);
   };
 
-  const handleBulkAccept = () => {
-    for (const item of unmappedItems) {
-      if (!selectedIds.has(item.sourceModel.name)) continue;
-      const suggs = interactive.getSuggestionsForLayer(item.sourceModel);
-      if (suggs.length > 0) {
-        interactive.assignUserModelToLayer(
-          item.sourceModel.name,
-          suggs[0].model.name,
-        );
-      }
-    }
-    setSelectedIds(new Set());
-  };
-
   // Handle drops on left panel items
   const handleDropOnItem = (sourceName: string, e: React.DragEvent) => {
     e.preventDefault();
@@ -501,63 +453,40 @@ export function SpinnersPhase() {
     interactive.clearLayerMapping(sourceName);
   };
 
-  const handleSkipFamily = (familyItems: SourceLayerMapping[]) => {
-    for (const item of familyItems) {
-      interactive.skipSourceLayer(item.sourceModel.name);
-    }
-    const skippedNames = new Set(familyItems.map((i) => i.sourceModel.name));
-    const remaining = unmappedItems.filter(
-      (i) => !skippedNames.has(i.sourceModel.name),
-    );
-    setSelectedItemId(remaining[0]?.sourceModel.name ?? null);
-  };
-
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left: Submodel Group List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         <div className={PANEL_STYLES.header.wrapper}>
-          <h2 className={PANEL_STYLES.header.title}>
-            <svg
-              className="w-5 h-5 text-purple-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Submodel Groups
-          </h2>
-          <p className={PANEL_STYLES.header.subtitle}>
-            {phaseItems.length} group{phaseItems.length !== 1 ? "s" : ""}
-            {mappedCount > 0 && (
-              <span>
-                {" "}
-                &middot;{" "}
-                <span className="text-green-400/60">{mappedCount} mapped</span>
-              </span>
-            )}
-            {unmappedCount > 0 && (
-              <span>
-                {" "}
-                &middot;{" "}
-                <span className="text-amber-400/60">
-                  {unmappedCount} unmapped
-                </span>
-              </span>
-            )}
-          </p>
-          <EffectsCoverageBar
-            mappedEffects={phaseItems
-              .filter((i) => i.isMapped)
-              .reduce((sum, i) => sum + i.effectCount, 0)}
-            totalEffects={phaseItems.reduce((sum, i) => sum + i.effectCount, 0)}
-          />
+          <div className="flex items-center gap-2">
+            <FilterPill
+              label={`All (${phaseItems.length})`}
+              color="blue"
+              active={statusFilter === "all"}
+              onClick={() => {
+                setStatusFilter("all");
+                setSortVersion((v) => v + 1);
+              }}
+            />
+            <FilterPill
+              label={`Mapped (${mappedCount})`}
+              color="green"
+              active={statusFilter === "mapped"}
+              onClick={() => {
+                setStatusFilter("mapped");
+                setSortVersion((v) => v + 1);
+              }}
+            />
+            <FilterPill
+              label={`Unmapped (${unmappedCount})`}
+              color="amber"
+              active={statusFilter === "unmapped"}
+              onClick={() => {
+                setStatusFilter("unmapped");
+                setSortVersion((v) => v + 1);
+              }}
+            />
+          </div>
         </div>
 
         {/* HD Prop Pairings — monogamy constraint */}
@@ -705,30 +634,34 @@ export function SpinnersPhase() {
               </svg>
               <input
                 type="text"
-                placeholder="Filter submodel groups..."
+                placeholder="Search submodel groups..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={PANEL_STYLES.search.input}
+                className={`${PANEL_STYLES.search.input} ${search ? "pr-8" : ""}`}
               />
+              {search && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
             </div>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as StatusFilter);
-                setSortVersion((v) => v + 1);
-              }}
-              className="text-[11px] px-2 py-1.5 rounded bg-foreground/5 border border-border text-foreground/60 focus:outline-none focus:border-accent"
-            >
-              <option value="all">All</option>
-              <option value="unmapped">Unmapped</option>
-              {phaseAutoCount > 0 && (
-                <option value="auto-strong">Auto: Strong (&ge;75%)</option>
-              )}
-              {phaseAutoCount > 0 && (
-                <option value="auto-review">Auto: Review (&lt;75%)</option>
-              )}
-              <option value="mapped">Mapped (manual)</option>
-            </select>
             <SortDropdown
               value={sortBy}
               onChange={(v) => {
@@ -762,7 +695,7 @@ export function SpinnersPhase() {
         />
 
         <div className={PANEL_STYLES.scrollArea}>
-          <div className="space-y-2">
+          <div className="px-4 pb-3 space-y-1">
             {/* Section-based rendering when sections detected */}
             {sectionGroups.some((s) => s.header)
               ? sectionGroups.map((section, si) => (
@@ -771,22 +704,12 @@ export function SpinnersPhase() {
                     header={section.header}
                     items={section.items}
                     selectedItemId={selectedItemId}
-                    selectedIds={selectedIds}
                     dndState={dnd.state}
                     autoMatchedNames={autoMatchedNames}
                     approvedNames={approvedNames}
                     scoreMap={scoreMap}
-                    factorsMap={factorsMap}
                     topSuggestionsMap={topSuggestionsMap}
                     onSelect={setSelectedItemId}
-                    onCheck={(name) => {
-                      setSelectedIds((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(name)) next.delete(name);
-                        else next.add(name);
-                        return next;
-                      });
-                    }}
                     onAccept={handleAccept}
                     onApprove={approveAutoMatch}
                     onSkip={handleSkipItem}
@@ -796,76 +719,41 @@ export function SpinnersPhase() {
                     onDrop={handleDropOnItem}
                   />
                 ))
-              : /* Family-based rendering (no sections) */
-                families.map((family) => {
-                  const renderSpinner = (item: SourceLayerMapping) => (
-                    <SpinnerListCardMemo
-                      key={item.sourceModel.name}
-                      item={item}
-                      isSelected={selectedItemId === item.sourceModel.name}
-                      isChecked={selectedIds.has(item.sourceModel.name)}
-                      isDropTarget={
-                        dnd.state.activeDropTarget === item.sourceModel.name
-                      }
-                      isAutoMatched={autoMatchedNames.has(
-                        item.sourceModel.name,
-                      )}
-                      isApproved={approvedNames.has(item.sourceModel.name)}
-                      matchScore={scoreMap.get(item.sourceModel.name)}
-                      matchFactors={factorsMap.get(item.sourceModel.name)}
-                      topSuggestion={
-                        topSuggestionsMap.get(item.sourceModel.name) ?? null
-                      }
-                      onClick={() => setSelectedItemId(item.sourceModel.name)}
-                      onCheck={() => {
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(item.sourceModel.name))
-                            next.delete(item.sourceModel.name);
-                          else next.add(item.sourceModel.name);
-                          return next;
-                        });
-                      }}
-                      onAccept={(userModelName) =>
-                        handleAccept(item.sourceModel.name, userModelName)
-                      }
-                      onApprove={() => approveAutoMatch(item.sourceModel.name)}
-                      onSkip={() => handleSkipItem(item.sourceModel.name)}
-                      onUnlink={() => handleUnlink(item.sourceModel.name)}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "move";
-                      }}
-                      onDragEnter={() =>
-                        dnd.handleDragEnter(item.sourceModel.name)
-                      }
-                      onDragLeave={() =>
-                        dnd.handleDragLeave(item.sourceModel.name)
-                      }
-                      onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
-                    />
-                  );
-
-                  if (family.items.length === 1) {
-                    return renderSpinner(family.items[0]);
-                  }
-                  return (
-                    <div key={family.prefix}>
-                      <FamilyAccordionHeader
-                        prefix={family.prefix}
-                        count={family.items.length}
-                        isExpanded={isExpanded(family.prefix)}
-                        onToggle={() => toggle(family.prefix)}
-                        onSkipFamily={() => handleSkipFamily(family.items)}
-                      />
-                      {isExpanded(family.prefix) && (
-                        <div className="space-y-2 pl-2 mt-1">
-                          {family.items.map(renderSpinner)}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              : /* Flat rendering (no sections) */
+                filteredItems.map((item) => (
+                  <SubmodelCardMemo
+                    key={item.sourceModel.name}
+                    item={item}
+                    isSelected={selectedItemId === item.sourceModel.name}
+                    isDropTarget={
+                      dnd.state.activeDropTarget === item.sourceModel.name
+                    }
+                    isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
+                    isApproved={approvedNames.has(item.sourceModel.name)}
+                    matchScore={scoreMap.get(item.sourceModel.name)}
+                    topSuggestion={
+                      topSuggestionsMap.get(item.sourceModel.name) ?? null
+                    }
+                    onClick={() => setSelectedItemId(item.sourceModel.name)}
+                    onAccept={(userModelName) =>
+                      handleAccept(item.sourceModel.name, userModelName)
+                    }
+                    onApprove={() => approveAutoMatch(item.sourceModel.name)}
+                    onSkip={() => handleSkipItem(item.sourceModel.name)}
+                    onUnlink={() => handleUnlink(item.sourceModel.name)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                    }}
+                    onDragEnter={() =>
+                      dnd.handleDragEnter(item.sourceModel.name)
+                    }
+                    onDragLeave={() =>
+                      dnd.handleDragLeave(item.sourceModel.name)
+                    }
+                    onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
+                  />
+                ))}
           </div>
 
           {interactive.hiddenZeroEffectCount > 0 && (
@@ -927,28 +815,14 @@ export function SpinnersPhase() {
                 >
                   SUB
                 </span>
-                {selectedItem.sourceModel.semanticCategory && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/40 rounded">
-                    {CATEGORY_LABELS[
-                      selectedItem.sourceModel.semanticCategory
-                    ] ?? selectedItem.sourceModel.semanticCategory}
-                  </span>
-                )}
                 <h3 className="text-sm font-semibold text-foreground truncate">
                   {selectedItem.sourceModel.name}
                 </h3>
-              </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[11px] text-foreground/40">
+                <span className="text-[11px] text-foreground/30 ml-auto flex-shrink-0">
+                  {selectedItem.effectCount} fx &middot;{" "}
                   {selectedItem.memberNames.length} members
                 </span>
-                <CollapsibleMembers members={selectedItem.memberNames} />
               </div>
-              {pairedSource && (
-                <div className="text-[10px] text-purple-400/60 mt-0.5">
-                  Paired source: {pairedSource}
-                </div>
-              )}
             </div>
 
             {/* Current Mapping Card (for mapped items) */}
@@ -1040,43 +914,57 @@ export function SpinnersPhase() {
           </div>
         )}
       </div>
-
-      {/* Bulk Action Bar */}
-      {selectedIds.size > 0 && (
-        <BulkActionBar
-          selectedCount={selectedIds.size}
-          totalCount={unmappedItems.length}
-          onSelectAll={() => {
-            if (selectedIds.size === unmappedItems.length) {
-              setSelectedIds(new Set());
-            } else {
-              setSelectedIds(
-                new Set(unmappedItems.map((i) => i.sourceModel.name)),
-              );
-            }
-          }}
-          onAcceptSelected={handleBulkAccept}
-          onClearSelection={() => setSelectedIds(new Set())}
-        />
-      )}
     </div>
   );
 }
 
-// ─── Spinner Card (Left Panel) ──────────────────────────
+// ─── Status helpers (matching IndividualsPhase) ─────────
 
-function SpinnerListCard({
+function getItemStatus(
+  isMapped: boolean,
+  isAutoMatched: boolean,
+  isApproved: boolean,
+  score: number | undefined,
+): StatusCheckStatus {
+  if (!isMapped) return "unmapped";
+  if (isAutoMatched && !isApproved) {
+    if (score != null && score < WEAK_THRESHOLD) return "weak";
+    if (score != null && score < STRONG_THRESHOLD) return "needsReview";
+    return "strong";
+  }
+  return "approved";
+}
+
+function getLeftBorderColor(status: StatusCheckStatus): string {
+  switch (status) {
+    case "approved":
+    case "strong":
+    case "manual":
+      return "border-l-green-500/70";
+    case "needsReview":
+      return "border-l-amber-400/70";
+    case "weak":
+      return "border-l-red-400/70";
+    case "unmapped":
+      return "border-l-blue-400/50";
+    case "covered":
+      return "border-l-foreground/15";
+    default:
+      return "border-l-foreground/15";
+  }
+}
+
+// ─── Submodel Card (Left Panel) — grid layout matching IndividualsPhase ──
+
+function SubmodelCard({
   item,
   isSelected,
-  isChecked,
   isDropTarget,
   isAutoMatched,
   isApproved,
   matchScore,
-  matchFactors,
   topSuggestion,
   onClick,
-  onCheck,
   onAccept,
   onApprove,
   onSkip,
@@ -1088,19 +976,15 @@ function SpinnerListCard({
 }: {
   item: SourceLayerMapping;
   isSelected: boolean;
-  isChecked: boolean;
   isDropTarget: boolean;
   isAutoMatched: boolean;
   isApproved: boolean;
   matchScore?: number;
-  matchFactors?: ModelMapping["factors"];
   topSuggestion: {
     model: { name: string };
     score: number;
-    factors?: ModelMapping["factors"];
   } | null;
   onClick: () => void;
-  onCheck: () => void;
   onAccept: (userModelName: string) => void;
   onApprove: () => void;
   onSkip: () => void;
@@ -1110,216 +994,143 @@ function SpinnerListCard({
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
 }) {
-  const categoryLabel = item.sourceModel.semanticCategory
-    ? (CATEGORY_LABELS[item.sourceModel.semanticCategory] ??
-      item.sourceModel.semanticCategory)
-    : null;
-  const px = item.sourceModel.pixelCount;
-  const isNeedsReview =
-    item.isMapped &&
-    isAutoMatched &&
-    !isApproved &&
-    matchScore != null &&
-    matchScore < STRONG_THRESHOLD;
-  const leftBorder = item.isMapped
-    ? isNeedsReview
-      ? "border-l-amber-400/70"
-      : "border-l-green-500/70"
-    : topSuggestion
-      ? "border-l-red-400/70"
-      : "border-l-amber-400/70";
+  const [hovered, setHovered] = useState(false);
+  const status = getItemStatus(
+    item.isMapped,
+    isAutoMatched,
+    isApproved,
+    matchScore,
+  );
+  const leftBorder = getLeftBorderColor(status);
+  const confidencePct =
+    matchScore != null ? Math.round(matchScore * 100) : undefined;
 
   return (
     <div
-      className={`
-        px-3 py-1.5 rounded-lg border transition-all duration-200 cursor-pointer border-l-[3px] ${leftBorder}
-        ${
-          isDropTarget
-            ? "bg-accent/10 border-accent/50 ring-2 ring-accent/30"
-            : isSelected
-              ? "bg-accent/5 border-accent/30 ring-1 ring-accent/20"
-              : "bg-surface border-border hover:border-foreground/20"
-        }
-      `}
+      className={`rounded border-l-[3px] ${leftBorder} mb-px cursor-pointer transition-all ${
+        isDropTarget
+          ? "bg-accent/10 ring-2 ring-accent/30"
+          : isSelected
+            ? "bg-accent/5 ring-1 ring-accent/20"
+            : "hover:bg-foreground/[0.02]"
+      }`}
+      style={{
+        display: "grid",
+        gridTemplateColumns: MODEL_GRID,
+        alignItems: "center",
+        padding: "3px 10px 3px 8px",
+        gap: "0 6px",
+        minHeight: 28,
+      }}
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onDragOver={onDragOver}
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <InlineEffectBadge count={item.effectCount} />
-        {/* Checkbox */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCheck();
-          }}
-          className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all duration-200 ${isChecked ? "bg-accent border-accent" : "border-foreground/20 hover:border-foreground/40"}`}
-        >
-          {isChecked && (
-            <svg
-              className="w-2 h-2 text-white"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
-          )}
-        </button>
-        <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.SUB}`}>
-          <svg
-            className="w-2.5 h-2.5 inline-block mr-0.5 -mt-px"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.5}
-          >
-            <path strokeLinecap="round" d="M9 3v12m0 0H5m4 0h4" />
-          </svg>
-          SUB
-        </span>
-        {categoryLabel && (
-          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/30 rounded flex-shrink-0">
-            {categoryLabel}
-          </span>
-        )}
-        <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">
-          {item.sourceModel.name}
-        </span>
-        {px > 0 && (
-          <>
-            <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-            <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">
-              {px}px
-            </span>
-          </>
-        )}
-        {item.isMapped && (
-          <>
-            <span
-              className={`inline-flex items-center gap-0.5 text-[10px] truncate max-w-[180px] ml-auto flex-shrink-0 ${isNeedsReview ? "text-amber-400/70" : "text-green-400/70"}`}
-            >
-              {isAutoMatched && <Link2Badge />}
-              &rarr; {item.assignedUserModels[0]?.name}
-            </span>
-            {matchScore != null && matchScore > 0 && (
-              <ConfidenceBadge
-                score={matchScore}
-                factors={matchFactors}
-                size="sm"
-              />
-            )}
-            {isNeedsReview && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onApprove();
-                }}
-                className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors flex-shrink-0"
-                title="Approve this match"
-              >
-                Approve
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUnlink();
-              }}
-              className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors flex-shrink-0"
-              title="Remove mapping (keep item)"
-            >
-              <UnlinkIcon className="w-3 h-3" />
-            </button>
-          </>
-        )}
-        {!item.isMapped && topSuggestion && (
-          <>
-            <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-            <span className="text-[10px] text-foreground/40 flex-shrink-0">
-              Suggested:
-            </span>
-            <span className="text-[11px] text-foreground/60 truncate">
-              {topSuggestion.model.name}
-            </span>
-            <ConfidenceBadge
-              score={topSuggestion.score}
-              factors={topSuggestion.factors}
-              size="sm"
-            />
-          </>
-        )}
-        <div
-          className={`${!item.isMapped ? "ml-auto" : ""} flex items-center gap-1 flex-shrink-0`}
-        >
-          {topSuggestion && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAccept(topSuggestion.model.name);
-              }}
-              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
-              title="Accept suggested match"
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
-              </svg>
-            </button>
-          )}
+      {/* Col 1: Status checkbox */}
+      <StatusCheck
+        status={status}
+        onClick={
+          status === "needsReview" || status === "weak"
+            ? () => onApprove()
+            : undefined
+        }
+      />
+      {/* Col 2: FX badge */}
+      <FxBadge count={item.effectCount} />
+      {/* Col 3: Name */}
+      <span className="text-[12px] font-medium text-foreground truncate">
+        {item.sourceModel.name}
+      </span>
+      {/* Col 4: Destination pill / + Assign */}
+      <div className="flex items-center justify-end gap-1">
+        {item.isMapped ? (
+          <DestinationPill
+            name={item.assignedUserModels[0]?.name ?? ""}
+            confidence={confidencePct}
+            autoMatched={isAutoMatched}
+          />
+        ) : topSuggestion ? (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onSkip();
+              onAccept(topSuggestion.model.name);
             }}
-            className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors"
-            title="Skip — dismiss from workflow"
+            className="text-[11px] text-foreground/30 hover:text-accent transition-colors"
+            title={`Accept: ${topSuggestion.model.name}`}
           >
-            <svg
-              className="w-3 h-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            + Assign
           </button>
-        </div>
+        ) : (
+          <span className="text-[11px] text-foreground/20">+ Assign</span>
+        )}
+      </div>
+      {/* Col 5: Empty (no health bar for individual items) */}
+      <div />
+      {/* Col 6: Row actions (hover) */}
+      <div
+        className="flex items-center justify-end gap-0.5"
+        style={{
+          opacity: hovered ? 1 : 0,
+          transition: "opacity 0.1s ease",
+        }}
+      >
+        {item.isMapped && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUnlink();
+            }}
+            className="w-[22px] h-[22px] flex items-center justify-center rounded text-foreground/30 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+            title="Remove mapping"
+          >
+            <UnlinkIcon className="w-3 h-3" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSkip();
+          }}
+          className="w-[22px] h-[22px] flex items-center justify-center rounded text-foreground/20 hover:text-foreground/50 hover:bg-foreground/10 transition-colors"
+          title="Skip"
+        >
+          <svg
+            className="w-[11px] h-[11px]"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.5}
+            viewBox="0 0 24 24"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </div>
     </div>
   );
 }
 
-const SpinnerListCardMemo = memo(
-  SpinnerListCard,
+const SubmodelCardMemo = memo(
+  SubmodelCard,
   (prev, next) =>
     prev.item.sourceModel === next.item.sourceModel &&
     prev.item.isMapped === next.item.isMapped &&
     prev.item.effectCount === next.item.effectCount &&
     prev.item.assignedUserModels === next.item.assignedUserModels &&
     prev.isSelected === next.isSelected &&
-    prev.isChecked === next.isChecked &&
     prev.isDropTarget === next.isDropTarget &&
     prev.isAutoMatched === next.isAutoMatched &&
     prev.isApproved === next.isApproved &&
     prev.matchScore === next.matchScore &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
-    prev.topSuggestion?.score === next.topSuggestion?.score &&
-    prev.onUnlink === next.onUnlink,
+    prev.topSuggestion?.score === next.topSuggestion?.score,
 );
 
 // ─── Section Divider (collapsible section from **HEADER markers) ─────
@@ -1328,15 +1139,12 @@ function SectionDivider({
   header,
   items,
   selectedItemId,
-  selectedIds,
   dndState,
   autoMatchedNames,
   approvedNames,
   scoreMap,
-  factorsMap,
   topSuggestionsMap,
   onSelect,
-  onCheck,
   onAccept,
   onApprove,
   onSkip,
@@ -1348,22 +1156,18 @@ function SectionDivider({
   header: string | null;
   items: SourceLayerMapping[];
   selectedItemId: string | null;
-  selectedIds: Set<string>;
   dndState: { activeDropTarget: string | null };
   autoMatchedNames: ReadonlySet<string>;
   approvedNames: ReadonlySet<string>;
   scoreMap: Map<string, number>;
-  factorsMap: Map<string, ModelMapping["factors"]>;
   topSuggestionsMap: Map<
     string,
     {
       model: { name: string };
       score: number;
-      factors?: ModelMapping["factors"];
     } | null
   >;
   onSelect: (name: string) => void;
-  onCheck: (name: string) => void;
   onAccept: (sourceName: string, destName: string) => void;
   onApprove: (name: string) => void;
   onSkip: (name: string) => void;
@@ -1381,10 +1185,10 @@ function SectionDivider({
         <button
           type="button"
           onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+          className="flex items-center gap-2 w-full pt-3.5 pb-1.5 px-1 text-left group/section border-b border-border mb-1.5"
         >
           <svg
-            className={`w-3 h-3 text-purple-400/50 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`}
+            className={`w-3 h-3 text-green-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -1396,10 +1200,10 @@ function SectionDivider({
               d="M9 5l7 7-7 7"
             />
           </svg>
-          <span className="text-[11px] font-bold text-purple-400/70 uppercase tracking-wider">
+          <span className="text-[10px] font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
             {header}
           </span>
-          <span className="text-[10px] text-foreground/30">
+          <span className="text-[10px] text-foreground/30 font-mono">
             ({items.length})
           </span>
           <span
@@ -1410,23 +1214,20 @@ function SectionDivider({
         </button>
       )}
       {!collapsed && (
-        <div className={`space-y-1 ${header ? "pl-2 mt-0.5 mb-2" : ""}`}>
+        <div className={`space-y-0.5 ${header ? "pl-2 mt-0.5 mb-2" : ""}`}>
           {items.map((item) => (
-            <SpinnerListCardMemo
+            <SubmodelCardMemo
               key={item.sourceModel.name}
               item={item}
               isSelected={selectedItemId === item.sourceModel.name}
-              isChecked={selectedIds.has(item.sourceModel.name)}
               isDropTarget={dndState.activeDropTarget === item.sourceModel.name}
               isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
               isApproved={approvedNames.has(item.sourceModel.name)}
               matchScore={scoreMap.get(item.sourceModel.name)}
-              matchFactors={factorsMap.get(item.sourceModel.name)}
               topSuggestion={
                 topSuggestionsMap.get(item.sourceModel.name) ?? null
               }
               onClick={() => onSelect(item.sourceModel.name)}
-              onCheck={() => onCheck(item.sourceModel.name)}
               onAccept={(userModelName) =>
                 onAccept(item.sourceModel.name, userModelName)
               }
