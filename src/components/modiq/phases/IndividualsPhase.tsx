@@ -1154,14 +1154,33 @@ function XLightsGroupCard({
         <span className="text-[13px] font-semibold text-foreground truncate">
           {group.sourceModel.name}
         </span>
-        {/* Col 6: Destination */}
-        <div className="flex justify-end">
+        {/* Col 6: Destination + inline unlink */}
+        <div className="flex items-center justify-end gap-1">
           {group.isMapped ? (
-            <DestinationPill
-              name={group.assignedUserModels[0]?.name ?? ""}
-              confidence={confidencePct}
-              autoMatched={isAutoMatched}
-            />
+            <>
+              <DestinationPill
+                name={group.assignedUserModels[0]?.name ?? ""}
+                confidence={confidencePct}
+                autoMatched={isAutoMatched}
+              />
+              {onUnlink && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onUnlink();
+                  }}
+                  className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
+                  title="Remove mapping"
+                  style={{
+                    opacity: hovered ? 0.6 : 0,
+                    transition: "opacity 0.1s ease",
+                  }}
+                >
+                  <UnlinkIcon className="w-[11px] h-[11px]" />
+                </button>
+              )}
+            </>
           ) : topSuggestion && onAccept ? (
             <button
               type="button"
@@ -1183,27 +1202,14 @@ function XLightsGroupCard({
           {memberStats.strong + memberStats.review + memberStats.weak}/
           {memberStats.total}
         </span>
-        {/* Col 8: Actions */}
+        {/* Col 8: Skip only */}
         <div
-          className="flex gap-0.5 items-center justify-end"
+          className="flex items-center justify-end"
           style={{
             opacity: hovered ? 1 : 0,
             transition: "opacity 0.1s ease",
           }}
         >
-          {group.isMapped && onUnlink && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUnlink();
-              }}
-              className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
-              title="Remove mapping"
-            >
-              <UnlinkIcon className="w-[11px] h-[11px]" />
-            </button>
-          )}
           {onSkip && (
             <button
               type="button"
@@ -1504,14 +1510,32 @@ function ItemCard({
       <span className="text-[12px] font-medium text-foreground truncate">
         {item.sourceModel.name}
       </span>
-      {/* Col 4: Destination / suggestion */}
-      <div className="flex justify-end">
+      {/* Col 4: Destination / suggestion + inline unlink */}
+      <div className="flex items-center justify-end gap-1">
         {item.isMapped ? (
-          <DestinationPill
-            name={item.assignedUserModels[0]?.name ?? ""}
-            confidence={confidencePct}
-            autoMatched={isAutoMatched}
-          />
+          <>
+            <DestinationPill
+              name={item.assignedUserModels[0]?.name ?? ""}
+              confidence={confidencePct}
+              autoMatched={isAutoMatched}
+            />
+            {/* Unlink icon — inline with destination pill (hover-only) */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnlink();
+              }}
+              className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
+              title="Remove mapping"
+              style={{
+                opacity: hovered ? 0.6 : 0,
+                transition: "opacity 0.1s ease",
+              }}
+            >
+              <UnlinkIcon className="w-[11px] h-[11px]" />
+            </button>
+          </>
         ) : topSuggestion ? (
           <button
             type="button"
@@ -1532,24 +1556,11 @@ function ItemCard({
       </div>
       {/* Col 5: Health bar (empty for model rows) */}
       <div />
-      {/* Col 6: Actions (show on hover) */}
+      {/* Col 6: Skip action only (hover) */}
       <div
-        className="flex gap-0.5 items-center justify-end"
+        className="flex items-center justify-end"
         style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.1s ease" }}
       >
-        {item.isMapped && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onUnlink();
-            }}
-            className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
-            title="Remove mapping"
-          >
-            <UnlinkIcon className="w-[11px] h-[11px]" />
-          </button>
-        )}
         <button
           type="button"
           onClick={(e) => {
@@ -1935,14 +1946,31 @@ function SuperGroupCard({
         <span className="text-[13px] font-semibold text-foreground truncate">
           {group.sourceModel.name}
         </span>
-        {/* Col 6: Destination */}
-        <div className="flex justify-end">
+        {/* Col 6: Destination + inline unlink */}
+        <div className="flex items-center justify-end gap-1">
           {group.isMapped ? (
-            <DestinationPill
-              name={group.assignedUserModels[0]?.name ?? ""}
-              confidence={confidencePct}
-              autoMatched={isAutoMatched}
-            />
+            <>
+              <DestinationPill
+                name={group.assignedUserModels[0]?.name ?? ""}
+                confidence={confidencePct}
+                autoMatched={isAutoMatched}
+              />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUnlink();
+                }}
+                className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
+                title="Remove mapping"
+                style={{
+                  opacity: hovered ? 0.6 : 0,
+                  transition: "opacity 0.1s ease",
+                }}
+              >
+                <UnlinkIcon className="w-[11px] h-[11px]" />
+              </button>
+            </>
           ) : topSuggestion ? (
             <button
               type="button"
@@ -1966,27 +1994,14 @@ function SuperGroupCard({
             superMemberStats.weak}
           /{superMemberStats.total}
         </span>
-        {/* Col 8: Actions */}
+        {/* Col 8: Skip only */}
         <div
-          className="flex gap-0.5 items-center justify-end"
+          className="flex items-center justify-end"
           style={{
             opacity: hovered ? 1 : 0,
             transition: "opacity 0.1s ease",
           }}
         >
-          {group.isMapped && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUnlink();
-              }}
-              className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
-              title="Remove mapping"
-            >
-              <UnlinkIcon className="w-[11px] h-[11px]" />
-            </button>
-          )}
           <button
             type="button"
             onClick={(e) => {
