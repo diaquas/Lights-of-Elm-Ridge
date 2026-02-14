@@ -83,6 +83,9 @@ export function SpinnersPhase() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [selectedParentModel, setSelectedParentModel] = useState<string | null>(
+    null,
+  );
 
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
@@ -99,6 +102,88 @@ export function SpinnersPhase() {
   );
   const unmappedCount = phaseItems.filter((item) => !item.isMapped).length;
   const mappedCount = phaseItems.filter((item) => item.isMapped).length;
+
+  // Build parent model index: group submodel groups by their parent model
+  const parentModelIndex = useMemo(() => {
+    const index = new Map<
+      string,
+      { items: SourceLayerMapping[]; mapped: number; total: number }
+    >();
+    for (const item of phaseItems) {
+      const parents = item.sourceModel.parentModels ?? ["Unknown"];
+      for (const parent of parents) {
+        const entry = index.get(parent) ?? { items: [], mapped: 0, total: 0 };
+        entry.items.push(item);
+        entry.total++;
+        if (item.isMapped) entry.mapped++;
+        index.set(parent, entry);
+      }
+    }
+    return index;
+  }, [phaseItems]);
+
+  // Sorted parent model list
+  const parentModelList = useMemo(() => {
+    const list = Array.from(parentModelIndex.entries())
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => {
+        // Unmapped first (models with gaps)
+        const aComplete = a.mapped >= a.total;
+        const bComplete = b.mapped >= b.total;
+        if (aComplete !== bComplete) return aComplete ? 1 : -1;
+        return a.name.localeCompare(b.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      });
+    return list;
+  }, [parentModelIndex]);
+
+  // Auto-select first parent model
+  const activeParent = selectedParentModel ?? parentModelList[0]?.name ?? null;
+
+  // Items scoped to selected parent model
+  const scopedItems = useMemo(() => {
+    if (!activeParent) return phaseItems;
+    return parentModelIndex.get(activeParent)?.items ?? phaseItems;
+  }, [activeParent, parentModelIndex, phaseItems]);
+
+  // Section headers: detect **SECTION_NAME patterns in scoped items
+  const sectionGroups = useMemo(() => {
+    const sections: { header: string | null; items: SourceLayerMapping[] }[] =
+      [];
+    let currentSection: { header: string | null; items: SourceLayerMapping[] } =
+      { header: null, items: [] };
+
+    // Sort items by name to group sections together
+    const sorted = [...scopedItems].sort((a, b) =>
+      a.sourceModel.name.localeCompare(b.sourceModel.name, undefined, {
+        numeric: true,
+        sensitivity: "base",
+      }),
+    );
+
+    for (const item of sorted) {
+      // Check if this item's name looks like a section header marker
+      // e.g., "**OUTER", "**WHOLE SPINNER", "**CENTER"
+      if (item.sourceModel.name.startsWith("**")) {
+        // Push current section if it has items
+        if (currentSection.items.length > 0 || currentSection.header) {
+          sections.push(currentSection);
+        }
+        // Clean up section name — remove ** prefix
+        const header = item.sourceModel.name.replace(/^\*+\s*/, "").trim();
+        currentSection = { header, items: [] };
+      } else {
+        currentSection.items.push(item);
+      }
+    }
+    // Push last section
+    if (currentSection.items.length > 0 || currentSection.header) {
+      sections.push(currentSection);
+    }
+    return sections;
+  }, [scopedItems]);
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -145,9 +230,9 @@ export function SpinnersPhase() {
     [phaseItems, autoMatchedNames],
   );
 
-  // Filtered + stable-sorted items (single unified list)
+  // Filtered + stable-sorted items (single unified list, scoped to parent model)
   const filteredItems = useMemo(() => {
-    let items = [...phaseItems];
+    let items = [...scopedItems];
     if (statusFilter === "unmapped") items = items.filter((i) => !i.isMapped);
     else if (statusFilter === "auto-strong")
       items = items.filter(
@@ -202,7 +287,7 @@ export function SpinnersPhase() {
       });
     });
   }, [
-    phaseItems,
+    scopedItems,
     statusFilter,
     search,
     sortBy,
@@ -349,6 +434,56 @@ export function SpinnersPhase() {
           />
         </div>
 
+        {/* Model selector — pick a parent model to scope submodel groups */}
+        {parentModelList.length > 1 && (
+          <div className="px-4 py-2 border-b border-border flex-shrink-0">
+            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider mb-1.5">
+              Select Model
+            </div>
+            <div className="space-y-1">
+              {parentModelList.map((pm) => {
+                const isActive = pm.name === activeParent;
+                const allMapped = pm.mapped >= pm.total;
+                return (
+                  <button
+                    key={pm.name}
+                    type="button"
+                    onClick={() => setSelectedParentModel(pm.name)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-all ${
+                      isActive
+                        ? "bg-accent/8 border border-accent/25"
+                        : "bg-foreground/[0.02] border border-border/50 hover:border-foreground/15"
+                    }`}
+                  >
+                    <span
+                      className={`text-[12px] font-medium truncate flex-1 min-w-0 ${isActive ? "text-foreground" : "text-foreground/60"}`}
+                    >
+                      {pm.name}
+                    </span>
+                    <span className="text-[10px] text-foreground/30 flex-shrink-0 tabular-nums">
+                      {pm.total} sub-groups
+                    </span>
+                    {/* Mini progress bar */}
+                    <div className="w-16 h-1.5 bg-foreground/5 rounded-full overflow-hidden flex-shrink-0">
+                      <div
+                        className={`h-full rounded-full transition-all ${allMapped ? "bg-green-500/50" : "bg-accent/40"}`}
+                        style={{
+                          width: `${pm.total > 0 ? (pm.mapped / pm.total) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <span
+                      className={`text-[10px] font-semibold tabular-nums flex-shrink-0 ${allMapped ? "text-green-400/60" : "text-foreground/40"}`}
+                    >
+                      {pm.mapped}/{pm.total}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Search + Sort */}
         <div className={PANEL_STYLES.search.wrapper}>
           <div className="flex items-center gap-2">
@@ -426,69 +561,109 @@ export function SpinnersPhase() {
 
         <div className={PANEL_STYLES.scrollArea}>
           <div className="space-y-2">
-            {families.map((family) => {
-              const renderSpinner = (item: SourceLayerMapping) => (
-                <SpinnerListCardMemo
-                  key={item.sourceModel.name}
-                  item={item}
-                  isSelected={selectedItemId === item.sourceModel.name}
-                  isChecked={selectedIds.has(item.sourceModel.name)}
-                  isDropTarget={
-                    dnd.state.activeDropTarget === item.sourceModel.name
-                  }
-                  isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
-                  isApproved={approvedNames.has(item.sourceModel.name)}
-                  matchScore={scoreMap.get(item.sourceModel.name)}
-                  matchFactors={factorsMap.get(item.sourceModel.name)}
-                  topSuggestion={
-                    topSuggestionsMap.get(item.sourceModel.name) ?? null
-                  }
-                  onClick={() => setSelectedItemId(item.sourceModel.name)}
-                  onCheck={() => {
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(item.sourceModel.name))
-                        next.delete(item.sourceModel.name);
-                      else next.add(item.sourceModel.name);
-                      return next;
-                    });
-                  }}
-                  onAccept={(userModelName) =>
-                    handleAccept(item.sourceModel.name, userModelName)
-                  }
-                  onApprove={() => approveAutoMatch(item.sourceModel.name)}
-                  onSkip={() => handleSkipItem(item.sourceModel.name)}
-                  onUnlink={() => handleUnlink(item.sourceModel.name)}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.dataTransfer.dropEffect = "move";
-                  }}
-                  onDragEnter={() => dnd.handleDragEnter(item.sourceModel.name)}
-                  onDragLeave={() => dnd.handleDragLeave(item.sourceModel.name)}
-                  onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
-                />
-              );
-
-              if (family.items.length === 1) {
-                return renderSpinner(family.items[0]);
-              }
-              return (
-                <div key={family.prefix}>
-                  <FamilyAccordionHeader
-                    prefix={family.prefix}
-                    count={family.items.length}
-                    isExpanded={isExpanded(family.prefix)}
-                    onToggle={() => toggle(family.prefix)}
-                    onSkipFamily={() => handleSkipFamily(family.items)}
+            {/* Section-based rendering when sections detected */}
+            {sectionGroups.some((s) => s.header)
+              ? sectionGroups.map((section, si) => (
+                  <SectionDivider
+                    key={section.header ?? `section-${si}`}
+                    header={section.header}
+                    items={section.items}
+                    selectedItemId={selectedItemId}
+                    selectedIds={selectedIds}
+                    dndState={dnd.state}
+                    autoMatchedNames={autoMatchedNames}
+                    approvedNames={approvedNames}
+                    scoreMap={scoreMap}
+                    factorsMap={factorsMap}
+                    topSuggestionsMap={topSuggestionsMap}
+                    onSelect={setSelectedItemId}
+                    onCheck={(name) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(name)) next.delete(name);
+                        else next.add(name);
+                        return next;
+                      });
+                    }}
+                    onAccept={handleAccept}
+                    onApprove={approveAutoMatch}
+                    onSkip={handleSkipItem}
+                    onUnlink={handleUnlink}
+                    onDragEnter={dnd.handleDragEnter}
+                    onDragLeave={dnd.handleDragLeave}
+                    onDrop={handleDropOnItem}
                   />
-                  {isExpanded(family.prefix) && (
-                    <div className="space-y-2 pl-2 mt-1">
-                      {family.items.map(renderSpinner)}
+                ))
+              : /* Family-based rendering (no sections) */
+                families.map((family) => {
+                  const renderSpinner = (item: SourceLayerMapping) => (
+                    <SpinnerListCardMemo
+                      key={item.sourceModel.name}
+                      item={item}
+                      isSelected={selectedItemId === item.sourceModel.name}
+                      isChecked={selectedIds.has(item.sourceModel.name)}
+                      isDropTarget={
+                        dnd.state.activeDropTarget === item.sourceModel.name
+                      }
+                      isAutoMatched={autoMatchedNames.has(
+                        item.sourceModel.name,
+                      )}
+                      isApproved={approvedNames.has(item.sourceModel.name)}
+                      matchScore={scoreMap.get(item.sourceModel.name)}
+                      matchFactors={factorsMap.get(item.sourceModel.name)}
+                      topSuggestion={
+                        topSuggestionsMap.get(item.sourceModel.name) ?? null
+                      }
+                      onClick={() => setSelectedItemId(item.sourceModel.name)}
+                      onCheck={() => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(item.sourceModel.name))
+                            next.delete(item.sourceModel.name);
+                          else next.add(item.sourceModel.name);
+                          return next;
+                        });
+                      }}
+                      onAccept={(userModelName) =>
+                        handleAccept(item.sourceModel.name, userModelName)
+                      }
+                      onApprove={() => approveAutoMatch(item.sourceModel.name)}
+                      onSkip={() => handleSkipItem(item.sourceModel.name)}
+                      onUnlink={() => handleUnlink(item.sourceModel.name)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDragEnter={() =>
+                        dnd.handleDragEnter(item.sourceModel.name)
+                      }
+                      onDragLeave={() =>
+                        dnd.handleDragLeave(item.sourceModel.name)
+                      }
+                      onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
+                    />
+                  );
+
+                  if (family.items.length === 1) {
+                    return renderSpinner(family.items[0]);
+                  }
+                  return (
+                    <div key={family.prefix}>
+                      <FamilyAccordionHeader
+                        prefix={family.prefix}
+                        count={family.items.length}
+                        isExpanded={isExpanded(family.prefix)}
+                        onToggle={() => toggle(family.prefix)}
+                        onSkipFamily={() => handleSkipFamily(family.items)}
+                      />
+                      {isExpanded(family.prefix) && (
+                        <div className="space-y-2 pl-2 mt-1">
+                          {family.items.map(renderSpinner)}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
           </div>
 
           {interactive.hiddenZeroEffectCount > 0 && (
@@ -939,3 +1114,129 @@ const SpinnerListCardMemo = memo(
     prev.topSuggestion?.score === next.topSuggestion?.score &&
     prev.onUnlink === next.onUnlink,
 );
+
+// ─── Section Divider (collapsible section from **HEADER markers) ─────
+
+function SectionDivider({
+  header,
+  items,
+  selectedItemId,
+  selectedIds,
+  dndState,
+  autoMatchedNames,
+  approvedNames,
+  scoreMap,
+  factorsMap,
+  topSuggestionsMap,
+  onSelect,
+  onCheck,
+  onAccept,
+  onApprove,
+  onSkip,
+  onUnlink,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
+}: {
+  header: string | null;
+  items: SourceLayerMapping[];
+  selectedItemId: string | null;
+  selectedIds: Set<string>;
+  dndState: { activeDropTarget: string | null };
+  autoMatchedNames: ReadonlySet<string>;
+  approvedNames: ReadonlySet<string>;
+  scoreMap: Map<string, number>;
+  factorsMap: Map<string, ModelMapping["factors"]>;
+  topSuggestionsMap: Map<
+    string,
+    {
+      model: { name: string };
+      score: number;
+      factors?: ModelMapping["factors"];
+    } | null
+  >;
+  onSelect: (name: string) => void;
+  onCheck: (name: string) => void;
+  onAccept: (sourceName: string, destName: string) => void;
+  onApprove: (name: string) => void;
+  onSkip: (name: string) => void;
+  onUnlink: (name: string) => void;
+  onDragEnter: (name: string) => void;
+  onDragLeave: (name: string) => void;
+  onDrop: (name: string, e: React.DragEvent) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const mappedInSection = items.filter((i) => i.isMapped).length;
+
+  return (
+    <div>
+      {header && (
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+        >
+          <svg
+            className={`w-3 h-3 text-purple-400/50 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+          <span className="text-[11px] font-bold text-purple-400/70 uppercase tracking-wider">
+            {header}
+          </span>
+          <span className="text-[10px] text-foreground/30">
+            ({items.length})
+          </span>
+          <span
+            className={`text-[10px] tabular-nums flex-shrink-0 ${mappedInSection >= items.length ? "text-green-400/50" : "text-foreground/30"}`}
+          >
+            {mappedInSection}/{items.length}
+          </span>
+        </button>
+      )}
+      {!collapsed && (
+        <div className={`space-y-1 ${header ? "pl-2 mt-0.5 mb-2" : ""}`}>
+          {items.map((item) => (
+            <SpinnerListCardMemo
+              key={item.sourceModel.name}
+              item={item}
+              isSelected={selectedItemId === item.sourceModel.name}
+              isChecked={selectedIds.has(item.sourceModel.name)}
+              isDropTarget={dndState.activeDropTarget === item.sourceModel.name}
+              isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
+              isApproved={approvedNames.has(item.sourceModel.name)}
+              matchScore={scoreMap.get(item.sourceModel.name)}
+              matchFactors={factorsMap.get(item.sourceModel.name)}
+              topSuggestion={
+                topSuggestionsMap.get(item.sourceModel.name) ?? null
+              }
+              onClick={() => onSelect(item.sourceModel.name)}
+              onCheck={() => onCheck(item.sourceModel.name)}
+              onAccept={(userModelName) =>
+                onAccept(item.sourceModel.name, userModelName)
+              }
+              onApprove={() => onApprove(item.sourceModel.name)}
+              onSkip={() => onSkip(item.sourceModel.name)}
+              onUnlink={() => onUnlink(item.sourceModel.name)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+              }}
+              onDragEnter={() => onDragEnter(item.sourceModel.name)}
+              onDragLeave={() => onDragLeave(item.sourceModel.name)}
+              onDrop={(e) => onDrop(item.sourceModel.name, e)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
