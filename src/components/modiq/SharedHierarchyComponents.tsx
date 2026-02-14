@@ -223,7 +223,6 @@ export function GhostMemberRow({ name }: { name: string }) {
       <span className="text-[11px] text-foreground/30 italic text-right whitespace-nowrap">
         covered by group
       </span>
-      <div />
       <div style={{ width: 50 }} />
     </div>
   );

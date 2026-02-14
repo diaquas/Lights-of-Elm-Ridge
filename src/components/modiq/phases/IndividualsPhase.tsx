@@ -1298,22 +1298,7 @@ function XLightsGroupCard({
             <span className="text-[11px] text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 7: Health bar */}
-        <div className="px-0.5">
-          {activeMemberCount > 0 ? (
-            <HealthBar
-              strong={memberStats.strong}
-              needsReview={memberStats.review}
-              weak={memberStats.weak}
-              unmapped={memberStats.unmapped}
-              covered={memberStats.covered}
-              totalModels={memberStats.total}
-            />
-          ) : (
-            <div />
-          )}
-        </div>
-        {/* Col 8: Skip only */}
+        {/* Col 7: Skip only */}
         <div
           className="flex items-center justify-end"
           style={{
@@ -1347,6 +1332,19 @@ function XLightsGroupCard({
           )}
         </div>
       </div>
+      {/* Health bar — sub-row below grid, aligned with name column */}
+      {activeMemberCount > 0 && (
+        <div style={{ marginLeft: 130, marginRight: 60 }} className="pb-1">
+          <HealthBar
+            strong={memberStats.strong}
+            needsReview={memberStats.review}
+            weak={memberStats.weak}
+            unmapped={memberStats.unmapped}
+            covered={memberStats.covered}
+            totalModels={memberStats.total}
+          />
+        </div>
+      )}
       {/* Cascade prompt — map children inside this group */}
       {group.isMapped &&
         memberStats.unmapped > 0 &&
@@ -1509,7 +1507,6 @@ function ItemCard({
         <span className="text-[11px] text-foreground/30 italic text-right whitespace-nowrap">
           covered by group
         </span>
-        <div />
         <div style={{ width: 50 }} />
       </div>
     );
@@ -1601,9 +1598,7 @@ function ItemCard({
           </span>
         )}
       </div>
-      {/* Col 5: Health bar (empty for model rows) */}
-      <div />
-      {/* Col 6: Skip action only (hover) */}
+      {/* Col 5: Skip action only (hover) */}
       <div
         className="flex items-center justify-end"
         style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.1s ease" }}
@@ -2031,22 +2026,7 @@ function SuperGroupCard({
             <span className="text-[11px] text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 7: Health bar */}
-        <div className="px-0.5">
-          {members.length > 0 ? (
-            <HealthBar
-              strong={superMemberStats.strong}
-              needsReview={superMemberStats.review}
-              weak={superMemberStats.weak}
-              unmapped={superMemberStats.unmapped}
-              covered={superMemberStats.covered}
-              totalModels={superMemberStats.total}
-            />
-          ) : (
-            <div />
-          )}
-        </div>
-        {/* Col 8: Skip only */}
+        {/* Col 7: Skip only */}
         <div
           className="flex items-center justify-end"
           style={{
@@ -2078,6 +2058,19 @@ function SuperGroupCard({
           </button>
         </div>
       </div>
+      {/* Health bar — sub-row below grid, aligned with name column */}
+      {members.length > 0 && (
+        <div style={{ marginLeft: 130, marginRight: 60 }} className="pb-1">
+          <HealthBar
+            strong={superMemberStats.strong}
+            needsReview={superMemberStats.review}
+            weak={superMemberStats.weak}
+            unmapped={superMemberStats.unmapped}
+            covered={superMemberStats.covered}
+            totalModels={superMemberStats.total}
+          />
+        </div>
+      )}
       {/* Expanded: show child groups (hierarchy) or direct members */}
       {isExpanded && (
         <div className="pl-5 pr-2 pb-2 pt-0.5 border-t border-purple-400/10">
