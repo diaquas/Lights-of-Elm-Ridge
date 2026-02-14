@@ -712,6 +712,9 @@ export function IndividualsPhase() {
                             group.groupItem.sourceModel.name,
                           ) ?? null
                         }
+                        scoreMap={scoreMap}
+                        autoMatchedNames={autoMatchedNames}
+                        approvedNames={approvedNames}
                         onToggle={() =>
                           toggleGroup(group.groupItem.sourceModel.name)
                         }
@@ -990,6 +993,9 @@ function XLightsGroupCard({
   matchScore,
   matchFactors,
   topSuggestion,
+  scoreMap,
+  autoMatchedNames: amNames,
+  approvedNames: apNames,
   onToggle,
   onSelect,
   onAccept,
@@ -1011,6 +1017,9 @@ function XLightsGroupCard({
     score: number;
     factors?: ModelMapping["factors"];
   } | null;
+  scoreMap?: Map<string, number>;
+  autoMatchedNames?: ReadonlySet<string>;
+  approvedNames?: ReadonlySet<string>;
   onToggle: () => void;
   onSelect: () => void;
   onAccept?: (userModelName: string) => void;
@@ -1031,6 +1040,32 @@ function XLightsGroupCard({
     !isApproved &&
     matchScore != null &&
     matchScore < STRONG_THRESHOLD;
+
+  // Compute member match confidence breakdown
+  const memberStats = useMemo(() => {
+    let strong = 0;
+    let review = 0;
+    let unmapped = 0;
+    let covered = 0;
+    for (const m of members) {
+      if (!m.isMapped) {
+        if (m.isCoveredByMappedGroup) covered++;
+        else unmapped++;
+      } else {
+        const s = scoreMap?.get(m.sourceModel.name) ?? 0;
+        const isAuto = amNames?.has(m.sourceModel.name);
+        const isAppr = apNames?.has(m.sourceModel.name);
+        if (isAuto && !isAppr && s < STRONG_THRESHOLD) review++;
+        else strong++;
+      }
+    }
+    // Count ghost members (covered by group but not in active list)
+    const ghostCount = fullMemberCount - activeMemberCount;
+    covered += ghostCount;
+    return { strong, review, unmapped, covered, total: fullMemberCount };
+  }, [members, scoreMap, amNames, apNames, fullMemberCount, activeMemberCount]);
+
+  const allHandled = memberStats.unmapped === 0 && memberStats.review === 0;
   const groupBorder =
     group.isMapped ||
     (activeMemberCount > 0 && mappedCount === activeMemberCount)
@@ -1094,23 +1129,46 @@ function XLightsGroupCard({
         <span className="text-[12px] font-semibold text-foreground/70 truncate">
           {group.sourceModel.name}
         </span>
-        <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">
-          ({fullMemberCount})
-        </span>
-        {activeMemberCount > 0 && (
-          <span className="text-[10px] text-foreground/30 flex-shrink-0">
-            &middot;{" "}
-            {mappedCount > 0 && (
-              <span className="text-green-400/60">{mappedCount}</span>
-            )}
-            {mappedCount > 0 && mappedCount < activeMemberCount && "/"}
-            {mappedCount < activeMemberCount && (
-              <span className="text-amber-400/60">
-                {activeMemberCount - mappedCount} unmapped
-              </span>
-            )}
+        {/* Member confidence breakdown — colored counts with percentages */}
+        <div
+          className={`flex items-center gap-1 flex-shrink-0 ${allHandled ? "opacity-50" : ""}`}
+        >
+          {memberStats.strong > 0 && (
+            <span
+              className={`text-[12px] font-bold tabular-nums ${allHandled ? "text-foreground/30" : "text-green-400"}`}
+              title={`${memberStats.strong} strong match${memberStats.strong !== 1 ? "es" : ""} (${Math.round((memberStats.strong / memberStats.total) * 100)}%)`}
+            >
+              {memberStats.strong}
+            </span>
+          )}
+          {memberStats.review > 0 && (
+            <span
+              className="text-[12px] font-bold tabular-nums text-amber-400"
+              title={`${memberStats.review} need${memberStats.review !== 1 ? "" : "s"} review (${Math.round((memberStats.review / memberStats.total) * 100)}%)`}
+            >
+              {memberStats.review}
+            </span>
+          )}
+          {memberStats.unmapped > 0 && (
+            <span
+              className="text-[12px] font-bold tabular-nums text-red-400/70"
+              title={`${memberStats.unmapped} unmapped (${Math.round((memberStats.unmapped / memberStats.total) * 100)}%)`}
+            >
+              {memberStats.unmapped}
+            </span>
+          )}
+          {memberStats.covered > 0 && (
+            <span
+              className="text-[11px] tabular-nums text-foreground/25"
+              title={`${memberStats.covered} covered by group (${Math.round((memberStats.covered / memberStats.total) * 100)}%)`}
+            >
+              {memberStats.covered}
+            </span>
+          )}
+          <span className="text-[9px] text-foreground/20">
+            /{memberStats.total}
           </span>
-        )}
+        </div>
         {/* Right-aligned destination / suggestion */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
@@ -1715,6 +1773,33 @@ function SuperGroupCard({
     !isApproved &&
     matchScore != null &&
     matchScore < STRONG_THRESHOLD;
+
+  // Compute member match confidence breakdown for super group
+  const superMemberStats = useMemo(() => {
+    let strong = 0;
+    let review = 0;
+    let unmapped = 0;
+    let covered = 0;
+    for (const m of members) {
+      if (!m.isMapped) {
+        if (m.isCoveredByMappedGroup) covered++;
+        else unmapped++;
+      } else {
+        const s = scoreMap.get(m.sourceModel.name) ?? 0;
+        const isAuto = autoMatchedNames.has(m.sourceModel.name);
+        const isAppr = approvedNames.has(m.sourceModel.name);
+        if (isAuto && !isAppr && s < STRONG_THRESHOLD) review++;
+        else strong++;
+      }
+    }
+    const ghostCount = totalCount - members.length;
+    covered += ghostCount;
+    return { strong, review, unmapped, covered, total: totalCount };
+  }, [members, scoreMap, autoMatchedNames, approvedNames, totalCount]);
+
+  const superAllHandled =
+    superMemberStats.unmapped === 0 && superMemberStats.review === 0;
+
   const groupBorder = group.isMapped
     ? isSuperNeedsReview
       ? "border-l-amber-400/70"
@@ -1759,9 +1844,46 @@ function SuperGroupCard({
         <span className="text-[12px] font-semibold text-foreground/70 truncate">
           {group.sourceModel.name}
         </span>
-        <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">
-          ({totalCount})
-        </span>
+        {/* Member confidence breakdown */}
+        <div
+          className={`flex items-center gap-1 flex-shrink-0 ${superAllHandled ? "opacity-50" : ""}`}
+        >
+          {superMemberStats.strong > 0 && (
+            <span
+              className={`text-[12px] font-bold tabular-nums ${superAllHandled ? "text-foreground/30" : "text-green-400"}`}
+              title={`${superMemberStats.strong} strong (${Math.round((superMemberStats.strong / superMemberStats.total) * 100)}%)`}
+            >
+              {superMemberStats.strong}
+            </span>
+          )}
+          {superMemberStats.review > 0 && (
+            <span
+              className="text-[12px] font-bold tabular-nums text-amber-400"
+              title={`${superMemberStats.review} needs review (${Math.round((superMemberStats.review / superMemberStats.total) * 100)}%)`}
+            >
+              {superMemberStats.review}
+            </span>
+          )}
+          {superMemberStats.unmapped > 0 && (
+            <span
+              className="text-[12px] font-bold tabular-nums text-red-400/70"
+              title={`${superMemberStats.unmapped} unmapped (${Math.round((superMemberStats.unmapped / superMemberStats.total) * 100)}%)`}
+            >
+              {superMemberStats.unmapped}
+            </span>
+          )}
+          {superMemberStats.covered > 0 && (
+            <span
+              className="text-[11px] tabular-nums text-foreground/25"
+              title={`${superMemberStats.covered} covered (${Math.round((superMemberStats.covered / superMemberStats.total) * 100)}%)`}
+            >
+              {superMemberStats.covered}
+            </span>
+          )}
+          <span className="text-[9px] text-foreground/20">
+            /{superMemberStats.total}
+          </span>
+        </div>
         {/* Right-aligned destination */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
@@ -1882,6 +2004,9 @@ function SuperGroupCard({
                       matchScore={scoreMap.get(childName)}
                       matchFactors={factorsMap.get(childName)}
                       topSuggestion={topSuggestionsMap.get(childName) ?? null}
+                      scoreMap={scoreMap}
+                      autoMatchedNames={autoMatchedNames}
+                      approvedNames={approvedNames}
                       onToggle={() => onToggleChild(childName)}
                       onSelect={() => onSelectChild(childName)}
                       onAccept={(userModelName) =>
