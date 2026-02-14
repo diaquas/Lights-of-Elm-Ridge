@@ -509,24 +509,7 @@ export function IndividualsPhase() {
       {/* Left: Model List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         <div className={PANEL_STYLES.header.wrapper}>
-          <h2 className={PANEL_STYLES.header.title}>
-            <svg
-              className="w-5 h-5 text-blue-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-              />
-            </svg>
-            Groups &amp; Models
-          </h2>
-          {/* Status filter pills + view toggle — own row below title */}
-          <div className="flex items-center gap-1 mt-1.5">
+          <div className="flex items-center gap-2">
             <FilterPill
               label={`All (${phaseItems.length})`}
               color="blue"
@@ -787,10 +770,10 @@ export function IndividualsPhase() {
                     <button
                       type="button"
                       onClick={() => setRegularGroupsCollapsed((v) => !v)}
-                      className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+                      className="flex items-center gap-2 w-full pt-3.5 pb-1.5 px-1 text-left group/section border-b border-border mb-1.5"
                     >
                       <svg
-                        className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${regularGroupsCollapsed ? "" : "rotate-90"}`}
+                        className={`w-3 h-3 text-green-400/60 transition-transform duration-150 ${regularGroupsCollapsed ? "" : "rotate-90"}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -802,10 +785,10 @@ export function IndividualsPhase() {
                           d="M9 5l7 7-7 7"
                         />
                       </svg>
-                      <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
-                        Regular Groups
+                      <span className="text-[10px] font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
+                        Groups &amp; Models
                       </span>
-                      <span className="text-[10px] text-foreground/30">
+                      <span className="text-[10px] text-foreground/30 font-mono">
                         ({itemsSplit.regularGroups.length})
                       </span>
                       <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
@@ -829,10 +812,10 @@ export function IndividualsPhase() {
                     <button
                       type="button"
                       onClick={() => setUngroupedCollapsed((v) => !v)}
-                      className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+                      className="flex items-center gap-2 w-full pt-3.5 pb-1.5 px-1 text-left group/section border-b border-border mb-1.5"
                     >
                       <svg
-                        className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${ungroupedCollapsed ? "" : "rotate-90"}`}
+                        className={`w-3 h-3 text-green-400/60 transition-transform duration-150 ${ungroupedCollapsed ? "" : "rotate-90"}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -844,10 +827,10 @@ export function IndividualsPhase() {
                           d="M9 5l7 7-7 7"
                         />
                       </svg>
-                      <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
+                      <span className="text-[10px] font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
                         Ungrouped
                       </span>
-                      <span className="text-[10px] text-foreground/30">
+                      <span className="text-[10px] text-foreground/30 font-mono">
                         ({itemsSplit.ungrouped.length})
                       </span>
                       <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
@@ -919,6 +902,31 @@ export function IndividualsPhase() {
               </div>
             </details>
           )}
+
+          {/* Color legend */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 mt-3 border-t border-border">
+            {[
+              { color: "bg-green-400", label: "Mapped (60%+ / manual)" },
+              { color: "bg-amber-400", label: "Review (40-59%)" },
+              { color: "bg-red-400", label: "Weak (<40%)" },
+              { color: "bg-blue-400", label: "Unmapped" },
+              {
+                color: "bg-foreground/30",
+                label: "Covered by group",
+                dim: true,
+              },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <div
+                  className={`w-2.5 h-2.5 rounded-sm ${item.color}`}
+                  style={{ opacity: "dim" in item ? 0.4 : 0.85 }}
+                />
+                <span className="text-[11px] text-foreground/40">
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -1123,6 +1131,7 @@ function XLightsGroupCard({
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [cascadeDismissed, setCascadeDismissed] = useState(false);
   const fullMemberCount = group.memberNames.length;
   const activeMemberCount = members.length;
   const groupFxCount =
@@ -1138,7 +1147,6 @@ function XLightsGroupCard({
   const leftBorder = getLeftBorderColor(groupStatus);
   const confidencePct =
     matchScore != null ? Math.round(matchScore * 100) : undefined;
-  const hasDirectModels = activeMemberCount > 0;
 
   // Compute member match confidence breakdown for health bar
   const memberStats = useMemo(() => {
@@ -1285,11 +1293,21 @@ function XLightsGroupCard({
             <span className="text-[11px] text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 7: Member count (compact) */}
-        <span className="text-[10px] text-foreground/30 tabular-nums text-center whitespace-nowrap">
-          {memberStats.strong + memberStats.review + memberStats.weak}/
-          {memberStats.total}
-        </span>
+        {/* Col 7: Health bar */}
+        <div className="px-0.5">
+          {activeMemberCount > 0 ? (
+            <HealthBar
+              strong={memberStats.strong}
+              needsReview={memberStats.review}
+              weak={memberStats.weak}
+              unmapped={memberStats.unmapped}
+              covered={memberStats.covered}
+              totalModels={memberStats.total}
+            />
+          ) : (
+            <div />
+          )}
+        </div>
         {/* Col 8: Skip only */}
         <div
           className="flex items-center justify-end"
@@ -1324,40 +1342,40 @@ function XLightsGroupCard({
           )}
         </div>
       </div>
-      {/* Row 2: Health bar summary + counts + Accept/MapChildren button */}
-      {hasDirectModels && (
-        <GroupHealthRow
-          stats={memberStats}
-          showAccept={
-            !group.isMapped && topSuggestion != null && onAccept != null
-          }
-          acceptLabel={
-            topSuggestion
-              ? `Accept: ${topSuggestion.model.name} ${Math.round(topSuggestion.score * 100)}%`
-              : undefined
-          }
-          reviewCount={memberStats.review + memberStats.weak}
-          onAccept={
-            topSuggestion && onAccept
-              ? (e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  onAccept(topSuggestion.model.name);
-                }
-              : undefined
-          }
-          showMapChildren={
-            group.isMapped && memberStats.unmapped > 0 && onMapChildren != null
-          }
-          onMapChildren={
-            onMapChildren
-              ? (e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  onMapChildren();
-                }
-              : undefined
-          }
-        />
-      )}
+      {/* Cascade prompt — map children inside this group */}
+      {group.isMapped &&
+        memberStats.unmapped > 0 &&
+        onMapChildren &&
+        !cascadeDismissed && (
+          <div className="flex items-center gap-2 py-1.5 px-3 pl-10 bg-green-500/[0.04] border-t border-green-500/10">
+            <span className="text-[11px] text-foreground/50">
+              Map {memberStats.unmapped} model
+              {memberStats.unmapped !== 1 ? "s" : ""} inside this group to
+              matching models in the source?
+            </span>
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMapChildren();
+              }}
+              className="text-[11px] font-semibold px-2.5 py-0.5 rounded border border-green-500/25 bg-green-500/8 text-green-400 hover:bg-green-500/15 transition-colors"
+            >
+              Yes, Map Models
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCascadeDismissed(true);
+              }}
+              className="text-[11px] font-medium px-2.5 py-0.5 rounded border border-border bg-transparent text-foreground/40 hover:text-foreground/60 transition-colors"
+            >
+              No thanks
+            </button>
+          </div>
+        )}
       {/* Expanded children */}
       {isExpanded && hasChildren && (
         <div className="pl-5 pr-2 pb-2 pt-0.5 border-t border-border/20">
@@ -1367,96 +1385,6 @@ function XLightsGroupCard({
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── Group Health Row (Row 2) ────────────────────────
-
-function GroupHealthRow({
-  stats,
-  showAccept,
-  acceptLabel,
-  reviewCount,
-  onAccept,
-  showMapChildren,
-  onMapChildren,
-}: {
-  stats: {
-    strong: number;
-    review: number;
-    weak: number;
-    unmapped: number;
-    covered: number;
-    total: number;
-  };
-  showAccept: boolean;
-  acceptLabel?: string;
-  reviewCount: number;
-  onAccept?: (e: React.MouseEvent) => void;
-  showMapChildren?: boolean;
-  onMapChildren?: (e: React.MouseEvent) => void;
-}) {
-  const mapped = stats.strong;
-  const allCovered =
-    stats.covered === stats.total && stats.strong === 0 && stats.unmapped === 0;
-
-  // Build compact summary text
-  const parts: string[] = [];
-  if (allCovered) {
-    parts.push(`${stats.covered} covered by group`);
-  } else {
-    parts.push(`${mapped}/${stats.total} mapped`);
-    if (stats.review + stats.weak > 0)
-      parts.push(`${stats.review + stats.weak} need review`);
-    if (stats.unmapped > 0) parts.push(`${stats.unmapped} unmapped`);
-    if (stats.covered > 0) parts.push(`${stats.covered} covered`);
-  }
-
-  return (
-    <div className="flex items-center gap-2 px-3 pb-1.5 pt-0">
-      {/* Spacer for checkbox col */}
-      <div style={{ width: 18 }} className="flex-shrink-0" />
-      {/* Health bar (wider than inline) */}
-      <div className="w-[120px] flex-shrink-0">
-        <HealthBar
-          strong={stats.strong}
-          needsReview={stats.review}
-          weak={stats.weak}
-          unmapped={stats.unmapped}
-          covered={stats.covered}
-          totalModels={stats.total}
-        />
-      </div>
-      {/* Count summary */}
-      <span className="text-[11px] text-foreground/40 whitespace-nowrap">
-        {parts.join(" · ")}
-      </span>
-      {/* Accept Match / Map Children buttons */}
-      <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-        {showMapChildren && onMapChildren && (
-          <button
-            type="button"
-            onClick={onMapChildren}
-            className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors whitespace-nowrap"
-          >
-            Map Children
-          </button>
-        )}
-        {showAccept && onAccept && (
-          <button
-            type="button"
-            onClick={onAccept}
-            className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors whitespace-nowrap"
-          >
-            {reviewCount > 0
-              ? `Accept ${reviewCount} Matches`
-              : acceptLabel
-                ? `Accept: ${acceptLabel}`
-                : "Accept Match"}
-          </button>
-        )}
-      </div>
     </div>
   );
 }
@@ -1775,10 +1703,10 @@ function SuperGroupSection({
       <button
         type="button"
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-2 px-1 py-1.5 text-left group"
+        className="w-full flex items-center gap-2 px-1 pt-3.5 pb-1.5 text-left group border-b border-border mb-1.5"
       >
         <svg
-          className={`w-3 h-3 text-purple-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`}
+          className={`w-3 h-3 text-green-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -1790,21 +1718,16 @@ function SuperGroupSection({
             d="M9 5l7 7-7 7"
           />
         </svg>
-        <span className="text-[11px] font-bold text-purple-400/80 uppercase tracking-wider">
+        <span className="text-[10px] font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
           Display-Wide Groups
         </span>
-        <span className="text-[10px] text-purple-400/50">
+        <span className="text-[10px] text-foreground/30 font-mono">
           ({superGroups.length})
         </span>
       </button>
 
       {!collapsed && (
         <>
-          <p className="text-[10px] text-foreground/30 px-1 pb-2 leading-relaxed">
-            These groups span your entire display or large sections. Mapping
-            here applies broad effects that layer on top of individual
-            group/model mappings.
-          </p>
           <div className="space-y-1">
             {superGroups.map((group) => {
               // Show nested child groups inside super groups
@@ -2099,13 +2022,21 @@ function SuperGroupCard({
             <span className="text-[11px] text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 7: Member count (compact) */}
-        <span className="text-[10px] text-foreground/30 tabular-nums text-center whitespace-nowrap">
-          {superMemberStats.strong +
-            superMemberStats.review +
-            superMemberStats.weak}
-          /{superMemberStats.total}
-        </span>
+        {/* Col 7: Health bar */}
+        <div className="px-0.5">
+          {members.length > 0 ? (
+            <HealthBar
+              strong={superMemberStats.strong}
+              needsReview={superMemberStats.review}
+              weak={superMemberStats.weak}
+              unmapped={superMemberStats.unmapped}
+              covered={superMemberStats.covered}
+              totalModels={superMemberStats.total}
+            />
+          ) : (
+            <div />
+          )}
+        </div>
         {/* Col 8: Skip only */}
         <div
           className="flex items-center justify-end"
@@ -2138,26 +2069,6 @@ function SuperGroupCard({
           </button>
         </div>
       </div>
-      {/* Row 2: Health bar summary + counts */}
-      <GroupHealthRow
-        stats={superMemberStats}
-        showAccept={!group.isMapped && topSuggestion != null}
-        acceptLabel={
-          topSuggestion
-            ? `Accept: ${topSuggestion.model.name} ${Math.round(topSuggestion.score * 100)}%`
-            : undefined
-        }
-        reviewCount={superMemberStats.review + superMemberStats.weak}
-        onAccept={
-          topSuggestion
-            ? (e: React.MouseEvent) => {
-                e.stopPropagation();
-                onAccept(topSuggestion.model.name);
-              }
-            : undefined
-        }
-      />
-
       {/* Expanded: show child groups (hierarchy) or direct members */}
       {isExpanded && (
         <div className="pl-5 pr-2 pb-2 pt-0.5 border-t border-purple-400/10">
