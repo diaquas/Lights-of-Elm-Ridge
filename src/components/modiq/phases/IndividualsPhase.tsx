@@ -295,12 +295,8 @@ export function IndividualsPhase() {
         }
       }
 
+      // Preserve insertion order (which comes from filtered/sorted items)
       const groups = order.map((name) => groupMap.get(name)!);
-      groups.sort((a, b) =>
-        a.groupItem.sourceModel.name.localeCompare(
-          b.groupItem.sourceModel.name,
-        ),
-      );
       return { groups, ungrouped };
     },
     [sourceGroupMap],
@@ -311,11 +307,35 @@ export function IndividualsPhase() {
     // Separate super groups from regular groups
     const superGroups = split.groups.filter((g) => g.groupItem.isSuperGroup);
     const regularGroups = split.groups.filter((g) => !g.groupItem.isSuperGroup);
-    return { superGroups, regularGroups, ungrouped: split.ungrouped };
-  }, [filteredItems, splitByXLightsGroup]);
+
+    // Sort groups by the same sort key as the main list
+    const sortGroups = (groups: XLightsGroup[]) => {
+      const sorted = sortItems(
+        groups.map((g) => g.groupItem),
+        sortBy,
+        topSuggestionsMap,
+      );
+      const orderMap = new Map(
+        sorted.map((item, i) => [item.sourceModel.name, i]),
+      );
+      return [...groups].sort(
+        (a, b) =>
+          (orderMap.get(a.groupItem.sourceModel.name) ?? 0) -
+          (orderMap.get(b.groupItem.sourceModel.name) ?? 0),
+      );
+    };
+
+    return {
+      superGroups: sortGroups(superGroups),
+      regularGroups: sortGroups(regularGroups),
+      ungrouped: split.ungrouped,
+    };
+  }, [filteredItems, splitByXLightsGroup, sortBy, topSuggestionsMap]);
 
   // Expand/collapse state for xLights groups
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [regularGroupsCollapsed, setRegularGroupsCollapsed] = useState(false);
+  const [ungroupedCollapsed, setUngroupedCollapsed] = useState(false);
   const toggleGroup = useCallback((groupName: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
@@ -630,46 +650,135 @@ export function IndividualsPhase() {
               />
             )}
 
-            {/* Regular xLights Groups with child models */}
-            {itemsSplit.regularGroups.map((group) => (
-              <XLightsGroupCard
-                key={group.groupItem.sourceModel.name}
-                group={group.groupItem}
-                members={group.members}
-                isExpanded={expandedGroups.has(
-                  group.groupItem.sourceModel.name,
+            {/* Regular xLights Groups section */}
+            {itemsSplit.regularGroups.length > 0 && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setRegularGroupsCollapsed((v) => !v)}
+                  className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+                >
+                  <svg
+                    className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${regularGroupsCollapsed ? "" : "rotate-90"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                  <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
+                    Regular Groups
+                  </span>
+                  <span className="text-[10px] text-foreground/30">
+                    ({itemsSplit.regularGroups.length})
+                  </span>
+                  <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
+                    xLights model groups &mdash; matched as a unit with their
+                    member models
+                  </span>
+                </button>
+                {!regularGroupsCollapsed && (
+                  <div className="space-y-1 mt-1">
+                    {itemsSplit.regularGroups.map((group) => (
+                      <XLightsGroupCard
+                        key={group.groupItem.sourceModel.name}
+                        group={group.groupItem}
+                        members={group.members}
+                        isExpanded={expandedGroups.has(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        isSelected={
+                          selectedItemId === group.groupItem.sourceModel.name
+                        }
+                        isAutoMatched={autoMatchedNames.has(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        isApproved={approvedNames.has(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        matchScore={scoreMap.get(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        matchFactors={factorsMap.get(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        topSuggestion={
+                          topSuggestionsMap.get(
+                            group.groupItem.sourceModel.name,
+                          ) ?? null
+                        }
+                        onToggle={() =>
+                          toggleGroup(group.groupItem.sourceModel.name)
+                        }
+                        onSelect={() =>
+                          setSelectedItemId(group.groupItem.sourceModel.name)
+                        }
+                        onAccept={(userModelName) =>
+                          handleAccept(
+                            group.groupItem.sourceModel.name,
+                            userModelName,
+                          )
+                        }
+                        onApprove={() =>
+                          approveAutoMatch(group.groupItem.sourceModel.name)
+                        }
+                        onSkip={() =>
+                          handleSkipFamily([group.groupItem, ...group.members])
+                        }
+                        onUnlink={() =>
+                          handleUnlink(group.groupItem.sourceModel.name)
+                        }
+                        renderItemCard={renderItemCard}
+                      />
+                    ))}
+                  </div>
                 )}
-                isSelected={selectedItemId === group.groupItem.sourceModel.name}
-                isAutoMatched={autoMatchedNames.has(
-                  group.groupItem.sourceModel.name,
-                )}
-                isApproved={approvedNames.has(group.groupItem.sourceModel.name)}
-                matchScore={scoreMap.get(group.groupItem.sourceModel.name)}
-                matchFactors={factorsMap.get(group.groupItem.sourceModel.name)}
-                topSuggestion={
-                  topSuggestionsMap.get(group.groupItem.sourceModel.name) ??
-                  null
-                }
-                onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
-                onSelect={() =>
-                  setSelectedItemId(group.groupItem.sourceModel.name)
-                }
-                onAccept={(userModelName) =>
-                  handleAccept(group.groupItem.sourceModel.name, userModelName)
-                }
-                onApprove={() =>
-                  approveAutoMatch(group.groupItem.sourceModel.name)
-                }
-                onSkip={() =>
-                  handleSkipFamily([group.groupItem, ...group.members])
-                }
-                onUnlink={() => handleUnlink(group.groupItem.sourceModel.name)}
-                renderItemCard={renderItemCard}
-              />
-            ))}
+              </div>
+            )}
 
-            {/* Ungrouped individual models */}
-            {itemsSplit.ungrouped.map((item) => renderItemCard(item))}
+            {/* Ungrouped individual models section */}
+            {itemsSplit.ungrouped.length > 0 && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setUngroupedCollapsed((v) => !v)}
+                  className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+                >
+                  <svg
+                    className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${ungroupedCollapsed ? "" : "rotate-90"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                  <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
+                    Ungrouped
+                  </span>
+                  <span className="text-[10px] text-foreground/30">
+                    ({itemsSplit.ungrouped.length})
+                  </span>
+                  <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
+                    Models not assigned to any xLights group
+                  </span>
+                </button>
+                {!ungroupedCollapsed && (
+                  <div className="space-y-1 mt-1">
+                    {itemsSplit.ungrouped.map((item) => renderItemCard(item))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {filteredItems.length === 0 && (
               <p className="py-6 text-center text-[12px] text-foreground/30">
