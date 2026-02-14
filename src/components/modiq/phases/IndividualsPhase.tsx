@@ -1178,21 +1178,11 @@ function XLightsGroupCard({
             <span className="text-[11px] text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 7: Health bar */}
-        <div className="px-0.5">
-          {hasDirectModels ? (
-            <HealthBar
-              strong={memberStats.strong}
-              needsReview={memberStats.review}
-              weak={memberStats.weak}
-              unmapped={memberStats.unmapped}
-              covered={memberStats.covered}
-              totalModels={memberStats.total}
-            />
-          ) : (
-            <div />
-          )}
-        </div>
+        {/* Col 7: Member count (compact) */}
+        <span className="text-[10px] text-foreground/30 tabular-nums text-center whitespace-nowrap">
+          {memberStats.strong + memberStats.review + memberStats.weak}/
+          {memberStats.total}
+        </span>
         {/* Col 8: Actions */}
         <div
           className="flex gap-0.5 items-center justify-end"
@@ -1240,6 +1230,29 @@ function XLightsGroupCard({
           )}
         </div>
       </div>
+      {/* Row 2: Health bar summary + counts + Accept button */}
+      {hasDirectModels && (
+        <GroupHealthRow
+          stats={memberStats}
+          showAccept={
+            !group.isMapped && topSuggestion != null && onAccept != null
+          }
+          acceptLabel={
+            topSuggestion
+              ? `Accept: ${topSuggestion.model.name} ${Math.round(topSuggestion.score * 100)}%`
+              : undefined
+          }
+          reviewCount={memberStats.review + memberStats.weak}
+          onAccept={
+            topSuggestion && onAccept
+              ? (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onAccept(topSuggestion.model.name);
+                }
+              : undefined
+          }
+        />
+      )}
       {/* Expanded children */}
       {isExpanded && hasChildren && (
         <div className="pl-5 pr-2 pb-2 pt-0.5 border-t border-border/20">
@@ -1249,6 +1262,83 @@ function XLightsGroupCard({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Group Health Row (Row 2) ────────────────────────
+
+function GroupHealthRow({
+  stats,
+  showAccept,
+  acceptLabel,
+  reviewCount,
+  onAccept,
+}: {
+  stats: {
+    strong: number;
+    review: number;
+    weak: number;
+    unmapped: number;
+    covered: number;
+    total: number;
+  };
+  showAccept: boolean;
+  acceptLabel?: string;
+  reviewCount: number;
+  onAccept?: (e: React.MouseEvent) => void;
+}) {
+  const mapped = stats.strong;
+  const allCovered =
+    stats.covered === stats.total && stats.strong === 0 && stats.unmapped === 0;
+
+  // Build compact summary text
+  const parts: string[] = [];
+  if (allCovered) {
+    parts.push(`${stats.covered} covered by group`);
+  } else {
+    parts.push(`${mapped}/${stats.total} mapped`);
+    if (stats.review + stats.weak > 0)
+      parts.push(`${stats.review + stats.weak} need review`);
+    if (stats.unmapped > 0) parts.push(`${stats.unmapped} unmapped`);
+    if (stats.covered > 0) parts.push(`${stats.covered} covered`);
+  }
+
+  return (
+    <div className="flex items-center gap-2 px-3 pb-1.5 pt-0">
+      {/* Spacer for checkbox col */}
+      <div style={{ width: 18 }} className="flex-shrink-0" />
+      {/* Health bar (wider than inline) */}
+      <div className="w-[120px] flex-shrink-0">
+        <HealthBar
+          strong={stats.strong}
+          needsReview={stats.review}
+          weak={stats.weak}
+          unmapped={stats.unmapped}
+          covered={stats.covered}
+          totalModels={stats.total}
+        />
+      </div>
+      {/* Count summary */}
+      <span className="text-[11px] text-foreground/40 whitespace-nowrap">
+        {parts.join(" · ")}
+      </span>
+      {/* Accept Match button */}
+      <div className="ml-auto flex-shrink-0">
+        {showAccept && onAccept && (
+          <button
+            type="button"
+            onClick={onAccept}
+            className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors whitespace-nowrap"
+          >
+            {reviewCount > 0
+              ? `Accept ${reviewCount} Matches`
+              : acceptLabel
+                ? `Accept: ${acceptLabel}`
+                : "Accept Match"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1869,17 +1959,13 @@ function SuperGroupCard({
             <span className="text-[11px] text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 7: Health bar */}
-        <div className="px-0.5">
-          <HealthBar
-            strong={superMemberStats.strong}
-            needsReview={superMemberStats.review}
-            weak={superMemberStats.weak}
-            unmapped={superMemberStats.unmapped}
-            covered={superMemberStats.covered}
-            totalModels={superMemberStats.total}
-          />
-        </div>
+        {/* Col 7: Member count (compact) */}
+        <span className="text-[10px] text-foreground/30 tabular-nums text-center whitespace-nowrap">
+          {superMemberStats.strong +
+            superMemberStats.review +
+            superMemberStats.weak}
+          /{superMemberStats.total}
+        </span>
         {/* Col 8: Actions */}
         <div
           className="flex gap-0.5 items-center justify-end"
@@ -1925,6 +2011,25 @@ function SuperGroupCard({
           </button>
         </div>
       </div>
+      {/* Row 2: Health bar summary + counts */}
+      <GroupHealthRow
+        stats={superMemberStats}
+        showAccept={!group.isMapped && topSuggestion != null}
+        acceptLabel={
+          topSuggestion
+            ? `Accept: ${topSuggestion.model.name} ${Math.round(topSuggestion.score * 100)}%`
+            : undefined
+        }
+        reviewCount={superMemberStats.review + superMemberStats.weak}
+        onAccept={
+          topSuggestion
+            ? (e: React.MouseEvent) => {
+                e.stopPropagation();
+                onAccept(topSuggestion.model.name);
+              }
+            : undefined
+        }
+      />
 
       {/* Expanded: show child groups (hierarchy) or direct members */}
       {isExpanded && (
