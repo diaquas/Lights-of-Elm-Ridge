@@ -41,7 +41,6 @@ type StatusFilter =
 export function SpinnersPhase() {
   const {
     phaseItems,
-    goToNextPhase,
     interactive,
     autoMatchedNames,
     approvedNames,

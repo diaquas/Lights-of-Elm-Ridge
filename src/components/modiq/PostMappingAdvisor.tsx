@@ -86,7 +86,7 @@ export default memo(function PostMappingAdvisor({
           {insights.map((insight, i) => (
             <div
               key={i}
-              className="flex gap-2 p-2.5 bg-[#111] rounded"
+              className="flex gap-2 p-2.5 bg-background rounded"
             >
               <span className={`text-sm shrink-0 ${insight.iconColor}`}>
                 {insight.icon}

@@ -15,30 +15,34 @@ export function useKeyboardShortcuts(config: KeyboardShortcutConfig): void {
     if (!config.enabled) return;
 
     const handler = (e: KeyboardEvent) => {
-      // Skip if user is typing in an input/textarea
+      // Skip if user is typing in an input/textarea/contenteditable
       if (
         e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable)
       ) {
         return;
       }
 
-      if (e.key === "Tab" && !e.shiftKey) {
+      // Alt+N: next item (replaces Tab hijacking to preserve standard keyboard navigation)
+      if (e.key === "n" && e.altKey) {
         e.preventDefault();
         config.onTab();
       }
 
-      if (e.key === "Enter") {
+      // Alt+Enter: accept/confirm mapping
+      if (e.key === "Enter" && e.altKey) {
         e.preventDefault();
         config.onEnter();
       }
 
-      if (e.key === "s" || e.key === "S") {
-        if (!e.ctrlKey && !e.metaKey) {
-          config.onSkip();
-        }
+      // Alt+S: skip current item
+      if ((e.key === "s" || e.key === "S") && e.altKey) {
+        e.preventDefault();
+        config.onSkip();
       }
 
+      // Ctrl/Cmd+Z: undo (unchanged)
       if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         config.onUndo();

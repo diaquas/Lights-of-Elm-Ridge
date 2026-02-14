@@ -60,8 +60,11 @@ export function ConfidenceBadge({
           ${SIZE_CLASSES[size]} ${TIER_CLASSES[tier]}
           ${reasoning ? "cursor-help" : ""}
         `}
+        tabIndex={reasoning ? 0 : undefined}
         onMouseEnter={() => reasoning && setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
+        onFocus={() => reasoning && setShowTooltip(true)}
+        onBlur={() => setShowTooltip(false)}
       >
         {tier === "high" && (
           <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">

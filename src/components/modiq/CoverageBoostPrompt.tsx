@@ -133,6 +133,9 @@ export default memo(function CoverageBoostPrompt({
       <div
         ref={dialogRef}
         tabIndex={-1}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="coverage-boost-title"
         onClick={(e) => e.stopPropagation()}
         className="bg-surface border border-border rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col outline-none"
         style={{ willChange: "transform" }}

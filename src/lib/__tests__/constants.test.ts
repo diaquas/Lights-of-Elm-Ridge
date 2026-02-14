@@ -62,8 +62,8 @@ describe('Constants', () => {
   });
 
   describe('CURRENT_YEAR', () => {
-    it('is set to 2026', () => {
-      expect(CURRENT_YEAR).toBe(2026);
+    it('matches the current year', () => {
+      expect(CURRENT_YEAR).toBe(new Date().getFullYear());
     });
   });
 
