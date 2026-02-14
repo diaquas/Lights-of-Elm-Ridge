@@ -121,6 +121,11 @@ const PILL_COLORS = {
     inactive:
       "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5",
   },
+  purple: {
+    active: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    inactive:
+      "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5",
+  },
 } as const;
 
 export function FilterPill({

@@ -42,7 +42,10 @@ type StatusFilter =
   | "unmapped"
   | "auto-strong"
   | "auto-review"
-  | "mapped";
+  | "mapped"
+  | "display-wide";
+
+type ViewMode = "hierarchy" | "flat";
 
 export function IndividualsPhase() {
   const {
@@ -106,6 +109,15 @@ export function IndividualsPhase() {
   const hasSuperGroups = useMemo(
     () => phaseItems.some((i) => i.isSuperGroup),
     [phaseItems],
+  );
+  const superGroupCount = useMemo(
+    () => phaseItems.filter((i) => i.isSuperGroup).length,
+    [phaseItems],
+  );
+
+  // View mode: hierarchy (default when super groups exist) vs flat
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    hasSuperGroups ? "hierarchy" : "flat",
   );
 
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
@@ -180,6 +192,8 @@ export function IndividualsPhase() {
     // Banner filter overrides status filter when active
     const activeFilter = bannerFilter ?? statusFilter;
     if (activeFilter === "unmapped") items = items.filter((i) => !i.isMapped);
+    else if (activeFilter === "display-wide")
+      items = items.filter((i) => i.isSuperGroup);
     else if (activeFilter === "auto-strong")
       items = items.filter(
         (i) =>
@@ -419,6 +433,49 @@ export function IndividualsPhase() {
     }
   };
 
+  const renderGroupCard = (group: {
+    groupItem: SourceLayerMapping;
+    members: SourceLayerMapping[];
+  }) => (
+    <XLightsGroupCard
+      key={group.groupItem.sourceModel.name}
+      group={group.groupItem}
+      members={group.members}
+      isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
+      isSelected={selectedItemId === group.groupItem.sourceModel.name}
+      isAutoMatched={autoMatchedNames.has(group.groupItem.sourceModel.name)}
+      isApproved={approvedNames.has(group.groupItem.sourceModel.name)}
+      matchScore={scoreMap.get(group.groupItem.sourceModel.name)}
+      matchFactors={factorsMap.get(group.groupItem.sourceModel.name)}
+      topSuggestion={
+        topSuggestionsMap.get(group.groupItem.sourceModel.name) ?? null
+      }
+      scoreMap={scoreMap}
+      autoMatchedNames={autoMatchedNames}
+      approvedNames={approvedNames}
+      onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
+      onSelect={() => setSelectedItemId(group.groupItem.sourceModel.name)}
+      onAccept={(userModelName) =>
+        handleAccept(group.groupItem.sourceModel.name, userModelName)
+      }
+      onApprove={() => approveAutoMatch(group.groupItem.sourceModel.name)}
+      onSkip={() => handleSkipFamily([group.groupItem, ...group.members])}
+      onUnlink={() => handleUnlink(group.groupItem.sourceModel.name)}
+      onMapChildren={() => {
+        setExpandedGroups((prev) => {
+          const next = new Set(prev);
+          next.add(group.groupItem.sourceModel.name);
+          return next;
+        });
+        const firstUnmapped = group.members.find((m) => !m.isMapped);
+        if (firstUnmapped) {
+          setSelectedItemId(firstUnmapped.sourceModel.name);
+        }
+      }}
+      renderItemCard={renderItemCard}
+    />
+  );
+
   const renderItemCard = (item: SourceLayerMapping) => (
     <ItemCardMemo
       key={item.sourceModel.name}
@@ -468,7 +525,7 @@ export function IndividualsPhase() {
             </svg>
             Groups &amp; Models
           </h2>
-          {/* Status filter pills — own row below title */}
+          {/* Status filter pills + view toggle — own row below title */}
           <div className="flex items-center gap-1 mt-1.5">
             <FilterPill
               label={`All (${phaseItems.length})`}
@@ -480,6 +537,18 @@ export function IndividualsPhase() {
                 setSortVersion((v) => v + 1);
               }}
             />
+            {hasSuperGroups && (
+              <FilterPill
+                label={`Display-Wide (${superGroupCount})`}
+                color="purple"
+                active={statusFilter === "display-wide" && !bannerFilter}
+                onClick={() => {
+                  setBannerFilter(null);
+                  setStatusFilter("display-wide");
+                  setSortVersion((v) => v + 1);
+                }}
+              />
+            )}
             <FilterPill
               label={`Mapped (${mappedCount})`}
               color="green"
@@ -500,6 +569,59 @@ export function IndividualsPhase() {
                 setSortVersion((v) => v + 1);
               }}
             />
+            {/* View toggle: Hierarchy / Flat */}
+            {hasSuperGroups && (
+              <div className="ml-auto flex items-center gap-0.5 bg-foreground/5 rounded-md p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("hierarchy")}
+                  className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${
+                    viewMode === "hierarchy"
+                      ? "bg-background text-foreground/70 shadow-sm font-medium"
+                      : "text-foreground/30 hover:text-foreground/50"
+                  }`}
+                  title="Hierarchy view — grouped by super groups"
+                >
+                  <svg
+                    className="w-3 h-3 inline -mt-px mr-0.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 3v18M4 8h16M7 13h10" />
+                  </svg>
+                  Tree
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("flat")}
+                  className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${
+                    viewMode === "flat"
+                      ? "bg-background text-foreground/70 shadow-sm font-medium"
+                      : "text-foreground/30 hover:text-foreground/50"
+                  }`}
+                  title="Flat view — all groups as peers"
+                >
+                  <svg
+                    className="w-3 h-3 inline -mt-px mr-0.5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                  </svg>
+                  Flat
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -634,173 +756,122 @@ export function IndividualsPhase() {
             </div>
           )}
           <div className="px-4 pb-3 space-y-1">
-            {/* Display-Wide Groups section */}
-            {itemsSplit.superGroups.length > 0 && (
-              <SuperGroupSection
-                superGroups={itemsSplit.superGroups}
-                expandedGroups={expandedGroups}
-                selectedItemId={selectedItemId}
-                autoMatchedNames={autoMatchedNames}
-                approvedNames={approvedNames}
-                scoreMap={scoreMap}
-                factorsMap={factorsMap}
-                topSuggestionsMap={topSuggestionsMap}
-                onToggle={toggleGroup}
-                onSelect={setSelectedItemId}
-                onAccept={handleAccept}
-                onApprove={approveAutoMatch}
-                onSkipFamily={handleSkipFamily}
-                onUnlink={handleUnlink}
-                renderItemCard={renderItemCard}
-                phaseItemsByName={phaseItemsByName}
-              />
-            )}
+            {viewMode === "hierarchy" ? (
+              /* ── HIERARCHY VIEW: super groups → regular groups → ungrouped ── */
+              <>
+                {/* Display-Wide Groups section */}
+                {itemsSplit.superGroups.length > 0 && (
+                  <SuperGroupSection
+                    superGroups={itemsSplit.superGroups}
+                    expandedGroups={expandedGroups}
+                    selectedItemId={selectedItemId}
+                    autoMatchedNames={autoMatchedNames}
+                    approvedNames={approvedNames}
+                    scoreMap={scoreMap}
+                    factorsMap={factorsMap}
+                    topSuggestionsMap={topSuggestionsMap}
+                    onToggle={toggleGroup}
+                    onSelect={setSelectedItemId}
+                    onAccept={handleAccept}
+                    onApprove={approveAutoMatch}
+                    onSkipFamily={handleSkipFamily}
+                    onUnlink={handleUnlink}
+                    renderItemCard={renderItemCard}
+                    phaseItemsByName={phaseItemsByName}
+                  />
+                )}
 
-            {/* Regular xLights Groups section */}
-            {itemsSplit.regularGroups.length > 0 && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => setRegularGroupsCollapsed((v) => !v)}
-                  className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
-                >
-                  <svg
-                    className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${regularGroupsCollapsed ? "" : "rotate-90"}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                  <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
-                    Regular Groups
-                  </span>
-                  <span className="text-[10px] text-foreground/30">
-                    ({itemsSplit.regularGroups.length})
-                  </span>
-                  <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
-                    xLights model groups &mdash; matched as a unit with their
-                    member models
-                  </span>
-                </button>
-                {!regularGroupsCollapsed && (
-                  <div className="space-y-1 mt-1">
-                    {itemsSplit.regularGroups.map((group) => (
-                      <XLightsGroupCard
-                        key={group.groupItem.sourceModel.name}
-                        group={group.groupItem}
-                        members={group.members}
-                        isExpanded={expandedGroups.has(
-                          group.groupItem.sourceModel.name,
+                {/* Regular xLights Groups section */}
+                {itemsSplit.regularGroups.length > 0 && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setRegularGroupsCollapsed((v) => !v)}
+                      className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+                    >
+                      <svg
+                        className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${regularGroupsCollapsed ? "" : "rotate-90"}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                      <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
+                        Regular Groups
+                      </span>
+                      <span className="text-[10px] text-foreground/30">
+                        ({itemsSplit.regularGroups.length})
+                      </span>
+                      <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
+                        xLights model groups &mdash; matched as a unit with
+                        their member models
+                      </span>
+                    </button>
+                    {!regularGroupsCollapsed && (
+                      <div className="space-y-1 mt-1">
+                        {itemsSplit.regularGroups.map((group) =>
+                          renderGroupCard(group),
                         )}
-                        isSelected={
-                          selectedItemId === group.groupItem.sourceModel.name
-                        }
-                        isAutoMatched={autoMatchedNames.has(
-                          group.groupItem.sourceModel.name,
-                        )}
-                        isApproved={approvedNames.has(
-                          group.groupItem.sourceModel.name,
-                        )}
-                        matchScore={scoreMap.get(
-                          group.groupItem.sourceModel.name,
-                        )}
-                        matchFactors={factorsMap.get(
-                          group.groupItem.sourceModel.name,
-                        )}
-                        topSuggestion={
-                          topSuggestionsMap.get(
-                            group.groupItem.sourceModel.name,
-                          ) ?? null
-                        }
-                        scoreMap={scoreMap}
-                        autoMatchedNames={autoMatchedNames}
-                        approvedNames={approvedNames}
-                        onToggle={() =>
-                          toggleGroup(group.groupItem.sourceModel.name)
-                        }
-                        onSelect={() =>
-                          setSelectedItemId(group.groupItem.sourceModel.name)
-                        }
-                        onAccept={(userModelName) =>
-                          handleAccept(
-                            group.groupItem.sourceModel.name,
-                            userModelName,
-                          )
-                        }
-                        onApprove={() =>
-                          approveAutoMatch(group.groupItem.sourceModel.name)
-                        }
-                        onSkip={() =>
-                          handleSkipFamily([group.groupItem, ...group.members])
-                        }
-                        onUnlink={() =>
-                          handleUnlink(group.groupItem.sourceModel.name)
-                        }
-                        onMapChildren={() => {
-                          // Expand the group and select first unmapped child
-                          setExpandedGroups((prev) => {
-                            const next = new Set(prev);
-                            next.add(group.groupItem.sourceModel.name);
-                            return next;
-                          });
-                          const firstUnmapped = group.members.find(
-                            (m) => !m.isMapped,
-                          );
-                          if (firstUnmapped) {
-                            setSelectedItemId(firstUnmapped.sourceModel.name);
-                          }
-                        }}
-                        renderItemCard={renderItemCard}
-                      />
-                    ))}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* Ungrouped individual models section */}
-            {itemsSplit.ungrouped.length > 0 && (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  onClick={() => setUngroupedCollapsed((v) => !v)}
-                  className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
-                >
-                  <svg
-                    className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${ungroupedCollapsed ? "" : "rotate-90"}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                  <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
-                    Ungrouped
-                  </span>
-                  <span className="text-[10px] text-foreground/30">
-                    ({itemsSplit.ungrouped.length})
-                  </span>
-                  <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
-                    Models not assigned to any xLights group
-                  </span>
-                </button>
-                {!ungroupedCollapsed && (
-                  <div className="space-y-1 mt-1">
-                    {itemsSplit.ungrouped.map((item) => renderItemCard(item))}
+                {/* Ungrouped individual models section */}
+                {itemsSplit.ungrouped.length > 0 && (
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setUngroupedCollapsed((v) => !v)}
+                      className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+                    >
+                      <svg
+                        className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${ungroupedCollapsed ? "" : "rotate-90"}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5l7 7-7 7"
+                        />
+                      </svg>
+                      <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
+                        Ungrouped
+                      </span>
+                      <span className="text-[10px] text-foreground/30">
+                        ({itemsSplit.ungrouped.length})
+                      </span>
+                      <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
+                        Models not assigned to any xLights group
+                      </span>
+                    </button>
+                    {!ungroupedCollapsed && (
+                      <div className="space-y-1 mt-1">
+                        {itemsSplit.ungrouped.map((item) =>
+                          renderItemCard(item),
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
+            ) : (
+              /* ── FLAT VIEW: all groups as peers, no sections ── */
+              <>
+                {[...itemsSplit.superGroups, ...itemsSplit.regularGroups].map(
+                  (group) => renderGroupCard(group),
+                )}
+                {itemsSplit.ungrouped.map((item) => renderItemCard(item))}
+              </>
             )}
 
             {filteredItems.length === 0 && (
