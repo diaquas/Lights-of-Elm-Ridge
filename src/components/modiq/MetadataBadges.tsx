@@ -409,3 +409,284 @@ export function AutoMatchBanner({
     </div>
   );
 }
+
+// ─── CSS Grid Card Components ────────────────────────────
+
+/**
+ * Status checkbox for the first grid column (18px).
+ * Visual state varies by mapping status; clickable only for needsReview/weak.
+ */
+export type StatusCheckStatus =
+  | "approved"
+  | "strong"
+  | "manual"
+  | "needsReview"
+  | "weak"
+  | "unmapped"
+  | "covered";
+
+const STATUS_CONFIGS: Record<
+  StatusCheckStatus,
+  {
+    border: string;
+    bg: string;
+    checkColor: string;
+    opacity: number;
+    hasCheck: boolean;
+  }
+> = {
+  approved: {
+    border: "border-green-400",
+    bg: "bg-green-400",
+    checkColor: "text-white",
+    opacity: 1,
+    hasCheck: true,
+  },
+  strong: {
+    border: "border-green-400",
+    bg: "bg-green-400",
+    checkColor: "text-white",
+    opacity: 1,
+    hasCheck: true,
+  },
+  manual: {
+    border: "border-green-400",
+    bg: "bg-green-400",
+    checkColor: "text-white",
+    opacity: 1,
+    hasCheck: true,
+  },
+  needsReview: {
+    border: "border-amber-400",
+    bg: "bg-transparent",
+    checkColor: "text-amber-400",
+    opacity: 0.5,
+    hasCheck: true,
+  },
+  weak: {
+    border: "border-red-400",
+    bg: "bg-transparent",
+    checkColor: "text-red-400",
+    opacity: 0.35,
+    hasCheck: true,
+  },
+  unmapped: {
+    border: "border-blue-400",
+    bg: "bg-transparent",
+    checkColor: "",
+    opacity: 0.3,
+    hasCheck: false,
+  },
+  covered: {
+    border: "border-foreground/20",
+    bg: "bg-foreground/20",
+    checkColor: "text-foreground/40",
+    opacity: 0.25,
+    hasCheck: true,
+  },
+};
+
+export function StatusCheck({
+  status,
+  onClick,
+}: {
+  status: StatusCheckStatus;
+  onClick?: () => void;
+}) {
+  const c = STATUS_CONFIGS[status];
+  const clickable = status === "needsReview" || status === "weak";
+  const title =
+    status === "approved" || status === "strong" || status === "manual"
+      ? "Mapped"
+      : clickable
+        ? "Click to approve"
+        : status === "unmapped"
+          ? "Unmapped"
+          : "Covered by group";
+
+  return (
+    <button
+      type="button"
+      onClick={clickable ? onClick : undefined}
+      title={title}
+      className={`w-[18px] h-[18px] rounded border-2 ${c.border} ${c.bg} flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
+        clickable ? "cursor-pointer hover:opacity-80" : "cursor-default"
+      }`}
+      style={{ opacity: c.opacity }}
+    >
+      {c.hasCheck && (
+        <svg
+          className={`w-2.5 h-2.5 ${c.checkColor}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
+/**
+ * Fixed-width FX badge (always 42px) for the grid fx column.
+ * Shows "N fx" in monospace; 5+ digit counts truncate with tooltip.
+ */
+export function FxBadge({ count }: { count: number }) {
+  const display = count > 9999 ? "9.9k" : String(count);
+  const hasEffects = count > 0;
+
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-[42px] text-[10px] font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none ${
+        hasEffects
+          ? "bg-purple-500/15 text-purple-300"
+          : "bg-foreground/[0.06] text-foreground/20"
+      }`}
+      title={count > 9999 ? `${count.toLocaleString()} fx` : undefined}
+    >
+      {display} fx
+    </span>
+  );
+}
+
+/**
+ * Fixed-width type badge (always 42px) for the grid badge column.
+ * Color = hierarchy type identity only; never reflects mapping status.
+ */
+export function TypeBadge({ type }: { type: "SUPER" | "GRP" | "SUB" }) {
+  const colors = {
+    SUPER: "bg-purple-500/20 text-purple-400",
+    GRP: "bg-blue-500/20 text-blue-400",
+    SUB: "bg-teal-500/20 text-teal-400",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-[42px] text-[9px] font-bold tracking-wider py-0.5 rounded font-mono uppercase flex-shrink-0 text-center leading-none ${colors[type]}`}
+    >
+      {type}
+    </span>
+  );
+}
+
+/**
+ * 4px segmented health bar showing the composition of children inside a group.
+ * Tooltip shows breakdown + total model count.
+ */
+export function HealthBar({
+  strong = 0,
+  needsReview = 0,
+  weak = 0,
+  unmapped = 0,
+  covered = 0,
+  totalModels = 0,
+}: {
+  strong?: number;
+  needsReview?: number;
+  weak?: number;
+  unmapped?: number;
+  covered?: number;
+  totalModels?: number;
+}) {
+  const total = strong + needsReview + weak + unmapped + covered;
+  if (total === 0) return null;
+
+  const segments = [
+    { count: strong, color: "bg-green-400", label: "Mapped" },
+    { count: needsReview, color: "bg-amber-400", label: "Review (40-59%)" },
+    { count: weak, color: "bg-red-400", label: "Weak (<40%)" },
+    { count: unmapped, color: "bg-blue-400", label: "Unmapped" },
+    { count: covered, color: "bg-foreground/30", label: "Covered by group" },
+  ];
+
+  const tooltipLines = [
+    `${totalModels || total} models total`,
+    ...segments.filter((s) => s.count > 0).map((s) => `${s.count} ${s.label}`),
+  ];
+
+  return (
+    <div
+      className="flex w-full h-1 rounded-sm overflow-hidden gap-px bg-foreground/10 cursor-help"
+      title={tooltipLines.join("\n")}
+    >
+      {segments.map((seg, i) =>
+        seg.count > 0 ? (
+          <div
+            key={i}
+            className={`${seg.color}`}
+            style={{
+              width: `${(seg.count / total) * 100}%`,
+              opacity: seg.label === "Covered by group" ? 0.4 : 0.85,
+            }}
+          />
+        ) : null,
+      )}
+    </div>
+  );
+}
+
+/**
+ * Destination pill — shows "→ NAME" with auto-match icon and confidence badge.
+ * Right-aligned in the destination grid column.
+ */
+export function DestinationPill({
+  name,
+  confidence,
+  autoMatched = false,
+}: {
+  name: string;
+  confidence?: number;
+  autoMatched?: boolean;
+}) {
+  const color =
+    confidence != null
+      ? confidence >= 60
+        ? "text-green-400"
+        : confidence >= 40
+          ? "text-amber-400"
+          : "text-red-400"
+      : "text-green-400";
+
+  return (
+    <div className="flex items-center gap-1 min-w-0">
+      {autoMatched && (
+        <svg
+          className={`w-2.5 h-2.5 flex-shrink-0 ${color}`}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M9 17H7A5 5 0 017 7h2" />
+          <path d="M15 7h2a5 5 0 010 10h-2" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+        </svg>
+      )}
+      <span
+        className={`text-[12px] font-medium truncate ${color}`}
+        title={name}
+      >
+        &rarr; {name}
+      </span>
+      {confidence != null && (
+        <span
+          className={`text-[10px] font-semibold font-mono tabular-nums px-1 py-px rounded flex-shrink-0 ${
+            confidence >= 60
+              ? "bg-green-900/40 text-green-400"
+              : confidence >= 40
+                ? "bg-amber-900/40 text-amber-400"
+                : "bg-red-900/40 text-red-400"
+          }`}
+        >
+          {confidence}%
+        </span>
+      )}
+    </div>
+  );
+}

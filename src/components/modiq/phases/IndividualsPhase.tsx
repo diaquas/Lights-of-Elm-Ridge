@@ -6,24 +6,30 @@ import {
   useMappingPhase,
   findNextUnmapped,
 } from "@/contexts/MappingPhaseContext";
-import { ConfidenceBadge } from "../ConfidenceBadge";
 import { PhaseEmptyState } from "../PhaseEmptyState";
 import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import {
-  MetadataBadges,
-  HeroEffectBadge,
-  InlineEffectBadge,
   AutoMatchBanner,
-  Link2Badge,
   UnlinkIcon,
+  StatusCheck,
+  FxBadge,
+  TypeBadge,
+  HealthBar,
+  DestinationPill,
+  type StatusCheckStatus,
 } from "../MetadataBadges";
-import { STRONG_THRESHOLD } from "@/types/mappingPhases";
+import { STRONG_THRESHOLD, WEAK_THRESHOLD } from "@/types/mappingPhases";
 import type { ModelMapping } from "@/lib/modiq/matcher";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
-import { PANEL_STYLES, TYPE_BADGE_COLORS } from "../panelStyles";
+import {
+  PANEL_STYLES,
+  TYPE_BADGE_COLORS,
+  GROUP_GRID,
+  MODEL_GRID,
+} from "../panelStyles";
 import {
   CurrentMappingCard,
   FilterPill,
@@ -981,7 +987,7 @@ export function IndividualsPhase() {
   );
 }
 
-// ─── xLights Group Card (bordered container for model groups) ────────
+// ─── xLights Group Card — CSS Grid ────────────────────
 
 function XLightsGroupCard({
   group,
@@ -1028,23 +1034,29 @@ function XLightsGroupCard({
   onUnlink?: () => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
 }) {
-  const mappedCount = members.filter((m) => m.isMapped).length;
-  // Always show the FULL member count from the group definition, not just active members
+  const [hovered, setHovered] = useState(false);
   const fullMemberCount = group.memberNames.length;
   const activeMemberCount = members.length;
   const groupFxCount =
     group.effectCount + members.reduce((sum, m) => sum + m.effectCount, 0);
-  const isGroupNeedsReview =
-    group.isMapped &&
-    isAutoMatched &&
-    !isApproved &&
-    matchScore != null &&
-    matchScore < STRONG_THRESHOLD;
 
-  // Compute member match confidence breakdown
+  const groupStatus = getItemStatus(
+    group.isMapped,
+    false,
+    isAutoMatched,
+    isApproved ?? false,
+    matchScore,
+  );
+  const leftBorder = getLeftBorderColor(groupStatus);
+  const confidencePct =
+    matchScore != null ? Math.round(matchScore * 100) : undefined;
+  const hasDirectModels = activeMemberCount > 0;
+
+  // Compute member match confidence breakdown for health bar
   const memberStats = useMemo(() => {
     let strong = 0;
     let review = 0;
+    let weak = 0;
     let unmapped = 0;
     let covered = 0;
     for (const m of members) {
@@ -1055,32 +1067,15 @@ function XLightsGroupCard({
         const s = scoreMap?.get(m.sourceModel.name) ?? 0;
         const isAuto = amNames?.has(m.sourceModel.name);
         const isAppr = apNames?.has(m.sourceModel.name);
-        if (isAuto && !isAppr && s < STRONG_THRESHOLD) review++;
-        else strong++;
+        if (!isAuto || isAppr || s >= STRONG_THRESHOLD) strong++;
+        else if (s >= WEAK_THRESHOLD) review++;
+        else weak++;
       }
     }
-    // Count ghost members (covered by group but not in active list)
     const ghostCount = fullMemberCount - activeMemberCount;
     covered += ghostCount;
-    return { strong, review, unmapped, covered, total: fullMemberCount };
+    return { strong, review, weak, unmapped, covered, total: fullMemberCount };
   }, [members, scoreMap, amNames, apNames, fullMemberCount, activeMemberCount]);
-
-  const allHandled = memberStats.unmapped === 0 && memberStats.review === 0;
-
-  // Total pixels across group + all members
-  const totalPixels = useMemo(() => {
-    let px = group.sourceModel.pixelCount ?? 0;
-    for (const m of members) px += m.sourceModel.pixelCount ?? 0;
-    return px;
-  }, [group.sourceModel.pixelCount, members]);
-
-  const groupBorder =
-    group.isMapped ||
-    (activeMemberCount > 0 && mappedCount === activeMemberCount)
-      ? isGroupNeedsReview
-        ? "border-l-amber-400/70"
-        : "border-l-green-500/70"
-      : "border-l-amber-400/70";
 
   // Ghost members: names in the group definition but not in the active members list
   const activeMemberNames = useMemo(
@@ -1101,163 +1096,122 @@ function XLightsGroupCard({
 
   return (
     <div
-      className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}
+      className={`rounded-md overflow-hidden transition-all border-l-[3px] ${leftBorder} mb-0.5 ${
+        isSelected
+          ? "ring-1 ring-accent/20 bg-accent/5"
+          : "bg-foreground/[0.02]"
+      }`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {/* Group header: ▸ [FX] GRP  Name  (N)  ·  status  →dest  ★  ✕ */}
+      {/* Group header row — CSS Grid */}
       <div
-        className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer"
+        className="cursor-pointer"
+        style={{
+          display: "grid",
+          gridTemplateColumns: GROUP_GRID,
+          alignItems: "center",
+          padding: "6px 10px 6px 8px",
+          gap: "0 6px",
+          minHeight: 32,
+        }}
         onClick={onSelect}
       >
-        <button
-          type="button"
+        {/* Col 1: Status checkbox */}
+        <StatusCheck
+          status={groupStatus}
+          onClick={
+            groupStatus === "needsReview" || groupStatus === "weak"
+              ? () => onApprove?.()
+              : undefined
+          }
+        />
+        {/* Col 2: FX badge */}
+        <FxBadge count={groupFxCount} />
+        {/* Col 3: Chevron */}
+        <div
           onClick={(e) => {
             e.stopPropagation();
             onToggle();
           }}
-          className="flex-shrink-0 p-0.5"
+          className="flex items-center justify-center cursor-pointer"
         >
           <svg
-            className={`w-3 h-3 text-foreground/40 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            className={`w-[13px] h-[13px] text-foreground/30 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            viewBox="0 0 24 24"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
+            <polyline points="9 18 15 12 9 6" />
           </svg>
-        </button>
-        <HeroEffectBadge count={groupFxCount} />
-        <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>
-          GRP
-        </span>
-        <span className="text-[12px] font-semibold text-foreground/70 truncate">
+        </div>
+        {/* Col 4: Type badge */}
+        <TypeBadge type="GRP" />
+        {/* Col 5: Name */}
+        <span className="text-[13px] font-semibold text-foreground truncate">
           {group.sourceModel.name}
         </span>
-        {/* Member confidence breakdown — colored counts with percentages */}
-        <div
-          className={`flex items-center gap-1 flex-shrink-0 ${allHandled ? "opacity-50" : ""}`}
-        >
-          {memberStats.strong > 0 && (
-            <span
-              className={`text-[12px] font-bold tabular-nums ${allHandled ? "text-foreground/30" : "text-green-400"}`}
-              title={`${memberStats.strong} strong match${memberStats.strong !== 1 ? "es" : ""} (${Math.round((memberStats.strong / memberStats.total) * 100)}%)`}
-            >
-              {memberStats.strong}
-            </span>
-          )}
-          {memberStats.review > 0 && (
-            <span
-              className="text-[12px] font-bold tabular-nums text-amber-400"
-              title={`${memberStats.review} need${memberStats.review !== 1 ? "" : "s"} review (${Math.round((memberStats.review / memberStats.total) * 100)}%)`}
-            >
-              {memberStats.review}
-            </span>
-          )}
-          {memberStats.unmapped > 0 && (
-            <span
-              className="text-[12px] font-bold tabular-nums text-red-400/70"
-              title={`${memberStats.unmapped} unmapped (${Math.round((memberStats.unmapped / memberStats.total) * 100)}%)`}
-            >
-              {memberStats.unmapped}
-            </span>
-          )}
-          {memberStats.covered > 0 && (
-            <span
-              className="text-[11px] tabular-nums text-foreground/25"
-              title={`${memberStats.covered} covered by group (${Math.round((memberStats.covered / memberStats.total) * 100)}%)`}
-            >
-              {memberStats.covered}
-            </span>
-          )}
-          <span className="text-[9px] text-foreground/20">
-            /{memberStats.total}
-          </span>
-        </div>
-        {totalPixels > 0 && (
-          <span
-            className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0"
-            title={`${totalPixels.toLocaleString()} total pixels`}
-          >
-            {totalPixels >= 1000
-              ? `${(totalPixels / 1000).toFixed(1)}k`
-              : totalPixels}
-            px
-          </span>
-        )}
-        {/* Right-aligned destination / suggestion */}
-        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-          {group.isMapped && (
-            <>
-              <span
-                className={`inline-flex items-center gap-0.5 text-[10px] truncate max-w-[180px] ${isGroupNeedsReview ? "text-amber-400/70" : "text-green-400/70"}`}
-              >
-                {isAutoMatched && <Link2Badge />}
-                &rarr; {group.assignedUserModels[0]?.name}
-              </span>
-              {matchScore != null && matchScore > 0 && (
-                <ConfidenceBadge
-                  score={matchScore}
-                  factors={matchFactors}
-                  size="sm"
-                />
-              )}
-              {isGroupNeedsReview && onApprove && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onApprove();
-                  }}
-                  className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
-                  title="Approve this match"
-                >
-                  Approve
-                </button>
-              )}
-              {onUnlink && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUnlink();
-                  }}
-                  className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-                  title="Remove mapping (keep group)"
-                >
-                  <UnlinkIcon className="w-3 h-3" />
-                </button>
-              )}
-            </>
-          )}
-          {!group.isMapped && topSuggestion && (
-            <>
-              <span className="text-[11px] text-foreground/50 truncate max-w-[160px]">
-                {topSuggestion.model.name}
-              </span>
-              <ConfidenceBadge
-                score={topSuggestion.score}
-                factors={topSuggestion.factors}
-                size="sm"
-              />
-            </>
-          )}
-          {topSuggestion && onAccept && !group.isMapped && (
+        {/* Col 6: Destination */}
+        <div className="flex justify-end">
+          {group.isMapped ? (
+            <DestinationPill
+              name={group.assignedUserModels[0]?.name ?? ""}
+              confidence={confidencePct}
+              autoMatched={isAutoMatched}
+            />
+          ) : topSuggestion && onAccept ? (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onAccept(topSuggestion.model.name);
               }}
-              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
-              title="Accept suggested match"
+              className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
+              title={`Accept: ${topSuggestion.model.name}`}
             >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
-              </svg>
+              + Assign
+            </button>
+          ) : (
+            <span className="text-[11px] text-foreground/20">+ Assign</span>
+          )}
+        </div>
+        {/* Col 7: Health bar */}
+        <div className="px-0.5">
+          {hasDirectModels ? (
+            <HealthBar
+              strong={memberStats.strong}
+              needsReview={memberStats.review}
+              weak={memberStats.weak}
+              unmapped={memberStats.unmapped}
+              covered={memberStats.covered}
+              totalModels={memberStats.total}
+            />
+          ) : (
+            <div />
+          )}
+        </div>
+        {/* Col 8: Actions */}
+        <div
+          className="flex gap-0.5 items-center justify-end"
+          style={{
+            opacity: hovered ? 1 : 0,
+            transition: "opacity 0.1s ease",
+          }}
+        >
+          {group.isMapped && onUnlink && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnlink();
+              }}
+              className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
+              title="Remove mapping"
+            >
+              <UnlinkIcon className="w-[11px] h-[11px]" />
             </button>
           )}
           {onSkip && (
@@ -1267,44 +1221,75 @@ function XLightsGroupCard({
                 e.stopPropagation();
                 onSkip();
               }}
+              className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-red-500/15 transition-colors"
               title={`Skip group and ${fullMemberCount} members`}
-              className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
             >
               <svg
-                className="w-3 h-3"
+                className="w-[10px] h-[10px] text-foreground/30"
+                viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                viewBox="0 0 24 24"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           )}
         </div>
       </div>
-      {/* Expanded children: active members + ghost members (0 fx) */}
+      {/* Expanded children */}
       {isExpanded && hasChildren && (
-        <div className="px-3 pb-2 pl-5 space-y-1 border-t border-border/30">
-          <div className="pt-1">
-            {/* Active members (have effects, in the phase) */}
-            {members.map((item) => renderItemCard(item))}
-            {/* Ghost members (0 effects or covered by group — shown for structural clarity) */}
-            {ghostMembers.map((name) => (
-              <GhostMemberRow key={name} name={name} />
-            ))}
-          </div>
+        <div className="pl-5 pr-2 pb-2 pt-0.5 border-t border-border/20">
+          {members.map((item) => renderItemCard(item))}
+          {ghostMembers.map((name) => (
+            <GhostMemberRow key={name} name={name} />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Item Card (Left Panel) ──────────────────────────
+// ─── Status helper ───────────────────────────────────
+
+function getItemStatus(
+  isMapped: boolean,
+  isCovered: boolean | undefined,
+  isAutoMatched: boolean,
+  isApproved: boolean,
+  score: number | undefined,
+): StatusCheckStatus {
+  if (isCovered) return "covered";
+  if (!isMapped) return "unmapped";
+  if (!isAutoMatched) return "manual";
+  if (isApproved) return "approved";
+  if (score != null && score >= STRONG_THRESHOLD) return "strong";
+  if (score != null && score >= WEAK_THRESHOLD) return "needsReview";
+  if (score != null) return "weak";
+  return "manual";
+}
+
+function getLeftBorderColor(status: StatusCheckStatus): string {
+  switch (status) {
+    case "approved":
+    case "strong":
+    case "manual":
+      return "border-l-green-500/70";
+    case "needsReview":
+      return "border-l-amber-400/70";
+    case "weak":
+      return "border-l-red-400/70";
+    case "unmapped":
+      return "border-l-blue-400/40";
+    case "covered":
+      return "border-l-foreground/15";
+  }
+}
+
+// ─── Item Card (Left Panel) — CSS Grid ───────────────
 
 function ItemCard({
   item,
@@ -1347,183 +1332,156 @@ function ItemCard({
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
 }) {
-  const [confirmSkip, setConfirmSkip] = useState(false);
-  const px = item.sourceModel.pixelCount;
-  const isNeedsReview =
-    item.isMapped &&
-    isAutoMatched &&
-    !isApproved &&
-    matchScore != null &&
-    matchScore < STRONG_THRESHOLD;
-  const leftBorder = item.isMapped
-    ? isNeedsReview
-      ? "border-l-amber-400/70"
-      : "border-l-green-500/70"
-    : topSuggestion
-      ? "border-l-red-400/70"
-      : "border-l-amber-400/70";
+  const [hovered, setHovered] = useState(false);
+  const isCovered = item.isCoveredByMappedGroup && !item.isMapped;
+  const status = getItemStatus(
+    item.isMapped,
+    isCovered,
+    isAutoMatched,
+    isApproved,
+    matchScore,
+  );
+  const leftBorder = getLeftBorderColor(status);
+  const confidencePct =
+    matchScore != null ? Math.round(matchScore * 100) : undefined;
+
+  // Covered-by-group rows: dimmed, non-interactive
+  if (isCovered) {
+    return (
+      <div
+        className="rounded border-l-[3px] border-l-foreground/15 mb-px"
+        style={{
+          display: "grid",
+          gridTemplateColumns: MODEL_GRID,
+          alignItems: "center",
+          padding: "3px 10px 3px 8px",
+          gap: "0 6px",
+          minHeight: 26,
+          opacity: 0.4,
+        }}
+      >
+        <StatusCheck status="covered" />
+        <FxBadge count={item.effectCount} />
+        <span className="text-[12px] text-foreground/40 truncate">
+          {item.sourceModel.name}
+        </span>
+        <span className="text-[11px] text-foreground/30 italic text-right whitespace-nowrap">
+          covered by group
+        </span>
+        <div />
+        <div style={{ width: 50 }} />
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`
-        w-full px-3 py-1.5 rounded-lg text-left transition-all duration-200 cursor-pointer border-l-[3px] ${leftBorder}
-        ${
-          isDropTarget
-            ? "bg-accent/10 border border-accent/50 ring-2 ring-accent/30"
-            : isSelected
-              ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
-              : "bg-surface border border-border hover:border-foreground/20"
-        }
-      `}
+      className={`rounded border-l-[3px] ${leftBorder} mb-px transition-all duration-100 cursor-pointer group/row ${
+        isDropTarget
+          ? "bg-accent/10 ring-2 ring-accent/30"
+          : isSelected
+            ? "bg-accent/5 ring-1 ring-accent/20"
+            : "hover:bg-foreground/[0.02]"
+      }`}
+      style={{
+        display: "grid",
+        gridTemplateColumns: MODEL_GRID,
+        alignItems: "center",
+        padding: "3px 10px 3px 8px",
+        gap: "0 6px",
+        minHeight: 28,
+      }}
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onDragOver={onDragOver}
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <InlineEffectBadge count={item.effectCount} />
-        <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">
-          {item.sourceModel.name}
-        </span>
-        {px > 0 && (
-          <>
-            <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-            <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">
-              {px}px
-            </span>
-          </>
+      {/* Col 1: Status checkbox */}
+      <StatusCheck
+        status={status}
+        onClick={
+          status === "needsReview" || status === "weak"
+            ? () => onApprove()
+            : undefined
+        }
+      />
+      {/* Col 2: FX badge */}
+      <FxBadge count={item.effectCount} />
+      {/* Col 3: Name */}
+      <span className="text-[12px] font-medium text-foreground truncate">
+        {item.sourceModel.name}
+      </span>
+      {/* Col 4: Destination / suggestion */}
+      <div className="flex justify-end">
+        {item.isMapped ? (
+          <DestinationPill
+            name={item.assignedUserModels[0]?.name ?? ""}
+            confidence={confidencePct}
+            autoMatched={isAutoMatched}
+          />
+        ) : topSuggestion ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAccept(topSuggestion.model.name);
+            }}
+            className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
+            title={`Accept: ${topSuggestion.model.name} (${Math.round(topSuggestion.score * 100)}%)`}
+          >
+            + Assign
+          </button>
+        ) : (
+          <span className="text-[11px] text-foreground/20 whitespace-nowrap">
+            + Assign
+          </span>
         )}
-        <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-        <span className="text-[10px] text-foreground/25 flex-shrink-0">
-          {item.sourceModel.type}
-        </span>
-        {/* Right-aligned destination / suggestion */}
-        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-          {item.isMapped && (
-            <>
-              <span
-                className={`inline-flex items-center gap-0.5 text-[10px] truncate max-w-[180px] ${isNeedsReview ? "text-amber-400/70" : "text-green-400/70"}`}
-              >
-                {isAutoMatched && <Link2Badge />}
-                &rarr; {item.assignedUserModels[0]?.name}
-              </span>
-              {matchScore != null && matchScore > 0 && (
-                <ConfidenceBadge
-                  score={matchScore}
-                  factors={matchFactors}
-                  size="sm"
-                />
-              )}
-              {isNeedsReview && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onApprove();
-                  }}
-                  className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
-                  title="Approve this match"
-                >
-                  Approve
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUnlink();
-                }}
-                className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-                title="Remove mapping (keep item)"
-              >
-                <UnlinkIcon className="w-3 h-3" />
-              </button>
-            </>
-          )}
-          {!item.isMapped && topSuggestion && (
-            <>
-              <span className="text-[11px] text-foreground/50 truncate max-w-[140px]">
-                {topSuggestion.model.name}
-              </span>
-              <ConfidenceBadge
-                score={topSuggestion.score}
-                factors={topSuggestion.factors}
-                size="sm"
-              />
-            </>
-          )}
-          {!item.isMapped && topSuggestion && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAccept(topSuggestion.model.name);
-              }}
-              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
-              title="Accept suggested match"
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
-              </svg>
-            </button>
-          )}
-          {/* Skip (dismiss) button — with confirmation for mapped items */}
-          {confirmSkip ? (
-            <span className="flex items-center gap-1 flex-shrink-0">
-              <span className="text-[9px] text-red-400/70">Skip?</span>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setConfirmSkip(false);
-                  onSkip();
-                }}
-                className="px-1 py-0.5 text-[9px] font-medium text-red-400 bg-red-500/10 rounded hover:bg-red-500/20 transition-colors"
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setConfirmSkip(false);
-                }}
-                className="px-1 py-0.5 text-[9px] font-medium text-foreground/40 hover:text-foreground/60 transition-colors"
-              >
-                No
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (item.isMapped) {
-                  setConfirmSkip(true);
-                } else {
-                  onSkip();
-                }
-              }}
-              className="p-1 rounded-full hover:bg-foreground/10 text-foreground/20 hover:text-foreground/50 transition-colors"
-              title="Skip — dismiss from workflow"
-            >
-              <svg
-                className="w-3 h-3"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
+      </div>
+      {/* Col 5: Health bar (empty for model rows) */}
+      <div />
+      {/* Col 6: Actions (show on hover) */}
+      <div
+        className="flex gap-0.5 items-center justify-end"
+        style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.1s ease" }}
+      >
+        {item.isMapped && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUnlink();
+            }}
+            className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
+            title="Remove mapping"
+          >
+            <UnlinkIcon className="w-[11px] h-[11px]" />
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSkip();
+          }}
+          className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-red-500/15 transition-colors"
+          title="Skip — remove from workflow"
+        >
+          <svg
+            className="w-[10px] h-[10px] text-foreground/30"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
       </div>
     </div>
   );
@@ -1536,6 +1494,7 @@ const ItemCardMemo = memo(
     prev.item.isMapped === next.item.isMapped &&
     prev.item.effectCount === next.item.effectCount &&
     prev.item.assignedUserModels === next.item.assignedUserModels &&
+    prev.item.isCoveredByMappedGroup === next.item.isCoveredByMappedGroup &&
     prev.isSelected === next.isSelected &&
     prev.isDropTarget === next.isDropTarget &&
     prev.isAutoMatched === next.isAutoMatched &&
@@ -1783,20 +1742,29 @@ function SuperGroupCard({
   onSkipChild: (items: SourceLayerMapping[]) => void;
   onUnlinkChild: (sourceName: string) => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   const totalCount = group.memberNames.length;
   const groupFxCount =
     group.effectCount + members.reduce((sum, m) => sum + m.effectCount, 0);
-  const isSuperNeedsReview =
-    group.isMapped &&
-    isAutoMatched &&
-    !isApproved &&
-    matchScore != null &&
-    matchScore < STRONG_THRESHOLD;
 
-  // Compute member match confidence breakdown for super group
+  const superStatus = getItemStatus(
+    group.isMapped,
+    false,
+    isAutoMatched,
+    isApproved ?? false,
+    matchScore,
+  );
+  const leftBorder = group.isMapped
+    ? getLeftBorderColor(superStatus).replace("green-500", "purple-500")
+    : "border-l-purple-400/40";
+  const confidencePct =
+    matchScore != null ? Math.round(matchScore * 100) : undefined;
+
+  // Compute member stats for health bar
   const superMemberStats = useMemo(() => {
     let strong = 0;
     let review = 0;
+    let weak = 0;
     let unmapped = 0;
     let covered = 0;
     for (const m of members) {
@@ -1807,188 +1775,130 @@ function SuperGroupCard({
         const s = scoreMap.get(m.sourceModel.name) ?? 0;
         const isAuto = autoMatchedNames.has(m.sourceModel.name);
         const isAppr = approvedNames.has(m.sourceModel.name);
-        if (isAuto && !isAppr && s < STRONG_THRESHOLD) review++;
-        else strong++;
+        if (!isAuto || isAppr || s >= STRONG_THRESHOLD) strong++;
+        else if (s >= WEAK_THRESHOLD) review++;
+        else weak++;
       }
     }
     const ghostCount = totalCount - members.length;
     covered += ghostCount;
-    return { strong, review, unmapped, covered, total: totalCount };
+    return { strong, review, weak, unmapped, covered, total: totalCount };
   }, [members, scoreMap, autoMatchedNames, approvedNames, totalCount]);
-
-  const superAllHandled =
-    superMemberStats.unmapped === 0 && superMemberStats.review === 0;
-
-  // Total pixels across super group + all members
-  const superTotalPixels = useMemo(() => {
-    let px = group.sourceModel.pixelCount ?? 0;
-    for (const m of members) px += m.sourceModel.pixelCount ?? 0;
-    return px;
-  }, [group.sourceModel.pixelCount, members]);
-
-  const groupBorder = group.isMapped
-    ? isSuperNeedsReview
-      ? "border-l-amber-400/70"
-      : "border-l-purple-500/70"
-    : "border-l-purple-400/40";
 
   return (
     <div
-      className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-purple-500/[0.03]"}`}
+      className={`rounded-md overflow-hidden transition-all border-l-[3px] ${leftBorder} mb-0.5 ${
+        isSelected
+          ? "ring-1 ring-accent/20 bg-accent/5"
+          : "bg-purple-500/[0.03]"
+      }`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      {/* Super group header */}
+      {/* Super group header row — CSS Grid */}
       <div
-        className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer"
+        className="cursor-pointer"
+        style={{
+          display: "grid",
+          gridTemplateColumns: GROUP_GRID,
+          alignItems: "center",
+          padding: "6px 10px 6px 8px",
+          gap: "0 6px",
+          minHeight: 32,
+        }}
         onClick={onSelect}
       >
-        <button
-          type="button"
+        {/* Col 1: Status checkbox */}
+        <StatusCheck
+          status={superStatus}
+          onClick={
+            superStatus === "needsReview" || superStatus === "weak"
+              ? () => onApprove()
+              : undefined
+          }
+        />
+        {/* Col 2: FX badge */}
+        <FxBadge count={groupFxCount} />
+        {/* Col 3: Chevron */}
+        <div
           onClick={(e) => {
             e.stopPropagation();
             onToggle();
           }}
-          className="flex-shrink-0 p-0.5"
+          className="flex items-center justify-center cursor-pointer"
         >
           <svg
-            className={`w-3 h-3 text-purple-400/60 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            className={`w-[13px] h-[13px] text-purple-400/50 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            viewBox="0 0 24 24"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 5l7 7-7 7"
-            />
+            <polyline points="9 18 15 12 9 6" />
           </svg>
-        </button>
-        <HeroEffectBadge count={groupFxCount} />
-        <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded">
-          SUPER
-        </span>
-        <span className="text-[12px] font-semibold text-foreground/70 truncate">
+        </div>
+        {/* Col 4: Type badge */}
+        <TypeBadge type="SUPER" />
+        {/* Col 5: Name */}
+        <span className="text-[13px] font-semibold text-foreground truncate">
           {group.sourceModel.name}
         </span>
-        {/* Member confidence breakdown */}
-        <div
-          className={`flex items-center gap-1 flex-shrink-0 ${superAllHandled ? "opacity-50" : ""}`}
-        >
-          {superMemberStats.strong > 0 && (
-            <span
-              className={`text-[12px] font-bold tabular-nums ${superAllHandled ? "text-foreground/30" : "text-green-400"}`}
-              title={`${superMemberStats.strong} strong (${Math.round((superMemberStats.strong / superMemberStats.total) * 100)}%)`}
-            >
-              {superMemberStats.strong}
-            </span>
-          )}
-          {superMemberStats.review > 0 && (
-            <span
-              className="text-[12px] font-bold tabular-nums text-amber-400"
-              title={`${superMemberStats.review} needs review (${Math.round((superMemberStats.review / superMemberStats.total) * 100)}%)`}
-            >
-              {superMemberStats.review}
-            </span>
-          )}
-          {superMemberStats.unmapped > 0 && (
-            <span
-              className="text-[12px] font-bold tabular-nums text-red-400/70"
-              title={`${superMemberStats.unmapped} unmapped (${Math.round((superMemberStats.unmapped / superMemberStats.total) * 100)}%)`}
-            >
-              {superMemberStats.unmapped}
-            </span>
-          )}
-          {superMemberStats.covered > 0 && (
-            <span
-              className="text-[11px] tabular-nums text-foreground/25"
-              title={`${superMemberStats.covered} covered (${Math.round((superMemberStats.covered / superMemberStats.total) * 100)}%)`}
-            >
-              {superMemberStats.covered}
-            </span>
-          )}
-          <span className="text-[9px] text-foreground/20">
-            /{superMemberStats.total}
-          </span>
-        </div>
-        {superTotalPixels > 0 && (
-          <span
-            className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0"
-            title={`${superTotalPixels.toLocaleString()} total pixels`}
-          >
-            {superTotalPixels >= 1000
-              ? `${(superTotalPixels / 1000).toFixed(1)}k`
-              : superTotalPixels}
-            px
-          </span>
-        )}
-        {/* Right-aligned destination */}
-        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-          {group.isMapped && (
-            <>
-              <span
-                className={`inline-flex items-center gap-0.5 text-[10px] truncate max-w-[180px] ${isSuperNeedsReview ? "text-amber-400/70" : "text-green-400/70"}`}
-              >
-                {isAutoMatched && <Link2Badge />}
-                &rarr; {group.assignedUserModels[0]?.name}
-              </span>
-              {matchScore != null && matchScore > 0 && (
-                <ConfidenceBadge
-                  score={matchScore}
-                  factors={matchFactors}
-                  size="sm"
-                />
-              )}
-              {isSuperNeedsReview && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onApprove();
-                  }}
-                  className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
-                  title="Approve this match"
-                >
-                  Approve
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUnlink();
-                }}
-                className="p-1 rounded-full text-foreground/15 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-                title="Remove mapping (keep group)"
-              >
-                <UnlinkIcon className="w-3 h-3" />
-              </button>
-            </>
-          )}
-          {!group.isMapped && topSuggestion && (
-            <>
-              <span className="text-[11px] text-foreground/50 truncate max-w-[160px]">
-                {topSuggestion.model.name}
-              </span>
-              <ConfidenceBadge
-                score={topSuggestion.score}
-                factors={topSuggestion.factors}
-                size="sm"
-              />
-            </>
-          )}
-          {topSuggestion && !group.isMapped && (
+        {/* Col 6: Destination */}
+        <div className="flex justify-end">
+          {group.isMapped ? (
+            <DestinationPill
+              name={group.assignedUserModels[0]?.name ?? ""}
+              confidence={confidencePct}
+              autoMatched={isAutoMatched}
+            />
+          ) : topSuggestion ? (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 onAccept(topSuggestion.model.name);
               }}
-              className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
-              title="Accept suggested match"
+              className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
+              title={`Accept: ${topSuggestion.model.name}`}
             >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
-              </svg>
+              + Assign
+            </button>
+          ) : (
+            <span className="text-[11px] text-foreground/20">+ Assign</span>
+          )}
+        </div>
+        {/* Col 7: Health bar */}
+        <div className="px-0.5">
+          <HealthBar
+            strong={superMemberStats.strong}
+            needsReview={superMemberStats.review}
+            weak={superMemberStats.weak}
+            unmapped={superMemberStats.unmapped}
+            covered={superMemberStats.covered}
+            totalModels={superMemberStats.total}
+          />
+        </div>
+        {/* Col 8: Actions */}
+        <div
+          className="flex gap-0.5 items-center justify-end"
+          style={{
+            opacity: hovered ? 1 : 0,
+            transition: "opacity 0.1s ease",
+          }}
+        >
+          {group.isMapped && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnlink();
+              }}
+              className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
+              title="Remove mapping"
+            >
+              <UnlinkIcon className="w-[11px] h-[11px]" />
             </button>
           )}
           <button
@@ -1997,21 +1907,20 @@ function SuperGroupCard({
               e.stopPropagation();
               onSkip();
             }}
+            className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-red-500/15 transition-colors"
             title={`Skip group and ${totalCount} members`}
-            className="p-1 text-foreground/20 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
           >
             <svg
-              className="w-3 h-3"
+              className="w-[10px] h-[10px] text-foreground/30"
+              viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
@@ -2019,64 +1928,62 @@ function SuperGroupCard({
 
       {/* Expanded: show child groups (hierarchy) or direct members */}
       {isExpanded && (
-        <div className="px-3 pb-2 pl-5 space-y-1 border-t border-purple-400/10">
-          <div className="pt-1">
-            {childGroupNames.length > 0 ? (
-              <>
-                {childGroupNames.map((childName) => {
-                  const childItem = phaseItemsByName.get(childName);
-                  if (!childItem) return null;
-                  const childMembers = members.filter((m) =>
-                    childItem.memberNames.includes(m.sourceModel.name),
-                  );
-                  return (
-                    <XLightsGroupCard
-                      key={childName}
-                      group={childItem}
-                      members={childMembers}
-                      isExpanded={expandedGroups.has(childName)}
-                      isSelected={false}
-                      isAutoMatched={autoMatchedNames.has(childName)}
-                      isApproved={approvedNames.has(childName)}
-                      matchScore={scoreMap.get(childName)}
-                      matchFactors={factorsMap.get(childName)}
-                      topSuggestion={topSuggestionsMap.get(childName) ?? null}
-                      scoreMap={scoreMap}
-                      autoMatchedNames={autoMatchedNames}
-                      approvedNames={approvedNames}
-                      onToggle={() => onToggleChild(childName)}
-                      onSelect={() => onSelectChild(childName)}
-                      onAccept={(userModelName) =>
-                        onAcceptChild(childName, userModelName)
-                      }
-                      onApprove={() => onApproveChild(childName)}
-                      onSkip={() =>
-                        onSkipChild(
-                          childMembers.length > 0
-                            ? [childItem, ...childMembers]
-                            : [childItem],
-                        )
-                      }
-                      onUnlink={() => onUnlinkChild(childName)}
-                      renderItemCard={renderItemCard}
-                    />
-                  );
-                })}
-                {/* Individual members not in any child group */}
-                {members
-                  .filter(
-                    (m) =>
-                      !childGroupNames.some((cn) => {
-                        const cItem = phaseItemsByName.get(cn);
-                        return cItem?.memberNames.includes(m.sourceModel.name);
-                      }),
-                  )
-                  .map((item) => renderItemCard(item))}
-              </>
-            ) : (
-              members.map((item) => renderItemCard(item))
-            )}
-          </div>
+        <div className="pl-5 pr-2 pb-2 pt-0.5 border-t border-purple-400/10">
+          {childGroupNames.length > 0 ? (
+            <>
+              {childGroupNames.map((childName) => {
+                const childItem = phaseItemsByName.get(childName);
+                if (!childItem) return null;
+                const childMembers = members.filter((m) =>
+                  childItem.memberNames.includes(m.sourceModel.name),
+                );
+                return (
+                  <XLightsGroupCard
+                    key={childName}
+                    group={childItem}
+                    members={childMembers}
+                    isExpanded={expandedGroups.has(childName)}
+                    isSelected={false}
+                    isAutoMatched={autoMatchedNames.has(childName)}
+                    isApproved={approvedNames.has(childName)}
+                    matchScore={scoreMap.get(childName)}
+                    matchFactors={factorsMap.get(childName)}
+                    topSuggestion={topSuggestionsMap.get(childName) ?? null}
+                    scoreMap={scoreMap}
+                    autoMatchedNames={autoMatchedNames}
+                    approvedNames={approvedNames}
+                    onToggle={() => onToggleChild(childName)}
+                    onSelect={() => onSelectChild(childName)}
+                    onAccept={(userModelName) =>
+                      onAcceptChild(childName, userModelName)
+                    }
+                    onApprove={() => onApproveChild(childName)}
+                    onSkip={() =>
+                      onSkipChild(
+                        childMembers.length > 0
+                          ? [childItem, ...childMembers]
+                          : [childItem],
+                      )
+                    }
+                    onUnlink={() => onUnlinkChild(childName)}
+                    renderItemCard={renderItemCard}
+                  />
+                );
+              })}
+              {/* Individual members not in any child group */}
+              {members
+                .filter(
+                  (m) =>
+                    !childGroupNames.some((cn) => {
+                      const cItem = phaseItemsByName.get(cn);
+                      return cItem?.memberNames.includes(m.sourceModel.name);
+                    }),
+                )
+                .map((item) => renderItemCard(item))}
+            </>
+          ) : (
+            members.map((item) => renderItemCard(item))
+          )}
         </div>
       )}
     </div>

@@ -17,8 +17,7 @@ export const PANEL_STYLES = {
     icon: "absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-foreground/30",
   },
   card: {
-    wrapper:
-      "p-3 rounded-lg border transition-all duration-200 cursor-pointer",
+    wrapper: "p-3 rounded-lg border transition-all duration-200 cursor-pointer",
     title: "text-[13px] font-medium text-foreground truncate",
     subtitle: "text-[11px] text-foreground/40",
     badge: "px-1.5 py-0.5 text-[10px] font-bold rounded",
@@ -32,3 +31,13 @@ export const TYPE_BADGE_COLORS = {
   SUB: "bg-purple-500/15 text-purple-400",
   MODEL: "bg-foreground/8 text-foreground/50",
 } as const;
+
+/**
+ * CSS Grid templates for card rows — all rows share column alignment.
+ *
+ * Group rows:  checkbox | fx | chevron | badge | name | destination | health | actions
+ * Model rows:  checkbox | fx | name | destination | health(empty) | actions
+ */
+export const GROUP_GRID =
+  "18px 42px 16px 42px 1fr auto minmax(50px,100px) 50px";
+export const MODEL_GRID = "18px 42px 1fr auto minmax(50px,100px) 50px";
