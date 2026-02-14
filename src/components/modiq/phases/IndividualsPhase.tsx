@@ -295,12 +295,8 @@ export function IndividualsPhase() {
         }
       }
 
+      // Preserve insertion order (which comes from filtered/sorted items)
       const groups = order.map((name) => groupMap.get(name)!);
-      groups.sort((a, b) =>
-        a.groupItem.sourceModel.name.localeCompare(
-          b.groupItem.sourceModel.name,
-        ),
-      );
       return { groups, ungrouped };
     },
     [sourceGroupMap],
@@ -311,11 +307,35 @@ export function IndividualsPhase() {
     // Separate super groups from regular groups
     const superGroups = split.groups.filter((g) => g.groupItem.isSuperGroup);
     const regularGroups = split.groups.filter((g) => !g.groupItem.isSuperGroup);
-    return { superGroups, regularGroups, ungrouped: split.ungrouped };
-  }, [filteredItems, splitByXLightsGroup]);
+
+    // Sort groups by the same sort key as the main list
+    const sortGroups = (groups: XLightsGroup[]) => {
+      const sorted = sortItems(
+        groups.map((g) => g.groupItem),
+        sortBy,
+        topSuggestionsMap,
+      );
+      const orderMap = new Map(
+        sorted.map((item, i) => [item.sourceModel.name, i]),
+      );
+      return [...groups].sort(
+        (a, b) =>
+          (orderMap.get(a.groupItem.sourceModel.name) ?? 0) -
+          (orderMap.get(b.groupItem.sourceModel.name) ?? 0),
+      );
+    };
+
+    return {
+      superGroups: sortGroups(superGroups),
+      regularGroups: sortGroups(regularGroups),
+      ungrouped: split.ungrouped,
+    };
+  }, [filteredItems, splitByXLightsGroup, sortBy, topSuggestionsMap]);
 
   // Expand/collapse state for xLights groups
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [regularGroupsCollapsed, setRegularGroupsCollapsed] = useState(false);
+  const [ungroupedCollapsed, setUngroupedCollapsed] = useState(false);
   const toggleGroup = useCallback((groupName: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
@@ -630,46 +650,138 @@ export function IndividualsPhase() {
               />
             )}
 
-            {/* Regular xLights Groups with child models */}
-            {itemsSplit.regularGroups.map((group) => (
-              <XLightsGroupCard
-                key={group.groupItem.sourceModel.name}
-                group={group.groupItem}
-                members={group.members}
-                isExpanded={expandedGroups.has(
-                  group.groupItem.sourceModel.name,
+            {/* Regular xLights Groups section */}
+            {itemsSplit.regularGroups.length > 0 && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setRegularGroupsCollapsed((v) => !v)}
+                  className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+                >
+                  <svg
+                    className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${regularGroupsCollapsed ? "" : "rotate-90"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                  <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
+                    Regular Groups
+                  </span>
+                  <span className="text-[10px] text-foreground/30">
+                    ({itemsSplit.regularGroups.length})
+                  </span>
+                  <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
+                    xLights model groups &mdash; matched as a unit with their
+                    member models
+                  </span>
+                </button>
+                {!regularGroupsCollapsed && (
+                  <div className="space-y-1 mt-1">
+                    {itemsSplit.regularGroups.map((group) => (
+                      <XLightsGroupCard
+                        key={group.groupItem.sourceModel.name}
+                        group={group.groupItem}
+                        members={group.members}
+                        isExpanded={expandedGroups.has(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        isSelected={
+                          selectedItemId === group.groupItem.sourceModel.name
+                        }
+                        isAutoMatched={autoMatchedNames.has(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        isApproved={approvedNames.has(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        matchScore={scoreMap.get(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        matchFactors={factorsMap.get(
+                          group.groupItem.sourceModel.name,
+                        )}
+                        topSuggestion={
+                          topSuggestionsMap.get(
+                            group.groupItem.sourceModel.name,
+                          ) ?? null
+                        }
+                        scoreMap={scoreMap}
+                        autoMatchedNames={autoMatchedNames}
+                        approvedNames={approvedNames}
+                        onToggle={() =>
+                          toggleGroup(group.groupItem.sourceModel.name)
+                        }
+                        onSelect={() =>
+                          setSelectedItemId(group.groupItem.sourceModel.name)
+                        }
+                        onAccept={(userModelName) =>
+                          handleAccept(
+                            group.groupItem.sourceModel.name,
+                            userModelName,
+                          )
+                        }
+                        onApprove={() =>
+                          approveAutoMatch(group.groupItem.sourceModel.name)
+                        }
+                        onSkip={() =>
+                          handleSkipFamily([group.groupItem, ...group.members])
+                        }
+                        onUnlink={() =>
+                          handleUnlink(group.groupItem.sourceModel.name)
+                        }
+                        renderItemCard={renderItemCard}
+                      />
+                    ))}
+                  </div>
                 )}
-                isSelected={selectedItemId === group.groupItem.sourceModel.name}
-                isAutoMatched={autoMatchedNames.has(
-                  group.groupItem.sourceModel.name,
-                )}
-                isApproved={approvedNames.has(group.groupItem.sourceModel.name)}
-                matchScore={scoreMap.get(group.groupItem.sourceModel.name)}
-                matchFactors={factorsMap.get(group.groupItem.sourceModel.name)}
-                topSuggestion={
-                  topSuggestionsMap.get(group.groupItem.sourceModel.name) ??
-                  null
-                }
-                onToggle={() => toggleGroup(group.groupItem.sourceModel.name)}
-                onSelect={() =>
-                  setSelectedItemId(group.groupItem.sourceModel.name)
-                }
-                onAccept={(userModelName) =>
-                  handleAccept(group.groupItem.sourceModel.name, userModelName)
-                }
-                onApprove={() =>
-                  approveAutoMatch(group.groupItem.sourceModel.name)
-                }
-                onSkip={() =>
-                  handleSkipFamily([group.groupItem, ...group.members])
-                }
-                onUnlink={() => handleUnlink(group.groupItem.sourceModel.name)}
-                renderItemCard={renderItemCard}
-              />
-            ))}
+              </div>
+            )}
 
-            {/* Ungrouped individual models */}
-            {itemsSplit.ungrouped.map((item) => renderItemCard(item))}
+            {/* Ungrouped individual models section */}
+            {itemsSplit.ungrouped.length > 0 && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setUngroupedCollapsed((v) => !v)}
+                  className="flex items-center gap-2 w-full py-1.5 px-1 text-left group/section"
+                >
+                  <svg
+                    className={`w-3 h-3 text-foreground/30 transition-transform duration-150 ${ungroupedCollapsed ? "" : "rotate-90"}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                  <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">
+                    Ungrouped
+                  </span>
+                  <span className="text-[10px] text-foreground/30">
+                    ({itemsSplit.ungrouped.length})
+                  </span>
+                  <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
+                    Models not assigned to any xLights group
+                  </span>
+                </button>
+                {!ungroupedCollapsed && (
+                  <div className="space-y-1 mt-1">
+                    {itemsSplit.ungrouped.map((item) => renderItemCard(item))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {filteredItems.length === 0 && (
               <p className="py-6 text-center text-[12px] text-foreground/30">
@@ -881,6 +993,9 @@ function XLightsGroupCard({
   matchScore,
   matchFactors,
   topSuggestion,
+  scoreMap,
+  autoMatchedNames: amNames,
+  approvedNames: apNames,
   onToggle,
   onSelect,
   onAccept,
@@ -902,6 +1017,9 @@ function XLightsGroupCard({
     score: number;
     factors?: ModelMapping["factors"];
   } | null;
+  scoreMap?: Map<string, number>;
+  autoMatchedNames?: ReadonlySet<string>;
+  approvedNames?: ReadonlySet<string>;
   onToggle: () => void;
   onSelect: () => void;
   onAccept?: (userModelName: string) => void;
@@ -922,6 +1040,32 @@ function XLightsGroupCard({
     !isApproved &&
     matchScore != null &&
     matchScore < STRONG_THRESHOLD;
+
+  // Compute member match confidence breakdown
+  const memberStats = useMemo(() => {
+    let strong = 0;
+    let review = 0;
+    let unmapped = 0;
+    let covered = 0;
+    for (const m of members) {
+      if (!m.isMapped) {
+        if (m.isCoveredByMappedGroup) covered++;
+        else unmapped++;
+      } else {
+        const s = scoreMap?.get(m.sourceModel.name) ?? 0;
+        const isAuto = amNames?.has(m.sourceModel.name);
+        const isAppr = apNames?.has(m.sourceModel.name);
+        if (isAuto && !isAppr && s < STRONG_THRESHOLD) review++;
+        else strong++;
+      }
+    }
+    // Count ghost members (covered by group but not in active list)
+    const ghostCount = fullMemberCount - activeMemberCount;
+    covered += ghostCount;
+    return { strong, review, unmapped, covered, total: fullMemberCount };
+  }, [members, scoreMap, amNames, apNames, fullMemberCount, activeMemberCount]);
+
+  const allHandled = memberStats.unmapped === 0 && memberStats.review === 0;
   const groupBorder =
     group.isMapped ||
     (activeMemberCount > 0 && mappedCount === activeMemberCount)
@@ -951,7 +1095,7 @@ function XLightsGroupCard({
     <div
       className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}
     >
-      {/* Group header: ▸ GRP  Name  (N)  ·  fx  ·  status  →dest  ★  ✕ */}
+      {/* Group header: ▸ [FX] GRP  Name  (N)  ·  status  →dest  ★  ✕ */}
       <div
         className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer"
         onClick={onSelect}
@@ -978,36 +1122,53 @@ function XLightsGroupCard({
             />
           </svg>
         </button>
+        <HeroEffectBadge count={groupFxCount} />
         <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>
           GRP
         </span>
         <span className="text-[12px] font-semibold text-foreground/70 truncate">
           {group.sourceModel.name}
         </span>
-        <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">
-          ({fullMemberCount})
-        </span>
-        <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-        <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
-          {groupFxCount >= 1000
-            ? `${(groupFxCount / 1000).toFixed(1)}k`
-            : groupFxCount}{" "}
-          fx
-        </span>
-        {activeMemberCount > 0 && (
-          <span className="text-[10px] text-foreground/30 flex-shrink-0">
-            &middot;{" "}
-            {mappedCount > 0 && (
-              <span className="text-green-400/60">{mappedCount}</span>
-            )}
-            {mappedCount > 0 && mappedCount < activeMemberCount && "/"}
-            {mappedCount < activeMemberCount && (
-              <span className="text-amber-400/60">
-                {activeMemberCount - mappedCount} unmapped
-              </span>
-            )}
+        {/* Member confidence breakdown — colored counts with percentages */}
+        <div
+          className={`flex items-center gap-1 flex-shrink-0 ${allHandled ? "opacity-50" : ""}`}
+        >
+          {memberStats.strong > 0 && (
+            <span
+              className={`text-[12px] font-bold tabular-nums ${allHandled ? "text-foreground/30" : "text-green-400"}`}
+              title={`${memberStats.strong} strong match${memberStats.strong !== 1 ? "es" : ""} (${Math.round((memberStats.strong / memberStats.total) * 100)}%)`}
+            >
+              {memberStats.strong}
+            </span>
+          )}
+          {memberStats.review > 0 && (
+            <span
+              className="text-[12px] font-bold tabular-nums text-amber-400"
+              title={`${memberStats.review} need${memberStats.review !== 1 ? "" : "s"} review (${Math.round((memberStats.review / memberStats.total) * 100)}%)`}
+            >
+              {memberStats.review}
+            </span>
+          )}
+          {memberStats.unmapped > 0 && (
+            <span
+              className="text-[12px] font-bold tabular-nums text-red-400/70"
+              title={`${memberStats.unmapped} unmapped (${Math.round((memberStats.unmapped / memberStats.total) * 100)}%)`}
+            >
+              {memberStats.unmapped}
+            </span>
+          )}
+          {memberStats.covered > 0 && (
+            <span
+              className="text-[11px] tabular-nums text-foreground/25"
+              title={`${memberStats.covered} covered by group (${Math.round((memberStats.covered / memberStats.total) * 100)}%)`}
+            >
+              {memberStats.covered}
+            </span>
+          )}
+          <span className="text-[9px] text-foreground/20">
+            /{memberStats.total}
           </span>
-        )}
+        </div>
         {/* Right-aligned destination / suggestion */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
@@ -1612,6 +1773,33 @@ function SuperGroupCard({
     !isApproved &&
     matchScore != null &&
     matchScore < STRONG_THRESHOLD;
+
+  // Compute member match confidence breakdown for super group
+  const superMemberStats = useMemo(() => {
+    let strong = 0;
+    let review = 0;
+    let unmapped = 0;
+    let covered = 0;
+    for (const m of members) {
+      if (!m.isMapped) {
+        if (m.isCoveredByMappedGroup) covered++;
+        else unmapped++;
+      } else {
+        const s = scoreMap.get(m.sourceModel.name) ?? 0;
+        const isAuto = autoMatchedNames.has(m.sourceModel.name);
+        const isAppr = approvedNames.has(m.sourceModel.name);
+        if (isAuto && !isAppr && s < STRONG_THRESHOLD) review++;
+        else strong++;
+      }
+    }
+    const ghostCount = totalCount - members.length;
+    covered += ghostCount;
+    return { strong, review, unmapped, covered, total: totalCount };
+  }, [members, scoreMap, autoMatchedNames, approvedNames, totalCount]);
+
+  const superAllHandled =
+    superMemberStats.unmapped === 0 && superMemberStats.review === 0;
+
   const groupBorder = group.isMapped
     ? isSuperNeedsReview
       ? "border-l-amber-400/70"
@@ -1649,25 +1837,53 @@ function SuperGroupCard({
             />
           </svg>
         </button>
+        <HeroEffectBadge count={groupFxCount} />
         <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded">
           SUPER
         </span>
         <span className="text-[12px] font-semibold text-foreground/70 truncate">
           {group.sourceModel.name}
         </span>
-        <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">
-          ({totalCount})
-        </span>
-        <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-        <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
-          {groupFxCount >= 1000
-            ? `${(groupFxCount / 1000).toFixed(1)}k`
-            : groupFxCount}{" "}
-          fx
-        </span>
-        <span className="text-[10px] text-purple-400/40 flex-shrink-0">
-          &middot; {group.containedGroupCount} groups
-        </span>
+        {/* Member confidence breakdown */}
+        <div
+          className={`flex items-center gap-1 flex-shrink-0 ${superAllHandled ? "opacity-50" : ""}`}
+        >
+          {superMemberStats.strong > 0 && (
+            <span
+              className={`text-[12px] font-bold tabular-nums ${superAllHandled ? "text-foreground/30" : "text-green-400"}`}
+              title={`${superMemberStats.strong} strong (${Math.round((superMemberStats.strong / superMemberStats.total) * 100)}%)`}
+            >
+              {superMemberStats.strong}
+            </span>
+          )}
+          {superMemberStats.review > 0 && (
+            <span
+              className="text-[12px] font-bold tabular-nums text-amber-400"
+              title={`${superMemberStats.review} needs review (${Math.round((superMemberStats.review / superMemberStats.total) * 100)}%)`}
+            >
+              {superMemberStats.review}
+            </span>
+          )}
+          {superMemberStats.unmapped > 0 && (
+            <span
+              className="text-[12px] font-bold tabular-nums text-red-400/70"
+              title={`${superMemberStats.unmapped} unmapped (${Math.round((superMemberStats.unmapped / superMemberStats.total) * 100)}%)`}
+            >
+              {superMemberStats.unmapped}
+            </span>
+          )}
+          {superMemberStats.covered > 0 && (
+            <span
+              className="text-[11px] tabular-nums text-foreground/25"
+              title={`${superMemberStats.covered} covered (${Math.round((superMemberStats.covered / superMemberStats.total) * 100)}%)`}
+            >
+              {superMemberStats.covered}
+            </span>
+          )}
+          <span className="text-[9px] text-foreground/20">
+            /{superMemberStats.total}
+          </span>
+        </div>
         {/* Right-aligned destination */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           {group.isMapped && (
@@ -1788,6 +2004,9 @@ function SuperGroupCard({
                       matchScore={scoreMap.get(childName)}
                       matchFactors={factorsMap.get(childName)}
                       topSuggestion={topSuggestionsMap.get(childName) ?? null}
+                      scoreMap={scoreMap}
+                      autoMatchedNames={autoMatchedNames}
+                      approvedNames={approvedNames}
                       onToggle={() => onToggleChild(childName)}
                       onSelect={() => onSelectChild(childName)}
                       onAccept={(userModelName) =>
