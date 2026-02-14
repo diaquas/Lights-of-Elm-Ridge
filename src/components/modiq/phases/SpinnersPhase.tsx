@@ -139,8 +139,119 @@ export function SpinnersPhase() {
     return list;
   }, [parentModelIndex]);
 
+  // ── Spinner Monogamy: Pair dest HD props with exactly one source HD prop ──
+  // Build list of dest HD props (unique parent models from dest side submodel groups)
+  const destHDProps = useMemo(() => {
+    const destParents = new Map<
+      string,
+      { name: string; subGroups: string[] }
+    >();
+    for (const model of interactive.allDestModels) {
+      if (model.groupType === "SUBMODEL_GROUP" && model.parentModels) {
+        for (const parent of model.parentModels) {
+          const entry = destParents.get(parent) ?? {
+            name: parent,
+            subGroups: [],
+          };
+          entry.subGroups.push(model.name);
+          destParents.set(parent, entry);
+        }
+      }
+    }
+    return Array.from(destParents.values());
+  }, [interactive.allDestModels]);
+
+  // Compute pairing scores: each dest HD prop scored against each source HD prop
+  const pairings = useMemo(() => {
+    if (parentModelList.length === 0 || destHDProps.length === 0) return [];
+
+    const results: {
+      sourceProp: string;
+      destProp: string;
+      score: number;
+      overlapCount: number;
+      destTotal: number;
+    }[] = [];
+
+    for (const dest of destHDProps) {
+      for (const src of parentModelList) {
+        // Count how many source submodel groups have a name match in dest
+        const srcNames = src.items.map((i) => i.sourceModel.name.toLowerCase());
+        const destNames = new Set(dest.subGroups.map((n) => n.toLowerCase()));
+        let overlap = 0;
+        for (const srcName of srcNames) {
+          // Simple fuzzy: check if any dest name contains or is contained by src name
+          for (const destName of destNames) {
+            if (
+              srcName === destName ||
+              srcName.includes(destName) ||
+              destName.includes(srcName)
+            ) {
+              overlap++;
+              break;
+            }
+          }
+        }
+        const coverage =
+          dest.subGroups.length > 0 ? overlap / dest.subGroups.length : 0;
+        // Family bonus: same name gets +0.2
+        const familyBonus =
+          src.name.toLowerCase() === dest.name.toLowerCase() ? 0.2 : 0;
+        const score = Math.min(1, coverage + familyBonus);
+        results.push({
+          sourceProp: src.name,
+          destProp: dest.name,
+          score,
+          overlapCount: overlap,
+          destTotal: dest.subGroups.length,
+        });
+      }
+    }
+    return results;
+  }, [parentModelList, destHDProps]);
+
+  // Greedy optimal assignment: each dest gets exactly one source
+  const [pairingOverrides, setPairingOverrides] = useState<Map<string, string>>(
+    new Map(),
+  );
+
+  const activePairings = useMemo(() => {
+    // Start with greedy assignment
+    const assigned = new Map<string, string>(); // dest → source
+
+    // Sort dests by "neediness" (fewest good options first)
+    const destsByNeed = [...destHDProps].sort((a, b) => {
+      const aScores = pairings.filter((p) => p.destProp === a.name);
+      const bScores = pairings.filter((p) => p.destProp === b.name);
+      const aMax = Math.max(...aScores.map((s) => s.score), 0);
+      const bMax = Math.max(...bScores.map((s) => s.score), 0);
+      return aMax - bMax;
+    });
+
+    for (const dest of destsByNeed) {
+      // Check for manual override
+      const override = pairingOverrides.get(dest.name);
+      if (override) {
+        assigned.set(dest.name, override);
+        continue;
+      }
+      // Pick highest-scoring source
+      const candidates = pairings
+        .filter((p) => p.destProp === dest.name)
+        .sort((a, b) => b.score - a.score);
+      if (candidates.length > 0 && candidates[0].score > 0) {
+        assigned.set(dest.name, candidates[0].sourceProp);
+      }
+    }
+
+    return assigned;
+  }, [destHDProps, pairings, pairingOverrides]);
+
   // Auto-select first parent model
   const activeParent = selectedParentModel ?? parentModelList[0]?.name ?? null;
+
+  // Look up which source is paired with the active parent model
+  const pairedSource = activeParent ? activePairings.get(activeParent) : null;
 
   // Items scoped to selected parent model
   const scopedItems = useMemo(() => {
@@ -309,9 +420,24 @@ export function SpinnersPhase() {
   }, [interactive, selectedItem]);
 
   // Type filter: only show SUBMODEL_GROUP in Spinners source panel
+  // With monogamy: further scope to only the paired source's submodel groups
+  const pairedSourceSubGroups = useMemo(() => {
+    if (!pairedSource) return null;
+    const entry = parentModelIndex.get(pairedSource);
+    if (!entry) return null;
+    return new Set(entry.items.map((i) => i.sourceModel.name));
+  }, [pairedSource, parentModelIndex]);
+
   const spinnerSourceFilter = useCallback(
-    (m: { groupType?: string }) => m.groupType === "SUBMODEL_GROUP",
-    [],
+    (m: { groupType?: string; parentModels?: string[] }) => {
+      if (m.groupType !== "SUBMODEL_GROUP") return false;
+      // If we have a paired source, only show dest models from that source's family
+      if (pairedSource && m.parentModels) {
+        return m.parentModels.includes(pairedSource);
+      }
+      return true;
+    },
+    [pairedSource],
   );
 
   // No spinners
@@ -433,6 +559,82 @@ export function SpinnersPhase() {
             totalEffects={phaseItems.reduce((sum, i) => sum + i.effectCount, 0)}
           />
         </div>
+
+        {/* HD Prop Pairings — monogamy constraint */}
+        {activePairings.size > 0 && (
+          <div className="px-4 py-2 border-b border-border flex-shrink-0">
+            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider mb-1.5">
+              HD Prop Pairings
+            </div>
+            <div className="space-y-1">
+              {Array.from(activePairings.entries()).map(([dest, src]) => {
+                const pairing = pairings.find(
+                  (p) => p.destProp === dest && p.sourceProp === src,
+                );
+                const scorePercent = pairing
+                  ? Math.round(pairing.score * 100)
+                  : 0;
+                const isCopy =
+                  Array.from(activePairings.values()).filter((v) => v === src)
+                    .length > 1;
+                return (
+                  <div
+                    key={dest}
+                    className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-foreground/[0.02] border border-border/50 text-[11px]"
+                  >
+                    <span className="text-foreground/60 truncate flex-1 min-w-0">
+                      {src}
+                      {isCopy && (
+                        <span className="text-foreground/25 ml-1">(copy)</span>
+                      )}
+                    </span>
+                    <span className="text-foreground/20 flex-shrink-0">
+                      &rarr;
+                    </span>
+                    <span className="text-foreground/70 font-medium truncate flex-1 min-w-0">
+                      {dest}
+                    </span>
+                    <span
+                      className={`text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded flex-shrink-0 ${
+                        scorePercent >= 70
+                          ? "bg-green-500/10 text-green-400/70"
+                          : scorePercent >= 40
+                            ? "bg-amber-500/10 text-amber-400/70"
+                            : "bg-red-500/10 text-red-400/70"
+                      }`}
+                    >
+                      {scorePercent}%
+                    </span>
+                    <select
+                      value={src}
+                      onChange={(e) => {
+                        setPairingOverrides((prev) => {
+                          const next = new Map(prev);
+                          next.set(dest, e.target.value);
+                          return next;
+                        });
+                      }}
+                      className="text-[10px] px-1 py-0.5 rounded bg-foreground/5 border border-border text-foreground/40 focus:outline-none focus:border-accent flex-shrink-0"
+                      title="Change source pairing"
+                    >
+                      {parentModelList.map((pm) => (
+                        <option key={pm.name} value={pm.name}>
+                          {pm.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+            {activePairings.size > 0 && (
+              <p className="text-[10px] text-foreground/25 mt-1.5">
+                Each destination receives submodel mappings from one source
+                only.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Model selector — pick a parent model to scope submodel groups */}
         {parentModelList.length > 1 && (
@@ -742,6 +944,11 @@ export function SpinnersPhase() {
                 </span>
                 <CollapsibleMembers members={selectedItem.memberNames} />
               </div>
+              {pairedSource && (
+                <div className="text-[10px] text-purple-400/60 mt-0.5">
+                  Paired source: {pairedSource}
+                </div>
+              )}
             </div>
 
             {/* Current Mapping Card (for mapped items) */}
