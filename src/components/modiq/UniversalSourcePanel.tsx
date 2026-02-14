@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, memo } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, memo } from "react";
 import type { ParsedModel } from "@/lib/modiq";
 import type { DragItem, DragAndDropHandlers } from "@/hooks/useDragAndDrop";
 import { ConfidenceBadge } from "./ConfidenceBadge";
@@ -9,6 +9,7 @@ import { generateMatchReasoning } from "@/lib/modiq/generateReasoning";
 import { extractFamily } from "@/contexts/MappingPhaseContext";
 import { PANEL_STYLES } from "./panelStyles";
 import { FilterPill } from "./SharedHierarchyComponents";
+import type { SortOption } from "./SortDropdown";
 
 // ─── Types ──────────────────────────────────────────────
 
@@ -78,6 +79,67 @@ export interface UniversalSourcePanelProps {
   destSuperGroupNames?: Set<string>;
   /** When true, organize models by xLights group hierarchy (super groups → groups → individuals) instead of family prefix */
   hierarchyMode?: boolean;
+  /** Current sort option from the left (source) panel — drives default sort for right panel */
+  sourceSortBy?: SortOption;
+}
+
+// ─── Sort helper for ParsedModel[] ───────────────────────
+
+function sortParsedModels(
+  models: ParsedModel[],
+  sort: SortOption,
+  assignedNames?: Set<string>,
+): ParsedModel[] {
+  switch (sort) {
+    case "name-asc":
+      return models.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+    case "name-desc":
+      return models.sort((a, b) =>
+        b.name.localeCompare(a.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+    case "effects-desc":
+    case "effects-asc":
+      // ParsedModel doesn't have effectCount — fall back to name sort
+      return models.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+    case "pixels-desc":
+      return models.sort((a, b) => (b.pixelCount ?? 0) - (a.pixelCount ?? 0));
+    case "pixels-asc":
+      return models.sort((a, b) => (a.pixelCount ?? 0) - (b.pixelCount ?? 0));
+    case "status":
+      return models.sort((a, b) => {
+        const aM = assignedNames?.has(a.name) ? 1 : 0;
+        const bM = assignedNames?.has(b.name) ? 1 : 0;
+        if (aM !== bM) return aM - bM;
+        return a.name.localeCompare(b.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      });
+    case "confidence-desc":
+    case "confidence-asc":
+      // No confidence data on dest side — fall back to name sort
+      return models.sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        }),
+      );
+    default:
+      return models;
+  }
 }
 
 // ─── Component ──────────────────────────────────────────
@@ -101,15 +163,29 @@ export function UniversalSourcePanel({
   excludeNames,
   destSuperGroupNames,
   hierarchyMode,
+  sourceSortBy,
 }: UniversalSourcePanelProps) {
   const [search, setSearch] = useState("");
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(
     new Set(),
   );
-  const [expandedHierarchyGroups, setExpandedHierarchyGroups] = useState<Set<string>>(new Set());
+  const [expandedHierarchyGroups, setExpandedHierarchyGroups] = useState<
+    Set<string>
+  >(new Set());
   const [unmappedOpen, setUnmappedOpen] = useState(true);
   const [mappedOpen, setMappedOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<"all" | "unmapped" | "mapped">("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "unmapped" | "mapped"
+  >("all");
+
+  // Right panel sort: follows left panel by default, breaks link on manual change
+  const [destSortOverride, setDestSortOverride] = useState<SortOption | null>(
+    null,
+  );
+  const sortLinked = destSortOverride === null;
+  const destSortBy = sortLinked
+    ? (sourceSortBy ?? "name-asc")
+    : destSortOverride;
 
   // Available models = filtered + not skipped + not excluded
   const availableModels = useMemo(() => {
@@ -161,18 +237,23 @@ export function UniversalSourcePanel({
   );
   const unmappedModelCount = allModelCount - mappedModelCount;
 
-  // Filtered all-models list (search + status filter)
+  // Filtered all-models list (search + status filter + sort)
   const filteredModels = useMemo(() => {
     let models = availableModels;
-    if (statusFilter === "unmapped") models = models.filter((m) => !assignedNames?.has(m.name));
-    else if (statusFilter === "mapped") models = models.filter((m) => assignedNames?.has(m.name));
-    if (!search) return models;
-    const q = search.toLowerCase();
-    return models.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) || m.type.toLowerCase().includes(q),
-    );
-  }, [search, availableModels, statusFilter, assignedNames]);
+    if (statusFilter === "unmapped")
+      models = models.filter((m) => !assignedNames?.has(m.name));
+    else if (statusFilter === "mapped")
+      models = models.filter((m) => assignedNames?.has(m.name));
+    if (search) {
+      const q = search.toLowerCase();
+      models = models.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) || m.type.toLowerCase().includes(q),
+      );
+    }
+    // Apply dest sort
+    return sortParsedModels([...models], destSortBy, assignedNames);
+  }, [search, availableModels, statusFilter, assignedNames, destSortBy]);
 
   // Group models by family for collapsed display
   const modelFamilies = useMemo(() => {
@@ -265,8 +346,12 @@ export function UniversalSourcePanel({
               memberToGroup.set(member, m.name);
             } else {
               const existingModel = modelsByName.get(existing);
-              if (existingModel && m.memberModels && existingModel.memberModels &&
-                  m.memberModels.length < existingModel.memberModels.length) {
+              if (
+                existingModel &&
+                m.memberModels &&
+                existingModel.memberModels &&
+                m.memberModels.length < existingModel.memberModels.length
+              ) {
                 memberToGroup.set(member, m.name);
               }
             }
@@ -286,7 +371,9 @@ export function UniversalSourcePanel({
 
       for (const m of members) groupedMemberNames.add(m.name);
 
-      const mappedCount = members.filter((m) => assignedNames?.has(m.name)).length;
+      const mappedCount = members.filter((m) =>
+        assignedNames?.has(m.name),
+      ).length;
       groups.push({
         model: gm,
         members,
@@ -315,7 +402,14 @@ export function UniversalSourcePanel({
     regularGroups.sort(sortGroups);
 
     return { superGroups, regularGroups, ungrouped };
-  }, [hierarchyMode, filteredModels, search, suggestionNames, assignedNames, destSuperGroupNames]);
+  }, [
+    hierarchyMode,
+    filteredModels,
+    search,
+    suggestionNames,
+    assignedNames,
+    destSuperGroupNames,
+  ]);
 
   const toggleHierarchyGroup = useCallback((name: string) => {
     setExpandedHierarchyGroups((prev) => {
@@ -383,51 +477,63 @@ export function UniversalSourcePanel({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Search — aligned with left panel search row */}
+      {/* Search + Sort — aligned with left panel search row */}
       <div className={PANEL_STYLES.search.wrapper}>
-        <div className="relative">
-          <svg
-            className={PANEL_STYLES.search.icon}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search all models..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full text-[12px] pl-8 pr-8 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
-          />
-          {search && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60"
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <svg
+              className={PANEL_STYLES.search.icon}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
             >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search all models..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full text-[12px] pl-8 pr-8 py-1.5 h-8 rounded bg-background border border-border focus:border-accent focus:outline-none placeholder:text-foreground/30"
+            />
+            {search && (
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          )}
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
+          <DestSortDropdown
+            value={destSortBy}
+            linked={sortLinked}
+            onChange={(v) => {
+              setDestSortOverride(v);
+            }}
+            onResetLink={() => {
+              setDestSortOverride(null);
+            }}
+          />
         </div>
         {search && (
           <p className="text-[10px] text-foreground/30 mt-1">
@@ -438,9 +544,24 @@ export function UniversalSourcePanel({
         {/* Status filter pills */}
         {allModelCount > 0 && (
           <div className="flex items-center gap-1 mt-1.5">
-            <FilterPill label={`All (${allModelCount})`} color="blue" active={statusFilter === "all"} onClick={() => setStatusFilter("all")} />
-            <FilterPill label={`Mapped (${mappedModelCount})`} color="green" active={statusFilter === "mapped"} onClick={() => setStatusFilter("mapped")} />
-            <FilterPill label={`Unmapped (${unmappedModelCount})`} color="amber" active={statusFilter === "unmapped"} onClick={() => setStatusFilter("unmapped")} />
+            <FilterPill
+              label={`All (${allModelCount})`}
+              color="blue"
+              active={statusFilter === "all"}
+              onClick={() => setStatusFilter("all")}
+            />
+            <FilterPill
+              label={`Mapped (${mappedModelCount})`}
+              color="green"
+              active={statusFilter === "mapped"}
+              onClick={() => setStatusFilter("mapped")}
+            />
+            <FilterPill
+              label={`Unmapped (${unmappedModelCount})`}
+              color="amber"
+              active={statusFilter === "unmapped"}
+              onClick={() => setStatusFilter("unmapped")}
+            />
           </div>
         )}
       </div>
@@ -450,7 +571,9 @@ export function UniversalSourcePanel({
         {/* Section label when adding to an already-mapped item */}
         {excludeNames && excludeNames.size > 0 && (
           <div className="px-6 py-2 border-b border-border/50">
-            <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">Add Another Source</span>
+            <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">
+              Add Another Source
+            </span>
           </div>
         )}
         {/* AI Suggestions section */}
@@ -479,10 +602,16 @@ export function UniversalSourcePanel({
           {hierarchyMode && hierarchyData ? (
             /* ── Hierarchy Mode: super groups → groups → individuals ── */
             <>
-              {hierarchyData.superGroups.length === 0 && hierarchyData.regularGroups.length === 0 && hierarchyData.ungrouped.length === 0 ? (
+              {hierarchyData.superGroups.length === 0 &&
+              hierarchyData.regularGroups.length === 0 &&
+              hierarchyData.ungrouped.length === 0 ? (
                 <div className="text-center py-8 text-foreground/40">
                   <p className="text-sm">
-                    {search ? <>No models matching &ldquo;{search}&rdquo;</> : "No models available"}
+                    {search ? (
+                      <>No models matching &ldquo;{search}&rdquo;</>
+                    ) : (
+                      "No models available"
+                    )}
                   </p>
                 </div>
               ) : (
@@ -491,7 +620,9 @@ export function UniversalSourcePanel({
                   {hierarchyData.superGroups.length > 0 && (
                     <div className="mb-2">
                       <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-purple-400/60">
-                        <span className="font-bold uppercase tracking-wider">Display-Wide</span>
+                        <span className="font-bold uppercase tracking-wider">
+                          Display-Wide
+                        </span>
                         <span>({hierarchyData.superGroups.length})</span>
                       </div>
                       <div className="space-y-1">
@@ -499,8 +630,12 @@ export function UniversalSourcePanel({
                           <HierarchyGroupRow
                             key={group.model.name}
                             group={group}
-                            isExpanded={expandedHierarchyGroups.has(group.model.name)}
-                            onToggle={() => toggleHierarchyGroup(group.model.name)}
+                            isExpanded={expandedHierarchyGroups.has(
+                              group.model.name,
+                            )}
+                            onToggle={() =>
+                              toggleHierarchyGroup(group.model.name)
+                            }
                             onAccept={onAccept}
                             onSkip={onSkipDest}
                             dnd={dnd}
@@ -534,13 +669,18 @@ export function UniversalSourcePanel({
                   ))}
 
                   {/* Ungrouped divider */}
-                  {(hierarchyData.superGroups.length + hierarchyData.regularGroups.length) > 0 && hierarchyData.ungrouped.length > 0 && (
-                    <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
-                      <div className="flex-1 h-px bg-border/40" />
-                      <span className="uppercase tracking-wider font-semibold">Ungrouped</span>
-                      <div className="flex-1 h-px bg-border/40" />
-                    </div>
-                  )}
+                  {hierarchyData.superGroups.length +
+                    hierarchyData.regularGroups.length >
+                    0 &&
+                    hierarchyData.ungrouped.length > 0 && (
+                      <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
+                        <div className="flex-1 h-px bg-border/40" />
+                        <span className="uppercase tracking-wider font-semibold">
+                          Ungrouped
+                        </span>
+                        <div className="flex-1 h-px bg-border/40" />
+                      </div>
+                    )}
 
                   {/* Ungrouped individuals */}
                   {hierarchyData.ungrouped.map((model) => (
@@ -589,13 +729,23 @@ export function UniversalSourcePanel({
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                         <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
                           Unmapped
                         </span>
                         <span className="text-[12px] font-semibold text-foreground/35">
-                          ({unmappedFamilies.reduce((n, f) => n + f.models.length, 0)})
+                          (
+                          {unmappedFamilies.reduce(
+                            (n, f) => n + f.models.length,
+                            0,
+                          )}
+                          )
                         </span>
                       </button>
                       {unmappedOpen && (
@@ -627,20 +777,28 @@ export function UniversalSourcePanel({
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
                         </svg>
                         <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
                           Mapped
                         </span>
                         <span className="text-[12px] font-semibold text-foreground/35">
-                          ({mappedFamilies.reduce((n, f) => n + f.models.length, 0)})
+                          (
+                          {mappedFamilies.reduce(
+                            (n, f) => n + f.models.length,
+                            0,
+                          )}
+                          )
                         </span>
                       </button>
                       {mappedOpen && (
                         <div className="space-y-1 pb-2">
-                          {mappedFamilies.map((family) =>
-                            renderFamily(family),
-                          )}
+                          {mappedFamilies.map((family) => renderFamily(family))}
                         </div>
                       )}
                     </div>
@@ -920,7 +1078,11 @@ const ModelCard = memo(function ModelCard({
     [mappedSources],
   );
 
-  const leftBorder = isAssigned ? "border-l-green-500/70" : usageCount > 0 ? "border-l-green-500/40" : "border-l-amber-400/70";
+  const leftBorder = isAssigned
+    ? "border-l-green-500/70"
+    : usageCount > 0
+      ? "border-l-green-500/40"
+      : "border-l-amber-400/70";
 
   return (
     <div
@@ -1069,16 +1231,23 @@ function HierarchyGroupRow({
   currentSourceSelection?: string;
   assignedNames?: Set<string>;
 }) {
-  const allMapped = group.mappedCount >= group.members.length && group.members.length > 0;
+  const allMapped =
+    group.mappedCount >= group.members.length && group.members.length > 0;
   const groupBorder = group.isSuperGroup
-    ? (allMapped ? "border-l-purple-500/70" : "border-l-purple-400/40")
-    : (allMapped ? "border-l-green-500/70" : "border-l-amber-400/70");
+    ? allMapped
+      ? "border-l-purple-500/70"
+      : "border-l-purple-400/40"
+    : allMapped
+      ? "border-l-green-500/70"
+      : "border-l-amber-400/70";
   const bgClass = group.isSuperGroup
     ? "border-border/60 bg-purple-500/[0.03]"
     : "border-border/60 bg-foreground/[0.02]";
 
   return (
-    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${bgClass}`}>
+    <div
+      className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${bgClass}`}
+    >
       {/* Group header */}
       <button
         type="button"
@@ -1087,17 +1256,33 @@ function HierarchyGroupRow({
       >
         <svg
           className={`w-3 h-3 ${group.isSuperGroup ? "text-purple-400/60" : "text-foreground/40"} transition-transform duration-150 ${isExpanded ? "rotate-90" : ""} flex-shrink-0`}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
         </svg>
-        {group.isSuperGroup
-          ? <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">SUPER</span>
-          : <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded flex-shrink-0">GRP</span>
-        }
-        <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.model.name}</span>
+        {group.isSuperGroup ? (
+          <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">
+            SUPER
+          </span>
+        ) : (
+          <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded flex-shrink-0">
+            GRP
+          </span>
+        )}
+        <span className="text-[12px] font-semibold text-foreground/70 truncate">
+          {group.model.name}
+        </span>
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-          <span className={`text-[10px] font-semibold tabular-nums ${allMapped ? "text-green-400/60" : "text-foreground/40"}`}>
+          <span
+            className={`text-[10px] font-semibold tabular-nums ${allMapped ? "text-green-400/60" : "text-foreground/40"}`}
+          >
             {group.mappedCount}/{group.members.length}
           </span>
         </div>
@@ -1105,7 +1290,9 @@ function HierarchyGroupRow({
 
       {/* Expanded members */}
       {isExpanded && group.members.length > 0 && (
-        <div className={`px-2.5 pb-2 pl-5 space-y-0.5 border-t ${group.isSuperGroup ? "border-purple-400/10" : "border-border/30"}`}>
+        <div
+          className={`px-2.5 pb-2 pl-5 space-y-0.5 border-t ${group.isSuperGroup ? "border-purple-400/10" : "border-border/30"}`}
+        >
           <div className="pt-1">
             {group.members.map((model) => (
               <ModelCard
@@ -1122,6 +1309,120 @@ function HierarchyGroupRow({
               />
             ))}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Destination Sort Dropdown ─────────────────────────────
+
+const DEST_SORT_LABELS: Partial<Record<SortOption, string>> = {
+  "name-asc": "Name A\u2192Z",
+  "name-desc": "Name Z\u2192A",
+  "pixels-desc": "Pixels: High",
+  "pixels-asc": "Pixels: Low",
+  status: "Unmapped First",
+};
+const DEST_SORT_OPTIONS: SortOption[] = [
+  "name-asc",
+  "name-desc",
+  "pixels-desc",
+  "pixels-asc",
+  "status",
+];
+
+function DestSortDropdown({
+  value,
+  linked,
+  onChange,
+  onResetLink,
+}: {
+  value: SortOption;
+  linked: boolean;
+  onChange: (option: SortOption) => void;
+  onResetLink: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`flex items-center gap-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+          linked
+            ? "text-foreground/40 bg-background border-border hover:border-foreground/20"
+            : "text-accent/70 bg-accent/5 border-accent/20 hover:border-accent/30"
+        }`}
+        title={
+          linked
+            ? "Sort linked to source panel"
+            : "Sort overridden (click to re-link)"
+        }
+      >
+        <svg
+          className="w-3 h-3"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
+          />
+        </svg>
+        {DEST_SORT_LABELS[value] ?? "Sort"}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border rounded-lg shadow-xl z-30 py-1 overflow-hidden">
+          {DEST_SORT_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => {
+                onChange(option);
+                setOpen(false);
+              }}
+              className={`w-full text-left px-3 py-1.5 text-[12px] transition-colors ${
+                value === option
+                  ? "text-accent bg-accent/5 font-medium"
+                  : "text-foreground/60 hover:bg-foreground/5"
+              }`}
+            >
+              {DEST_SORT_LABELS[option]}
+            </button>
+          ))}
+          {!linked && (
+            <>
+              <div className="border-t border-border/40 my-1" />
+              <button
+                type="button"
+                onClick={() => {
+                  onResetLink();
+                  setOpen(false);
+                }}
+                className="w-full text-left px-3 py-1.5 text-[11px] text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
+              >
+                Re-link to source sort
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
