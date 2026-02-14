@@ -951,7 +951,7 @@ function XLightsGroupCard({
     <div
       className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${isSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]"}`}
     >
-      {/* Group header: ▸ GRP  Name  (N)  ·  fx  ·  status  →dest  ★  ✕ */}
+      {/* Group header: ▸ [FX] GRP  Name  (N)  ·  status  →dest  ★  ✕ */}
       <div
         className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer"
         onClick={onSelect}
@@ -978,6 +978,7 @@ function XLightsGroupCard({
             />
           </svg>
         </button>
+        <HeroEffectBadge count={groupFxCount} />
         <span className={`${PANEL_STYLES.card.badge} ${TYPE_BADGE_COLORS.GRP}`}>
           GRP
         </span>
@@ -986,13 +987,6 @@ function XLightsGroupCard({
         </span>
         <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">
           ({fullMemberCount})
-        </span>
-        <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-        <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
-          {groupFxCount >= 1000
-            ? `${(groupFxCount / 1000).toFixed(1)}k`
-            : groupFxCount}{" "}
-          fx
         </span>
         {activeMemberCount > 0 && (
           <span className="text-[10px] text-foreground/30 flex-shrink-0">
@@ -1649,6 +1643,7 @@ function SuperGroupCard({
             />
           </svg>
         </button>
+        <HeroEffectBadge count={groupFxCount} />
         <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded">
           SUPER
         </span>
@@ -1657,16 +1652,6 @@ function SuperGroupCard({
         </span>
         <span className="text-[10px] text-foreground/40 font-semibold flex-shrink-0">
           ({totalCount})
-        </span>
-        <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-        <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0 whitespace-nowrap">
-          {groupFxCount >= 1000
-            ? `${(groupFxCount / 1000).toFixed(1)}k`
-            : groupFxCount}{" "}
-          fx
-        </span>
-        <span className="text-[10px] text-purple-400/40 flex-shrink-0">
-          &middot; {group.containedGroupCount} groups
         </span>
         {/* Right-aligned destination */}
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
