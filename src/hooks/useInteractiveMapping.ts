@@ -996,7 +996,8 @@ export function useInteractiveMapping(
         effectTypeCounts: effectTypeMap?.[gInfo.model.name],
         isSuperGroup: gInfo.isSuperGroup,
         containedGroupCount: gInfo.containedGroupCount,
-        parentSuperGroup: effectTree.groupParentMap.get(gInfo.model.name) ?? null,
+        parentSuperGroup:
+          effectTree.groupParentMap.get(gInfo.model.name) ?? null,
         superGroupLayers: [],
       });
     }
@@ -1035,20 +1036,21 @@ export function useInteractiveMapping(
       });
     }
 
-    // Smart group coverage: when a group is mapped, its individual member
-    // models are effectively covered (ticket-73 §1). Mark them so the UI
-    // can suppress their unmapped indicators and adjust counts.
-    const mappedGroupMembers = new Set<string>();
+    // Static group coverage (ticket-80 §2): "covered by group" is determined
+    // solely by source data — models with 0 own effects whose effects come
+    // from the parent group. This status is computed once and does NOT change
+    // based on user actions (approving siblings, mapping the parent, etc.).
+    const coveredMemberNames = new Set<string>();
     for (const layer of layers) {
-      if (layer.isGroup && layer.isMapped && !layer.isSkipped) {
-        for (const memberName of layer.memberNames) {
-          mappedGroupMembers.add(memberName);
+      if (layer.isGroup) {
+        for (const memberName of layer.membersWithoutEffects) {
+          coveredMemberNames.add(memberName);
         }
       }
     }
-    if (mappedGroupMembers.size > 0) {
+    if (coveredMemberNames.size > 0) {
       for (const layer of layers) {
-        if (!layer.isGroup && !layer.isMapped && mappedGroupMembers.has(layer.sourceModel.name)) {
+        if (!layer.isGroup && coveredMemberNames.has(layer.sourceModel.name)) {
           layer.isCoveredByMappedGroup = true;
         }
       }
@@ -1188,9 +1190,7 @@ export function useInteractiveMapping(
       }
     }
 
-    const covered = eligibleDest.filter((m) =>
-      coveredNames.has(m.name),
-    ).length;
+    const covered = eligibleDest.filter((m) => coveredNames.has(m.name)).length;
     const percent = total > 0 ? Math.round((covered / total) * 100) : 100;
     return { covered, total, percent };
   }, [destModels, assignedUserModelNames, skippedDestModels]);

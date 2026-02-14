@@ -30,31 +30,54 @@ export function CurrentMappingCard({
 
   const isNeedsReview =
     isNeedsReviewProp ?? (matchScore != null && matchScore < STRONG_THRESHOLD);
-  const borderColor = isNeedsReview
+
+  // Three distinct states:
+  //   1. SUGGESTED MATCH — auto-matched, awaiting approval (isNeedsReview)
+  //   2. ✓ MAPPED TO    — confirmed (approved, strong, or manual)
+  const isSuggested = isNeedsReview;
+  const borderColor = isSuggested
     ? "border-amber-500/25 bg-amber-500/5"
     : "border-green-500/25 bg-green-500/5";
-  const headerColor = isNeedsReview ? "text-amber-400" : "text-green-400";
-  const labelColor = isNeedsReview ? "text-amber-400/70" : "text-green-400/70";
+  const headerColor = isSuggested ? "text-amber-400" : "text-green-400";
+  const labelColor = isSuggested ? "text-amber-400/70" : "text-green-400/70";
 
   return (
     <div className="px-5 py-3 border-b border-border flex-shrink-0">
       <div className={`rounded-lg border ${borderColor} p-3`}>
         <div className="flex items-center gap-2 mb-2">
-          <svg
-            className={`w-3.5 h-3.5 ${headerColor}`}
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-              clipRule="evenodd"
-            />
-          </svg>
+          {isSuggested ? (
+            /* Auto-match link icon for pending suggestions */
+            <svg
+              className={`w-3.5 h-3.5 ${headerColor}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+          ) : (
+            /* Green check for confirmed mappings */
+            <svg
+              className={`w-3.5 h-3.5 ${headerColor}`}
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          )}
           <span
             className={`text-[10px] font-semibold ${labelColor} uppercase tracking-wider`}
           >
-            Currently Mapped To
+            {isSuggested ? "Suggested Match" : "Mapped To"}
           </span>
           {matchScore != null && matchScore > 0 && (
             <div className="ml-auto flex items-center gap-2">
@@ -63,7 +86,7 @@ export function CurrentMappingCard({
                 factors={matchFactors}
                 size="sm"
               />
-              {isNeedsReview && onApprove && (
+              {isSuggested && onApprove && (
                 <button
                   type="button"
                   onClick={onApprove}
@@ -98,6 +121,33 @@ export function CurrentMappingCard({
             covers {item.coveredChildCount} children
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Not Mapped Banner (Right Panel — for unmapped items) ────────
+
+export function NotMappedBanner() {
+  return (
+    <div className="px-5 py-3 border-b border-border flex-shrink-0">
+      <div className="flex items-center gap-2">
+        <svg
+          className="w-3.5 h-3.5 text-foreground/30"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+          />
+        </svg>
+        <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">
+          Not Mapped
+        </span>
       </div>
     </div>
   );

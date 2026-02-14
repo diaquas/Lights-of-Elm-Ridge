@@ -23,7 +23,11 @@ import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import { PANEL_STYLES, TYPE_BADGE_COLORS, MODEL_GRID } from "../panelStyles";
-import { CurrentMappingCard, FilterPill } from "../SharedHierarchyComponents";
+import {
+  CurrentMappingCard,
+  NotMappedBanner,
+  FilterPill,
+} from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
 type StatusFilter =
@@ -708,6 +712,7 @@ export function SpinnersPhase() {
                     autoMatchedNames={autoMatchedNames}
                     approvedNames={approvedNames}
                     scoreMap={scoreMap}
+                    factorsMap={factorsMap}
                     topSuggestionsMap={topSuggestionsMap}
                     onSelect={setSelectedItemId}
                     onAccept={handleAccept}
@@ -731,6 +736,7 @@ export function SpinnersPhase() {
                     isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
                     isApproved={approvedNames.has(item.sourceModel.name)}
                     matchScore={scoreMap.get(item.sourceModel.name)}
+                    matchFactors={factorsMap.get(item.sourceModel.name)}
                     topSuggestion={
                       topSuggestionsMap.get(item.sourceModel.name) ?? null
                     }
@@ -825,8 +831,8 @@ export function SpinnersPhase() {
               </div>
             </div>
 
-            {/* Current Mapping Card (for mapped items) */}
-            {selectedItem.isMapped && (
+            {/* Mapping state card: SUGGESTED MATCH / ✓ MAPPED TO / NOT MAPPED */}
+            {selectedItem.isMapped ? (
               <CurrentMappingCard
                 item={selectedItem}
                 matchScore={scoreMap.get(selectedItem.sourceModel.name)}
@@ -847,6 +853,8 @@ export function SpinnersPhase() {
                   )
                 }
               />
+            ) : (
+              <NotMappedBanner />
             )}
 
             {/* Universal Source Panel — always visible for suggestions + add another */}
@@ -963,6 +971,7 @@ function SubmodelCard({
   isAutoMatched,
   isApproved,
   matchScore,
+  matchFactors,
   topSuggestion,
   onClick,
   onAccept,
@@ -980,6 +989,7 @@ function SubmodelCard({
   isAutoMatched: boolean;
   isApproved: boolean;
   matchScore?: number;
+  matchFactors?: ModelMapping["factors"];
   topSuggestion: {
     model: { name: string };
     score: number;
@@ -1052,6 +1062,8 @@ function SubmodelCard({
             name={item.assignedUserModels[0]?.name ?? ""}
             confidence={confidencePct}
             autoMatched={isAutoMatched}
+            matchScore={matchScore}
+            matchFactors={matchFactors}
           />
         ) : topSuggestion ? (
           <button
@@ -1129,6 +1141,7 @@ const SubmodelCardMemo = memo(
     prev.isAutoMatched === next.isAutoMatched &&
     prev.isApproved === next.isApproved &&
     prev.matchScore === next.matchScore &&
+    prev.matchFactors === next.matchFactors &&
     prev.topSuggestion?.model.name === next.topSuggestion?.model.name &&
     prev.topSuggestion?.score === next.topSuggestion?.score,
 );
@@ -1143,6 +1156,7 @@ function SectionDivider({
   autoMatchedNames,
   approvedNames,
   scoreMap,
+  factorsMap,
   topSuggestionsMap,
   onSelect,
   onAccept,
@@ -1160,6 +1174,7 @@ function SectionDivider({
   autoMatchedNames: ReadonlySet<string>;
   approvedNames: ReadonlySet<string>;
   scoreMap: Map<string, number>;
+  factorsMap: Map<string, ModelMapping["factors"]>;
   topSuggestionsMap: Map<
     string,
     {
@@ -1224,6 +1239,7 @@ function SectionDivider({
               isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
               isApproved={approvedNames.has(item.sourceModel.name)}
               matchScore={scoreMap.get(item.sourceModel.name)}
+              matchFactors={factorsMap.get(item.sourceModel.name)}
               topSuggestion={
                 topSuggestionsMap.get(item.sourceModel.name) ?? null
               }

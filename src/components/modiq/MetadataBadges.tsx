@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 import type { AutoMatchStats } from "@/contexts/MappingPhaseContext";
+import type { ModelMapping } from "@/lib/modiq/matcher";
+import { ConfidenceBadge } from "./ConfidenceBadge";
 
 /**
  * Color tiers for effect counts.
@@ -637,10 +639,16 @@ export function DestinationPill({
   name,
   confidence,
   autoMatched = false,
+  matchScore,
+  matchFactors,
 }: {
   name: string;
   confidence?: number;
   autoMatched?: boolean;
+  /** Raw 0-1 score for hover tooltip (optional) */
+  matchScore?: number;
+  /** Factor breakdown for hover tooltip (optional) */
+  matchFactors?: ModelMapping["factors"];
 }) {
   const color =
     confidence != null
@@ -674,7 +682,15 @@ export function DestinationPill({
       >
         &rarr; {name}
       </span>
-      {confidence != null && (
+      {confidence != null && matchScore != null && matchFactors ? (
+        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <ConfidenceBadge
+            score={matchScore}
+            factors={matchFactors}
+            size="sm"
+          />
+        </div>
+      ) : confidence != null ? (
         <span
           className={`text-[10px] font-semibold font-mono tabular-nums px-1 py-px rounded flex-shrink-0 ${
             confidence >= 60
@@ -686,7 +702,7 @@ export function DestinationPill({
         >
           {confidence}%
         </span>
-      )}
+      ) : null}
     </div>
   );
 }
