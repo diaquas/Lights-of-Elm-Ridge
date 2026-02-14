@@ -41,3 +41,9 @@ export const TYPE_BADGE_COLORS = {
 export const GROUP_GRID =
   "18px 42px 16px 42px 1fr auto minmax(50px,100px) 50px";
 export const MODEL_GRID = "18px 42px 1fr auto minmax(50px,100px) 50px";
+
+/**
+ * Submodel group row grid — flat rows with type badge, no health bar.
+ * checkbox | fx | SUB badge | name | destination+confidence | actions
+ */
+export const SUB_GRID = "18px 42px 42px 1fr auto 50px";

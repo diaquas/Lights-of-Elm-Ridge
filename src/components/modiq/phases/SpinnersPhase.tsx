@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/refs -- Refs used as stable caches (sort order, scores); intentional lazy-init in useMemo. */
 "use client";
 
-import { useState, useMemo, useCallback, useRef, memo } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
 import {
   useMappingPhase,
   findNextUnmapped,
@@ -13,6 +13,7 @@ import {
   UnlinkIcon,
   StatusCheck,
   FxBadge,
+  TypeBadge,
   DestinationPill,
   type StatusCheckStatus,
 } from "../MetadataBadges";
@@ -22,7 +23,7 @@ import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
-import { PANEL_STYLES, TYPE_BADGE_COLORS, MODEL_GRID } from "../panelStyles";
+import { PANEL_STYLES, TYPE_BADGE_COLORS, SUB_GRID } from "../panelStyles";
 import {
   CurrentMappingCard,
   NotMappedBanner,
@@ -71,6 +72,38 @@ export function SpinnersPhase() {
     null,
   );
 
+  // Banner filter: set by auto-match banner to show strong/review items (overrides statusFilter)
+  const [bannerFilter, setBannerFilter] = useState<
+    "auto-strong" | "auto-review" | null
+  >(null);
+
+  // Auto-start with "needs review" filter when there are review items
+  const didAutoStartRef = useRef(false);
+  useEffect(() => {
+    if (didAutoStartRef.current) return;
+    if (autoMatchStats.reviewCount > 0) {
+      setBannerFilter("auto-review");
+      didAutoStartRef.current = true;
+    } else if (autoMatchStats.total > 0) {
+      didAutoStartRef.current = true;
+    }
+  }, [autoMatchStats]);
+
+  // Auto-clear banner filter when all review items are resolved
+  const [reviewClearToast, setReviewClearToast] = useState(false);
+  useEffect(() => {
+    if (bannerFilter === "auto-review" && autoMatchStats.reviewCount === 0) {
+      setBannerFilter(null);
+      setReviewClearToast(true);
+      const t = setTimeout(() => setReviewClearToast(false), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [bannerFilter, autoMatchStats.reviewCount]);
+
+  // Pairing review state
+  const [pairingConfirmed, setPairingConfirmed] = useState(false);
+  const [pairingExpanded, setPairingExpanded] = useState(false);
+
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
   const stableOrderRef = useRef<Map<string, number>>(new Map());
@@ -105,6 +138,35 @@ export function SpinnersPhase() {
     }
     return index;
   }, [phaseItems]);
+
+  // Per-model health bar stats (depends on score/approval state)
+  const parentModelStats = useMemo(() => {
+    const stats = new Map<
+      string,
+      { mapped: number; review: number; unmapped: number; total: number }
+    >();
+    for (const [name, data] of parentModelIndex) {
+      let mapped = 0;
+      let review = 0;
+      let unmapped = 0;
+      for (const item of data.items) {
+        if (!item.isMapped) {
+          unmapped++;
+        } else {
+          const score = scoreMap.get(item.sourceModel.name) ?? 0;
+          const isAuto = autoMatchedNames.has(item.sourceModel.name);
+          const isAppr = approvedNames.has(item.sourceModel.name);
+          if (isAuto && !isAppr && score < STRONG_THRESHOLD) {
+            review++;
+          } else {
+            mapped++;
+          }
+        }
+      }
+      stats.set(name, { mapped, review, unmapped, total: data.total });
+    }
+    return stats;
+  }, [parentModelIndex, scoreMap, autoMatchedNames, approvedNames]);
 
   // Sorted parent model list
   const parentModelList = useMemo(() => {
@@ -328,24 +390,24 @@ export function SpinnersPhase() {
   // Filtered + stable-sorted items (single unified list, scoped to parent model)
   const filteredItems = useMemo(() => {
     let items = [...scopedItems];
-    if (statusFilter === "unmapped") items = items.filter((i) => !i.isMapped);
-    else if (statusFilter === "auto-strong")
+
+    // Banner filter overrides status filter when active
+    const activeFilter = bannerFilter ?? statusFilter;
+    if (activeFilter === "unmapped") items = items.filter((i) => !i.isMapped);
+    else if (activeFilter === "auto-strong")
       items = items.filter(
         (i) =>
           autoMatchedNames.has(i.sourceModel.name) &&
           (scoreMap.get(i.sourceModel.name) ?? 0) >= STRONG_THRESHOLD,
       );
-    else if (statusFilter === "auto-review")
+    else if (activeFilter === "auto-review")
       items = items.filter(
         (i) =>
           autoMatchedNames.has(i.sourceModel.name) &&
           !approvedNames.has(i.sourceModel.name) &&
           (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD,
       );
-    else if (statusFilter === "mapped")
-      items = items.filter(
-        (i) => i.isMapped && !autoMatchedNames.has(i.sourceModel.name),
-      );
+    else if (activeFilter === "mapped") items = items.filter((i) => i.isMapped);
     if (search) {
       const q = search.toLowerCase();
       items = items.filter(
@@ -384,10 +446,12 @@ export function SpinnersPhase() {
   }, [
     scopedItems,
     statusFilter,
+    bannerFilter,
     search,
     sortBy,
     sortVersion,
     topSuggestionsMap,
+    approvedNames,
   ]);
 
   // Suggestions for selected item
@@ -466,8 +530,9 @@ export function SpinnersPhase() {
             <FilterPill
               label={`All (${phaseItems.length})`}
               color="blue"
-              active={statusFilter === "all"}
+              active={statusFilter === "all" && !bannerFilter}
               onClick={() => {
+                setBannerFilter(null);
                 setStatusFilter("all");
                 setSortVersion((v) => v + 1);
               }}
@@ -475,8 +540,9 @@ export function SpinnersPhase() {
             <FilterPill
               label={`Mapped (${mappedCount})`}
               color="green"
-              active={statusFilter === "mapped"}
+              active={statusFilter === "mapped" && !bannerFilter}
               onClick={() => {
+                setBannerFilter(null);
                 setStatusFilter("mapped");
                 setSortVersion((v) => v + 1);
               }}
@@ -484,140 +550,15 @@ export function SpinnersPhase() {
             <FilterPill
               label={`Unmapped (${unmappedCount})`}
               color="amber"
-              active={statusFilter === "unmapped"}
+              active={statusFilter === "unmapped" && !bannerFilter}
               onClick={() => {
+                setBannerFilter(null);
                 setStatusFilter("unmapped");
                 setSortVersion((v) => v + 1);
               }}
             />
           </div>
         </div>
-
-        {/* HD Prop Pairings — monogamy constraint */}
-        {activePairings.size > 0 && (
-          <div className="px-4 py-2 border-b border-border flex-shrink-0">
-            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider mb-1.5">
-              HD Prop Pairings
-            </div>
-            <div className="space-y-1">
-              {Array.from(activePairings.entries()).map(([dest, src]) => {
-                const pairing = pairings.find(
-                  (p) => p.destProp === dest && p.sourceProp === src,
-                );
-                const scorePercent = pairing
-                  ? Math.round(pairing.score * 100)
-                  : 0;
-                const isCopy =
-                  Array.from(activePairings.values()).filter((v) => v === src)
-                    .length > 1;
-                return (
-                  <div
-                    key={dest}
-                    className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-foreground/[0.02] border border-border/50 text-[11px]"
-                  >
-                    <span className="text-foreground/60 truncate flex-1 min-w-0">
-                      {src}
-                      {isCopy && (
-                        <span className="text-foreground/25 ml-1">(copy)</span>
-                      )}
-                    </span>
-                    <span className="text-foreground/20 flex-shrink-0">
-                      &rarr;
-                    </span>
-                    <span className="text-foreground/70 font-medium truncate flex-1 min-w-0">
-                      {dest}
-                    </span>
-                    <span
-                      className={`text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded flex-shrink-0 ${
-                        scorePercent >= 70
-                          ? "bg-green-500/10 text-green-400/70"
-                          : scorePercent >= 40
-                            ? "bg-amber-500/10 text-amber-400/70"
-                            : "bg-red-500/10 text-red-400/70"
-                      }`}
-                    >
-                      {scorePercent}%
-                    </span>
-                    <select
-                      value={src}
-                      onChange={(e) => {
-                        setPairingOverrides((prev) => {
-                          const next = new Map(prev);
-                          next.set(dest, e.target.value);
-                          return next;
-                        });
-                      }}
-                      className="text-[10px] px-1 py-0.5 rounded bg-foreground/5 border border-border text-foreground/40 focus:outline-none focus:border-accent flex-shrink-0"
-                      title="Change source pairing"
-                    >
-                      {parentModelList.map((pm) => (
-                        <option key={pm.name} value={pm.name}>
-                          {pm.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                );
-              })}
-            </div>
-            {activePairings.size > 0 && (
-              <p className="text-[10px] text-foreground/25 mt-1.5">
-                Each destination receives submodel mappings from one source
-                only.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Model selector — pick a parent model to scope submodel groups */}
-        {parentModelList.length > 1 && (
-          <div className="px-4 py-2 border-b border-border flex-shrink-0">
-            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider mb-1.5">
-              Select Model
-            </div>
-            <div className="space-y-1">
-              {parentModelList.map((pm) => {
-                const isActive = pm.name === activeParent;
-                const allMapped = pm.mapped >= pm.total;
-                return (
-                  <button
-                    key={pm.name}
-                    type="button"
-                    onClick={() => setSelectedParentModel(pm.name)}
-                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-left transition-all ${
-                      isActive
-                        ? "bg-accent/8 border border-accent/25"
-                        : "bg-foreground/[0.02] border border-border/50 hover:border-foreground/15"
-                    }`}
-                  >
-                    <span
-                      className={`text-[12px] font-medium truncate flex-1 min-w-0 ${isActive ? "text-foreground" : "text-foreground/60"}`}
-                    >
-                      {pm.name}
-                    </span>
-                    <span className="text-[10px] text-foreground/30 flex-shrink-0 tabular-nums">
-                      {pm.total} sub-groups
-                    </span>
-                    {/* Mini progress bar */}
-                    <div className="w-16 h-1.5 bg-foreground/5 rounded-full overflow-hidden flex-shrink-0">
-                      <div
-                        className={`h-full rounded-full transition-all ${allMapped ? "bg-green-500/50" : "bg-accent/40"}`}
-                        style={{
-                          width: `${pm.total > 0 ? (pm.mapped / pm.total) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
-                    <span
-                      className={`text-[10px] font-semibold tabular-nums flex-shrink-0 ${allMapped ? "text-green-400/60" : "text-foreground/40"}`}
-                    >
-                      {pm.mapped}/{pm.total}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Search + Sort */}
         <div className={PANEL_STYLES.search.wrapper}>
@@ -695,10 +636,294 @@ export function SpinnersPhase() {
         <AutoMatchBanner
           stats={autoMatchStats}
           phaseAutoCount={phaseAutoCount}
+          bannerFilter={bannerFilter}
+          onFilterStrong={() => {
+            setBannerFilter("auto-strong");
+            setSortVersion((v) => v + 1);
+          }}
+          onFilterReview={() => {
+            setBannerFilter("auto-review");
+            setSortVersion((v) => v + 1);
+          }}
+          onClearFilter={() => {
+            setBannerFilter(null);
+            setSortVersion((v) => v + 1);
+          }}
           onApproveAllReview={approveAllReviewItems}
         />
 
+        {/* "All reviews complete" toast */}
+        {reviewClearToast && (
+          <div className="mx-4 mt-2 mb-1 px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-[12px] text-green-400 font-medium flex-shrink-0 animate-pulse">
+            All reviews complete
+          </div>
+        )}
+
         <div className={PANEL_STYLES.scrollArea}>
+          {/* ── HD Prop Pairings Review ── */}
+          {activePairings.size > 0 && (
+            <div className="px-4 pb-3">
+              {!pairingConfirmed ? (
+                /* Full pairing review — shown on first load */
+                <div className="rounded-lg border border-teal-500/20 bg-teal-500/[0.03] p-4">
+                  <div className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.1em] font-mono mb-3">
+                    HD Prop Pairings
+                  </div>
+                  {/* Column headers */}
+                  <div
+                    className="grid gap-1 mb-1.5"
+                    style={{ gridTemplateColumns: "1fr 20px 1fr 50px 24px" }}
+                  >
+                    <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider font-mono">
+                      Your Display
+                    </span>
+                    <span />
+                    <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider font-mono">
+                      Source
+                    </span>
+                    <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider font-mono text-right">
+                      Score
+                    </span>
+                    <span />
+                  </div>
+                  {/* Pairing rows */}
+                  {Array.from(activePairings.entries()).map(([dest, src]) => {
+                    const pairing = pairings.find(
+                      (p) => p.destProp === dest && p.sourceProp === src,
+                    );
+                    const scorePercent = pairing
+                      ? Math.round(pairing.score * 100)
+                      : 0;
+                    return (
+                      <div
+                        key={dest}
+                        className="grid gap-1 py-1.5 items-center"
+                        style={{
+                          gridTemplateColumns: "1fr 20px 1fr 50px 24px",
+                        }}
+                      >
+                        <span className="text-[12px] text-foreground/80 truncate">
+                          {dest}
+                        </span>
+                        <span className="text-[11px] text-foreground/20 text-center">
+                          &rarr;
+                        </span>
+                        <span className="text-[12px] text-green-400 font-medium truncate">
+                          {src}
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold tabular-nums font-mono text-right ${
+                            scorePercent >= 70
+                              ? "text-green-400/80"
+                              : scorePercent >= 40
+                                ? "text-amber-400/80"
+                                : "text-red-400/80"
+                          }`}
+                        >
+                          {scorePercent}%
+                        </span>
+                        <select
+                          value={src}
+                          onChange={(e) => {
+                            setPairingOverrides((prev) => {
+                              const next = new Map(prev);
+                              next.set(dest, e.target.value);
+                              return next;
+                            });
+                          }}
+                          className="text-[10px] w-[22px] h-[22px] rounded bg-foreground/5 border border-border text-foreground/40 focus:outline-none cursor-pointer appearance-none text-center"
+                          title="Change source pairing"
+                        >
+                          {parentModelList.map((pm) => (
+                            <option key={pm.name} value={pm.name}>
+                              {pm.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setPairingConfirmed(true)}
+                      className="text-[11px] font-semibold px-3.5 py-1.5 rounded border-none bg-teal-500 text-black cursor-pointer"
+                    >
+                      Looks Good
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPairingConfirmed(true)}
+                      className="text-[11px] font-medium px-3.5 py-1.5 rounded border border-border bg-transparent text-foreground/50 hover:text-foreground/70 cursor-pointer transition-colors"
+                    >
+                      Let Me Adjust Later
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Collapsed pairing review — show "View Pairings" toggle */
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setPairingExpanded(!pairingExpanded)}
+                    className="text-[11px] text-teal-400/60 hover:text-teal-400 transition-colors flex items-center gap-1.5"
+                  >
+                    <svg
+                      className={`w-3 h-3 transition-transform ${pairingExpanded ? "rotate-90" : ""}`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                    View HD Prop Pairings
+                  </button>
+                  {pairingExpanded && (
+                    <div className="mt-2 space-y-1 pl-4">
+                      {Array.from(activePairings.entries()).map(
+                        ([dest, src]) => {
+                          const pairing = pairings.find(
+                            (p) => p.destProp === dest && p.sourceProp === src,
+                          );
+                          const scorePercent = pairing
+                            ? Math.round(pairing.score * 100)
+                            : 0;
+                          return (
+                            <div
+                              key={dest}
+                              className="flex items-center gap-2 text-[11px]"
+                            >
+                              <span className="text-foreground/50 truncate">
+                                {dest}
+                              </span>
+                              <span className="text-foreground/20">&rarr;</span>
+                              <span className="text-green-400/70 truncate">
+                                {src}
+                              </span>
+                              <span
+                                className={`font-mono tabular-nums ${
+                                  scorePercent >= 70
+                                    ? "text-green-400/60"
+                                    : "text-amber-400/60"
+                                }`}
+                              >
+                                {scorePercent}%
+                              </span>
+                              <select
+                                value={src}
+                                onChange={(e) => {
+                                  setPairingOverrides((prev) => {
+                                    const next = new Map(prev);
+                                    next.set(dest, e.target.value);
+                                    return next;
+                                  });
+                                }}
+                                className="text-[10px] px-1 py-0.5 rounded bg-foreground/5 border border-border text-foreground/40 focus:outline-none flex-shrink-0"
+                                title="Change source pairing"
+                              >
+                                {parentModelList.map((pm) => (
+                                  <option key={pm.name} value={pm.name}>
+                                    {pm.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Model Selector ── */}
+          {parentModelList.length > 1 && (
+            <div className="px-4 pb-3">
+              <div className="text-[10px] font-bold text-foreground/40 uppercase tracking-[0.1em] font-mono mb-2">
+                Select Model
+              </div>
+              <div className="space-y-1">
+                {parentModelList.map((pm) => {
+                  const isActive = pm.name === activeParent;
+                  const stats = parentModelStats.get(pm.name);
+                  const pSource = activePairings.get(pm.name);
+                  return (
+                    <button
+                      key={pm.name}
+                      type="button"
+                      onClick={() => {
+                        setSelectedParentModel(pm.name);
+                        setSelectedItemId(null);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
+                        isActive
+                          ? "bg-teal-500/[0.06] border border-teal-500/30"
+                          : "bg-foreground/[0.02] border border-border/50 hover:border-foreground/15"
+                      }`}
+                    >
+                      {/* Radio button */}
+                      <div
+                        className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                          isActive
+                            ? "border-teal-400 bg-teal-400"
+                            : "border-foreground/20 bg-transparent"
+                        }`}
+                      >
+                        {isActive && (
+                          <div className="w-1.5 h-1.5 rounded-full bg-white" />
+                        )}
+                      </div>
+                      {/* Name + sub-count */}
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={`text-[13px] font-semibold truncate ${isActive ? "text-foreground" : "text-foreground/60"}`}
+                        >
+                          {pm.name}
+                        </div>
+                        <div className="text-[10px] text-foreground/30 font-mono mt-0.5">
+                          {pm.total} sub-groups
+                          {pSource ? ` · paired with ${pSource}` : ""}
+                        </div>
+                      </div>
+                      {/* Mini health bar */}
+                      {stats && (
+                        <MiniHealthBar
+                          mapped={stats.mapped}
+                          review={stats.review}
+                          unmapped={stats.unmapped}
+                        />
+                      )}
+                      {/* Mapped / total */}
+                      <span
+                        className={`text-[11px] font-semibold tabular-nums font-mono flex-shrink-0 ${
+                          stats && stats.mapped + stats.review >= stats.total
+                            ? "text-green-400/60"
+                            : "text-foreground/40"
+                        }`}
+                      >
+                        {stats ? stats.mapped + stats.review : pm.mapped}/
+                        {pm.total}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {pairedSource && (
+                <p className="text-[10px] text-foreground/25 mt-2 pl-1">
+                  Paired source: {pairedSource}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ── Submodel Group List with Section Dividers ── */}
           <div className="px-4 pb-3 space-y-1">
             {/* Section-based rendering when sections detected */}
             {sectionGroups.some((s) => s.header)
@@ -772,14 +997,14 @@ export function SpinnersPhase() {
 
           {filteredItems.length === 0 && (
             <p className="py-6 text-center text-[12px] text-foreground/30">
-              {search || statusFilter !== "all"
+              {search || statusFilter !== "all" || bannerFilter
                 ? "No matches for current filters"
                 : "No items"}
             </p>
           )}
 
           {skippedItems.length > 0 && (
-            <details className="mt-4">
+            <details className="mt-4 px-4">
               <summary className="text-[11px] text-foreground/25 cursor-pointer hover:text-foreground/40">
                 {skippedItems.length} skipped
               </summary>
@@ -806,6 +1031,26 @@ export function SpinnersPhase() {
               </div>
             </details>
           )}
+
+          {/* Color legend */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 mt-3 border-t border-border">
+            {[
+              { color: "bg-green-400", label: "Mapped (60%+ / manual)" },
+              { color: "bg-amber-400", label: "Review (40-59%)" },
+              { color: "bg-red-400", label: "Weak (<40%)" },
+              { color: "bg-blue-400", label: "Unmapped" },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <div
+                  className={`w-2.5 h-2.5 rounded-sm ${item.color}`}
+                  style={{ opacity: 0.85 }}
+                />
+                <span className="text-[11px] text-foreground/40">
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -917,7 +1162,12 @@ export function SpinnersPhase() {
                   d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
                 />
               </svg>
-              <p className="text-sm">Select a group to see suggestions</p>
+              <p className="text-sm">
+                Select a submodel group to see suggestions
+              </p>
+              <p className="text-xs text-foreground/20 mt-1.5">
+                Already-mapped items can be clicked to review or swap
+              </p>
             </div>
           </div>
         )}
@@ -935,12 +1185,12 @@ function getItemStatus(
   score: number | undefined,
 ): StatusCheckStatus {
   if (!isMapped) return "unmapped";
-  if (isAutoMatched && !isApproved) {
-    if (score != null && score < WEAK_THRESHOLD) return "weak";
-    if (score != null && score < STRONG_THRESHOLD) return "needsReview";
-    return "strong";
-  }
-  return "approved";
+  if (!isAutoMatched) return "manual";
+  if (isApproved) return "approved";
+  if (score != null && score >= STRONG_THRESHOLD) return "strong";
+  if (score != null && score >= WEAK_THRESHOLD) return "needsReview";
+  if (score != null) return "weak";
+  return "manual";
 }
 
 function getLeftBorderColor(status: StatusCheckStatus): string {
@@ -962,7 +1212,45 @@ function getLeftBorderColor(status: StatusCheckStatus): string {
   }
 }
 
-// ─── Submodel Card (Left Panel) — grid layout matching IndividualsPhase ──
+// ─── Mini Health Bar (Model Selector cards) ───────────
+
+function MiniHealthBar({
+  mapped = 0,
+  review = 0,
+  unmapped = 0,
+}: {
+  mapped?: number;
+  review?: number;
+  unmapped?: number;
+}) {
+  const total = mapped + review + unmapped;
+  if (total === 0) return null;
+
+  return (
+    <div className="flex w-20 h-1 rounded-sm overflow-hidden gap-px bg-foreground/10 flex-shrink-0">
+      {mapped > 0 && (
+        <div
+          className="bg-green-400"
+          style={{ width: `${(mapped / total) * 100}%`, opacity: 0.85 }}
+        />
+      )}
+      {review > 0 && (
+        <div
+          className="bg-amber-400"
+          style={{ width: `${(review / total) * 100}%`, opacity: 0.85 }}
+        />
+      )}
+      {unmapped > 0 && (
+        <div
+          className="bg-blue-400"
+          style={{ width: `${(unmapped / total) * 100}%`, opacity: 0.85 }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Submodel Card (Left Panel) — SUB_GRID layout ───────
 
 function SubmodelCard({
   item,
@@ -1021,16 +1309,16 @@ function SubmodelCard({
         isDropTarget
           ? "bg-accent/10 ring-2 ring-accent/30"
           : isSelected
-            ? "bg-accent/5 ring-1 ring-accent/20"
+            ? "bg-teal-500/[0.06] ring-1 ring-teal-500/20"
             : "hover:bg-foreground/[0.02]"
       }`}
       style={{
         display: "grid",
-        gridTemplateColumns: MODEL_GRID,
+        gridTemplateColumns: SUB_GRID,
         alignItems: "center",
-        padding: "3px 10px 3px 8px",
+        padding: "4px 10px 4px 8px",
         gap: "0 6px",
-        minHeight: 28,
+        minHeight: 30,
       }}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
@@ -1051,20 +1339,39 @@ function SubmodelCard({
       />
       {/* Col 2: FX badge */}
       <FxBadge count={item.effectCount} />
-      {/* Col 3: Name */}
+      {/* Col 3: Type badge (SUB) */}
+      <TypeBadge type="SUB" />
+      {/* Col 4: Name */}
       <span className="text-[12px] font-medium text-foreground truncate">
         {item.sourceModel.name}
       </span>
-      {/* Col 4: Destination pill / + Assign */}
+      {/* Col 5: Destination pill / + Assign */}
       <div className="flex items-center justify-end gap-1">
         {item.isMapped ? (
-          <DestinationPill
-            name={item.assignedUserModels[0]?.name ?? ""}
-            confidence={confidencePct}
-            autoMatched={isAutoMatched}
-            matchScore={matchScore}
-            matchFactors={matchFactors}
-          />
+          <>
+            <DestinationPill
+              name={item.assignedUserModels[0]?.name ?? ""}
+              confidence={confidencePct}
+              autoMatched={isAutoMatched}
+              matchScore={matchScore}
+              matchFactors={matchFactors}
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUnlink();
+              }}
+              className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
+              title="Remove mapping"
+              style={{
+                opacity: hovered ? 0.6 : 0,
+                transition: "opacity 0.1s ease",
+              }}
+            >
+              <UnlinkIcon className="w-[11px] h-[11px]" />
+            </button>
+          </>
         ) : topSuggestion ? (
           <button
             type="button"
@@ -1081,8 +1388,6 @@ function SubmodelCard({
           <span className="text-[11px] text-foreground/20">+ Assign</span>
         )}
       </div>
-      {/* Col 5: Empty (no health bar for individual items) */}
-      <div />
       {/* Col 6: Row actions (hover) */}
       <div
         className="flex items-center justify-end gap-0.5"
@@ -1091,19 +1396,6 @@ function SubmodelCard({
           transition: "opacity 0.1s ease",
         }}
       >
-        {item.isMapped && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onUnlink();
-            }}
-            className="w-[22px] h-[22px] flex items-center justify-center rounded text-foreground/30 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-            title="Remove mapping"
-          >
-            <UnlinkIcon className="w-3 h-3" />
-          </button>
-        )}
         <button
           type="button"
           onClick={(e) => {
@@ -1203,7 +1495,7 @@ function SectionDivider({
           className="flex items-center gap-2 w-full pt-3.5 pb-1.5 px-1 text-left group/section border-b border-border mb-1.5"
         >
           <svg
-            className={`w-3 h-3 text-green-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`}
+            className={`w-3 h-3 text-teal-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -1215,14 +1507,14 @@ function SectionDivider({
               d="M9 5l7 7-7 7"
             />
           </svg>
-          <span className="text-[10px] font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
+          <span className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.1em] font-mono">
             {header}
           </span>
           <span className="text-[10px] text-foreground/30 font-mono">
             ({items.length})
           </span>
           <span
-            className={`text-[10px] tabular-nums flex-shrink-0 ${mappedInSection >= items.length ? "text-green-400/50" : "text-foreground/30"}`}
+            className={`text-[10px] tabular-nums flex-shrink-0 ${mappedInSection >= items.length ? "text-teal-400/50" : "text-foreground/30"}`}
           >
             {mappedInSection}/{items.length}
           </span>
