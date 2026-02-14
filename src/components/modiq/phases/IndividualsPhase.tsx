@@ -742,6 +742,20 @@ export function IndividualsPhase() {
                         onUnlink={() =>
                           handleUnlink(group.groupItem.sourceModel.name)
                         }
+                        onMapChildren={() => {
+                          // Expand the group and select first unmapped child
+                          setExpandedGroups((prev) => {
+                            const next = new Set(prev);
+                            next.add(group.groupItem.sourceModel.name);
+                            return next;
+                          });
+                          const firstUnmapped = group.members.find(
+                            (m) => !m.isMapped,
+                          );
+                          if (firstUnmapped) {
+                            setSelectedItemId(firstUnmapped.sourceModel.name);
+                          }
+                        }}
                         renderItemCard={renderItemCard}
                       />
                     ))}
@@ -941,6 +955,7 @@ export function IndividualsPhase() {
                 }
                 destSuperGroupNames={interactive.destSuperGroupNames}
                 hierarchyMode
+                sourceSortBy={sortBy}
               />
             </div>
 
@@ -1008,6 +1023,7 @@ function XLightsGroupCard({
   onApprove,
   onSkip,
   onUnlink,
+  onMapChildren,
   renderItemCard,
 }: {
   group: SourceLayerMapping;
@@ -1032,6 +1048,7 @@ function XLightsGroupCard({
   onApprove?: () => void;
   onSkip?: () => void;
   onUnlink?: () => void;
+  onMapChildren?: () => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -1236,7 +1253,7 @@ function XLightsGroupCard({
           )}
         </div>
       </div>
-      {/* Row 2: Health bar summary + counts + Accept button */}
+      {/* Row 2: Health bar summary + counts + Accept/MapChildren button */}
       {hasDirectModels && (
         <GroupHealthRow
           stats={memberStats}
@@ -1254,6 +1271,17 @@ function XLightsGroupCard({
               ? (e: React.MouseEvent) => {
                   e.stopPropagation();
                   onAccept(topSuggestion.model.name);
+                }
+              : undefined
+          }
+          showMapChildren={
+            group.isMapped && memberStats.unmapped > 0 && onMapChildren != null
+          }
+          onMapChildren={
+            onMapChildren
+              ? (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  onMapChildren();
                 }
               : undefined
           }
@@ -1280,6 +1308,8 @@ function GroupHealthRow({
   acceptLabel,
   reviewCount,
   onAccept,
+  showMapChildren,
+  onMapChildren,
 }: {
   stats: {
     strong: number;
@@ -1293,6 +1323,8 @@ function GroupHealthRow({
   acceptLabel?: string;
   reviewCount: number;
   onAccept?: (e: React.MouseEvent) => void;
+  showMapChildren?: boolean;
+  onMapChildren?: (e: React.MouseEvent) => void;
 }) {
   const mapped = stats.strong;
   const allCovered =
@@ -1329,8 +1361,17 @@ function GroupHealthRow({
       <span className="text-[11px] text-foreground/40 whitespace-nowrap">
         {parts.join(" · ")}
       </span>
-      {/* Accept Match button */}
-      <div className="ml-auto flex-shrink-0">
+      {/* Accept Match / Map Children buttons */}
+      <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+        {showMapChildren && onMapChildren && (
+          <button
+            type="button"
+            onClick={onMapChildren}
+            className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors whitespace-nowrap"
+          >
+            Map Children
+          </button>
+        )}
         {showAccept && onAccept && (
           <button
             type="button"
