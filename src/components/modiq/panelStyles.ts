@@ -38,9 +38,8 @@ export const TYPE_BADGE_COLORS = {
  * Group rows:  checkbox | fx | chevron | badge | name | destination | health | actions
  * Model rows:  checkbox | fx | name | destination | health(empty) | actions
  */
-export const GROUP_GRID =
-  "18px 42px 16px 42px 1fr auto minmax(50px,100px) 50px";
-export const MODEL_GRID = "18px 42px 1fr auto minmax(50px,100px) 50px";
+export const GROUP_GRID = "18px 42px 16px 42px 1fr auto 50px";
+export const MODEL_GRID = "18px 42px 1fr auto 50px";
 
 /**
  * Submodel group row grid — flat rows with type badge, no health bar.
