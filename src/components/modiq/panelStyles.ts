@@ -35,10 +35,10 @@ export const TYPE_BADGE_COLORS = {
 /**
  * CSS Grid templates for card rows — all rows share column alignment.
  *
- * Group rows:  checkbox | fx | chevron | badge | name | destination | health | actions
- * Model rows:  checkbox | fx | name | destination | health(empty) | actions
+ * Group rows:  checkbox | fx | chevron | badge | name | fraction | destination | actions
+ * Model rows:  checkbox | fx | name | destination | actions
  */
-export const GROUP_GRID = "18px 42px 16px 42px 1fr auto 50px";
+export const GROUP_GRID = "18px 42px 16px 42px 1fr auto auto 50px";
 export const MODEL_GRID = "18px 42px 1fr auto 50px";
 
 /**

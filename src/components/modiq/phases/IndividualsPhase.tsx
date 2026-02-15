@@ -14,7 +14,7 @@ import {
   StatusCheck,
   FxBadge,
   TypeBadge,
-  HealthBar,
+  FractionBadge,
   DestinationPill,
   type StatusCheckStatus,
 } from "../MetadataBadges";
@@ -1113,17 +1113,20 @@ function XLightsGroupCard({
   const confidencePct =
     matchScore != null ? Math.round(matchScore * 100) : undefined;
 
-  // Compute member match confidence breakdown for health bar
+  // Compute member match confidence breakdown + resolved count for fraction badge
   const memberStats = useMemo(() => {
     let strong = 0;
     let review = 0;
     let weak = 0;
     let unmapped = 0;
     let covered = 0;
+    let resolved = 0;
     for (const m of members) {
       if (!m.isMapped) {
-        if (m.isCoveredByMappedGroup) covered++;
-        else unmapped++;
+        if (m.isCoveredByMappedGroup) {
+          covered++;
+          resolved++;
+        } else unmapped++;
       } else {
         const s = scoreMap?.get(m.sourceModel.name) ?? 0;
         const isAuto = amNames?.has(m.sourceModel.name);
@@ -1131,11 +1134,22 @@ function XLightsGroupCard({
         if (!isAuto || isAppr || s >= STRONG_THRESHOLD) strong++;
         else if (s >= WEAK_THRESHOLD) review++;
         else weak++;
+        // Resolved = approved or manually mapped (no user action needed)
+        if (!isAuto || isAppr) resolved++;
       }
     }
     const ghostCount = fullMemberCount - activeMemberCount;
     covered += ghostCount;
-    return { strong, review, weak, unmapped, covered, total: fullMemberCount };
+    resolved += ghostCount;
+    return {
+      strong,
+      review,
+      weak,
+      unmapped,
+      covered,
+      resolved,
+      total: fullMemberCount,
+    };
   }, [members, scoreMap, amNames, apNames, fullMemberCount, activeMemberCount]);
 
   // Ghost members: names in the group definition but not in the active members list
@@ -1214,8 +1228,22 @@ function XLightsGroupCard({
         {/* Col 5: Name */}
         <span className="text-[13px] font-semibold text-foreground truncate">
           {group.sourceModel.name}
+          {fullMemberCount > 0 && (
+            <span className="text-foreground/30 font-normal ml-1">
+              ({fullMemberCount})
+            </span>
+          )}
         </span>
-        {/* Col 6: Destination + inline unlink */}
+        {/* Col 6: Fraction badge */}
+        <div className="flex items-center">
+          {fullMemberCount > 0 && (
+            <FractionBadge
+              resolved={memberStats.resolved}
+              total={memberStats.total}
+            />
+          )}
+        </div>
+        {/* Col 7: Destination + inline unlink */}
         <div className="flex items-center justify-end gap-1">
           {group.isMapped ? (
             <>
@@ -1294,19 +1322,6 @@ function XLightsGroupCard({
           )}
         </div>
       </div>
-      {/* Health bar — sub-row below grid, aligned with name column */}
-      {activeMemberCount > 0 && (
-        <div style={{ marginLeft: 130, marginRight: 60 }} className="pb-1">
-          <HealthBar
-            strong={memberStats.strong}
-            needsReview={memberStats.review}
-            weak={memberStats.weak}
-            unmapped={memberStats.unmapped}
-            covered={memberStats.covered}
-            totalModels={memberStats.total}
-          />
-        </div>
-      )}
       {/* Cascade prompt — map children inside this group */}
       {group.isMapped &&
         memberStats.unmapped > 0 &&
@@ -1860,17 +1875,20 @@ function SuperGroupCard({
   const confidencePct =
     matchScore != null ? Math.round(matchScore * 100) : undefined;
 
-  // Compute member stats for health bar
+  // Compute member stats + resolved count for fraction badge
   const superMemberStats = useMemo(() => {
     let strong = 0;
     let review = 0;
     let weak = 0;
     let unmapped = 0;
     let covered = 0;
+    let resolved = 0;
     for (const m of members) {
       if (!m.isMapped) {
-        if (m.isCoveredByMappedGroup) covered++;
-        else unmapped++;
+        if (m.isCoveredByMappedGroup) {
+          covered++;
+          resolved++;
+        } else unmapped++;
       } else {
         const s = scoreMap.get(m.sourceModel.name) ?? 0;
         const isAuto = autoMatchedNames.has(m.sourceModel.name);
@@ -1878,11 +1896,21 @@ function SuperGroupCard({
         if (!isAuto || isAppr || s >= STRONG_THRESHOLD) strong++;
         else if (s >= WEAK_THRESHOLD) review++;
         else weak++;
+        if (!isAuto || isAppr) resolved++;
       }
     }
     const ghostCount = totalCount - members.length;
     covered += ghostCount;
-    return { strong, review, weak, unmapped, covered, total: totalCount };
+    resolved += ghostCount;
+    return {
+      strong,
+      review,
+      weak,
+      unmapped,
+      covered,
+      resolved,
+      total: totalCount,
+    };
   }, [members, scoreMap, autoMatchedNames, approvedNames, totalCount]);
 
   return (
@@ -1944,8 +1972,22 @@ function SuperGroupCard({
         {/* Col 5: Name */}
         <span className="text-[13px] font-semibold text-foreground truncate">
           {group.sourceModel.name}
+          {totalCount > 0 && (
+            <span className="text-foreground/30 font-normal ml-1">
+              ({totalCount})
+            </span>
+          )}
         </span>
-        {/* Col 6: Destination + inline unlink */}
+        {/* Col 6: Fraction badge */}
+        <div className="flex items-center">
+          {totalCount > 0 && (
+            <FractionBadge
+              resolved={superMemberStats.resolved}
+              total={superMemberStats.total}
+            />
+          )}
+        </div>
+        {/* Col 7: Destination + inline unlink */}
         <div className="flex items-center justify-end gap-1">
           {group.isMapped ? (
             <>
@@ -1988,7 +2030,7 @@ function SuperGroupCard({
             <span className="text-[11px] text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 7: Skip only */}
+        {/* Col 8: Skip only */}
         <div
           className="flex items-center justify-end"
           style={{
@@ -2020,19 +2062,6 @@ function SuperGroupCard({
           </button>
         </div>
       </div>
-      {/* Health bar — sub-row below grid, aligned with name column */}
-      {members.length > 0 && (
-        <div style={{ marginLeft: 130, marginRight: 60 }} className="pb-1">
-          <HealthBar
-            strong={superMemberStats.strong}
-            needsReview={superMemberStats.review}
-            weak={superMemberStats.weak}
-            unmapped={superMemberStats.unmapped}
-            covered={superMemberStats.covered}
-            totalModels={superMemberStats.total}
-          />
-        </div>
-      )}
       {/* Expanded: show child groups (hierarchy) or direct members */}
       {isExpanded && (
         <div className="pl-5 pr-2 pb-2 pt-0.5 border-t border-purple-400/10">

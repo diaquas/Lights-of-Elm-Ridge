@@ -14,7 +14,7 @@ import {
   StatusCheck,
   FxBadge,
   TypeBadge,
-  HealthBar,
+  FractionBadge,
   DestinationPill,
   type StatusCheckStatus,
 } from "../MetadataBadges";
@@ -141,7 +141,7 @@ export function SpinnersPhase() {
     return index;
   }, [phaseItems]);
 
-  // Per-model health bar stats (strong/needsReview/weakReview/unmapped)
+  // Per-model stats (strong/needsReview/weakReview/unmapped + resolved for fraction badge)
   const parentModelStats = useMemo(() => {
     const stats = new Map<
       string,
@@ -150,6 +150,7 @@ export function SpinnersPhase() {
         needsReview: number;
         weakReview: number;
         unmapped: number;
+        resolved: number;
         total: number;
       }
     >();
@@ -158,6 +159,7 @@ export function SpinnersPhase() {
       let needsReview = 0;
       let weakReview = 0;
       let unmapped = 0;
+      let resolved = 0;
       for (const item of data.items) {
         // Skip section header markers
         if (item.sourceModel.name.startsWith("**")) continue;
@@ -172,13 +174,17 @@ export function SpinnersPhase() {
         else if (status === "needsReview") needsReview++;
         else if (status === "weak") weakReview++;
         else unmapped++;
+        // Resolved = approved or manually mapped (user doesn't need to act)
+        if (status === "approved" || status === "manual") resolved++;
       }
+      const total = strong + needsReview + weakReview + unmapped;
       stats.set(name, {
         strong,
         needsReview,
         weakReview,
         unmapped,
-        total: strong + needsReview + weakReview + unmapped,
+        resolved,
+        total,
       });
     }
     return stats;
@@ -768,7 +774,21 @@ export function SpinnersPhase() {
                           {/* Name */}
                           <span className="text-[13px] font-semibold text-foreground truncate">
                             {spinner.name}
+                            {stats && (
+                              <span className="text-foreground/30 font-normal ml-1">
+                                ({stats.total})
+                              </span>
+                            )}
                           </span>
+                          {/* Fraction badge */}
+                          <div className="flex items-center">
+                            {stats && stats.total > 0 && (
+                              <FractionBadge
+                                resolved={stats.resolved}
+                                total={stats.total}
+                              />
+                            )}
+                          </div>
                           {/* Destination / + Assign */}
                           <div className="flex items-center justify-end gap-1.5">
                             {pairedSrc ? (
@@ -786,18 +806,6 @@ export function SpinnersPhase() {
                           {/* Actions placeholder */}
                           <div />
                         </div>
-                        {/* Health bar below grid */}
-                        {stats && (
-                          <div className="px-3 pb-1.5 -mt-0.5">
-                            <HealthBar
-                              strong={stats.strong}
-                              needsReview={stats.needsReview}
-                              weak={stats.weakReview}
-                              unmapped={stats.unmapped}
-                              totalModels={stats.total}
-                            />
-                          </div>
-                        )}
                       </div>
 
                       {/* Expanded: nested submodel groups with section dividers */}
@@ -888,7 +896,20 @@ export function SpinnersPhase() {
                           <TypeBadge type="GRP" />
                           <span className="text-[13px] font-semibold text-foreground truncate">
                             {spinner.name}
+                            {stats && (
+                              <span className="text-foreground/30 font-normal ml-1">
+                                ({stats.total})
+                              </span>
+                            )}
                           </span>
+                          <div className="flex items-center">
+                            {stats && stats.total > 0 && (
+                              <FractionBadge
+                                resolved={stats.resolved}
+                                total={stats.total}
+                              />
+                            )}
+                          </div>
                           <div className="flex items-center justify-end gap-1.5">
                             {pairedSrc ? (
                               <DestinationPill
@@ -904,17 +925,6 @@ export function SpinnersPhase() {
                           </div>
                           <div />
                         </div>
-                        {stats && (
-                          <div className="px-3 pb-1.5 -mt-0.5">
-                            <HealthBar
-                              strong={stats.strong}
-                              needsReview={stats.needsReview}
-                              weak={stats.weakReview}
-                              unmapped={stats.unmapped}
-                              totalModels={stats.total}
-                            />
-                          </div>
-                        )}
                       </div>
                     );
                   })
