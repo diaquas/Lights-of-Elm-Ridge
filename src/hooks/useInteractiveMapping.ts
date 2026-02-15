@@ -1036,13 +1036,13 @@ export function useInteractiveMapping(
       });
     }
 
-    // Static group coverage (ticket-80 §2): "covered by group" is determined
-    // solely by source data — models with 0 own effects whose effects come
-    // from the parent group. This status is computed once and does NOT change
-    // based on user actions (approving siblings, mapping the parent, etc.).
+    // Group coverage: members with 0 own effects are "covered by group" ONLY
+    // when their parent group is actively mapped. This combines the static
+    // source-data check (membersWithoutEffects) with a dynamic runtime check
+    // (parent group is mapped and not skipped).
     const coveredMemberNames = new Set<string>();
     for (const layer of layers) {
-      if (layer.isGroup) {
+      if (layer.isGroup && layer.isMapped && !layer.isSkipped) {
         for (const memberName of layer.membersWithoutEffects) {
           coveredMemberNames.add(memberName);
         }
@@ -1050,7 +1050,11 @@ export function useInteractiveMapping(
     }
     if (coveredMemberNames.size > 0) {
       for (const layer of layers) {
-        if (!layer.isGroup && coveredMemberNames.has(layer.sourceModel.name)) {
+        if (
+          !layer.isGroup &&
+          !layer.isMapped &&
+          coveredMemberNames.has(layer.sourceModel.name)
+        ) {
           layer.isCoveredByMappedGroup = true;
         }
       }
