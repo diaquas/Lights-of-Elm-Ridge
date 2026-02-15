@@ -14,16 +14,22 @@ import {
   StatusCheck,
   FxBadge,
   TypeBadge,
+  HealthBar,
   DestinationPill,
   type StatusCheckStatus,
 } from "../MetadataBadges";
 import { STRONG_THRESHOLD, WEAK_THRESHOLD } from "@/types/mappingPhases";
 import type { ModelMapping } from "@/lib/modiq/matcher";
-import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
+import { sortItems, type SortOption } from "../SortDropdown";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
-import { PANEL_STYLES, TYPE_BADGE_COLORS, SUB_GRID } from "../panelStyles";
+import {
+  PANEL_STYLES,
+  TYPE_BADGE_COLORS,
+  GROUP_GRID,
+  SUB_GRID,
+} from "../panelStyles";
 import {
   CurrentMappingCard,
   NotMappedBanner,
@@ -65,12 +71,12 @@ export function SpinnersPhase() {
   }, [interactive.sourceLayerMappings]);
 
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
+  const [sortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [selectedParentModel, setSelectedParentModel] = useState<string | null>(
-    null,
-  );
+  // Expand/collapse state for spinner cards (default: all expanded)
+  const [expandedSpinners, setExpandedSpinners] = useState<
+    Record<string, boolean>
+  >({});
 
   // Banner filter: set by auto-match banner to show strong/review items (overrides statusFilter)
   const [bannerFilter, setBannerFilter] = useState<
@@ -100,17 +106,12 @@ export function SpinnersPhase() {
     }
   }, [bannerFilter, autoMatchStats.reviewCount]);
 
-  // Pairing review state
-  const [pairingConfirmed, setPairingConfirmed] = useState(false);
-  const [pairingExpanded, setPairingExpanded] = useState(false);
-
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
   const stableOrderRef = useRef<Map<string, number>>(new Map());
   const lastSortRef = useRef({
     sortBy: "" as SortOption,
     sortVersion: -1,
-    search: "",
     statusFilter: "" as string,
   });
 
@@ -136,31 +137,45 @@ export function SpinnersPhase() {
     return index;
   }, [phaseItems]);
 
-  // Per-model health bar stats (depends on score/approval state)
+  // Per-model health bar stats (strong/needsReview/weakReview/unmapped)
   const parentModelStats = useMemo(() => {
     const stats = new Map<
       string,
-      { mapped: number; review: number; unmapped: number; total: number }
+      {
+        strong: number;
+        needsReview: number;
+        weakReview: number;
+        unmapped: number;
+        total: number;
+      }
     >();
     for (const [name, data] of parentModelIndex) {
-      let mapped = 0;
-      let review = 0;
+      let strong = 0;
+      let needsReview = 0;
+      let weakReview = 0;
       let unmapped = 0;
       for (const item of data.items) {
-        if (!item.isMapped) {
-          unmapped++;
-        } else {
-          const score = scoreMap.get(item.sourceModel.name) ?? 0;
-          const isAuto = autoMatchedNames.has(item.sourceModel.name);
-          const isAppr = approvedNames.has(item.sourceModel.name);
-          if (isAuto && !isAppr && score < STRONG_THRESHOLD) {
-            review++;
-          } else {
-            mapped++;
-          }
-        }
+        // Skip section header markers
+        if (item.sourceModel.name.startsWith("**")) continue;
+        const status = getItemStatus(
+          item.isMapped,
+          autoMatchedNames.has(item.sourceModel.name),
+          approvedNames.has(item.sourceModel.name),
+          scoreMap.get(item.sourceModel.name),
+        );
+        if (status === "approved" || status === "strong" || status === "manual")
+          strong++;
+        else if (status === "needsReview") needsReview++;
+        else if (status === "weak") weakReview++;
+        else unmapped++;
       }
-      stats.set(name, { mapped, review, unmapped, total: data.total });
+      stats.set(name, {
+        strong,
+        needsReview,
+        weakReview,
+        unmapped,
+        total: strong + needsReview + weakReview + unmapped,
+      });
     }
     return stats;
   }, [parentModelIndex, scoreMap, autoMatchedNames, approvedNames]);
@@ -254,9 +269,7 @@ export function SpinnersPhase() {
   }, [parentModelList, destHDProps]);
 
   // Greedy optimal assignment: each dest gets exactly one source
-  const [pairingOverrides, setPairingOverrides] = useState<Map<string, string>>(
-    new Map(),
-  );
+  const [pairingOverrides] = useState<Map<string, string>>(new Map());
 
   const activePairings = useMemo(() => {
     // Start with greedy assignment
@@ -290,52 +303,48 @@ export function SpinnersPhase() {
     return assigned;
   }, [destHDProps, pairings, pairingOverrides]);
 
-  // Auto-select first parent model
-  const activeParent = selectedParentModel ?? parentModelList[0]?.name ?? null;
+  // Phase-wide counts for filter pills
+  const mappedCount = phaseItems.filter(
+    (i) => i.isMapped && !i.sourceModel.name.startsWith("**"),
+  ).length;
+  const unmappedCount = phaseItems.filter(
+    (i) => !i.isMapped && !i.sourceModel.name.startsWith("**"),
+  ).length;
 
-  // Look up which source is paired with the active parent model
-  const pairedSource = activeParent ? activePairings.get(activeParent) : null;
+  // Per-spinner section groups: detect **SECTION_NAME patterns in each model's items
+  const spinnerSections = useMemo(() => {
+    const result = new Map<
+      string,
+      { header: string | null; items: SourceLayerMapping[] }[]
+    >();
+    for (const [name, group] of parentModelIndex) {
+      const sections: {
+        header: string | null;
+        items: SourceLayerMapping[];
+      }[] = [];
+      let currentSection: {
+        header: string | null;
+        items: SourceLayerMapping[];
+      } = { header: null, items: [] };
 
-  // Items scoped to selected parent model
-  const scopedItems = useMemo(() => {
-    if (!activeParent) return phaseItems;
-    return parentModelIndex.get(activeParent)?.items ?? phaseItems;
-  }, [activeParent, parentModelIndex, phaseItems]);
-
-  // Scoped counts for filter pills (reflect selected model, not entire phase)
-  const scopedMappedCount = scopedItems.filter((i) => i.isMapped).length;
-  const scopedUnmappedCount = scopedItems.filter((i) => !i.isMapped).length;
-
-  // Section headers: detect **SECTION_NAME patterns in scoped items.
-  // Preserve source order — sorting by name would move all ** markers to the
-  // front, destroying the section → items grouping.
-  const sectionGroups = useMemo(() => {
-    const sections: { header: string | null; items: SourceLayerMapping[] }[] =
-      [];
-    let currentSection: { header: string | null; items: SourceLayerMapping[] } =
-      { header: null, items: [] };
-
-    for (const item of scopedItems) {
-      // Check if this item's name looks like a section header marker
-      // e.g., "**OUTER", "**WHOLE SPINNER", "**CENTER"
-      if (item.sourceModel.name.startsWith("**")) {
-        // Push current section if it has items
-        if (currentSection.items.length > 0 || currentSection.header) {
-          sections.push(currentSection);
+      for (const item of group.items) {
+        if (item.sourceModel.name.startsWith("**")) {
+          if (currentSection.items.length > 0 || currentSection.header) {
+            sections.push(currentSection);
+          }
+          const header = item.sourceModel.name.replace(/^\*+\s*/, "").trim();
+          currentSection = { header, items: [] };
+        } else {
+          currentSection.items.push(item);
         }
-        // Clean up section name — remove ** prefix
-        const header = item.sourceModel.name.replace(/^\*+\s*/, "").trim();
-        currentSection = { header, items: [] };
-      } else {
-        currentSection.items.push(item);
       }
+      if (currentSection.items.length > 0 || currentSection.header) {
+        sections.push(currentSection);
+      }
+      result.set(name, sections);
     }
-    // Push last section
-    if (currentSection.items.length > 0 || currentSection.header) {
-      sections.push(currentSection);
-    }
-    return sections;
-  }, [scopedItems]);
+    return result;
+  }, [parentModelIndex]);
 
   // O(1) lookup map for phase items
   const phaseItemsByName = useMemo(() => {
@@ -375,36 +384,16 @@ export function SpinnersPhase() {
     return map;
   }, [phaseItems, interactive]);
 
-  // Count auto-matched items scoped to selected model for the banner
+  // Count auto-matched items in this phase for the banner
   const phaseAutoCount = useMemo(
     () =>
-      scopedItems.filter((i) => autoMatchedNames.has(i.sourceModel.name))
-        .length,
-    [scopedItems, autoMatchedNames],
+      phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
+    [phaseItems, autoMatchedNames],
   );
 
-  // Scoped auto-match stats (selected model only, not entire phase)
-  const scopedAutoMatchStats = useMemo(() => {
-    let total = 0,
-      strongCount = 0,
-      reviewCount = 0;
-    for (const item of scopedItems) {
-      const name = item.sourceModel.name;
-      if (!autoMatchedNames.has(name)) continue;
-      total++;
-      const score = scoreMap.get(name) ?? 0;
-      if (approvedNames.has(name) || score >= STRONG_THRESHOLD) {
-        strongCount++;
-      } else {
-        reviewCount++;
-      }
-    }
-    return { total, strongCount, reviewCount };
-  }, [scopedItems, autoMatchedNames, scoreMap, approvedNames]);
-
-  // Filtered + stable-sorted items (single unified list, scoped to parent model)
+  // Filtered + stable-sorted items (all submodel groups across all spinners)
   const filteredItems = useMemo(() => {
-    let items = [...scopedItems];
+    let items = phaseItems.filter((i) => !i.sourceModel.name.startsWith("**"));
 
     // Banner filter overrides status filter when active
     const activeFilter = bannerFilter ?? statusFilter;
@@ -423,19 +412,10 @@ export function SpinnersPhase() {
           (scoreMap.get(i.sourceModel.name) ?? 0) < STRONG_THRESHOLD,
       );
     else if (activeFilter === "mapped") items = items.filter((i) => i.isMapped);
-    if (search) {
-      const q = search.toLowerCase();
-      items = items.filter(
-        (item) =>
-          item.sourceModel.name.toLowerCase().includes(q) ||
-          item.sourceModel.type.toLowerCase().includes(q),
-      );
-    }
 
     const needsResort =
       sortBy !== lastSortRef.current.sortBy ||
       sortVersion !== lastSortRef.current.sortVersion ||
-      search !== lastSortRef.current.search ||
       statusFilter !== lastSortRef.current.statusFilter ||
       stableOrderRef.current.size === 0;
 
@@ -444,7 +424,7 @@ export function SpinnersPhase() {
       stableOrderRef.current = new Map(
         sorted.map((r, i) => [r.sourceModel.name, i]),
       );
-      lastSortRef.current = { sortBy, sortVersion, search, statusFilter };
+      lastSortRef.current = { sortBy, sortVersion, statusFilter };
       return sorted;
     }
 
@@ -459,10 +439,9 @@ export function SpinnersPhase() {
       });
     });
   }, [
-    scopedItems,
+    phaseItems,
     statusFilter,
     bannerFilter,
-    search,
     sortBy,
     sortVersion,
     topSuggestionsMap,
@@ -483,16 +462,24 @@ export function SpinnersPhase() {
       .slice(0, 10);
   }, [interactive, selectedItem]);
 
+  // Compute the paired source for the selected item's parent model
+  const selectedPairedSource = useMemo(() => {
+    if (!selectedItem) return null;
+    const parents = selectedItem.sourceModel.parentModels;
+    if (!parents || parents.length === 0) return null;
+    return activePairings.get(parents[0]) ?? null;
+  }, [selectedItem, activePairings]);
+
   const spinnerSourceFilter = useCallback(
     (m: { groupType?: string; parentModels?: string[] }) => {
       if (m.groupType !== "SUBMODEL_GROUP") return false;
-      // If we have a paired source, only show dest models from that source's family
-      if (pairedSource && m.parentModels) {
-        return m.parentModels.includes(pairedSource);
+      // Filter to dest submodel groups from the paired source's family
+      if (selectedPairedSource && m.parentModels) {
+        return m.parentModels.includes(selectedPairedSource);
       }
       return true;
     },
-    [pairedSource],
+    [selectedPairedSource],
   );
 
   // No spinners
@@ -506,7 +493,7 @@ export function SpinnersPhase() {
     );
   }
 
-  const unmappedItems = scopedItems.filter((item) => !item.isMapped);
+  const unmappedItems = phaseItems.filter((item) => !item.isMapped);
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
@@ -542,14 +529,79 @@ export function SpinnersPhase() {
     interactive.clearLayerMapping(sourceName);
   };
 
+  // Compute spinner-level border color from subgroup health
+  const getSpinnerBorderClass = (stats: {
+    strong: number;
+    needsReview: number;
+    weakReview: number;
+    unmapped: number;
+  }) => {
+    if (stats.unmapped > stats.strong) return "border-l-blue-400/50";
+    if (stats.needsReview + stats.weakReview > 0)
+      return "border-l-amber-400/70";
+    return "border-l-green-500/70";
+  };
+
+  // Compute spinner-level status from pairing confidence
+  const getSpinnerStatus = (
+    dest: string | undefined,
+    score: number | undefined,
+  ): StatusCheckStatus => {
+    if (!dest) return "unmapped";
+    const pct = score != null ? Math.round(score * 100) : 0;
+    if (pct >= 60) return "approved";
+    if (pct >= 40) return "needsReview";
+    return "weak";
+  };
+
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Left: Submodel Group List */}
+      {/* Left: Spinner Cards with nested Submodel Groups */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
+        {/* Header bar with progress stats */}
+        <div className="flex items-center gap-4 px-4 py-2.5 bg-surface/80 border-b border-border flex-shrink-0">
+          <span className="text-[11px] text-foreground/50 font-mono">
+            SUB-GROUPS{" "}
+            <span className="text-accent font-bold">
+              {mappedCount}/{mappedCount + unmappedCount}
+            </span>
+          </span>
+          <div className="w-24 h-1 bg-foreground/10 rounded-sm overflow-hidden">
+            <div
+              className="h-full rounded-sm"
+              style={{
+                width: `${mappedCount + unmappedCount > 0 ? (mappedCount / (mappedCount + unmappedCount)) * 100 : 0}%`,
+                background: "linear-gradient(90deg, #4ade80, #facc15)",
+              }}
+            />
+          </div>
+          <span className="text-[11px] text-foreground/50 font-mono">
+            Mapped:{" "}
+            <span className="text-green-400 font-semibold">{mappedCount}</span>
+          </span>
+          <span className="text-[11px] text-foreground/50 font-mono">
+            Unmapped:{" "}
+            <span className="text-blue-400 font-semibold">{unmappedCount}</span>
+          </span>
+        </div>
+
+        {/* Title + Continue */}
+        <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
+          <h1 className="text-lg font-bold text-foreground">Submodel Groups</h1>
+          <button
+            type="button"
+            onClick={goToNextPhase}
+            className="text-[13px] font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
+          >
+            Continue to Finalize &rarr;
+          </button>
+        </div>
+
+        {/* Filter pills */}
         <div className={PANEL_STYLES.header.wrapper}>
           <div className="flex items-center gap-2">
             <FilterPill
-              label={`All (${scopedItems.length})`}
+              label={`All (${mappedCount + unmappedCount})`}
               color="blue"
               active={statusFilter === "all" && !bannerFilter}
               onClick={() => {
@@ -559,7 +611,7 @@ export function SpinnersPhase() {
               }}
             />
             <FilterPill
-              label={`Mapped (${scopedMappedCount})`}
+              label={`Mapped (${mappedCount})`}
               color="green"
               active={statusFilter === "mapped" && !bannerFilter}
               onClick={() => {
@@ -569,7 +621,7 @@ export function SpinnersPhase() {
               }}
             />
             <FilterPill
-              label={`Unmapped (${scopedUnmappedCount})`}
+              label={`Unmapped (${unmappedCount})`}
               color="amber"
               active={statusFilter === "unmapped" && !bannerFilter}
               onClick={() => {
@@ -578,71 +630,6 @@ export function SpinnersPhase() {
                 setSortVersion((v) => v + 1);
               }}
             />
-          </div>
-        </div>
-
-        {/* Search + Sort */}
-        <div className={PANEL_STYLES.search.wrapper}>
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <svg
-                className={PANEL_STYLES.search.icon}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search submodel groups..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={`${PANEL_STYLES.search.input} ${search ? "pr-8" : ""}`}
-              />
-              {search && (
-                <button
-                  type="button"
-                  aria-label="Clear search"
-                  onClick={() => setSearch("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60"
-                >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              )}
-            </div>
-            <SortDropdown
-              value={sortBy}
-              onChange={(v) => {
-                setSortBy(v);
-                setSortVersion((sv) => sv + 1);
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => setSortVersion((v) => v + 1)}
-              className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1"
-              title="Re-sort"
-            >
-              &#x21bb;
-            </button>
           </div>
         </div>
 
@@ -655,7 +642,7 @@ export function SpinnersPhase() {
         )}
 
         <AutoMatchBanner
-          stats={scopedAutoMatchStats}
+          stats={autoMatchStats}
           phaseAutoCount={phaseAutoCount}
           bannerFilter={bannerFilter}
           onFilterStrong={() => {
@@ -681,338 +668,158 @@ export function SpinnersPhase() {
         )}
 
         <div className={PANEL_STYLES.scrollArea}>
-          {/* ── HD Prop Pairings Review ── */}
-          {activePairings.size > 0 && (
-            <div className="px-4 pb-3">
-              {!pairingConfirmed ? (
-                /* Full pairing review — shown on first load */
-                <div className="rounded-lg border border-teal-500/20 bg-teal-500/[0.03] p-4">
-                  <div className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.1em] font-mono mb-3">
-                    HD Prop Pairings
-                  </div>
-                  {/* Column headers */}
+          {/* ── Spinner Cards (GroupCard pattern) ── */}
+          <div className="px-4 pb-3 space-y-0.5">
+            {parentModelList.map((spinner) => {
+              const stats = parentModelStats.get(spinner.name);
+              const pairedSrc = activePairings.get(spinner.name);
+              const sections = spinnerSections.get(spinner.name) ?? [];
+              const isExpanded = expandedSpinners[spinner.name] !== false;
+              const allSubItems = sections.flatMap((s) => s.items);
+              const totalFx = allSubItems.reduce(
+                (sum, i) => sum + i.effectCount,
+                0,
+              );
+              const hasVisibleItems = allSubItems.some((i) =>
+                filteredNameSet.has(i.sourceModel.name),
+              );
+              const activeFilter = bannerFilter ?? statusFilter;
+              if (!hasVisibleItems && activeFilter !== "all") return null;
+
+              // Pairing confidence for this spinner
+              const pairingEntry = pairedSrc
+                ? pairings.find(
+                    (p) =>
+                      p.sourceProp === spinner.name && p.destProp === pairedSrc,
+                  )
+                : undefined;
+              const pairingPct = pairingEntry
+                ? Math.round(pairingEntry.score * 100)
+                : undefined;
+              const spinnerStatus = getSpinnerStatus(
+                pairedSrc,
+                pairingEntry?.score,
+              );
+              const borderClass = stats
+                ? getSpinnerBorderClass(stats)
+                : "border-l-foreground/15";
+
+              return (
+                <div key={spinner.name} className="mb-0.5">
+                  {/* Spinner Card Header */}
                   <div
-                    className="grid gap-1 mb-1.5"
-                    style={{ gridTemplateColumns: "1fr 20px 1fr 50px 24px" }}
+                    className={`rounded-md border-l-[3px] ${borderClass} bg-surface/80 cursor-pointer transition-all hover:bg-foreground/[0.03]`}
+                    onClick={() =>
+                      setExpandedSpinners((prev) => ({
+                        ...prev,
+                        [spinner.name]: !isExpanded,
+                      }))
+                    }
                   >
-                    <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider font-mono">
-                      Your Display
-                    </span>
-                    <span />
-                    <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider font-mono">
-                      Source
-                    </span>
-                    <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider font-mono text-right">
-                      Score
-                    </span>
-                    <span />
-                  </div>
-                  {/* Pairing rows */}
-                  {Array.from(activePairings.entries()).map(([dest, src]) => {
-                    const pairing = pairings.find(
-                      (p) => p.destProp === dest && p.sourceProp === src,
-                    );
-                    const scorePercent = pairing
-                      ? Math.round(pairing.score * 100)
-                      : 0;
-                    return (
-                      <div
-                        key={dest}
-                        className="grid gap-1 py-1.5 items-center"
-                        style={{
-                          gridTemplateColumns: "1fr 20px 1fr 50px 24px",
-                        }}
-                      >
-                        <span className="text-[12px] text-foreground/80 truncate">
-                          {dest}
-                        </span>
-                        <span className="text-[11px] text-foreground/20 text-center">
-                          &rarr;
-                        </span>
-                        <span className="text-[12px] text-green-400 font-medium truncate">
-                          {src}
-                        </span>
-                        <span
-                          className={`text-[10px] font-semibold tabular-nums font-mono text-right ${
-                            scorePercent >= 70
-                              ? "text-green-400/80"
-                              : scorePercent >= 40
-                                ? "text-amber-400/80"
-                                : "text-red-400/80"
-                          }`}
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: GROUP_GRID,
+                        alignItems: "center",
+                        padding: "6px 10px 6px 8px",
+                        gap: "0 6px",
+                        minHeight: 32,
+                      }}
+                    >
+                      {/* Status */}
+                      <StatusCheck status={spinnerStatus} />
+                      {/* FX */}
+                      <FxBadge count={totalFx} />
+                      {/* Chevron */}
+                      <div className="flex items-center justify-center">
+                        <svg
+                          className={`w-3 h-3 text-foreground/40 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          {scorePercent}%
-                        </span>
-                        <select
-                          value={src}
-                          onChange={(e) => {
-                            setPairingOverrides((prev) => {
-                              const next = new Map(prev);
-                              next.set(dest, e.target.value);
-                              return next;
-                            });
-                          }}
-                          className="text-[10px] w-[22px] h-[22px] rounded bg-foreground/5 border border-border text-foreground/40 focus:outline-none cursor-pointer appearance-none text-center"
-                          title="Change source pairing"
-                        >
-                          {parentModelList.map((pm) => (
-                            <option key={pm.name} value={pm.name}>
-                              {pm.name}
-                            </option>
-                          ))}
-                        </select>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
                       </div>
-                    );
-                  })}
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      type="button"
-                      onClick={() => setPairingConfirmed(true)}
-                      className="text-[11px] font-semibold px-3.5 py-1.5 rounded border-none bg-teal-500 text-black cursor-pointer"
-                    >
-                      Looks Good
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPairingConfirmed(true)}
-                      className="text-[11px] font-medium px-3.5 py-1.5 rounded border border-border bg-transparent text-foreground/50 hover:text-foreground/70 cursor-pointer transition-colors"
-                    >
-                      Let Me Adjust Later
-                    </button>
+                      {/* Type */}
+                      <TypeBadge type="GRP" />
+                      {/* Name */}
+                      <span className="text-[13px] font-semibold text-foreground truncate">
+                        {spinner.name}
+                      </span>
+                      {/* Destination / + Assign */}
+                      <div className="flex items-center justify-end gap-1.5">
+                        {pairedSrc ? (
+                          <DestinationPill
+                            name={pairedSrc}
+                            confidence={pairingPct}
+                            autoMatched={true}
+                          />
+                        ) : (
+                          <span className="text-[12px] text-foreground/20">
+                            + Assign
+                          </span>
+                        )}
+                      </div>
+                      {/* Actions placeholder */}
+                      <div />
+                    </div>
+                    {/* Health bar below grid */}
+                    {stats && (
+                      <div className="px-3 pb-1.5 -mt-0.5">
+                        <HealthBar
+                          strong={stats.strong}
+                          needsReview={stats.needsReview}
+                          weak={stats.weakReview}
+                          unmapped={stats.unmapped}
+                          totalModels={stats.total}
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
-              ) : (
-                /* Collapsed pairing review — show "View Pairings" toggle */
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setPairingExpanded(!pairingExpanded)}
-                    className="text-[11px] text-teal-400/60 hover:text-teal-400 transition-colors flex items-center gap-1.5"
-                  >
-                    <svg
-                      className={`w-3 h-3 transition-transform ${pairingExpanded ? "rotate-90" : ""}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                    View HD Prop Pairings
-                  </button>
-                  {pairingExpanded && (
-                    <div className="mt-2 space-y-1 pl-4">
-                      {Array.from(activePairings.entries()).map(
-                        ([dest, src]) => {
-                          const pairing = pairings.find(
-                            (p) => p.destProp === dest && p.sourceProp === src,
-                          );
-                          const scorePercent = pairing
-                            ? Math.round(pairing.score * 100)
-                            : 0;
-                          return (
-                            <div
-                              key={dest}
-                              className="flex items-center gap-2 text-[11px]"
-                            >
-                              <span className="text-foreground/50 truncate">
-                                {dest}
-                              </span>
-                              <span className="text-foreground/20">&rarr;</span>
-                              <span className="text-green-400/70 truncate">
-                                {src}
-                              </span>
-                              <span
-                                className={`font-mono tabular-nums ${
-                                  scorePercent >= 70
-                                    ? "text-green-400/60"
-                                    : "text-amber-400/60"
-                                }`}
-                              >
-                                {scorePercent}%
-                              </span>
-                              <select
-                                value={src}
-                                onChange={(e) => {
-                                  setPairingOverrides((prev) => {
-                                    const next = new Map(prev);
-                                    next.set(dest, e.target.value);
-                                    return next;
-                                  });
-                                }}
-                                className="text-[10px] px-1 py-0.5 rounded bg-foreground/5 border border-border text-foreground/40 focus:outline-none flex-shrink-0"
-                                title="Change source pairing"
-                              >
-                                {parentModelList.map((pm) => (
-                                  <option key={pm.name} value={pm.name}>
-                                    {pm.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          );
-                        },
-                      )}
+
+                  {/* Expanded: nested submodel groups with section dividers */}
+                  {isExpanded && (
+                    <div className="pl-5 pt-0.5 pb-1">
+                      {sections.map((section, si) => {
+                        const visibleItems = section.items.filter((i) =>
+                          filteredNameSet.has(i.sourceModel.name),
+                        );
+                        if (visibleItems.length === 0 && section.header)
+                          return null;
+                        return (
+                          <SectionDivider
+                            key={section.header ?? `section-${si}`}
+                            header={section.header}
+                            items={visibleItems}
+                            selectedItemId={selectedItemId}
+                            dndState={dnd.state}
+                            autoMatchedNames={autoMatchedNames}
+                            approvedNames={approvedNames}
+                            scoreMap={scoreMap}
+                            factorsMap={factorsMap}
+                            topSuggestionsMap={topSuggestionsMap}
+                            onSelect={setSelectedItemId}
+                            onAccept={handleAccept}
+                            onApprove={approveAutoMatch}
+                            onSkip={handleSkipItem}
+                            onUnlink={handleUnlink}
+                            onDragEnter={dnd.handleDragEnter}
+                            onDragLeave={dnd.handleDragLeave}
+                            onDrop={handleDropOnItem}
+                          />
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Model Selector ── */}
-          {parentModelList.length > 1 && (
-            <div className="px-4 pb-3">
-              <div className="text-[10px] font-bold text-foreground/40 uppercase tracking-[0.1em] font-mono mb-2">
-                Select Model
-              </div>
-              <div className="space-y-1">
-                {parentModelList.map((pm) => {
-                  const isActive = pm.name === activeParent;
-                  const stats = parentModelStats.get(pm.name);
-                  const pSource = activePairings.get(pm.name);
-                  return (
-                    <button
-                      key={pm.name}
-                      type="button"
-                      onClick={() => {
-                        setSelectedParentModel(pm.name);
-                        setSelectedItemId(null);
-                      }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-all ${
-                        isActive
-                          ? "bg-teal-500/[0.06] border border-teal-500/30"
-                          : "bg-foreground/[0.02] border border-border/50 hover:border-foreground/15"
-                      }`}
-                    >
-                      {/* Radio button */}
-                      <div
-                        className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                          isActive
-                            ? "border-teal-400 bg-teal-400"
-                            : "border-foreground/20 bg-transparent"
-                        }`}
-                      >
-                        {isActive && (
-                          <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                        )}
-                      </div>
-                      {/* Name + sub-count */}
-                      <div className="flex-1 min-w-0">
-                        <div
-                          className={`text-[13px] font-semibold truncate ${isActive ? "text-foreground" : "text-foreground/60"}`}
-                        >
-                          {pm.name}
-                        </div>
-                        <div className="text-[10px] text-foreground/30 font-mono mt-0.5">
-                          {pm.total} sub-groups
-                          {pSource ? ` · paired with ${pSource}` : ""}
-                        </div>
-                      </div>
-                      {/* Mini health bar */}
-                      {stats && (
-                        <MiniHealthBar
-                          mapped={stats.mapped}
-                          review={stats.review}
-                          unmapped={stats.unmapped}
-                        />
-                      )}
-                      {/* Mapped / total */}
-                      <span
-                        className={`text-[11px] font-semibold tabular-nums font-mono flex-shrink-0 ${
-                          stats && stats.mapped + stats.review >= stats.total
-                            ? "text-green-400/60"
-                            : "text-foreground/40"
-                        }`}
-                      >
-                        {stats ? stats.mapped + stats.review : pm.mapped}/
-                        {pm.total}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {pairedSource && (
-                <p className="text-[10px] text-foreground/25 mt-2 pl-1">
-                  Paired source: {pairedSource}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* ── Submodel Group List with Section Dividers ── */}
-          <div className="px-4 pb-3 space-y-1">
-            {/* Section-based rendering when sections detected */}
-            {sectionGroups.some((s) => s.header)
-              ? sectionGroups.map((section, si) => {
-                  // Apply current filters to section items
-                  const visibleItems = section.items.filter((i) =>
-                    filteredNameSet.has(i.sourceModel.name),
-                  );
-                  if (visibleItems.length === 0 && section.header) return null;
-                  return (
-                    <SectionDivider
-                      key={section.header ?? `section-${si}`}
-                      header={section.header}
-                      items={visibleItems}
-                      selectedItemId={selectedItemId}
-                      dndState={dnd.state}
-                      autoMatchedNames={autoMatchedNames}
-                      approvedNames={approvedNames}
-                      scoreMap={scoreMap}
-                      factorsMap={factorsMap}
-                      topSuggestionsMap={topSuggestionsMap}
-                      onSelect={setSelectedItemId}
-                      onAccept={handleAccept}
-                      onApprove={approveAutoMatch}
-                      onSkip={handleSkipItem}
-                      onUnlink={handleUnlink}
-                      onDragEnter={dnd.handleDragEnter}
-                      onDragLeave={dnd.handleDragLeave}
-                      onDrop={handleDropOnItem}
-                    />
-                  );
-                })
-              : /* Flat rendering (no sections) */
-                filteredItems.map((item) => (
-                  <SubmodelCardMemo
-                    key={item.sourceModel.name}
-                    item={item}
-                    isSelected={selectedItemId === item.sourceModel.name}
-                    isDropTarget={
-                      dnd.state.activeDropTarget === item.sourceModel.name
-                    }
-                    isAutoMatched={autoMatchedNames.has(item.sourceModel.name)}
-                    isApproved={approvedNames.has(item.sourceModel.name)}
-                    matchScore={scoreMap.get(item.sourceModel.name)}
-                    matchFactors={factorsMap.get(item.sourceModel.name)}
-                    topSuggestion={
-                      topSuggestionsMap.get(item.sourceModel.name) ?? null
-                    }
-                    onClick={() => setSelectedItemId(item.sourceModel.name)}
-                    onAccept={(userModelName) =>
-                      handleAccept(item.sourceModel.name, userModelName)
-                    }
-                    onApprove={() => approveAutoMatch(item.sourceModel.name)}
-                    onSkip={() => handleSkipItem(item.sourceModel.name)}
-                    onUnlink={() => handleUnlink(item.sourceModel.name)}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }}
-                    onDragEnter={() =>
-                      dnd.handleDragEnter(item.sourceModel.name)
-                    }
-                    onDragLeave={() =>
-                      dnd.handleDragLeave(item.sourceModel.name)
-                    }
-                    onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
-                  />
-                ))}
+              );
+            })}
           </div>
 
           {interactive.hiddenZeroEffectCount > 0 && (
@@ -1025,7 +832,7 @@ export function SpinnersPhase() {
 
           {filteredItems.length === 0 && (
             <p className="py-6 text-center text-[12px] text-foreground/30">
-              {search || statusFilter !== "all" || bannerFilter
+              {statusFilter !== "all" || bannerFilter
                 ? "No matches for current filters"
                 : "No items"}
             </p>
@@ -1104,7 +911,7 @@ export function SpinnersPhase() {
               </div>
             </div>
 
-            {/* Mapping state card: SUGGESTED MATCH / ✓ MAPPED TO / NOT MAPPED */}
+            {/* Mapping state card: SUGGESTED MATCH / MAPPED TO / NOT MAPPED */}
             {selectedItem.isMapped ? (
               <CurrentMappingCard
                 item={selectedItem}
@@ -1238,44 +1045,6 @@ function getLeftBorderColor(status: StatusCheckStatus): string {
     default:
       return "border-l-foreground/15";
   }
-}
-
-// ─── Mini Health Bar (Model Selector cards) ───────────
-
-function MiniHealthBar({
-  mapped = 0,
-  review = 0,
-  unmapped = 0,
-}: {
-  mapped?: number;
-  review?: number;
-  unmapped?: number;
-}) {
-  const total = mapped + review + unmapped;
-  if (total === 0) return null;
-
-  return (
-    <div className="flex w-20 h-1 rounded-sm overflow-hidden gap-px bg-foreground/10 flex-shrink-0">
-      {mapped > 0 && (
-        <div
-          className="bg-green-400"
-          style={{ width: `${(mapped / total) * 100}%`, opacity: 0.85 }}
-        />
-      )}
-      {review > 0 && (
-        <div
-          className="bg-amber-400"
-          style={{ width: `${(review / total) * 100}%`, opacity: 0.85 }}
-        />
-      )}
-      {unmapped > 0 && (
-        <div
-          className="bg-blue-400"
-          style={{ width: `${(unmapped / total) * 100}%`, opacity: 0.85 }}
-        />
-      )}
-    </div>
-  );
 }
 
 // ─── Submodel Card (Left Panel) — SUB_GRID layout ───────
