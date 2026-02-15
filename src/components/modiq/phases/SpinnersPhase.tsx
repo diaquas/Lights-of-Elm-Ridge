@@ -34,6 +34,8 @@ import {
   CurrentMappingCard,
   NotMappedBanner,
   FilterPill,
+  ViewModePills,
+  type ViewMode,
 } from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
@@ -73,6 +75,8 @@ export function SpinnersPhase() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [sortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  // View mode: all (hierarchy), spinners-only, or sub-groups-only
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
   // Expand/collapse state for spinner cards (default: all expanded)
   const [expandedSpinners, setExpandedSpinners] = useState<
     Record<string, boolean>
@@ -597,7 +601,7 @@ export function SpinnersPhase() {
           </button>
         </div>
 
-        {/* Filter pills */}
+        {/* View mode + Filter pills */}
         <div className={PANEL_STYLES.header.wrapper}>
           <div className="flex items-center gap-2">
             <FilterPill
@@ -630,6 +634,17 @@ export function SpinnersPhase() {
                 setSortVersion((v) => v + 1);
               }}
             />
+            <div className="ml-auto">
+              <ViewModePills
+                value={viewMode}
+                onChange={setViewMode}
+                labels={{
+                  all: "All",
+                  groups: "Spinners",
+                  models: "Sub-Groups",
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -668,158 +683,279 @@ export function SpinnersPhase() {
         )}
 
         <div className={PANEL_STYLES.scrollArea}>
-          {/* ── Spinner Cards (GroupCard pattern) ── */}
           <div className="px-4 pb-3 space-y-0.5">
-            {parentModelList.map((spinner) => {
-              const stats = parentModelStats.get(spinner.name);
-              const pairedSrc = activePairings.get(spinner.name);
-              const sections = spinnerSections.get(spinner.name) ?? [];
-              const isExpanded = expandedSpinners[spinner.name] !== false;
-              const allSubItems = sections.flatMap((s) => s.items);
-              const totalFx = allSubItems.reduce(
-                (sum, i) => sum + i.effectCount,
-                0,
-              );
-              const hasVisibleItems = allSubItems.some((i) =>
-                filteredNameSet.has(i.sourceModel.name),
-              );
-              const activeFilter = bannerFilter ?? statusFilter;
-              if (!hasVisibleItems && activeFilter !== "all") return null;
+            {viewMode === "all"
+              ? /* ── ALL VIEW: Spinner Cards with nested Sub-Groups ── */
+                parentModelList.map((spinner) => {
+                  const stats = parentModelStats.get(spinner.name);
+                  const pairedSrc = activePairings.get(spinner.name);
+                  const sections = spinnerSections.get(spinner.name) ?? [];
+                  const isExpanded = expandedSpinners[spinner.name] !== false;
+                  const allSubItems = sections.flatMap((s) => s.items);
+                  const totalFx = allSubItems.reduce(
+                    (sum, i) => sum + i.effectCount,
+                    0,
+                  );
+                  const hasVisibleItems = allSubItems.some((i) =>
+                    filteredNameSet.has(i.sourceModel.name),
+                  );
+                  const activeFilter = bannerFilter ?? statusFilter;
+                  if (!hasVisibleItems && activeFilter !== "all") return null;
 
-              // Pairing confidence for this spinner
-              const pairingEntry = pairedSrc
-                ? pairings.find(
-                    (p) =>
-                      p.sourceProp === spinner.name && p.destProp === pairedSrc,
-                  )
-                : undefined;
-              const pairingPct = pairingEntry
-                ? Math.round(pairingEntry.score * 100)
-                : undefined;
-              const spinnerStatus = getSpinnerStatus(
-                pairedSrc,
-                pairingEntry?.score,
-              );
-              const borderClass = stats
-                ? getSpinnerBorderClass(stats)
-                : "border-l-foreground/15";
+                  // Pairing confidence for this spinner
+                  const pairingEntry = pairedSrc
+                    ? pairings.find(
+                        (p) =>
+                          p.sourceProp === spinner.name &&
+                          p.destProp === pairedSrc,
+                      )
+                    : undefined;
+                  const pairingPct = pairingEntry
+                    ? Math.round(pairingEntry.score * 100)
+                    : undefined;
+                  const spinnerStatus = getSpinnerStatus(
+                    pairedSrc,
+                    pairingEntry?.score,
+                  );
+                  const borderClass = stats
+                    ? getSpinnerBorderClass(stats)
+                    : "border-l-foreground/15";
 
-              return (
-                <div key={spinner.name} className="mb-0.5">
-                  {/* Spinner Card Header */}
-                  <div
-                    className={`rounded-md border-l-[3px] ${borderClass} bg-surface/80 cursor-pointer transition-all hover:bg-foreground/[0.03]`}
-                    onClick={() =>
-                      setExpandedSpinners((prev) => ({
-                        ...prev,
-                        [spinner.name]: !isExpanded,
-                      }))
-                    }
-                  >
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: GROUP_GRID,
-                        alignItems: "center",
-                        padding: "6px 10px 6px 8px",
-                        gap: "0 6px",
-                        minHeight: 32,
-                      }}
-                    >
-                      {/* Status */}
-                      <StatusCheck status={spinnerStatus} />
-                      {/* FX */}
-                      <FxBadge count={totalFx} />
-                      {/* Chevron */}
-                      <div className="flex items-center justify-center">
-                        <svg
-                          className={`w-3 h-3 text-foreground/40 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                  return (
+                    <div key={spinner.name} className="mb-0.5">
+                      {/* Spinner Card Header */}
+                      <div
+                        className={`rounded-md border-l-[3px] ${borderClass} bg-surface/80 cursor-pointer transition-all hover:bg-foreground/[0.03]`}
+                        onClick={() =>
+                          setExpandedSpinners((prev) => ({
+                            ...prev,
+                            [spinner.name]: !isExpanded,
+                          }))
+                        }
+                      >
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: GROUP_GRID,
+                            alignItems: "center",
+                            padding: "6px 10px 6px 8px",
+                            gap: "0 6px",
+                            minHeight: 32,
+                          }}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
-                      </div>
-                      {/* Type */}
-                      <TypeBadge type="GRP" />
-                      {/* Name */}
-                      <span className="text-[13px] font-semibold text-foreground truncate">
-                        {spinner.name}
-                      </span>
-                      {/* Destination / + Assign */}
-                      <div className="flex items-center justify-end gap-1.5">
-                        {pairedSrc ? (
-                          <DestinationPill
-                            name={pairedSrc}
-                            confidence={pairingPct}
-                            autoMatched={true}
-                          />
-                        ) : (
-                          <span className="text-[12px] text-foreground/20">
-                            + Assign
+                          {/* Status */}
+                          <StatusCheck status={spinnerStatus} />
+                          {/* FX */}
+                          <FxBadge count={totalFx} />
+                          {/* Chevron */}
+                          <div className="flex items-center justify-center">
+                            <svg
+                              className={`w-3 h-3 text-foreground/40 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
+                          </div>
+                          {/* Type */}
+                          <TypeBadge type="GRP" />
+                          {/* Name */}
+                          <span className="text-[13px] font-semibold text-foreground truncate">
+                            {spinner.name}
                           </span>
+                          {/* Destination / + Assign */}
+                          <div className="flex items-center justify-end gap-1.5">
+                            {pairedSrc ? (
+                              <DestinationPill
+                                name={pairedSrc}
+                                confidence={pairingPct}
+                                autoMatched={true}
+                              />
+                            ) : (
+                              <span className="text-[12px] text-foreground/20">
+                                + Assign
+                              </span>
+                            )}
+                          </div>
+                          {/* Actions placeholder */}
+                          <div />
+                        </div>
+                        {/* Health bar below grid */}
+                        {stats && (
+                          <div className="px-3 pb-1.5 -mt-0.5">
+                            <HealthBar
+                              strong={stats.strong}
+                              needsReview={stats.needsReview}
+                              weak={stats.weakReview}
+                              unmapped={stats.unmapped}
+                              totalModels={stats.total}
+                            />
+                          </div>
                         )}
                       </div>
-                      {/* Actions placeholder */}
-                      <div />
-                    </div>
-                    {/* Health bar below grid */}
-                    {stats && (
-                      <div className="px-3 pb-1.5 -mt-0.5">
-                        <HealthBar
-                          strong={stats.strong}
-                          needsReview={stats.needsReview}
-                          weak={stats.weakReview}
-                          unmapped={stats.unmapped}
-                          totalModels={stats.total}
-                        />
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Expanded: nested submodel groups with section dividers */}
-                  {isExpanded && (
-                    <div className="pl-5 pt-0.5 pb-1">
-                      {sections.map((section, si) => {
-                        const visibleItems = section.items.filter((i) =>
-                          filteredNameSet.has(i.sourceModel.name),
-                        );
-                        if (visibleItems.length === 0 && section.header)
-                          return null;
-                        return (
-                          <SectionDivider
-                            key={section.header ?? `section-${si}`}
-                            header={section.header}
-                            items={visibleItems}
-                            selectedItemId={selectedItemId}
-                            dndState={dnd.state}
-                            autoMatchedNames={autoMatchedNames}
-                            approvedNames={approvedNames}
-                            scoreMap={scoreMap}
-                            factorsMap={factorsMap}
-                            topSuggestionsMap={topSuggestionsMap}
-                            onSelect={setSelectedItemId}
-                            onAccept={handleAccept}
-                            onApprove={approveAutoMatch}
-                            onSkip={handleSkipItem}
-                            onUnlink={handleUnlink}
-                            onDragEnter={dnd.handleDragEnter}
-                            onDragLeave={dnd.handleDragLeave}
-                            onDrop={handleDropOnItem}
-                          />
-                        );
-                      })}
+                      {/* Expanded: nested submodel groups with section dividers */}
+                      {isExpanded && (
+                        <div className="pl-5 pt-0.5 pb-1">
+                          {sections.map((section, si) => {
+                            const visibleItems = section.items.filter((i) =>
+                              filteredNameSet.has(i.sourceModel.name),
+                            );
+                            if (visibleItems.length === 0 && section.header)
+                              return null;
+                            return (
+                              <SectionDivider
+                                key={section.header ?? `section-${si}`}
+                                header={section.header}
+                                items={visibleItems}
+                                selectedItemId={selectedItemId}
+                                dndState={dnd.state}
+                                autoMatchedNames={autoMatchedNames}
+                                approvedNames={approvedNames}
+                                scoreMap={scoreMap}
+                                factorsMap={factorsMap}
+                                topSuggestionsMap={topSuggestionsMap}
+                                onSelect={setSelectedItemId}
+                                onAccept={handleAccept}
+                                onApprove={approveAutoMatch}
+                                onSkip={handleSkipItem}
+                                onUnlink={handleUnlink}
+                                onDragEnter={dnd.handleDragEnter}
+                                onDragLeave={dnd.handleDragLeave}
+                                onDrop={handleDropOnItem}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })
+              : viewMode === "groups"
+                ? /* ── SPINNERS VIEW: Flat list of spinner cards only (no expansion) ── */
+                  parentModelList.map((spinner) => {
+                    const stats = parentModelStats.get(spinner.name);
+                    const pairedSrc = activePairings.get(spinner.name);
+                    const sections = spinnerSections.get(spinner.name) ?? [];
+                    const allSubItems = sections.flatMap((s) => s.items);
+                    const totalFx = allSubItems.reduce(
+                      (sum, i) => sum + i.effectCount,
+                      0,
+                    );
+
+                    const pairingEntry = pairedSrc
+                      ? pairings.find(
+                          (p) =>
+                            p.sourceProp === spinner.name &&
+                            p.destProp === pairedSrc,
+                        )
+                      : undefined;
+                    const pairingPct = pairingEntry
+                      ? Math.round(pairingEntry.score * 100)
+                      : undefined;
+                    const spinnerStatus = getSpinnerStatus(
+                      pairedSrc,
+                      pairingEntry?.score,
+                    );
+                    const borderClass = stats
+                      ? getSpinnerBorderClass(stats)
+                      : "border-l-foreground/15";
+
+                    return (
+                      <div
+                        key={spinner.name}
+                        className={`rounded-md border-l-[3px] ${borderClass} bg-surface/80 mb-0.5`}
+                      >
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: GROUP_GRID,
+                            alignItems: "center",
+                            padding: "6px 10px 6px 8px",
+                            gap: "0 6px",
+                            minHeight: 32,
+                          }}
+                        >
+                          <StatusCheck status={spinnerStatus} />
+                          <FxBadge count={totalFx} />
+                          <div />
+                          <TypeBadge type="GRP" />
+                          <span className="text-[13px] font-semibold text-foreground truncate">
+                            {spinner.name}
+                          </span>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {pairedSrc ? (
+                              <DestinationPill
+                                name={pairedSrc}
+                                confidence={pairingPct}
+                                autoMatched={true}
+                              />
+                            ) : (
+                              <span className="text-[12px] text-foreground/20">
+                                + Assign
+                              </span>
+                            )}
+                          </div>
+                          <div />
+                        </div>
+                        {stats && (
+                          <div className="px-3 pb-1.5 -mt-0.5">
+                            <HealthBar
+                              strong={stats.strong}
+                              needsReview={stats.needsReview}
+                              weak={stats.weakReview}
+                              unmapped={stats.unmapped}
+                              totalModels={stats.total}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                : /* ── SUB-GROUPS VIEW: Flat list of all sub-group items ── */
+                  filteredItems.map((item) => (
+                    <SubmodelCardMemo
+                      key={item.sourceModel.name}
+                      item={item}
+                      isSelected={selectedItemId === item.sourceModel.name}
+                      isDropTarget={
+                        dnd.state.activeDropTarget === item.sourceModel.name
+                      }
+                      isAutoMatched={autoMatchedNames.has(
+                        item.sourceModel.name,
+                      )}
+                      isApproved={approvedNames.has(item.sourceModel.name)}
+                      matchScore={scoreMap.get(item.sourceModel.name)}
+                      matchFactors={factorsMap.get(item.sourceModel.name)}
+                      topSuggestion={
+                        topSuggestionsMap.get(item.sourceModel.name) ?? null
+                      }
+                      onClick={() => setSelectedItemId(item.sourceModel.name)}
+                      onAccept={(userModelName) =>
+                        handleAccept(item.sourceModel.name, userModelName)
+                      }
+                      onApprove={() => approveAutoMatch(item.sourceModel.name)}
+                      onSkip={() => handleSkipItem(item.sourceModel.name)}
+                      onUnlink={() => handleUnlink(item.sourceModel.name)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                      }}
+                      onDragEnter={() =>
+                        dnd.handleDragEnter(item.sourceModel.name)
+                      }
+                      onDragLeave={() =>
+                        dnd.handleDragLeave(item.sourceModel.name)
+                      }
+                      onDrop={(e) => handleDropOnItem(item.sourceModel.name, e)}
+                    />
+                  ))}
           </div>
 
           {interactive.hiddenZeroEffectCount > 0 && (

@@ -153,6 +153,40 @@ export function NotMappedBanner() {
   );
 }
 
+// ─── View Mode Pills (segmented toggle: All / Groups / Models) ────────
+
+export type ViewMode = "all" | "groups" | "models";
+
+export function ViewModePills({
+  value,
+  onChange,
+  labels = { all: "All", groups: "Groups", models: "Models" },
+}: {
+  value: ViewMode;
+  onChange: (mode: ViewMode) => void;
+  labels?: { all: string; groups: string; models: string };
+}) {
+  const modes: ViewMode[] = ["all", "groups", "models"];
+  return (
+    <div className="inline-flex rounded-md border border-border overflow-hidden">
+      {modes.map((mode) => (
+        <button
+          key={mode}
+          type="button"
+          onClick={() => onChange(mode)}
+          className={`px-3 py-1 text-[10px] font-semibold tracking-wide transition-colors ${
+            value === mode
+              ? "bg-foreground/10 text-foreground"
+              : "bg-transparent text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"
+          } ${mode !== "all" ? "border-l border-border" : ""}`}
+        >
+          {labels[mode]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Filter Pill (color-coded status pill) ────────────────
 
 const PILL_COLORS = {

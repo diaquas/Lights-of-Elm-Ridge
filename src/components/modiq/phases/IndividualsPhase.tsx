@@ -35,6 +35,8 @@ import {
   NotMappedBanner,
   FilterPill,
   GhostMemberRow,
+  ViewModePills,
+  type ViewMode,
 } from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
@@ -46,7 +48,7 @@ type StatusFilter =
   | "mapped"
   | "display-wide";
 
-type ViewMode = "hierarchy" | "flat";
+// ViewMode imported from SharedHierarchyComponents: "all" | "groups" | "models"
 
 export function IndividualsPhase() {
   const {
@@ -116,10 +118,8 @@ export function IndividualsPhase() {
     [phaseItems],
   );
 
-  // View mode: hierarchy (default when super groups exist) vs flat
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    hasSuperGroups ? "hierarchy" : "flat",
-  );
+  // View mode: all (hierarchy), groups-only, or models-only
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
 
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
@@ -553,59 +553,10 @@ export function IndividualsPhase() {
                 setSortVersion((v) => v + 1);
               }}
             />
-            {/* View toggle: Hierarchy / Flat */}
-            {hasSuperGroups && (
-              <div className="ml-auto flex items-center gap-0.5 bg-foreground/5 rounded-md p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setViewMode("hierarchy")}
-                  className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${
-                    viewMode === "hierarchy"
-                      ? "bg-background text-foreground/70 shadow-sm font-medium"
-                      : "text-foreground/30 hover:text-foreground/50"
-                  }`}
-                  title="Hierarchy view — grouped by super groups"
-                >
-                  <svg
-                    className="w-3 h-3 inline -mt-px mr-0.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 3v18M4 8h16M7 13h10" />
-                  </svg>
-                  Tree
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("flat")}
-                  className={`px-1.5 py-0.5 text-[10px] rounded transition-colors ${
-                    viewMode === "flat"
-                      ? "bg-background text-foreground/70 shadow-sm font-medium"
-                      : "text-foreground/30 hover:text-foreground/50"
-                  }`}
-                  title="Flat view — all groups as peers"
-                >
-                  <svg
-                    className="w-3 h-3 inline -mt-px mr-0.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="3" y1="6" x2="21" y2="6" />
-                    <line x1="3" y1="12" x2="21" y2="12" />
-                    <line x1="3" y1="18" x2="21" y2="18" />
-                  </svg>
-                  Flat
-                </button>
-              </div>
-            )}
+            {/* View mode toggle: All / Groups / Models */}
+            <div className="ml-auto">
+              <ViewModePills value={viewMode} onChange={setViewMode} />
+            </div>
           </div>
         </div>
 
@@ -740,8 +691,8 @@ export function IndividualsPhase() {
             </div>
           )}
           <div className="px-4 pb-3 space-y-1">
-            {viewMode === "hierarchy" ? (
-              /* ── HIERARCHY VIEW: super groups → regular groups → ungrouped ── */
+            {viewMode === "all" ? (
+              /* ── ALL VIEW: super groups → regular groups → ungrouped ── */
               <>
                 {/* Display-Wide Groups section */}
                 {itemsSplit.superGroups.length > 0 && (
@@ -848,12 +799,24 @@ export function IndividualsPhase() {
                   </div>
                 )}
               </>
-            ) : (
-              /* ── FLAT VIEW: all groups as peers, no sections ── */
+            ) : viewMode === "groups" ? (
+              /* ── GROUPS VIEW: flat list of groups only, no expansion ── */
               <>
                 {[...itemsSplit.superGroups, ...itemsSplit.regularGroups].map(
                   (group) => renderGroupCard(group),
                 )}
+              </>
+            ) : (
+              /* ── MODELS VIEW: flat list of individual models only ── */
+              <>
+                {/* Models from groups */}
+                {[
+                  ...itemsSplit.superGroups,
+                  ...itemsSplit.regularGroups,
+                ].flatMap((group) =>
+                  group.members.map((item) => renderItemCard(item)),
+                )}
+                {/* Ungrouped models */}
                 {itemsSplit.ungrouped.map((item) => renderItemCard(item))}
               </>
             )}
