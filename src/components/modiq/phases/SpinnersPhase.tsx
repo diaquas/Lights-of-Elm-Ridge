@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/refs -- Refs used as stable caches (sort order, scores); intentional lazy-init in useMemo. */
+/* eslint-disable react-hooks/refs -- Refs used as stable caches (sort order, scores); intentional lazy-init in useMemo */
 "use client";
 
 import { useState, useMemo, useCallback, useRef, useEffect, memo } from "react";
