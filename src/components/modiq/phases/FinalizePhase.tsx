@@ -7,7 +7,7 @@ import {
   UnlinkIcon,
   StatusCheck,
   TypeBadge,
-  HealthBar,
+  FractionBadge,
   type StatusCheckStatus,
 } from "../MetadataBadges";
 import { ConfidenceBadge } from "../ConfidenceBadge";
@@ -1474,7 +1474,7 @@ function DestGroupCard({
   const leftBorder = getDestLeftBorder(groupStatus);
   const isGroupSelected = selectedDestName === group.family;
 
-  // Member health stats
+  // Member stats + resolved count for fraction badge
   const memberStats = useMemo(() => {
     let mapped = 0;
     let unmapped = 0;
@@ -1484,7 +1484,13 @@ function DestGroupCard({
       else if (m.isCoveredByGroup) covered++;
       else unmapped++;
     }
-    return { mapped, unmapped, covered, total: group.totalCount };
+    return {
+      mapped,
+      unmapped,
+      covered,
+      resolved: mapped + covered,
+      total: group.totalCount,
+    };
   }, [group.members, group.totalCount]);
 
   return (
@@ -1541,8 +1547,22 @@ function DestGroupCard({
         {/* Col 5: Name */}
         <span className="text-[13px] font-semibold text-foreground truncate">
           {group.family}
+          {group.totalCount > 0 && (
+            <span className="text-foreground/30 font-normal ml-1">
+              ({group.totalCount})
+            </span>
+          )}
         </span>
-        {/* Col 6: Source assignment / mapped count */}
+        {/* Col 6: Fraction badge */}
+        <div className="flex items-center">
+          {group.totalCount > 0 && (
+            <FractionBadge
+              resolved={memberStats.resolved}
+              total={memberStats.total}
+            />
+          )}
+        </div>
+        {/* Col 7: Source assignment / mapped count */}
         <div className="flex items-center justify-end gap-1.5">
           {group.groupModel?.isMapped ? (
             <>
@@ -1576,17 +1596,6 @@ function DestGroupCard({
         {/* Col 7: Actions */}
         <div style={{ width: 50 }} />
       </div>
-      {/* Health bar — below grid */}
-      {group.totalCount > 0 && (
-        <div style={{ marginLeft: 130, marginRight: 60 }} className="pb-1">
-          <HealthBar
-            strong={memberStats.mapped}
-            unmapped={memberStats.unmapped}
-            covered={memberStats.covered}
-            totalModels={memberStats.total}
-          />
-        </div>
-      )}
       {/* Expanded children */}
       {isExpanded && (
         <div

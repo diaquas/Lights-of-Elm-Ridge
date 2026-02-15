@@ -576,58 +576,54 @@ export function TypeBadge({ type }: { type: "SUPER" | "GRP" | "SUB" }) {
 }
 
 /**
- * 4px segmented health bar showing the composition of children inside a group.
- * Tooltip shows breakdown + total model count.
+ * Compact fraction badge showing resolved/total for group cards.
+ * Color-coded: green (complete), yellow (partial), blue (empty).
  */
-export function HealthBar({
-  strong = 0,
-  needsReview = 0,
-  weak = 0,
-  unmapped = 0,
-  covered = 0,
-  totalModels = 0,
+export function FractionBadge({
+  resolved,
+  total,
+  tooltip,
 }: {
-  strong?: number;
-  needsReview?: number;
-  weak?: number;
-  unmapped?: number;
-  covered?: number;
-  totalModels?: number;
+  resolved: number;
+  total: number;
+  tooltip?: string;
 }) {
-  const total = strong + needsReview + weak + unmapped + covered;
   if (total === 0) return null;
 
-  const segments = [
-    { count: strong, color: "bg-green-400", label: "Mapped" },
-    { count: needsReview, color: "bg-amber-400", label: "Review (40-59%)" },
-    { count: weak, color: "bg-red-400", label: "Weak (<40%)" },
-    { count: unmapped, color: "bg-blue-400", label: "Unmapped" },
-    { count: covered, color: "bg-foreground/30", label: "Covered by group" },
-  ];
+  const ratio = total > 0 ? resolved / total : 0;
 
-  const tooltipLines = [
-    `${totalModels || total} models total`,
-    ...segments.filter((s) => s.count > 0).map((s) => `${s.count} ${s.label}`),
-  ];
+  const bg =
+    ratio >= 1
+      ? "rgba(74, 222, 128, 0.15)"
+      : ratio > 0
+        ? "rgba(251, 191, 36, 0.15)"
+        : "rgba(96, 165, 250, 0.15)";
+  const color =
+    ratio >= 1
+      ? "rgb(74, 222, 128)"
+      : ratio > 0
+        ? "rgb(251, 191, 36)"
+        : "rgb(96, 165, 250)";
+
+  const defaultTooltip = `${resolved} resolved · ${total - resolved} need attention · ${total} total`;
 
   return (
-    <div
-      className="flex w-full h-1 rounded-sm overflow-hidden gap-px bg-foreground/10 cursor-help"
-      title={tooltipLines.join("\n")}
+    <span
+      title={tooltip ?? defaultTooltip}
+      style={{
+        fontSize: 10,
+        fontWeight: 600,
+        padding: "1px 6px",
+        borderRadius: 3,
+        background: bg,
+        color: color,
+        fontFamily: "'JetBrains Mono', monospace",
+        whiteSpace: "nowrap",
+        flexShrink: 0,
+      }}
     >
-      {segments.map((seg, i) =>
-        seg.count > 0 ? (
-          <div
-            key={i}
-            className={`${seg.color}`}
-            style={{
-              width: `${(seg.count / total) * 100}%`,
-              opacity: seg.label === "Covered by group" ? 0.4 : 0.85,
-            }}
-          />
-        ) : null,
-      )}
-    </div>
+      {resolved}/{total}
+    </span>
   );
 }
 
