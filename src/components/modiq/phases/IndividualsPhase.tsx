@@ -21,7 +21,10 @@ import {
 import { STRONG_THRESHOLD, WEAK_THRESHOLD } from "@/types/mappingPhases";
 import type { ModelMapping } from "@/lib/modiq/matcher";
 import { SortDropdown, sortItems, type SortOption } from "../SortDropdown";
-import { useDragAndDrop } from "@/hooks/useDragAndDrop";
+import {
+  useDragAndDrop,
+  type DragAndDropHandlers,
+} from "@/hooks/useDragAndDrop";
 import { useBulkInference } from "@/hooks/useBulkInference";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import {
@@ -58,7 +61,6 @@ export function IndividualsPhase() {
     approvedNames,
     approveAutoMatch,
     approveAllReviewItems,
-    autoMatchStats,
     scoreMap,
     factorsMap,
   } = useMappingPhase();
@@ -84,28 +86,52 @@ export function IndividualsPhase() {
     "auto-strong" | "auto-review" | null
   >(null);
 
+  // Count auto-matched items in THIS phase for the banner
+  const phaseAutoCount = useMemo(
+    () =>
+      phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
+    [phaseItems, autoMatchedNames],
+  );
+
+  // Phase-specific auto-match stats (fixes global count mismatch + skipped items)
+  const phaseAutoMatchStats = useMemo(() => {
+    const phaseNameSet = new Set(phaseItems.map((i) => i.sourceModel.name));
+    let strongCount = 0;
+    let reviewCount = 0;
+    for (const name of autoMatchedNames) {
+      if (!phaseNameSet.has(name)) continue;
+      const score = scoreMap.get(name) ?? 0;
+      if (score >= STRONG_THRESHOLD || approvedNames.has(name)) strongCount++;
+      else reviewCount++;
+    }
+    return { total: phaseAutoCount, strongCount, reviewCount };
+  }, [phaseItems, autoMatchedNames, approvedNames, scoreMap, phaseAutoCount]);
+
   // Auto-start with "needs review" filter when there are review items
   const didAutoStartRef = useRef(false);
   useEffect(() => {
     if (didAutoStartRef.current) return;
-    if (autoMatchStats.reviewCount > 0) {
+    if (phaseAutoMatchStats.reviewCount > 0) {
       setBannerFilter("auto-review");
       didAutoStartRef.current = true;
-    } else if (autoMatchStats.total > 0) {
+    } else if (phaseAutoMatchStats.total > 0) {
       didAutoStartRef.current = true;
     }
-  }, [autoMatchStats]);
+  }, [phaseAutoMatchStats]);
 
   // Auto-clear banner filter when all review items are resolved
   const [reviewClearToast, setReviewClearToast] = useState(false);
   useEffect(() => {
-    if (bannerFilter === "auto-review" && autoMatchStats.reviewCount === 0) {
+    if (
+      bannerFilter === "auto-review" &&
+      phaseAutoMatchStats.reviewCount === 0
+    ) {
       setBannerFilter(null);
       setReviewClearToast(true);
       const t = setTimeout(() => setReviewClearToast(false), 3000);
       return () => clearTimeout(t);
     }
-  }, [bannerFilter, autoMatchStats.reviewCount]);
+  }, [bannerFilter, phaseAutoMatchStats.reviewCount]);
 
   // Detect super groups for display-wide section
   const hasSuperGroups = useMemo(
@@ -177,13 +203,6 @@ export function IndividualsPhase() {
     }
     return map;
   }, [phaseItems, interactive]);
-
-  // Count auto-matched items in THIS phase for the banner
-  const phaseAutoCount = useMemo(
-    () =>
-      phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
-    [phaseItems, autoMatchedNames],
-  );
 
   // Filtered + stable-sorted items (single unified list)
   const filteredItems = useMemo(() => {
@@ -387,6 +406,8 @@ export function IndividualsPhase() {
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
+    // Manual mapping IS approval — mark green immediately
+    approveAutoMatch(sourceName);
     bulk.checkForPattern(sourceName, userModelName);
     const current = phaseItemsByName.get(sourceName);
     if (!current?.isMapped) {
@@ -443,6 +464,9 @@ export function IndividualsPhase() {
       members={group.members}
       isExpanded={expandedGroups.has(group.groupItem.sourceModel.name)}
       isSelected={selectedItemId === group.groupItem.sourceModel.name}
+      isDropTarget={
+        dnd.state.activeDropTarget === group.groupItem.sourceModel.name
+      }
       isAutoMatched={autoMatchedNames.has(group.groupItem.sourceModel.name)}
       isApproved={approvedNames.has(group.groupItem.sourceModel.name)}
       matchScore={scoreMap.get(group.groupItem.sourceModel.name)}
@@ -472,6 +496,13 @@ export function IndividualsPhase() {
           setSelectedItemId(firstUnmapped.sourceModel.name);
         }
       }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }}
+      onDragEnter={() => dnd.handleDragEnter(group.groupItem.sourceModel.name)}
+      onDragLeave={() => dnd.handleDragLeave(group.groupItem.sourceModel.name)}
+      onDrop={(e) => handleDropOnItem(group.groupItem.sourceModel.name, e)}
       renderItemCard={renderItemCard}
     />
   );
@@ -633,7 +664,7 @@ export function IndividualsPhase() {
         )}
 
         <AutoMatchBanner
-          stats={autoMatchStats}
+          stats={phaseAutoMatchStats}
           phaseAutoCount={phaseAutoCount}
           bannerFilter={bannerFilter}
           onFilterStrong={() => {
@@ -712,6 +743,8 @@ export function IndividualsPhase() {
                     onUnlink={handleUnlink}
                     renderItemCard={renderItemCard}
                     phaseItemsByName={phaseItemsByName}
+                    dnd={dnd}
+                    onDropOnItem={handleDropOnItem}
                   />
                 )}
 
@@ -1053,6 +1086,7 @@ function XLightsGroupCard({
   members,
   isExpanded,
   isSelected,
+  isDropTarget,
   isAutoMatched,
   isApproved,
   matchScore,
@@ -1068,12 +1102,17 @@ function XLightsGroupCard({
   onSkip,
   onUnlink,
   onMapChildren,
+  onDragOver,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
   renderItemCard,
 }: {
   group: SourceLayerMapping;
   members: SourceLayerMapping[];
   isExpanded: boolean;
   isSelected: boolean;
+  isDropTarget?: boolean;
   isAutoMatched: boolean;
   isApproved?: boolean;
   matchScore?: number;
@@ -1093,6 +1132,10 @@ function XLightsGroupCard({
   onSkip?: () => void;
   onUnlink?: () => void;
   onMapChildren?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragEnter?: () => void;
+  onDragLeave?: () => void;
+  onDrop?: (e: React.DragEvent) => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -1174,10 +1217,16 @@ function XLightsGroupCard({
       className={`rounded-md overflow-hidden transition-all border-l-[3px] ${leftBorder} mb-0.5 ${
         isSelected
           ? "ring-1 ring-accent/20 bg-accent/5"
-          : "bg-foreground/[0.02]"
+          : isDropTarget
+            ? "ring-1 ring-accent/40 bg-accent/10"
+            : "bg-foreground/[0.02]"
       }`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onDragOver={onDragOver}
+      onDragEnter={() => onDragEnter?.()}
+      onDragLeave={() => onDragLeave?.()}
+      onDrop={onDrop}
     >
       {/* Group header row — CSS Grid */}
       <div
@@ -1649,6 +1698,8 @@ function SuperGroupSection({
   onUnlink,
   renderItemCard,
   phaseItemsByName,
+  dnd,
+  onDropOnItem,
 }: {
   superGroups: XLightsGroup[];
   expandedGroups: Set<string>;
@@ -1673,6 +1724,8 @@ function SuperGroupSection({
   onUnlink: (sourceName: string) => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
   phaseItemsByName: Map<string, SourceLayerMapping>;
+  dnd: DragAndDropHandlers;
+  onDropOnItem: (sourceName: string, e: React.DragEvent) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -1734,6 +1787,10 @@ function SuperGroupSection({
                   isSelected={
                     selectedItemId === group.groupItem.sourceModel.name
                   }
+                  isDropTarget={
+                    dnd.state.activeDropTarget ===
+                    group.groupItem.sourceModel.name
+                  }
                   isAutoMatched={autoMatchedNames.has(
                     group.groupItem.sourceModel.name,
                   )}
@@ -1758,6 +1815,19 @@ function SuperGroupSection({
                     onSkipFamily([group.groupItem, ...group.members])
                   }
                   onUnlink={() => onUnlink(group.groupItem.sourceModel.name)}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                  }}
+                  onDragEnter={() =>
+                    dnd.handleDragEnter(group.groupItem.sourceModel.name)
+                  }
+                  onDragLeave={() =>
+                    dnd.handleDragLeave(group.groupItem.sourceModel.name)
+                  }
+                  onDrop={(e) =>
+                    onDropOnItem(group.groupItem.sourceModel.name, e)
+                  }
                   renderItemCard={renderItemCard}
                   expandedGroups={expandedGroups}
                   onToggleChild={onToggle}
@@ -1790,6 +1860,7 @@ function SuperGroupCard({
   phaseItemsByName,
   isExpanded,
   isSelected,
+  isDropTarget,
   isAutoMatched,
   isApproved,
   matchScore,
@@ -1801,6 +1872,10 @@ function SuperGroupCard({
   onApprove,
   onSkip,
   onUnlink,
+  onDragOver,
+  onDragEnter,
+  onDragLeave,
+  onDrop,
   renderItemCard,
   expandedGroups,
   onToggleChild,
@@ -1821,6 +1896,7 @@ function SuperGroupCard({
   phaseItemsByName: Map<string, SourceLayerMapping>;
   isExpanded: boolean;
   isSelected: boolean;
+  isDropTarget?: boolean;
   isAutoMatched: boolean;
   isApproved?: boolean;
   matchScore?: number;
@@ -1836,6 +1912,10 @@ function SuperGroupCard({
   onApprove: () => void;
   onSkip: () => void;
   onUnlink: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragEnter?: () => void;
+  onDragLeave?: () => void;
+  onDrop?: (e: React.DragEvent) => void;
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
   expandedGroups: Set<string>;
   onToggleChild: (name: string) => void;
@@ -1918,10 +1998,16 @@ function SuperGroupCard({
       className={`rounded-md overflow-hidden transition-all border-l-[3px] ${leftBorder} mb-0.5 ${
         isSelected
           ? "ring-1 ring-accent/20 bg-accent/5"
-          : "bg-purple-500/[0.03]"
+          : isDropTarget
+            ? "ring-1 ring-accent/40 bg-accent/10"
+            : "bg-purple-500/[0.03]"
       }`}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      onDragOver={onDragOver}
+      onDragEnter={() => onDragEnter?.()}
+      onDragLeave={() => onDragLeave?.()}
+      onDrop={onDrop}
     >
       {/* Super group header row — CSS Grid */}
       <div

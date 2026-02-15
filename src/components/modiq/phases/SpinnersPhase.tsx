@@ -54,7 +54,6 @@ export function SpinnersPhase() {
     approvedNames,
     approveAutoMatch,
     approveAllReviewItems,
-    autoMatchStats,
     scoreMap,
     factorsMap,
     goToNextPhase,
@@ -87,28 +86,52 @@ export function SpinnersPhase() {
     "auto-strong" | "auto-review" | null
   >(null);
 
+  // Count auto-matched items in this phase for the banner
+  const phaseAutoCount = useMemo(
+    () =>
+      phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
+    [phaseItems, autoMatchedNames],
+  );
+
+  // Phase-specific auto-match stats (fixes global count mismatch + skipped items)
+  const phaseAutoMatchStats = useMemo(() => {
+    const phaseNameSet = new Set(phaseItems.map((i) => i.sourceModel.name));
+    let strongCount = 0;
+    let reviewCount = 0;
+    for (const name of autoMatchedNames) {
+      if (!phaseNameSet.has(name)) continue;
+      const score = scoreMap.get(name) ?? 0;
+      if (score >= STRONG_THRESHOLD || approvedNames.has(name)) strongCount++;
+      else reviewCount++;
+    }
+    return { total: phaseAutoCount, strongCount, reviewCount };
+  }, [phaseItems, autoMatchedNames, approvedNames, scoreMap, phaseAutoCount]);
+
   // Auto-start with "needs review" filter when there are review items
   const didAutoStartRef = useRef(false);
   useEffect(() => {
     if (didAutoStartRef.current) return;
-    if (autoMatchStats.reviewCount > 0) {
+    if (phaseAutoMatchStats.reviewCount > 0) {
       setBannerFilter("auto-review");
       didAutoStartRef.current = true;
-    } else if (autoMatchStats.total > 0) {
+    } else if (phaseAutoMatchStats.total > 0) {
       didAutoStartRef.current = true;
     }
-  }, [autoMatchStats]);
+  }, [phaseAutoMatchStats]);
 
   // Auto-clear banner filter when all review items are resolved
   const [reviewClearToast, setReviewClearToast] = useState(false);
   useEffect(() => {
-    if (bannerFilter === "auto-review" && autoMatchStats.reviewCount === 0) {
+    if (
+      bannerFilter === "auto-review" &&
+      phaseAutoMatchStats.reviewCount === 0
+    ) {
       setBannerFilter(null);
       setReviewClearToast(true);
       const t = setTimeout(() => setReviewClearToast(false), 3000);
       return () => clearTimeout(t);
     }
-  }, [bannerFilter, autoMatchStats.reviewCount]);
+  }, [bannerFilter, phaseAutoMatchStats.reviewCount]);
 
   // Stable sort: rows don't move on map/unmap — only on explicit re-sort
   const [sortVersion, setSortVersion] = useState(0);
@@ -394,13 +417,6 @@ export function SpinnersPhase() {
     return map;
   }, [phaseItems, interactive]);
 
-  // Count auto-matched items in this phase for the banner
-  const phaseAutoCount = useMemo(
-    () =>
-      phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
-    [phaseItems, autoMatchedNames],
-  );
-
   // Filtered + stable-sorted items (all submodel groups across all spinners)
   const filteredItems = useMemo(() => {
     let items = phaseItems.filter((i) => !i.sourceModel.name.startsWith("**"));
@@ -507,6 +523,8 @@ export function SpinnersPhase() {
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
+    // Manual mapping IS approval — mark green immediately
+    approveAutoMatch(sourceName);
     bulk.checkForPattern(sourceName, userModelName);
     setSelectedItemId(findNextUnmapped(unmappedItems, sourceName));
   };
@@ -663,7 +681,7 @@ export function SpinnersPhase() {
         )}
 
         <AutoMatchBanner
-          stats={autoMatchStats}
+          stats={phaseAutoMatchStats}
           phaseAutoCount={phaseAutoCount}
           bannerFilter={bannerFilter}
           onFilterStrong={() => {
@@ -689,6 +707,34 @@ export function SpinnersPhase() {
         )}
 
         <div className={PANEL_STYLES.scrollArea}>
+          {/* Expand/Collapse All (only in "all" view with expandable spinners) */}
+          {viewMode === "all" && parentModelList.length > 0 && (
+            <div className="flex items-center gap-3 px-4 pb-1.5 text-[10px] text-foreground/30">
+              <button
+                type="button"
+                onClick={() => {
+                  const allExpanded: Record<string, boolean> = {};
+                  for (const s of parentModelList) allExpanded[s.name] = true;
+                  setExpandedSpinners(allExpanded);
+                }}
+                className="hover:text-foreground/60 transition-colors"
+              >
+                Expand All
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const allCollapsed: Record<string, boolean> = {};
+                  for (const s of parentModelList) allCollapsed[s.name] = false;
+                  setExpandedSpinners(allCollapsed);
+                }}
+                className="hover:text-foreground/60 transition-colors"
+              >
+                Collapse All
+              </button>
+            </div>
+          )}
+
           <div className="px-4 pb-3 space-y-0.5">
             {viewMode === "all"
               ? /* ── ALL VIEW: Spinner Cards with nested Sub-Groups ── */
