@@ -1289,6 +1289,28 @@ function HierarchyGroupRow({
           >
             {group.mappedCount}/{group.members.length}
           </span>
+          {(() => {
+            const mappedSources = destToSourcesMap?.get(group.model.name);
+            const usageCount = mappedSources?.size ?? 0;
+            if (usageCount === 0) return null;
+            const mappedSourceNames = mappedSources
+              ? Array.from(mappedSources)
+              : [];
+            return (
+              <UsageBadge
+                count={usageCount}
+                mappedSourceNames={mappedSourceNames}
+                sourceEffectCounts={sourceEffectCounts}
+                currentSourceSelection={currentSourceSelection}
+                onRemoveLink={
+                  onRemoveLink
+                    ? (sourceName) => onRemoveLink(sourceName, group.model.name)
+                    : undefined
+                }
+                onAccept={() => onAccept(group.model.name)}
+              />
+            );
+          })()}
         </div>
       </button>
 
