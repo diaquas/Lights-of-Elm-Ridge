@@ -116,9 +116,6 @@ export function SpinnersPhase() {
   const skippedItems = interactive.sourceLayerMappings.filter(
     (l) => l.isSkipped,
   );
-  const unmappedCount = phaseItems.filter((item) => !item.isMapped).length;
-  const mappedCount = phaseItems.filter((item) => item.isMapped).length;
-
   // Build parent model index: group submodel groups by their parent model
   const parentModelIndex = useMemo(() => {
     const index = new Map<
@@ -304,22 +301,20 @@ export function SpinnersPhase() {
     return parentModelIndex.get(activeParent)?.items ?? phaseItems;
   }, [activeParent, parentModelIndex, phaseItems]);
 
-  // Section headers: detect **SECTION_NAME patterns in scoped items
+  // Scoped counts for filter pills (reflect selected model, not entire phase)
+  const scopedMappedCount = scopedItems.filter((i) => i.isMapped).length;
+  const scopedUnmappedCount = scopedItems.filter((i) => !i.isMapped).length;
+
+  // Section headers: detect **SECTION_NAME patterns in scoped items.
+  // Preserve source order — sorting by name would move all ** markers to the
+  // front, destroying the section → items grouping.
   const sectionGroups = useMemo(() => {
     const sections: { header: string | null; items: SourceLayerMapping[] }[] =
       [];
     let currentSection: { header: string | null; items: SourceLayerMapping[] } =
       { header: null, items: [] };
 
-    // Sort items by name to group sections together
-    const sorted = [...scopedItems].sort((a, b) =>
-      a.sourceModel.name.localeCompare(b.sourceModel.name, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      }),
-    );
-
-    for (const item of sorted) {
+    for (const item of scopedItems) {
       // Check if this item's name looks like a section header marker
       // e.g., "**OUTER", "**WHOLE SPINNER", "**CENTER"
       if (item.sourceModel.name.startsWith("**")) {
@@ -379,12 +374,32 @@ export function SpinnersPhase() {
     return map;
   }, [phaseItems, interactive]);
 
-  // Count auto-matched items in THIS phase for the banner
+  // Count auto-matched items scoped to selected model for the banner
   const phaseAutoCount = useMemo(
     () =>
-      phaseItems.filter((i) => autoMatchedNames.has(i.sourceModel.name)).length,
-    [phaseItems, autoMatchedNames],
+      scopedItems.filter((i) => autoMatchedNames.has(i.sourceModel.name))
+        .length,
+    [scopedItems, autoMatchedNames],
   );
+
+  // Scoped auto-match stats (selected model only, not entire phase)
+  const scopedAutoMatchStats = useMemo(() => {
+    let total = 0,
+      strongCount = 0,
+      reviewCount = 0;
+    for (const item of scopedItems) {
+      const name = item.sourceModel.name;
+      if (!autoMatchedNames.has(name)) continue;
+      total++;
+      const score = scoreMap.get(name) ?? 0;
+      if (approvedNames.has(name) || score >= STRONG_THRESHOLD) {
+        strongCount++;
+      } else {
+        reviewCount++;
+      }
+    }
+    return { total, strongCount, reviewCount };
+  }, [scopedItems, autoMatchedNames, scoreMap, approvedNames]);
 
   // Filtered + stable-sorted items (single unified list, scoped to parent model)
   const filteredItems = useMemo(() => {
@@ -453,6 +468,12 @@ export function SpinnersPhase() {
     approvedNames,
   ]);
 
+  // Set of names passing current filter — used for section rendering
+  const filteredNameSet = useMemo(
+    () => new Set(filteredItems.map((i) => i.sourceModel.name)),
+    [filteredItems],
+  );
+
   // Suggestions for selected item
   const suggestions = useMemo(() => {
     if (!selectedItem) return [];
@@ -484,7 +505,7 @@ export function SpinnersPhase() {
     );
   }
 
-  const unmappedItems = phaseItems.filter((item) => !item.isMapped);
+  const unmappedItems = scopedItems.filter((item) => !item.isMapped);
 
   const handleAccept = (sourceName: string, userModelName: string) => {
     interactive.assignUserModelToLayer(sourceName, userModelName);
@@ -527,7 +548,7 @@ export function SpinnersPhase() {
         <div className={PANEL_STYLES.header.wrapper}>
           <div className="flex items-center gap-2">
             <FilterPill
-              label={`All (${phaseItems.length})`}
+              label={`All (${scopedItems.length})`}
               color="blue"
               active={statusFilter === "all" && !bannerFilter}
               onClick={() => {
@@ -537,7 +558,7 @@ export function SpinnersPhase() {
               }}
             />
             <FilterPill
-              label={`Mapped (${mappedCount})`}
+              label={`Mapped (${scopedMappedCount})`}
               color="green"
               active={statusFilter === "mapped" && !bannerFilter}
               onClick={() => {
@@ -547,7 +568,7 @@ export function SpinnersPhase() {
               }}
             />
             <FilterPill
-              label={`Unmapped (${unmappedCount})`}
+              label={`Unmapped (${scopedUnmappedCount})`}
               color="amber"
               active={statusFilter === "unmapped" && !bannerFilter}
               onClick={() => {
@@ -633,7 +654,7 @@ export function SpinnersPhase() {
         )}
 
         <AutoMatchBanner
-          stats={autoMatchStats}
+          stats={scopedAutoMatchStats}
           phaseAutoCount={phaseAutoCount}
           bannerFilter={bannerFilter}
           onFilterStrong={() => {
@@ -926,28 +947,35 @@ export function SpinnersPhase() {
           <div className="px-4 pb-3 space-y-1">
             {/* Section-based rendering when sections detected */}
             {sectionGroups.some((s) => s.header)
-              ? sectionGroups.map((section, si) => (
-                  <SectionDivider
-                    key={section.header ?? `section-${si}`}
-                    header={section.header}
-                    items={section.items}
-                    selectedItemId={selectedItemId}
-                    dndState={dnd.state}
-                    autoMatchedNames={autoMatchedNames}
-                    approvedNames={approvedNames}
-                    scoreMap={scoreMap}
-                    factorsMap={factorsMap}
-                    topSuggestionsMap={topSuggestionsMap}
-                    onSelect={setSelectedItemId}
-                    onAccept={handleAccept}
-                    onApprove={approveAutoMatch}
-                    onSkip={handleSkipItem}
-                    onUnlink={handleUnlink}
-                    onDragEnter={dnd.handleDragEnter}
-                    onDragLeave={dnd.handleDragLeave}
-                    onDrop={handleDropOnItem}
-                  />
-                ))
+              ? sectionGroups.map((section, si) => {
+                  // Apply current filters to section items
+                  const visibleItems = section.items.filter((i) =>
+                    filteredNameSet.has(i.sourceModel.name),
+                  );
+                  if (visibleItems.length === 0 && section.header) return null;
+                  return (
+                    <SectionDivider
+                      key={section.header ?? `section-${si}`}
+                      header={section.header}
+                      items={visibleItems}
+                      selectedItemId={selectedItemId}
+                      dndState={dnd.state}
+                      autoMatchedNames={autoMatchedNames}
+                      approvedNames={approvedNames}
+                      scoreMap={scoreMap}
+                      factorsMap={factorsMap}
+                      topSuggestionsMap={topSuggestionsMap}
+                      onSelect={setSelectedItemId}
+                      onAccept={handleAccept}
+                      onApprove={approveAutoMatch}
+                      onSkip={handleSkipItem}
+                      onUnlink={handleUnlink}
+                      onDragEnter={dnd.handleDragEnter}
+                      onDragLeave={dnd.handleDragLeave}
+                      onDrop={handleDropOnItem}
+                    />
+                  );
+                })
               : /* Flat rendering (no sections) */
                 filteredItems.map((item) => (
                   <SubmodelCardMemo
