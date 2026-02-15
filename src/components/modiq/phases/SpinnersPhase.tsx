@@ -57,6 +57,7 @@ export function SpinnersPhase() {
     autoMatchStats,
     scoreMap,
     factorsMap,
+    goToNextPhase,
   } = useMappingPhase();
   const dnd = useDragAndDrop();
 
