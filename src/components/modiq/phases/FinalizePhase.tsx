@@ -1,10 +1,22 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useMappingPhase } from "@/contexts/MappingPhaseContext";
-import { PANEL_STYLES } from "../panelStyles";
-import { UnlinkIcon } from "../MetadataBadges";
-import { FilterPill } from "../SharedHierarchyComponents";
+import { PANEL_STYLES, GROUP_GRID, MODEL_GRID } from "../panelStyles";
+import {
+  UnlinkIcon,
+  StatusCheck,
+  TypeBadge,
+  HealthBar,
+  type StatusCheckStatus,
+} from "../MetadataBadges";
+import { ConfidenceBadge } from "../ConfidenceBadge";
+import {
+  FilterPill,
+  NotMappedBanner,
+  ViewModePills,
+  type ViewMode,
+} from "../SharedHierarchyComponents";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 import type { ParsedModel } from "@/lib/modiq";
 
@@ -21,7 +33,11 @@ interface DestItem {
   /** True if this individual model's parent group has a source mapped (group-level coverage) */
   isCoveredByGroup: boolean;
   /** Best suggestion from mapped source layers */
-  topSuggestion: { sourceName: string; score: number; effectCount: number } | null;
+  topSuggestion: {
+    sourceName: string;
+    score: number;
+    effectCount: number;
+  } | null;
 }
 
 interface DestGroup {
@@ -53,6 +69,33 @@ function naturalCompare(a: string, b: string): number {
   return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
 }
 
+function getDestStatus(item: DestItem): StatusCheckStatus {
+  if (item.isMapped) return "approved";
+  if (item.isCoveredByGroup) return "covered";
+  if (item.topSuggestion && item.topSuggestion.score >= 0.6) return "strong";
+  if (item.topSuggestion) return "needsReview";
+  return "unmapped";
+}
+
+function getDestLeftBorder(status: StatusCheckStatus): string {
+  switch (status) {
+    case "approved":
+    case "strong":
+    case "manual":
+      return "border-l-green-500/70";
+    case "needsReview":
+      return "border-l-amber-400/70";
+    case "weak":
+      return "border-l-red-400/70";
+    case "unmapped":
+      return "border-l-blue-400/50";
+    case "covered":
+      return "border-l-foreground/15";
+    default:
+      return "border-l-foreground/15";
+  }
+}
+
 // ─── Component ──────────────────────────────────────────
 
 export function FinalizePhase() {
@@ -79,7 +122,10 @@ export function FinalizePhase() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-  const [expandedSourceGroups, setExpandedSourceGroups] = useState<Set<string>>(new Set());
+  const [expandedSourceGroups, setExpandedSourceGroups] = useState<Set<string>>(
+    new Set(),
+  );
+  const [viewMode, setViewMode] = useState<ViewMode>("all");
 
   // ── Auto-skip: if display coverage is 100%, show a completion message ──
   const isFullCoverage = displayCoverage.percent >= 100;
@@ -105,7 +151,11 @@ export function FinalizePhase() {
         let isCoveredByGroup = false;
         if (!model.isGroup) {
           for (const destModel of allDestModels) {
-            if (destModel.isGroup && mappedGroupNames.has(destModel.name) && destModel.memberModels?.includes(model.name)) {
+            if (
+              destModel.isGroup &&
+              mappedGroupNames.has(destModel.name) &&
+              destModel.memberModels?.includes(model.name)
+            ) {
               isCoveredByGroup = true;
               break;
             }
@@ -119,8 +169,16 @@ export function FinalizePhase() {
             if (layer.isSkipped || !layer.isMapped) continue;
             const suggestions = getSuggestionsForLayer(layer.sourceModel);
             const match = suggestions.find((s) => s.model.name === model.name);
-            if (match && match.score >= 0.40 && (!topSugg || match.score > topSugg.score)) {
-              topSugg = { sourceName: layer.sourceModel.name, score: match.score, effectCount: layer.effectCount };
+            if (
+              match &&
+              match.score >= 0.4 &&
+              (!topSugg || match.score > topSugg.score)
+            ) {
+              topSugg = {
+                sourceName: layer.sourceModel.name,
+                score: match.score,
+                effectCount: layer.effectCount,
+              };
             }
           }
         }
@@ -134,7 +192,13 @@ export function FinalizePhase() {
           topSuggestion: topSugg,
         };
       });
-  }, [allDestModels, destToSourcesMap, sourceLayerMappings, getSuggestionsForLayer, destSuperGroupNames]);
+  }, [
+    allDestModels,
+    destToSourcesMap,
+    sourceLayerMappings,
+    getSuggestionsForLayer,
+    destSuperGroupNames,
+  ]);
 
   // ── xLights group membership ──
   const destGroupMembership = useMemo(() => {
@@ -152,26 +216,36 @@ export function FinalizePhase() {
   // ── Counts for filter pills ──
   // An item is "effectively mapped" if: directly mapped, OR covered by its group's mapping,
   // OR all source models are accounted for and it sits inside a group
-  const isEffectivelyMapped = useCallback((item: DestItem) => {
-    if (item.isMapped) return true;
-    if (item.isCoveredByGroup) return true;
-    if (allSourcesAccountedFor && destGroupMembership.has(item.model.name)) return true;
-    return false;
-  }, [allSourcesAccountedFor, destGroupMembership]);
+  const isEffectivelyMapped = useCallback(
+    (item: DestItem) => {
+      if (item.isMapped) return true;
+      if (item.isCoveredByGroup) return true;
+      if (allSourcesAccountedFor && destGroupMembership.has(item.model.name))
+        return true;
+      return false;
+    },
+    [allSourcesAccountedFor, destGroupMembership],
+  );
 
   const totalCount = destItems.filter((d) => !d.isGroup).length;
-  const mappedCount = destItems.filter((d) => !d.isGroup && isEffectivelyMapped(d)).length;
+  const mappedCount = destItems.filter(
+    (d) => !d.isGroup && isEffectivelyMapped(d),
+  ).length;
   const unmappedCount = totalCount - mappedCount;
 
   // ── Filtered items ──
   const filteredItems = useMemo(() => {
     let items = destItems;
-    if (statusFilter === "mapped") items = items.filter((d) => isEffectivelyMapped(d));
-    else if (statusFilter === "unmapped") items = items.filter((d) => !isEffectivelyMapped(d));
+    if (statusFilter === "mapped")
+      items = items.filter((d) => isEffectivelyMapped(d));
+    else if (statusFilter === "unmapped")
+      items = items.filter((d) => !isEffectivelyMapped(d));
     if (search.trim()) {
       const q = search.toLowerCase();
-      items = items.filter((d) =>
-        d.model.name.toLowerCase().includes(q) || d.sources.some((s) => s.toLowerCase().includes(q)),
+      items = items.filter(
+        (d) =>
+          d.model.name.toLowerCase().includes(q) ||
+          d.sources.some((s) => s.toLowerCase().includes(q)),
       );
     }
     // Sort: unmapped first, then alphabetical
@@ -197,7 +271,10 @@ export function FinalizePhase() {
       }
       const parentGroup = destGroupMembership.get(item.model.name);
       if (parentGroup) {
-        if (!groupMap.has(parentGroup)) { groupMap.set(parentGroup, []); order.push(parentGroup); }
+        if (!groupMap.has(parentGroup)) {
+          groupMap.set(parentGroup, []);
+          order.push(parentGroup);
+        }
         groupMap.get(parentGroup)!.push(item);
       } else {
         ung.push(item);
@@ -236,7 +313,12 @@ export function FinalizePhase() {
     const regulars = groups.filter((g) => !destSuperGroupNames.has(g.family));
 
     return { superGroups: supers, regularGroups: regulars, ungrouped: ung };
-  }, [filteredItems, destGroupMembership, destSuperGroupNames, allSourcesAccountedFor]);
+  }, [
+    filteredItems,
+    destGroupMembership,
+    destSuperGroupNames,
+    allSourcesAccountedFor,
+  ]);
 
   // ── Selected item ──
   const selectedItem = useMemo((): DestItem | null => {
@@ -258,7 +340,9 @@ export function FinalizePhase() {
 
       // Get suggestion score for this dest from this source
       const suggestions = getSuggestionsForLayer(layer.sourceModel);
-      const match = suggestions.find((s) => s.model.name === selectedItem.model.name);
+      const match = suggestions.find(
+        (s) => s.model.name === selectedItem.model.name,
+      );
       const score = match?.score ?? 0;
 
       results.push({
@@ -271,7 +355,8 @@ export function FinalizePhase() {
 
     // Sort: already-linked first (for visibility), then by score desc, then by effect count
     results.sort((a, b) => {
-      if (a.isAlreadyLinked !== b.isAlreadyLinked) return a.isAlreadyLinked ? -1 : 1;
+      if (a.isAlreadyLinked !== b.isAlreadyLinked)
+        return a.isAlreadyLinked ? -1 : 1;
       if (b.score !== a.score) return b.score - a.score;
       return b.effectCount - a.effectCount;
     });
@@ -281,8 +366,12 @@ export function FinalizePhase() {
 
   // Split suggestions into matched vs all
   const { matchedSuggestions, otherSources } = useMemo(() => {
-    const matched = suggestionsForSelected.filter((s) => s.score >= 0.40 && !s.isAlreadyLinked);
-    const others = suggestionsForSelected.filter((s) => (s.score < 0.40 || s.score === 0) && !s.isAlreadyLinked);
+    const matched = suggestionsForSelected.filter(
+      (s) => s.score >= 0.4 && !s.isAlreadyLinked,
+    );
+    const others = suggestionsForSelected.filter(
+      (s) => (s.score < 0.4 || s.score === 0) && !s.isAlreadyLinked,
+    );
     return { matchedSuggestions: matched, otherSources: others };
   }, [suggestionsForSelected]);
 
@@ -313,7 +402,10 @@ export function FinalizePhase() {
             memberToParent.set(memberName, layer.sourceModel.name);
           } else {
             const existingLayer = layerByName.get(existingParent);
-            if (existingLayer && layer.memberNames.length < existingLayer.memberNames.length) {
+            if (
+              existingLayer &&
+              layer.memberNames.length < existingLayer.memberNames.length
+            ) {
               memberToParent.set(memberName, layer.sourceModel.name);
             }
           }
@@ -347,28 +439,40 @@ export function FinalizePhase() {
     }
 
     // Ungrouped: sources not claimed by any group
-    const ungrouped = otherSources.filter((s) => !groupedSourceNames.has(s.sourceName));
+    const ungroupedSrc = otherSources.filter(
+      (s) => !groupedSourceNames.has(s.sourceName),
+    );
 
-    const superGroups = groups.filter((g) => g.isSuperGroup);
-    const regularGroups = groups.filter((g) => !g.isSuperGroup);
+    const superGroupsSrc = groups.filter((g) => g.isSuperGroup);
+    const regularGroupsSrc = groups.filter((g) => !g.isSuperGroup);
 
     // Sort: groups with more members first, then alphabetical
     const sortFn = (a: SourceHierarchyGroup, b: SourceHierarchyGroup) =>
       naturalCompare(a.layer.sourceModel.name, b.layer.sourceModel.name);
-    superGroups.sort(sortFn);
-    regularGroups.sort(sortFn);
+    superGroupsSrc.sort(sortFn);
+    regularGroupsSrc.sort(sortFn);
 
-    return { superGroups, regularGroups, ungrouped };
+    return {
+      superGroups: superGroupsSrc,
+      regularGroups: regularGroupsSrc,
+      ungrouped: ungroupedSrc,
+    };
   }, [otherSources, sourceLayerMappings]);
 
   // ── Handlers ──
-  const handleAssign = useCallback((sourceName: string, destName: string) => {
-    assignUserModelToLayer(sourceName, destName);
-  }, [assignUserModelToLayer]);
+  const handleAssign = useCallback(
+    (sourceName: string, destName: string) => {
+      assignUserModelToLayer(sourceName, destName);
+    },
+    [assignUserModelToLayer],
+  );
 
-  const handleRemoveLink = useCallback((sourceName: string, destName: string) => {
-    removeLinkFromLayer(sourceName, destName);
-  }, [removeLinkFromLayer]);
+  const handleRemoveLink = useCallback(
+    (sourceName: string, destName: string) => {
+      removeLinkFromLayer(sourceName, destName);
+    },
+    [removeLinkFromLayer],
+  );
 
   const toggleGroup = useCallback((family: string) => {
     setExpandedGroups((prev) => {
@@ -379,9 +483,12 @@ export function FinalizePhase() {
     });
   }, []);
 
-  const handleAcceptSuggestion = useCallback((destName: string, sourceName: string) => {
-    assignUserModelToLayer(sourceName, destName);
-  }, [assignUserModelToLayer]);
+  const handleAcceptSuggestion = useCallback(
+    (destName: string, sourceName: string) => {
+      assignUserModelToLayer(sourceName, destName);
+    },
+    [assignUserModelToLayer],
+  );
 
   const toggleSourceGroup = useCallback((name: string) => {
     setExpandedSourceGroups((prev) => {
@@ -400,18 +507,29 @@ export function FinalizePhase() {
           <div className="text-5xl mb-5">
             <span>&#127775;</span>
           </div>
-          <h3 className="text-lg font-semibold text-foreground">100% Display Coverage!</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            100% Display Coverage!
+          </h3>
           <p className="text-sm text-foreground/50 mt-2">
             Every model in your display has at least one source mapped to it.
-            You can still review and adjust mappings, or proceed to the next step.
+            You can still review and adjust mappings, or proceed to the next
+            step.
           </p>
           <div className="flex items-center justify-center gap-3 mt-6">
-            <button type="button" onClick={() => setSelectedDestName(destItems[0]?.model.name ?? null)}
-              className="px-5 py-2 text-sm text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors">
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedDestName(destItems[0]?.model.name ?? null)
+              }
+              className="px-5 py-2 text-sm text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
+            >
               Review Mappings
             </button>
-            <button type="button" onClick={goToNextPhase}
-              className="px-6 py-2.5 bg-accent hover:bg-accent/90 text-white font-medium rounded-lg transition-all duration-200">
+            <button
+              type="button"
+              onClick={goToNextPhase}
+              className="px-6 py-2.5 bg-accent hover:bg-accent/90 text-white font-medium rounded-lg transition-all duration-200"
+            >
               Continue to Review
             </button>
           </div>
@@ -426,38 +544,119 @@ export function FinalizePhase() {
       {/* LEFT PANEL: Destination (Display) Models               */}
       {/* ═══════════════════════════════════════════════════════ */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
-        {/* Header */}
-        <div className={PANEL_STYLES.header.wrapper}>
-          <h2 className={PANEL_STYLES.header.title}>
-            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
+        {/* Header bar with progress stats */}
+        <div className="flex items-center gap-4 px-4 py-2.5 bg-surface/80 border-b border-border flex-shrink-0">
+          <span className="text-[11px] text-foreground/50 font-mono">
+            COVERAGE{" "}
+            <span className="text-accent font-bold">
+              {displayCoverage.covered}/{displayCoverage.total}
+            </span>
+          </span>
+          <div className="w-24 h-1 bg-foreground/10 rounded-sm overflow-hidden">
+            <div
+              className="h-full rounded-sm"
+              style={{
+                width: `${displayCoverage.percent}%`,
+                background:
+                  displayCoverage.percent >= 90
+                    ? "linear-gradient(90deg, #4ade80, #34d399)"
+                    : "linear-gradient(90deg, #facc15, #fb923c)",
+              }}
+            />
+          </div>
+          <span className="text-[11px] text-foreground/50 font-mono">
+            Mapped:{" "}
+            <span className="text-green-400 font-semibold">{mappedCount}</span>
+          </span>
+          <span className="text-[11px] text-foreground/50 font-mono">
+            Unmapped:{" "}
+            <span className="text-blue-400 font-semibold">{unmappedCount}</span>
+          </span>
+        </div>
+
+        {/* Title + Continue */}
+        <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
+          <h1 className="text-lg font-bold text-foreground">
             Display Coverage
-          </h2>
-          <p className={PANEL_STYLES.header.subtitle}>
-            {displayCoverage.covered}/{displayCoverage.total} models covered ({displayCoverage.percent}%)
-          </p>
-          {/* Filter pills */}
-          <div className="flex items-center gap-1 mt-1.5">
-            <FilterPill label={`All (${totalCount})`} color="blue" active={statusFilter === "all"} onClick={() => setStatusFilter("all")} />
-            <FilterPill label={`Mapped (${mappedCount})`} color="green" active={statusFilter === "mapped"} onClick={() => setStatusFilter("mapped")} />
-            <FilterPill label={`Unmapped (${unmappedCount})`} color="amber" active={statusFilter === "unmapped"} onClick={() => setStatusFilter("unmapped")} />
+          </h1>
+          <button
+            type="button"
+            onClick={goToNextPhase}
+            className="text-[13px] font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
+          >
+            Continue to Review &rarr;
+          </button>
+        </div>
+
+        {/* View mode + Filter pills */}
+        <div className={PANEL_STYLES.header.wrapper}>
+          <div className="flex items-center gap-2">
+            <FilterPill
+              label={`All (${totalCount})`}
+              color="blue"
+              active={statusFilter === "all"}
+              onClick={() => setStatusFilter("all")}
+            />
+            <FilterPill
+              label={`Mapped (${mappedCount})`}
+              color="green"
+              active={statusFilter === "mapped"}
+              onClick={() => setStatusFilter("mapped")}
+            />
+            <FilterPill
+              label={`Unmapped (${unmappedCount})`}
+              color="amber"
+              active={statusFilter === "unmapped"}
+              onClick={() => setStatusFilter("unmapped")}
+            />
+            <div className="ml-auto">
+              <ViewModePills value={viewMode} onChange={setViewMode} />
+            </div>
           </div>
         </div>
 
         {/* Search */}
         <div className={PANEL_STYLES.search.wrapper}>
           <div className="relative">
-            <svg className={PANEL_STYLES.search.icon} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <svg
+              className={PANEL_STYLES.search.icon}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
             </svg>
-            <input type="text" placeholder="Search display models..." value={search} onChange={(e) => setSearch(e.target.value)}
-              className={`${PANEL_STYLES.search.input} ${search ? "pr-8" : ""}`} />
+            <input
+              type="text"
+              placeholder="Search display models..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className={`${PANEL_STYLES.search.input} ${search ? "pr-8" : ""}`}
+            />
             {search && (
-              <button type="button" aria-label="Clear search" onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <button
+                type="button"
+                aria-label="Clear search"
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             )}
@@ -466,57 +665,137 @@ export function FinalizePhase() {
 
         {/* Scrollable list */}
         <div className={PANEL_STYLES.scrollArea}>
-          <div className="px-4 pb-3 space-y-1">
-            {/* Display-Wide Super Groups section */}
-            {superGroups.length > 0 && (
-              <DestSuperGroupSection
-                superGroups={superGroups}
-                expandedGroups={expandedGroups}
-                selectedDestName={selectedDestName}
-                onToggle={toggleGroup}
-                onSelect={setSelectedDestName}
-                onAcceptSuggestion={handleAcceptSuggestion}
-              />
+          <div className="px-4 pb-3 space-y-0.5">
+            {viewMode === "all" ? (
+              /* ── ALL VIEW: hierarchy with groups and nested members ── */
+              <>
+                {/* Display-Wide Super Groups section */}
+                {superGroups.length > 0 && (
+                  <DestSuperGroupSection
+                    superGroups={superGroups}
+                    expandedGroups={expandedGroups}
+                    selectedDestName={selectedDestName}
+                    onToggle={toggleGroup}
+                    onSelect={setSelectedDestName}
+                    onAcceptSuggestion={handleAcceptSuggestion}
+                    onRemoveLink={handleRemoveLink}
+                  />
+                )}
+
+                {/* Regular grouped dest models */}
+                {regularGroups.map((group) => (
+                  <DestGroupCard
+                    key={group.family}
+                    group={group}
+                    isExpanded={expandedGroups.has(group.family)}
+                    selectedDestName={selectedDestName}
+                    onToggle={() => toggleGroup(group.family)}
+                    onSelect={setSelectedDestName}
+                    onAcceptSuggestion={handleAcceptSuggestion}
+                    onRemoveLink={handleRemoveLink}
+                  />
+                ))}
+
+                {/* Divider */}
+                {superGroups.length + regularGroups.length > 0 &&
+                  ungrouped.length > 0 && (
+                    <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
+                      <div className="flex-1 h-px bg-border/40" />
+                      <span className="uppercase tracking-wider font-semibold">
+                        Ungrouped
+                      </span>
+                      <div className="flex-1 h-px bg-border/40" />
+                    </div>
+                  )}
+
+                {/* Ungrouped dest models */}
+                {ungrouped.map((item) => (
+                  <DestItemCard
+                    key={item.model.name}
+                    item={item}
+                    isSelected={selectedDestName === item.model.name}
+                    onSelect={() => setSelectedDestName(item.model.name)}
+                    onAcceptSuggestion={handleAcceptSuggestion}
+                    onRemoveLink={handleRemoveLink}
+                  />
+                ))}
+              </>
+            ) : viewMode === "groups" ? (
+              /* ── GROUPS VIEW: flat list of groups only ── */
+              <>
+                {[...superGroups, ...regularGroups].map((group) => (
+                  <DestGroupCard
+                    key={group.family}
+                    group={group}
+                    isSuperGroup={superGroups.includes(group)}
+                    isExpanded={false}
+                    selectedDestName={selectedDestName}
+                    onToggle={() => {}}
+                    onSelect={setSelectedDestName}
+                    onAcceptSuggestion={handleAcceptSuggestion}
+                    onRemoveLink={handleRemoveLink}
+                  />
+                ))}
+              </>
+            ) : (
+              /* ── MODELS VIEW: flat list of individual models only ── */
+              <>
+                {[...superGroups, ...regularGroups].flatMap((group) =>
+                  group.members.map((item) => (
+                    <DestItemCard
+                      key={item.model.name}
+                      item={item}
+                      isSelected={selectedDestName === item.model.name}
+                      onSelect={() => setSelectedDestName(item.model.name)}
+                      onAcceptSuggestion={handleAcceptSuggestion}
+                      onRemoveLink={handleRemoveLink}
+                    />
+                  )),
+                )}
+                {ungrouped.map((item) => (
+                  <DestItemCard
+                    key={item.model.name}
+                    item={item}
+                    isSelected={selectedDestName === item.model.name}
+                    onSelect={() => setSelectedDestName(item.model.name)}
+                    onAcceptSuggestion={handleAcceptSuggestion}
+                    onRemoveLink={handleRemoveLink}
+                  />
+                ))}
+              </>
             )}
-
-            {/* Regular grouped dest models */}
-            {regularGroups.map((group) => (
-              <DestGroupCard
-                key={group.family}
-                group={group}
-                isExpanded={expandedGroups.has(group.family)}
-                selectedDestName={selectedDestName}
-                onToggle={() => toggleGroup(group.family)}
-                onSelect={setSelectedDestName}
-                onAcceptSuggestion={handleAcceptSuggestion}
-              />
-            ))}
-
-            {/* Divider */}
-            {(superGroups.length + regularGroups.length) > 0 && ungrouped.length > 0 && (
-              <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
-                <div className="flex-1 h-px bg-border/40" />
-                <span className="uppercase tracking-wider font-semibold">Ungrouped</span>
-                <div className="flex-1 h-px bg-border/40" />
-              </div>
-            )}
-
-            {/* Ungrouped dest models */}
-            {ungrouped.map((item) => (
-              <DestItemCard
-                key={item.model.name}
-                item={item}
-                isSelected={selectedDestName === item.model.name}
-                onSelect={() => setSelectedDestName(item.model.name)}
-                onAcceptSuggestion={handleAcceptSuggestion}
-              />
-            ))}
 
             {filteredItems.length === 0 && (
               <p className="py-6 text-center text-[12px] text-foreground/30">
-                {search || statusFilter !== "all" ? "No matches for current filters" : "No display models"}
+                {search || statusFilter !== "all"
+                  ? "No matches for current filters"
+                  : "No display models"}
               </p>
             )}
+          </div>
+
+          {/* Color legend */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 mt-3 border-t border-border">
+            {[
+              { color: "bg-green-400", label: "Mapped" },
+              { color: "bg-amber-400", label: "Has suggestion (40-59%)" },
+              { color: "bg-blue-400", label: "Unmapped" },
+              {
+                color: "bg-foreground/30",
+                label: "Covered by group",
+                dim: true,
+              },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <div
+                  className={`w-2.5 h-2.5 rounded-sm ${item.color}`}
+                  style={{ opacity: "dim" in item ? 0.4 : 0.85 }}
+                />
+                <span className="text-[11px] text-foreground/40">
+                  {item.label}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -527,56 +806,75 @@ export function FinalizePhase() {
       <div className="w-1/2 flex flex-col bg-surface/50 overflow-hidden">
         {selectedItem ? (
           <>
-            {/* Selected item header */}
+            {/* Item info header */}
             <div className={PANEL_STYLES.header.wrapper}>
               <div className="flex items-center gap-2">
-                {selectedItem.isSuperGroup && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/15 text-purple-400 rounded">SUPER</span>
-                )}
+                {selectedItem.isSuperGroup && <TypeBadge type="SUPER" />}
                 {selectedItem.isGroup && !selectedItem.isSuperGroup && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded">GRP</span>
+                  <TypeBadge type="GRP" />
                 )}
                 <h3 className="text-sm font-semibold text-foreground truncate">
                   {selectedItem.model.name}
                 </h3>
-              </div>
-              <div className="flex items-center gap-3 mt-0.5 text-[11px] text-foreground/40">
-                {selectedItem.model.pixelCount ? <span>{selectedItem.model.pixelCount}px</span> : null}
-                <span>{selectedItem.model.type}</span>
-                {selectedItem.isMapped && (
-                  <span className="text-green-400/70">{selectedItem.sources.length} source{selectedItem.sources.length !== 1 ? "s" : ""} mapped</span>
-                )}
-                {!selectedItem.isMapped && selectedItem.isCoveredByGroup && (
-                  <span className="text-green-400/50">covered by group</span>
-                )}
-                {!selectedItem.isMapped && !selectedItem.isCoveredByGroup && (
-                  <span className="text-amber-400/70">unmapped</span>
-                )}
+                <span className="text-[11px] text-foreground/30 ml-auto flex-shrink-0">
+                  {selectedItem.model.pixelCount
+                    ? `${selectedItem.model.pixelCount}px`
+                    : ""}
+                  {selectedItem.model.pixelCount && selectedItem.model.type
+                    ? " \u00b7 "
+                    : ""}
+                  {selectedItem.model.type}
+                </span>
               </div>
             </div>
 
-            {/* Current mappings (if any) */}
-            {selectedItem.isMapped && (
+            {/* Three-state mapping card: MAPPED TO / SUGGESTED MATCH / NOT MAPPED */}
+            {selectedItem.isMapped ? (
               <div className="px-5 py-3 border-b border-border flex-shrink-0">
                 <div className="rounded-lg border border-green-500/25 bg-green-500/5 p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <svg className="w-3.5 h-3.5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    <svg
+                      className="w-3.5 h-3.5 text-green-400"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
                     </svg>
-                    <span className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider">Currently Receiving From</span>
+                    <span className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider">
+                      Mapped To
+                    </span>
                   </div>
                   <div className="space-y-1.5 ml-5.5">
                     {selectedItem.sources.map((src) => {
-                      const layer = sourceLayerMappings.find((l) => l.sourceModel.name === src);
+                      const layer = sourceLayerMappings.find(
+                        (l) => l.sourceModel.name === src,
+                      );
                       return (
-                        <div key={src} className="flex items-center gap-2 group/src">
-                          <span className="text-[13px] font-semibold text-foreground truncate flex-1">{src}</span>
+                        <div
+                          key={src}
+                          className="flex items-center gap-2 group/src"
+                        >
+                          <span className="text-[13px] font-semibold text-foreground truncate flex-1">
+                            {src}
+                          </span>
                           {layer && (
-                            <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{layer.effectCount} fx</span>
+                            <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">
+                              {layer.effectCount} fx
+                            </span>
                           )}
-                          <button type="button" onClick={() => handleRemoveLink(src, selectedItem.model.name)}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleRemoveLink(src, selectedItem.model.name)
+                            }
                             className="w-5 h-5 flex items-center justify-center rounded text-foreground/20 hover:text-amber-400 hover:bg-amber-500/10 transition-colors flex-shrink-0 opacity-0 group-hover/src:opacity-100"
-                            aria-label={`Unlink ${src}`} title={`Unlink ${src}`}>
+                            aria-label={`Unlink ${src}`}
+                            title={`Unlink ${src}`}
+                          >
                             <UnlinkIcon className="w-3.5 h-3.5" />
                           </button>
                         </div>
@@ -585,6 +883,78 @@ export function FinalizePhase() {
                   </div>
                 </div>
               </div>
+            ) : selectedItem.topSuggestion ? (
+              <div className="px-5 py-3 border-b border-border flex-shrink-0">
+                <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg
+                      className="w-3.5 h-3.5 text-amber-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                      />
+                    </svg>
+                    <span className="text-[10px] font-semibold text-amber-400/70 uppercase tracking-wider">
+                      Suggested Match
+                    </span>
+                    <div className="ml-auto flex items-center gap-2">
+                      <ConfidenceBadge
+                        score={selectedItem.topSuggestion.score}
+                        size="sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-5.5">
+                    <span className="text-[13px] font-semibold text-foreground truncate flex-1">
+                      {selectedItem.topSuggestion.sourceName}
+                    </span>
+                    <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">
+                      {selectedItem.topSuggestion.effectCount} fx
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleAcceptSuggestion(
+                          selectedItem.model.name,
+                          selectedItem.topSuggestion!.sourceName,
+                        )
+                      }
+                      className="px-2.5 py-0.5 text-[10px] font-semibold rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors flex-shrink-0"
+                    >
+                      Accept
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : selectedItem.isCoveredByGroup ? (
+              <div className="px-5 py-3 border-b border-border flex-shrink-0">
+                <div className="flex items-center gap-2">
+                  <svg
+                    className="w-3.5 h-3.5 text-foreground/30"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">
+                    Covered by Group
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <NotMappedBanner />
             )}
 
             {/* Source suggestions panel */}
@@ -596,26 +966,20 @@ export function FinalizePhase() {
                     Suggested Sources ({matchedSuggestions.length})
                   </h4>
                   <div className="space-y-1.5">
-                    {matchedSuggestions.slice(0, 5).map((sugg, index) => (
-                      <button key={sugg.sourceName} type="button"
-                        onClick={() => handleAssign(sugg.sourceName, selectedItem.model.name)}
-                        className={`w-full p-2.5 rounded-lg text-left transition-all duration-200 ${
-                          index === 0
-                            ? "bg-accent/8 border border-accent/25 hover:border-accent/40"
-                            : "bg-foreground/3 border border-border hover:border-foreground/20"
-                        }`}>
+                    {matchedSuggestions.slice(0, 5).map((sugg) => (
+                      <button
+                        key={sugg.sourceName}
+                        type="button"
+                        onClick={() =>
+                          handleAssign(sugg.sourceName, selectedItem.model.name)
+                        }
+                        className="w-full p-2.5 rounded-lg text-left transition-all duration-200 bg-foreground/3 border border-border hover:border-foreground/20"
+                      >
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 min-w-0">
-                            {index === 0 && (
-                              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-accent/15 text-accent rounded flex-shrink-0">BEST</span>
-                            )}
-                            <span className="text-[13px] font-medium text-foreground truncate">{sugg.sourceName}</span>
-                          </div>
-                          <span className={`text-[11px] font-semibold tabular-nums flex-shrink-0 px-1.5 py-0.5 rounded ${
-                            sugg.score >= 0.70 ? "bg-green-500/15 text-green-400" : "bg-amber-500/15 text-amber-400"
-                          }`}>
-                            {Math.round(sugg.score * 100)}%
+                          <span className="text-[13px] font-medium text-foreground truncate">
+                            {sugg.sourceName}
                           </span>
+                          <ConfidenceBadge score={sugg.score} size="sm" />
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-foreground/40 mt-0.5">
                           <span>{sugg.effectCount} effects</span>
@@ -631,15 +995,20 @@ export function FinalizePhase() {
                 <h4 className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
                   All Sources ({otherSources.length})
                 </h4>
-                {otherSources.length === 0 && matchedSuggestions.length === 0 ? (
-                  <p className="text-center py-6 text-[12px] text-foreground/30">No available sources</p>
+                {otherSources.length === 0 &&
+                matchedSuggestions.length === 0 ? (
+                  <p className="text-center py-6 text-[12px] text-foreground/30">
+                    No available sources
+                  </p>
                 ) : sourceHierarchy ? (
                   <div className="space-y-1">
                     {/* Display-Wide Super Groups */}
                     {sourceHierarchy.superGroups.length > 0 && (
                       <div className="mb-2">
                         <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-purple-400/60">
-                          <span className="font-bold uppercase tracking-wider">Display-Wide</span>
+                          <span className="font-bold uppercase tracking-wider">
+                            Display-Wide
+                          </span>
                           <span>({sourceHierarchy.superGroups.length})</span>
                         </div>
                         <div className="space-y-1">
@@ -647,9 +1016,18 @@ export function FinalizePhase() {
                             <SourceGroupRow
                               key={group.layer.sourceModel.name}
                               group={group}
-                              isExpanded={expandedSourceGroups.has(group.layer.sourceModel.name)}
-                              onToggle={() => toggleSourceGroup(group.layer.sourceModel.name)}
-                              onAssign={(sourceName) => handleAssign(sourceName, selectedItem!.model.name)}
+                              isExpanded={expandedSourceGroups.has(
+                                group.layer.sourceModel.name,
+                              )}
+                              onToggle={() =>
+                                toggleSourceGroup(group.layer.sourceModel.name)
+                              }
+                              onAssign={(sourceName) =>
+                                handleAssign(
+                                  sourceName,
+                                  selectedItem!.model.name,
+                                )
+                              }
                             />
                           ))}
                         </div>
@@ -661,27 +1039,40 @@ export function FinalizePhase() {
                       <SourceGroupRow
                         key={group.layer.sourceModel.name}
                         group={group}
-                        isExpanded={expandedSourceGroups.has(group.layer.sourceModel.name)}
-                        onToggle={() => toggleSourceGroup(group.layer.sourceModel.name)}
-                        onAssign={(sourceName) => handleAssign(sourceName, selectedItem!.model.name)}
+                        isExpanded={expandedSourceGroups.has(
+                          group.layer.sourceModel.name,
+                        )}
+                        onToggle={() =>
+                          toggleSourceGroup(group.layer.sourceModel.name)
+                        }
+                        onAssign={(sourceName) =>
+                          handleAssign(sourceName, selectedItem!.model.name)
+                        }
                       />
                     ))}
 
                     {/* Ungrouped divider */}
-                    {(sourceHierarchy.superGroups.length + sourceHierarchy.regularGroups.length) > 0 && sourceHierarchy.ungrouped.length > 0 && (
-                      <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
-                        <div className="flex-1 h-px bg-border/40" />
-                        <span className="uppercase tracking-wider font-semibold">Ungrouped</span>
-                        <div className="flex-1 h-px bg-border/40" />
-                      </div>
-                    )}
+                    {sourceHierarchy.superGroups.length +
+                      sourceHierarchy.regularGroups.length >
+                      0 &&
+                      sourceHierarchy.ungrouped.length > 0 && (
+                        <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
+                          <div className="flex-1 h-px bg-border/40" />
+                          <span className="uppercase tracking-wider font-semibold">
+                            Ungrouped
+                          </span>
+                          <div className="flex-1 h-px bg-border/40" />
+                        </div>
+                      )}
 
                     {/* Ungrouped individual sources */}
                     {sourceHierarchy.ungrouped.map((sugg) => (
                       <SourceItemButton
                         key={sugg.sourceName}
                         sugg={sugg}
-                        onAssign={(sourceName) => handleAssign(sourceName, selectedItem!.model.name)}
+                        onAssign={(sourceName) =>
+                          handleAssign(sourceName, selectedItem!.model.name)
+                        }
                       />
                     ))}
                   </div>
@@ -691,7 +1082,9 @@ export function FinalizePhase() {
                       <SourceItemButton
                         key={sugg.sourceName}
                         sugg={sugg}
-                        onAssign={(sourceName) => handleAssign(sourceName, selectedItem!.model.name)}
+                        onAssign={(sourceName) =>
+                          handleAssign(sourceName, selectedItem!.model.name)
+                        }
                       />
                     ))}
                   </div>
@@ -702,10 +1095,22 @@ export function FinalizePhase() {
         ) : (
           <div className="flex-1 flex items-center justify-center text-foreground/30">
             <div className="text-center">
-              <svg className="w-10 h-10 mx-auto mb-3 text-foreground/15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              <svg
+                className="w-10 h-10 mx-auto mb-3 text-foreground/15"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                />
               </svg>
-              <p className="text-sm">Select a display model to assign sources</p>
+              <p className="text-sm">
+                Select a display model to assign sources
+              </p>
               <p className="text-xs text-foreground/20 mt-1.5">
                 {unmappedCount > 0
                   ? `${unmappedCount} model${unmappedCount !== 1 ? "s" : ""} still need sources`
@@ -721,18 +1126,29 @@ export function FinalizePhase() {
 
 // ─── Source Item Button (Right Panel — individual source) ────────
 
-function SourceItemButton({ sugg, onAssign }: {
+function SourceItemButton({
+  sugg,
+  onAssign,
+}: {
   sugg: SourceSuggestion;
   onAssign: (sourceName: string) => void;
 }) {
   return (
-    <button type="button"
+    <button
+      type="button"
       onClick={() => onAssign(sugg.sourceName)}
-      className="w-full flex items-center gap-2 rounded-lg min-h-[34px] px-2.5 py-1.5 transition-all duration-150 border border-border bg-surface hover:border-foreground/20 hover:bg-foreground/[0.02] cursor-pointer">
-      <span className="text-[12px] font-medium truncate flex-1 min-w-0 text-foreground/70">{sugg.sourceName}</span>
-      <span className="text-[10px] text-foreground/25 flex-shrink-0 tabular-nums">{sugg.effectCount} fx</span>
+      className="w-full flex items-center gap-2 rounded-lg min-h-[34px] px-2.5 py-1.5 transition-all duration-150 border border-border bg-surface hover:border-foreground/20 hover:bg-foreground/[0.02] cursor-pointer"
+    >
+      <span className="text-[12px] font-medium truncate flex-1 min-w-0 text-foreground/70">
+        {sugg.sourceName}
+      </span>
+      <span className="text-[10px] text-foreground/25 flex-shrink-0 tabular-nums">
+        {sugg.effectCount} fx
+      </span>
       {sugg.score > 0 && (
-        <span className="text-[10px] text-foreground/30 flex-shrink-0 tabular-nums">{Math.round(sugg.score * 100)}%</span>
+        <span className="text-[10px] text-foreground/30 flex-shrink-0 tabular-nums">
+          {Math.round(sugg.score * 100)}%
+        </span>
       )}
     </button>
   );
@@ -740,7 +1156,12 @@ function SourceItemButton({ sugg, onAssign }: {
 
 // ─── Source Group Row (Right Panel — collapsible group) ────────
 
-function SourceGroupRow({ group, isExpanded, onToggle, onAssign }: {
+function SourceGroupRow({
+  group,
+  isExpanded,
+  onToggle,
+  onAssign,
+}: {
   group: SourceHierarchyGroup;
   isExpanded: boolean;
   onToggle: () => void;
@@ -754,37 +1175,68 @@ function SourceGroupRow({ group, isExpanded, onToggle, onAssign }: {
     : "border-border/60 bg-foreground/[0.02]";
 
   return (
-    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${bgClass}`}>
+    <div
+      className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${bgClass}`}
+    >
       {/* Group header — clicking assigns the group itself */}
       <div className="flex items-center gap-1.5 px-2.5 py-1.5">
-        <button type="button" onClick={onToggle} className="flex-shrink-0 p-0.5">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex-shrink-0 p-0.5"
+        >
           <svg
             className={`w-3 h-3 ${group.isSuperGroup ? "text-purple-400/60" : "text-foreground/40"} transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
           </svg>
         </button>
-        {group.isSuperGroup
-          ? <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">SUPER</span>
-          : <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded flex-shrink-0">GRP</span>
-        }
-        <button type="button" onClick={() => onAssign(group.layer.sourceModel.name)}
-          className="text-[12px] font-semibold text-foreground/70 truncate hover:text-foreground transition-colors text-left flex-1 min-w-0">
+        {group.isSuperGroup ? (
+          <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">
+            SUPER
+          </span>
+        ) : (
+          <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded flex-shrink-0">
+            GRP
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={() => onAssign(group.layer.sourceModel.name)}
+          className="text-[12px] font-semibold text-foreground/70 truncate hover:text-foreground transition-colors text-left flex-1 min-w-0"
+        >
           {group.layer.sourceModel.name}
         </button>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-[10px] text-foreground/25 tabular-nums">{group.layer.effectCount} fx</span>
-          <span className="text-[10px] text-foreground/30 tabular-nums">{group.members.length}m</span>
+          <span className="text-[10px] text-foreground/25 tabular-nums">
+            {group.layer.effectCount} fx
+          </span>
+          <span className="text-[10px] text-foreground/30 tabular-nums">
+            {group.members.length}m
+          </span>
         </div>
       </div>
 
       {/* Expanded members */}
       {isExpanded && group.members.length > 0 && (
-        <div className={`px-2.5 pb-2 pl-5 space-y-0.5 border-t ${group.isSuperGroup ? "border-purple-400/10" : "border-border/30"}`}>
+        <div
+          className={`px-2.5 pb-2 pl-5 space-y-0.5 border-t ${group.isSuperGroup ? "border-purple-400/10" : "border-border/30"}`}
+        >
           <div className="pt-1">
             {group.members.map((sugg) => (
-              <SourceItemButton key={sugg.sourceName} sugg={sugg} onAssign={onAssign} />
+              <SourceItemButton
+                key={sugg.sourceName}
+                sugg={sugg}
+                onAssign={onAssign}
+              />
             ))}
           </div>
         </div>
@@ -793,105 +1245,184 @@ function SourceGroupRow({ group, isExpanded, onToggle, onAssign }: {
   );
 }
 
-// ─── Dest Item Card (Left Panel) ─────────────────────────
+// ─── Dest Item Card (Left Panel) — CSS Grid ────────────────
 
-function DestItemCard({ item, isSelected, indent, onSelect, onAcceptSuggestion }: {
+function DestItemCard({
+  item,
+  isSelected,
+  onSelect,
+  onAcceptSuggestion,
+  onRemoveLink,
+}: {
   item: DestItem;
   isSelected: boolean;
-  indent?: boolean;
   onSelect: () => void;
   onAcceptSuggestion: (destName: string, sourceName: string) => void;
+  onRemoveLink: (sourceName: string, destName: string) => void;
 }) {
-  const leftBorder = item.isMapped
-    ? "border-l-green-500/70"
-    : item.isCoveredByGroup
-      ? "border-l-green-500/30"
-      : item.topSuggestion
-        ? "border-l-red-400/70"
-        : "border-l-amber-400/70";
+  const [hovered, setHovered] = useState(false);
+  const status = getDestStatus(item);
+  const leftBorder = getDestLeftBorder(status);
+
+  // Covered-by-group rows: dimmed, non-interactive
+  if (item.isCoveredByGroup && !item.isMapped) {
+    return (
+      <div
+        className="rounded border-l-[3px] border-l-foreground/15 mb-px"
+        style={{
+          display: "grid",
+          gridTemplateColumns: MODEL_GRID,
+          alignItems: "center",
+          padding: "3px 10px 3px 8px",
+          gap: "0 6px",
+          minHeight: 26,
+          opacity: 0.4,
+        }}
+      >
+        <StatusCheck status="covered" />
+        <PxBadge count={item.model.pixelCount} />
+        <span className="text-[12px] text-foreground/40 truncate">
+          {item.model.name}
+        </span>
+        <span className="text-[11px] text-foreground/30 italic text-right whitespace-nowrap">
+          covered by group
+        </span>
+        <div style={{ width: 50 }} />
+      </div>
+    );
+  }
 
   return (
     <div
-      className={`
-        w-full px-3 py-1.5 rounded-lg text-left transition-all duration-200 cursor-pointer border-l-[3px] ${leftBorder}
-        ${isSelected
-          ? "bg-accent/5 border border-accent/30 ring-1 ring-accent/20"
-          : "bg-surface border border-border hover:border-foreground/20"
-        }
-        ${indent ? "ml-4" : ""}
-      `}
+      className={`rounded border-l-[3px] ${leftBorder} mb-px transition-all duration-100 cursor-pointer ${
+        isSelected
+          ? "bg-accent/5 ring-1 ring-accent/20"
+          : "hover:bg-foreground/[0.02]"
+      }`}
+      style={{
+        display: "grid",
+        gridTemplateColumns: MODEL_GRID,
+        alignItems: "center",
+        padding: "3px 10px 3px 8px",
+        gap: "0 6px",
+        minHeight: 28,
+      }}
       onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-[12px] font-medium text-foreground truncate flex-shrink min-w-0">{item.model.name}</span>
-        {item.model.pixelCount > 0 && (
+      {/* Col 1: Status checkbox */}
+      <StatusCheck status={status} />
+      {/* Col 2: Pixel count */}
+      <PxBadge count={item.model.pixelCount} />
+      {/* Col 3: Name */}
+      <span className="text-[12px] font-medium text-foreground truncate">
+        {item.model.name}
+      </span>
+      {/* Col 4: Source assignment */}
+      <div className="flex items-center justify-end gap-1">
+        {item.isMapped ? (
           <>
-            <span className="text-foreground/15 flex-shrink-0">&middot;</span>
-            <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">{item.model.pixelCount}px</span>
-          </>
-        )}
-        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-          {item.isMapped && (
-            <span className="inline-flex items-center gap-0.5 text-[10px] text-green-400/70 truncate max-w-[180px]">
-              &larr; {item.sources[0]}{item.sources.length > 1 ? ` +${item.sources.length - 1}` : ""}
+            <span className="text-[12px] font-medium text-green-400 truncate max-w-[180px]">
+              &larr; {item.sources[0]}
+              {item.sources.length > 1 ? ` +${item.sources.length - 1}` : ""}
             </span>
-          )}
-          {!item.isMapped && item.isCoveredByGroup && (
-            <span className="text-[10px] text-green-400/40 italic">via group</span>
-          )}
-          {!item.isMapped && !item.isCoveredByGroup && item.topSuggestion && (
-            <>
-              <span className="text-[11px] text-foreground/50 truncate max-w-[140px]">{item.topSuggestion.sourceName}</span>
-              <span className={`text-[10px] font-semibold tabular-nums px-1 py-0.5 rounded ${
-                item.topSuggestion.score >= 0.70 ? "bg-green-500/10 text-green-400/70" : "bg-amber-500/10 text-amber-400/70"
-              }`}>
-                {Math.round(item.topSuggestion.score * 100)}%
-              </span>
-              <button type="button" onClick={(e) => { e.stopPropagation(); onAcceptSuggestion(item.model.name, item.topSuggestion!.sourceName); }}
-                className="p-1 rounded-lg bg-accent/10 text-accent hover:bg-accent/20 transition-colors" title="Accept suggested match">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2l2.09 6.26L20.18 9.27l-5.09 3.9L16.18 20 12 16.77 7.82 20l1.09-6.83L3.82 9.27l6.09-1.01L12 2z" />
-                </svg>
-              </button>
-            </>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveLink(item.sources[0], item.model.name);
+              }}
+              className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
+              title="Remove mapping"
+              style={{
+                opacity: hovered ? 0.6 : 0,
+                transition: "opacity 0.1s ease",
+              }}
+            >
+              <UnlinkIcon className="w-[11px] h-[11px]" />
+            </button>
+          </>
+        ) : item.topSuggestion ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAcceptSuggestion(
+                item.model.name,
+                item.topSuggestion!.sourceName,
+              );
+            }}
+            className="text-[11px] text-foreground/30 hover:text-accent transition-colors"
+            title={`Accept: ${item.topSuggestion.sourceName}`}
+          >
+            + Assign
+          </button>
+        ) : (
+          <span className="text-[11px] text-foreground/20">+ Assign</span>
+        )}
       </div>
+      {/* Col 5: Row actions (hover) */}
+      <div style={{ width: 50 }} />
     </div>
   );
 }
 
 // ─── Dest Super Group Section ────────────────────────────
 
-function DestSuperGroupSection({ superGroups, expandedGroups, selectedDestName, onToggle, onSelect, onAcceptSuggestion }: {
+function DestSuperGroupSection({
+  superGroups,
+  expandedGroups,
+  selectedDestName,
+  onToggle,
+  onSelect,
+  onAcceptSuggestion,
+  onRemoveLink,
+}: {
   superGroups: DestGroup[];
   expandedGroups: Set<string>;
   selectedDestName: string | null;
   onToggle: (name: string) => void;
   onSelect: (name: string) => void;
   onAcceptSuggestion: (destName: string, sourceName: string) => void;
+  onRemoveLink: (sourceName: string, destName: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <div className="mb-3">
-      <button type="button" onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-2 px-1 py-1.5 text-left group">
-        <svg className={`w-3 h-3 text-purple-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+      <button
+        type="button"
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center gap-2 px-1 py-1.5 text-left group"
+      >
+        <svg
+          className={`w-3 h-3 text-purple-400/60 transition-transform duration-150 ${collapsed ? "" : "rotate-90"}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
         </svg>
         <span className="text-[11px] font-bold text-purple-400/80 uppercase tracking-wider">
           Display-Wide Groups
         </span>
-        <span className="text-[10px] text-purple-400/50">({superGroups.length})</span>
+        <span className="text-[10px] text-purple-400/50">
+          ({superGroups.length})
+        </span>
       </button>
 
       {!collapsed && (
         <>
           <p className="text-[10px] text-foreground/30 px-1 pb-2 leading-relaxed">
-            These groups span your entire display or large sections. They will only be suggested for matching with equivalent display-wide source groups.
+            These groups span your entire display or large sections.
           </p>
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             {superGroups.map((group) => (
               <DestGroupCard
                 key={group.family}
@@ -902,6 +1433,7 @@ function DestSuperGroupSection({ superGroups, expandedGroups, selectedDestName, 
                 onToggle={() => onToggle(group.family)}
                 onSelect={onSelect}
                 onAcceptSuggestion={onAcceptSuggestion}
+                onRemoveLink={onRemoveLink}
               />
             ))}
           </div>
@@ -911,9 +1443,18 @@ function DestSuperGroupSection({ superGroups, expandedGroups, selectedDestName, 
   );
 }
 
-// ─── Dest Group Card (Left Panel) ────────────────────────
+// ─── Dest Group Card (Left Panel) — CSS Grid ────────────────
 
-function DestGroupCard({ group, isSuperGroup, isExpanded, selectedDestName, onToggle, onSelect, onAcceptSuggestion }: {
+function DestGroupCard({
+  group,
+  isSuperGroup,
+  isExpanded,
+  selectedDestName,
+  onToggle,
+  onSelect,
+  onAcceptSuggestion,
+  onRemoveLink,
+}: {
   group: DestGroup;
   isSuperGroup?: boolean;
   isExpanded: boolean;
@@ -921,60 +1462,167 @@ function DestGroupCard({ group, isSuperGroup, isExpanded, selectedDestName, onTo
   onToggle: () => void;
   onSelect: (name: string) => void;
   onAcceptSuggestion: (destName: string, sourceName: string) => void;
+  onRemoveLink: (sourceName: string, destName: string) => void;
 }) {
+  const [hovered, setHovered] = useState(false);
   const allCovered = group.mappedCount >= group.totalCount;
-  const groupBorder = isSuperGroup
-    ? (allCovered ? "border-l-purple-500/70" : "border-l-purple-400/40")
-    : (allCovered ? "border-l-green-500/70" : "border-l-amber-400/70");
+  const groupStatus: StatusCheckStatus = group.groupModel?.isMapped
+    ? "approved"
+    : allCovered
+      ? "covered"
+      : "unmapped";
+  const leftBorder = getDestLeftBorder(groupStatus);
   const isGroupSelected = selectedDestName === group.family;
-  const bgClass = isSuperGroup
-    ? (isGroupSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-purple-500/[0.03]")
-    : (isGroupSelected ? "border-accent/30 ring-1 ring-accent/20 bg-accent/5" : "border-border/60 bg-foreground/[0.02]");
+
+  // Member health stats
+  const memberStats = useMemo(() => {
+    let mapped = 0;
+    let unmapped = 0;
+    let covered = 0;
+    for (const m of group.members) {
+      if (m.isMapped) mapped++;
+      else if (m.isCoveredByGroup) covered++;
+      else unmapped++;
+    }
+    return { mapped, unmapped, covered, total: group.totalCount };
+  }, [group.members, group.totalCount]);
 
   return (
-    <div className={`rounded-lg border overflow-hidden transition-all border-l-[3px] ${groupBorder} ${bgClass}`}>
-      {/* Group header */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5 cursor-pointer" onClick={() => group.groupModel ? onSelect(group.family) : onToggle()}>
-        <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} className="flex-shrink-0 p-0.5">
-          <svg className={`w-3 h-3 ${isSuperGroup ? "text-purple-400/60" : "text-foreground/40"} transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    <div
+      className={`rounded-md overflow-hidden transition-all border-l-[3px] ${leftBorder} mb-0.5 ${
+        isGroupSelected
+          ? "ring-1 ring-accent/20 bg-accent/5"
+          : "bg-foreground/[0.02]"
+      }`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Group header row — CSS Grid */}
+      <div
+        className="cursor-pointer"
+        style={{
+          display: "grid",
+          gridTemplateColumns: GROUP_GRID,
+          alignItems: "center",
+          padding: "6px 10px 6px 8px",
+          gap: "0 6px",
+          minHeight: 32,
+        }}
+        onClick={() => (group.groupModel ? onSelect(group.family) : onToggle())}
+      >
+        {/* Col 1: Status checkbox */}
+        <StatusCheck status={groupStatus} />
+        {/* Col 2: Member count badge */}
+        <span className="inline-flex items-center justify-center w-[42px] text-[10px] font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none bg-blue-500/10 text-blue-400/70">
+          {group.totalCount}m
+        </span>
+        {/* Col 3: Chevron */}
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className="flex items-center justify-center cursor-pointer"
+        >
+          <svg
+            className={`w-[13px] h-[13px] text-foreground/30 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6" />
           </svg>
-        </button>
-        {isSuperGroup
-          ? <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded">SUPER</span>
-          : <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded">GRP</span>
-        }
-        <span className="text-[12px] font-semibold text-foreground/70 truncate">{group.family}</span>
-        <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
-          <span className={`text-[10px] font-semibold tabular-nums flex-shrink-0 ${allCovered ? "text-green-400/60" : "text-foreground/40"}`}>
-            {group.mappedCount}/{group.totalCount}
-          </span>
-          {group.membersEffectivelyCovered && !allCovered && (
-            <span className="text-[9px] text-foreground/25 italic">covered</span>
-          )}
-          {group.groupModel?.isMapped && (
-            <span className="text-[10px] text-green-400/70 truncate max-w-[120px]">
-              &larr; {group.groupModel.sources[0]}
+        </div>
+        {/* Col 4: Type badge */}
+        <TypeBadge type={isSuperGroup ? "SUPER" : "GRP"} />
+        {/* Col 5: Name */}
+        <span className="text-[13px] font-semibold text-foreground truncate">
+          {group.family}
+        </span>
+        {/* Col 6: Source assignment / mapped count */}
+        <div className="flex items-center justify-end gap-1.5">
+          {group.groupModel?.isMapped ? (
+            <>
+              <span className="text-[12px] font-medium text-green-400 truncate max-w-[120px]">
+                &larr; {group.groupModel.sources[0]}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveLink(group.groupModel!.sources[0], group.family);
+                }}
+                className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
+                title="Remove mapping"
+                style={{
+                  opacity: hovered ? 0.6 : 0,
+                  transition: "opacity 0.1s ease",
+                }}
+              >
+                <UnlinkIcon className="w-[11px] h-[11px]" />
+              </button>
+            </>
+          ) : (
+            <span
+              className={`text-[10px] font-semibold tabular-nums ${allCovered ? "text-green-400/60" : "text-foreground/40"}`}
+            >
+              {group.mappedCount}/{group.totalCount}
             </span>
           )}
         </div>
+        {/* Col 7: Actions */}
+        <div style={{ width: 50 }} />
       </div>
+      {/* Health bar — below grid */}
+      {group.totalCount > 0 && (
+        <div style={{ marginLeft: 130, marginRight: 60 }} className="pb-1">
+          <HealthBar
+            strong={memberStats.mapped}
+            unmapped={memberStats.unmapped}
+            covered={memberStats.covered}
+            totalModels={memberStats.total}
+          />
+        </div>
+      )}
       {/* Expanded children */}
       {isExpanded && (
-        <div className={`px-3 pb-2 pl-5 space-y-1 border-t ${isSuperGroup ? "border-purple-400/10" : "border-border/30"}`}>
-          <div className="pt-1">
-            {group.members.map((item) => (
-              <DestItemCard
-                key={item.model.name}
-                item={item}
-                isSelected={selectedDestName === item.model.name}
-                onSelect={() => onSelect(item.model.name)}
-                onAcceptSuggestion={onAcceptSuggestion}
-              />
-            ))}
-          </div>
+        <div
+          className={`pl-5 pr-2 pb-2 pt-0.5 border-t ${isSuperGroup ? "border-purple-400/10" : "border-border/20"}`}
+        >
+          {group.members.map((item) => (
+            <DestItemCard
+              key={item.model.name}
+              item={item}
+              isSelected={selectedDestName === item.model.name}
+              onSelect={() => onSelect(item.model.name)}
+              onAcceptSuggestion={onAcceptSuggestion}
+              onRemoveLink={onRemoveLink}
+            />
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+// ─── Pixel Count Badge (42px fixed-width, matching FxBadge layout) ──
+
+function PxBadge({ count }: { count: number }) {
+  const display =
+    count > 9999 ? `${(count / 1000).toFixed(1)}k` : String(count);
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-[42px] text-[10px] font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none ${
+        count > 0
+          ? "bg-emerald-500/10 text-emerald-400/70"
+          : "bg-foreground/[0.06] text-foreground/20"
+      }`}
+      title={count > 0 ? `${count.toLocaleString()} pixels` : undefined}
+    >
+      {display} px
+    </span>
   );
 }
