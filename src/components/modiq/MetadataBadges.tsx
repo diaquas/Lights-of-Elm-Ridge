@@ -680,7 +680,7 @@ export function DestinationPill({
         ) : null
       ) : confidence != null && needsAttention ? (
         <span
-          className={`text-[10px] font-semibold font-mono tabular-nums px-1 py-px rounded flex-shrink-0 ${
+          className={`text-xs font-semibold font-mono tabular-nums px-1 py-px rounded flex-shrink-0 ${
             confidence >= 40
               ? "bg-amber-900/40 text-amber-400"
               : "bg-red-900/40 text-red-400"
