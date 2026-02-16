@@ -716,6 +716,8 @@ export function useInteractiveMapping(
   const toMappingResult = useCallback((): MappingResult => {
     const mappings: ModelMapping[] = [];
     const usedDestNames = new Set<string>();
+    // Global dest submodel exclusivity across all source→dest pairings
+    const globalClaimedDest = new Set<string>();
 
     // Check if V3 links are active
     const hasV3Links = sourceDestLinks.size > 0;
@@ -738,7 +740,7 @@ export function useInteractiveMapping(
               ) {
                 mappings.push(autoMapping);
               } else {
-                const subs = mapSubmodels(src, dest);
+                const subs = mapSubmodels(src, dest, globalClaimedDest);
                 mappings.push({
                   sourceModel: src,
                   destModel: dest,
@@ -796,7 +798,7 @@ export function useInteractiveMapping(
           if (autoMapping && !isOverride) {
             mappings.push(autoMapping);
           } else {
-            const subs = mapSubmodels(src, dest);
+            const subs = mapSubmodels(src, dest, globalClaimedDest);
             mappings.push({
               sourceModel: src,
               destModel: dest,
