@@ -270,7 +270,7 @@ export function ModiqHistorySection() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-accent/10 text-accent rounded-full">
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider bg-accent/10 text-accent rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
                   In Progress
                 </span>
@@ -291,7 +291,7 @@ export function ModiqHistorySection() {
                   {activeSession.coverage_percent}%
                 </span>
               </div>
-              <p className="text-[11px] text-foreground/40 mt-1">
+              <p className="text-xs text-foreground/40 mt-1">
                 {activeSession.mapped_count} of {activeSession.total_count} items mapped
               </p>
             </div>
@@ -445,7 +445,7 @@ function StatCard({
     <div className="bg-background rounded-lg border border-border/50 p-3">
       <div className="flex items-center gap-2 text-foreground/40 mb-1">
         {icon}
-        <span className="text-[10px] uppercase tracking-wider font-medium">{label}</span>
+        <span className="text-xs uppercase tracking-wider font-medium">{label}</span>
       </div>
       <p className="text-xl font-bold tabular-nums">{value}</p>
     </div>
@@ -495,7 +495,7 @@ function SessionRow({
               {session.coverage_percent}%
             </span>
           </div>
-          <p className="text-[10px] text-foreground/30 mt-0.5">
+          <p className="text-xs text-foreground/30 mt-0.5">
             {session.mapped_count}/{session.total_count}
           </p>
         </td>
@@ -504,7 +504,7 @@ function SessionRow({
         </td>
         <td className="py-3 pr-4">
           <p className="text-xs text-foreground/60">{formatDate(session.updated_at)}</p>
-          <p className="text-[10px] text-foreground/30">{formatTime(session.updated_at)}</p>
+          <p className="text-xs text-foreground/30">{formatTime(session.updated_at)}</p>
         </td>
         <td className="py-3 text-right">
           <div className="flex items-center justify-end gap-1">
@@ -520,7 +520,7 @@ function SessionRow({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
                 {xmaps.length > 1 && (
-                  <span className="text-[9px] ml-0.5">{xmaps.length}</span>
+                  <span className="text-xs ml-0.5">{xmaps.length}</span>
                 )}
               </button>
             )}
@@ -553,7 +553,7 @@ function SessionRow({
                 >
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-medium truncate">{xmap.filename}</span>
-                    <span className="text-[10px] text-foreground/30 ml-2">
+                    <span className="text-xs text-foreground/30 ml-2">
                       {xmap.item_count} items &middot; {formatDate(xmap.created_at)}
                     </span>
                   </div>
@@ -598,7 +598,7 @@ function StatusBadge({ status }: { status: string }) {
   switch (status) {
     case "completed":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-green-500/10 text-green-400 rounded-full">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-500/10 text-green-400 rounded-full">
           <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24">
             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
           </svg>
@@ -607,14 +607,14 @@ function StatusBadge({ status }: { status: string }) {
       );
     case "in_progress":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium bg-accent/10 text-accent rounded-full">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-accent/10 text-accent rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
           In Progress
         </span>
       );
     default:
       return (
-        <span className="inline-flex items-center px-2 py-0.5 text-[10px] font-medium bg-foreground/5 text-foreground/40 rounded-full">
+        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-foreground/5 text-foreground/40 rounded-full">
           {status}
         </span>
       );

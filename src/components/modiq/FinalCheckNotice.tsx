@@ -81,14 +81,14 @@ export default memo(function FinalCheckNotice({
               <span className="text-xs font-medium text-foreground/80 block truncate">
                 {gem.sourceModelName}
               </span>
-              <span className="text-[10px] text-foreground/40">
+              <span className="text-xs text-foreground/40">
                 {gem.effectCount} {gem.effectType} effects
               </span>
             </div>
             {onMapModel && (
               <button
                 onClick={() => onMapModel(gem.sourceModelName)}
-                className="text-[10px] text-amber-400 hover:text-amber-300 font-medium px-2 py-1 rounded hover:bg-amber-500/10 transition-colors shrink-0 ml-2"
+                className="text-xs text-amber-400 hover:text-amber-300 font-medium px-2 py-1 rounded hover:bg-amber-500/10 transition-colors shrink-0 ml-2"
               >
                 Map
               </button>
@@ -98,7 +98,7 @@ export default memo(function FinalCheckNotice({
       </div>
 
       {significantGems.length > 5 && (
-        <p className="text-[10px] text-foreground/30 mt-2">
+        <p className="text-xs text-foreground/30 mt-2">
           +{significantGems.length - 5} more unmapped
         </p>
       )}

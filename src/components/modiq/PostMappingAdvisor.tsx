@@ -64,7 +64,7 @@ export default memo(function PostMappingAdvisor({
             />
           </svg>
           <span className="text-sm font-medium">Mapping Advisor</span>
-          <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full font-medium">
+          <span className="text-xs bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded-full font-medium">
             {insights.length}
           </span>
         </div>
@@ -94,7 +94,7 @@ export default memo(function PostMappingAdvisor({
               <div>
                 <p className="text-xs text-foreground/80">{insight.message}</p>
                 {insight.detail && (
-                  <p className="text-[10px] text-foreground/40 mt-0.5">
+                  <p className="text-xs text-foreground/40 mt-0.5">
                     {insight.detail}
                   </p>
                 )}

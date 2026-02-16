@@ -29,7 +29,7 @@ function AssignCountBadge({
   return (
     <span
       onClick={onClick}
-      className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[9px] px-[5px] text-[11px] font-semibold tabular-nums flex-shrink-0 cursor-pointer transition-all ${
+      className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[9px] px-[5px] text-xs font-semibold tabular-nums flex-shrink-0 cursor-pointer transition-all ${
         count === 1
           ? "bg-white/[0.06] text-[#525252] border border-white/[0.08] hover:bg-teal-500/[0.08] hover:border-teal-500/15 hover:text-teal-300"
           : count <= 3
@@ -133,25 +133,25 @@ export default memo(function DraggableUserCard({
         )}
 
         {/* Model name */}
-        <span className="text-[13px] font-medium truncate flex-1 min-w-0 text-foreground/80">
+        <span className="text-sm font-medium truncate flex-1 min-w-0 text-foreground/80">
           {model.name}
         </span>
 
         {/* Score badge (when in Best Matches) */}
         {score != null && score > 0 && (
-          <span className="text-[11px] text-green-400/70 flex-shrink-0 tabular-nums">
+          <span className="text-xs text-green-400/70 flex-shrink-0 tabular-nums">
             {(score * 100).toFixed(0)}%
           </span>
         )}
 
         {/* Type badge */}
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/5 text-foreground/40 flex-shrink-0 uppercase tracking-wide">
+        <span className="text-xs px-1.5 py-0.5 rounded bg-foreground/5 text-foreground/40 flex-shrink-0 uppercase tracking-wide">
           {typeLabel}
         </span>
 
         {/* Pixel count */}
         {!model.isGroup && (
-          <span className="text-[11px] text-foreground/30 flex-shrink-0 tabular-nums min-w-[36px] text-right">
+          <span className="text-xs text-foreground/30 flex-shrink-0 tabular-nums min-w-[36px] text-right">
             {model.pixelCount}px
           </span>
         )}
@@ -168,8 +168,8 @@ export default memo(function DraggableUserCard({
               key={srcName}
               className="flex items-center gap-1.5 py-0.5 pl-2 border-l-2 border-foreground/10"
             >
-              <span className="text-[11px] text-foreground/40">&rarr;</span>
-              <span className="text-[11px] text-foreground/50 truncate flex-1">
+              <span className="text-xs text-foreground/40">&rarr;</span>
+              <span className="text-xs text-foreground/50 truncate flex-1">
                 {srcName}
               </span>
               {onRemoveLink && (

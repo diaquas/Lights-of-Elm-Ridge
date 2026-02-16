@@ -133,13 +133,13 @@ export default memo(function InteractiveMappingRow({
   if (isSkipped) {
     return (
       <div className="px-3 py-1.5 flex items-center justify-between opacity-40">
-        <span className="text-[13px] text-foreground/40 line-through truncate">
+        <span className="text-sm text-foreground/40 line-through truncate">
           {destModel.name}
         </span>
         <button
           type="button"
           onClick={() => onAssign("")}
-          className="text-[10px] text-accent/60 hover:text-accent px-2 py-0.5 rounded"
+          className="text-xs text-accent/60 hover:text-accent px-2 py-0.5 rounded"
         >
           unskip
         </button>
@@ -183,12 +183,12 @@ export default memo(function InteractiveMappingRow({
         <span className="w-2 h-2 rounded-full border-[1.5px] border-foreground/30 flex-shrink-0" />
 
         {/* Model name */}
-        <span className="text-[13px] font-semibold text-foreground truncate max-w-[240px]">
+        <span className="text-sm font-semibold text-foreground truncate max-w-[240px]">
           {destModel.name}
         </span>
 
         {/* Metadata */}
-        <span className="text-[11px] text-foreground/40 flex-shrink-0">
+        <span className="text-xs text-foreground/40 flex-shrink-0">
           {isDropTarget
             ? "Release to map"
             : selectedSourceModel
@@ -215,7 +215,7 @@ export default memo(function InteractiveMappingRow({
               title={`Apply best match: ${bestMatch.name}`}
             >
               <span className="truncate">{bestMatch.name}</span>
-              <span className="text-green-400/60 text-[11px] flex-shrink-0">
+              <span className="text-green-400/60 text-xs flex-shrink-0">
                 {(bestMatch.score * 100).toFixed(0)}%
               </span>
             </button>
@@ -225,7 +225,7 @@ export default memo(function InteractiveMappingRow({
         {!isDropTarget &&
           !selectedSourceModel &&
           (!bestMatch || bestMatch.score === 0) && (
-            <span className="text-[11px] text-foreground/20 flex-shrink-0">
+            <span className="text-xs text-foreground/20 flex-shrink-0">
               No close matches
             </span>
           )}
@@ -293,23 +293,23 @@ export default memo(function InteractiveMappingRow({
         />
 
         {/* Dest name */}
-        <span className="text-[13px] font-medium text-foreground truncate">
+        <span className="text-sm font-medium text-foreground truncate">
           {destModel.name}
         </span>
 
         {/* Arrow */}
-        <span className="text-foreground/20 text-[11px] flex-shrink-0">
+        <span className="text-foreground/20 text-xs flex-shrink-0">
           &rarr;
         </span>
 
         {/* Source name */}
-        <span className="text-[13px] text-foreground/50 truncate">
+        <span className="text-sm text-foreground/50 truncate">
           {sourceModel.name}
         </span>
 
         {/* Manual tag */}
         {isManualOverride && (
-          <span className="text-[9px] px-1 py-0.5 rounded bg-accent/10 text-accent/60 font-medium flex-shrink-0">
+          <span className="text-xs px-1 py-0.5 rounded bg-accent/10 text-accent/60 font-medium flex-shrink-0">
             manual
           </span>
         )}
@@ -319,17 +319,17 @@ export default memo(function InteractiveMappingRow({
 
         {/* Pixel comparison + type (compact) */}
         {!destModel.isGroup && (
-          <span className="text-[10px] text-foreground/25 tabular-nums flex-shrink-0 font-mono">
+          <span className="text-xs text-foreground/25 tabular-nums flex-shrink-0 font-mono">
             {destModel.pixelCount}&rarr;{sourceModel.pixelCount}px
           </span>
         )}
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/5 text-foreground/30 uppercase tracking-wide flex-shrink-0">
+        <span className="text-xs px-1.5 py-0.5 rounded bg-foreground/5 text-foreground/30 uppercase tracking-wide flex-shrink-0">
           {destModel.isGroup ? "GRP" : destModel.type}
         </span>
 
         {/* Submodel indicator */}
         {hasSubmodels && (
-          <span className="text-[10px] text-accent/50 flex-shrink-0">
+          <span className="text-xs text-accent/50 flex-shrink-0">
             {submodelMappings.length} sub
           </span>
         )}

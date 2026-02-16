@@ -595,7 +595,7 @@ export function FinalizePhase() {
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         {/* Header bar with progress stats */}
         <div className="flex items-center gap-4 px-4 py-2.5 bg-surface/80 border-b border-border flex-shrink-0">
-          <span className="text-[11px] text-foreground/50 font-mono">
+          <span className="text-xs text-foreground/50 font-mono">
             COVERAGE{" "}
             <span className="text-accent font-bold">
               {displayCoverage.covered}/{displayCoverage.total}
@@ -613,11 +613,11 @@ export function FinalizePhase() {
               }}
             />
           </div>
-          <span className="text-[11px] text-foreground/50 font-mono">
+          <span className="text-xs text-foreground/50 font-mono">
             Mapped:{" "}
             <span className="text-green-400 font-semibold">{mappedCount}</span>
           </span>
-          <span className="text-[11px] text-foreground/50 font-mono">
+          <span className="text-xs text-foreground/50 font-mono">
             Unmapped:{" "}
             <span className="text-blue-400 font-semibold">{unmappedCount}</span>
           </span>
@@ -631,7 +631,7 @@ export function FinalizePhase() {
           <button
             type="button"
             onClick={goToNextPhase}
-            className="text-[13px] font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
+            className="text-sm font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
           >
             Continue to Review &rarr;
           </button>
@@ -663,7 +663,7 @@ export function FinalizePhase() {
                 <button
                   type="button"
                   onClick={() => setShowAllModels((v) => !v)}
-                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                     showAllModels
                       ? "border-accent/40 bg-accent/10 text-accent"
                       : "border-border text-foreground/40 hover:text-foreground/60"
@@ -763,7 +763,7 @@ export function FinalizePhase() {
                 {/* Divider */}
                 {superGroups.length + regularGroups.length > 0 &&
                   ungrouped.length > 0 && (
-                    <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
+                    <div className="flex items-center gap-2 py-1 text-xs text-foreground/25">
                       <div className="flex-1 h-px bg-border/40" />
                       <span className="uppercase tracking-wider font-semibold">
                         Ungrouped
@@ -855,7 +855,7 @@ export function FinalizePhase() {
                   className={`w-2.5 h-2.5 rounded-sm ${item.color}`}
                   style={{ opacity: "dim" in item ? 0.4 : 0.85 }}
                 />
-                <span className="text-[11px] text-foreground/40">
+                <span className="text-xs text-foreground/40">
                   {item.label}
                 </span>
               </div>
@@ -880,7 +880,7 @@ export function FinalizePhase() {
                 <h3 className="text-sm font-semibold text-foreground truncate">
                   {selectedItem.model.name}
                 </h3>
-                <span className="text-[11px] text-foreground/30 ml-auto flex-shrink-0">
+                <span className="text-xs text-foreground/30 ml-auto flex-shrink-0">
                   {selectedItem.model.pixelCount
                     ? `${selectedItem.model.pixelCount}px`
                     : ""}
@@ -908,7 +908,7 @@ export function FinalizePhase() {
                         clipRule="evenodd"
                       />
                     </svg>
-                    <span className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-green-400/70 uppercase tracking-wider">
                       Mapped To
                     </span>
                   </div>
@@ -922,11 +922,11 @@ export function FinalizePhase() {
                           key={src}
                           className="flex items-center gap-2 group/src"
                         >
-                          <span className="text-[13px] font-semibold text-foreground truncate flex-1">
+                          <span className="text-sm font-semibold text-foreground truncate flex-1">
                             {src}
                           </span>
                           {layer && (
-                            <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">
+                            <span className="text-xs text-foreground/30 tabular-nums flex-shrink-0">
                               {layer.effectCount} fx
                             </span>
                           )}
@@ -964,7 +964,7 @@ export function FinalizePhase() {
                         d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                       />
                     </svg>
-                    <span className="text-[10px] font-semibold text-amber-400/70 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-amber-400/70 uppercase tracking-wider">
                       Suggested Match
                     </span>
                     <div className="ml-auto flex items-center gap-2">
@@ -975,10 +975,10 @@ export function FinalizePhase() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-5.5">
-                    <span className="text-[13px] font-semibold text-foreground truncate flex-1">
+                    <span className="text-sm font-semibold text-foreground truncate flex-1">
                       {selectedItem.topSuggestion.sourceName}
                     </span>
-                    <span className="text-[10px] text-foreground/30 tabular-nums flex-shrink-0">
+                    <span className="text-xs text-foreground/30 tabular-nums flex-shrink-0">
                       {selectedItem.topSuggestion.effectCount} fx
                     </span>
                     <button
@@ -989,7 +989,7 @@ export function FinalizePhase() {
                           selectedItem.topSuggestion!.sourceName,
                         )
                       }
-                      className="px-2.5 py-0.5 text-[10px] font-semibold rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors flex-shrink-0"
+                      className="px-2 py-0.5 text-xs font-medium rounded bg-accent/15 text-accent hover:bg-accent/25 transition-colors flex-shrink-0"
                     >
                       Accept
                     </button>
@@ -1012,7 +1012,7 @@ export function FinalizePhase() {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">
+                  <span className="text-xs font-semibold text-foreground/30 uppercase tracking-wider">
                     Covered by Group
                   </span>
                 </div>
@@ -1026,7 +1026,7 @@ export function FinalizePhase() {
               {/* AI Suggestions (score >= 40%) */}
               {matchedSuggestions.length > 0 && (
                 <div className="px-6 py-3 border-b border-border bg-surface/50">
-                  <h4 className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
+                  <h4 className="text-xs font-semibold text-foreground/40 uppercase tracking-wide mb-2">
                     Suggested Sources ({matchedSuggestions.length})
                   </h4>
                   <div className="space-y-1.5">
@@ -1040,12 +1040,12 @@ export function FinalizePhase() {
                         className="w-full p-2.5 rounded-lg text-left transition-all duration-200 bg-foreground/3 border border-border hover:border-foreground/20"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-[13px] font-medium text-foreground truncate">
+                          <span className="text-sm font-medium text-foreground truncate">
                             {sugg.sourceName}
                           </span>
                           <ConfidenceBadge score={sugg.score} size="sm" />
                         </div>
-                        <div className="flex items-center gap-2 text-[11px] text-foreground/40 mt-0.5">
+                        <div className="flex items-center gap-2 text-xs text-foreground/40 mt-0.5">
                           <span>{sugg.effectCount} effects</span>
                         </div>
                       </button>
@@ -1056,7 +1056,7 @@ export function FinalizePhase() {
 
               {/* All available sources — organized by hierarchy */}
               <div className="px-6 py-3">
-                <h4 className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
+                <h4 className="text-xs font-semibold text-foreground/40 uppercase tracking-wide mb-2">
                   All Sources ({otherSources.length})
                 </h4>
                 {otherSources.length === 0 &&
@@ -1069,7 +1069,7 @@ export function FinalizePhase() {
                     {/* Display-Wide Super Groups */}
                     {sourceHierarchy.superGroups.length > 0 && (
                       <div className="mb-2">
-                        <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-purple-400/60">
+                        <div className="flex items-center gap-2 px-1 py-1 text-xs text-purple-400/60">
                           <span className="font-bold uppercase tracking-wider">
                             Display-Wide
                           </span>
@@ -1120,7 +1120,7 @@ export function FinalizePhase() {
                       sourceHierarchy.regularGroups.length >
                       0 &&
                       sourceHierarchy.ungrouped.length > 0 && (
-                        <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
+                        <div className="flex items-center gap-2 py-1 text-xs text-foreground/25">
                           <div className="flex-1 h-px bg-border/40" />
                           <span className="uppercase tracking-wider font-semibold">
                             Ungrouped
@@ -1206,11 +1206,11 @@ function SourceItemButton({
       <span className="text-[12px] font-medium truncate flex-1 min-w-0 text-foreground/70">
         {sugg.sourceName}
       </span>
-      <span className="text-[10px] text-foreground/25 flex-shrink-0 tabular-nums">
+      <span className="text-xs text-foreground/25 flex-shrink-0 tabular-nums">
         {sugg.effectCount} fx
       </span>
       {sugg.score > 0 && (
-        <span className="text-[10px] text-foreground/30 flex-shrink-0 tabular-nums">
+        <span className="text-xs text-foreground/30 flex-shrink-0 tabular-nums">
           {Math.round(sugg.score * 100)}%
         </span>
       )}
@@ -1264,11 +1264,11 @@ function SourceGroupRow({
           </svg>
         </button>
         {group.isSuperGroup ? (
-          <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">
+          <span className="px-1 py-px text-xs font-medium bg-purple-500/15 text-purple-400 rounded flex-shrink-0">
             SUPER
           </span>
         ) : (
-          <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded flex-shrink-0">
+          <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-500/15 text-blue-400 rounded flex-shrink-0">
             GRP
           </span>
         )}
@@ -1280,10 +1280,10 @@ function SourceGroupRow({
           {group.layer.sourceModel.name}
         </button>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-[10px] text-foreground/25 tabular-nums">
+          <span className="text-xs text-foreground/25 tabular-nums">
             {group.layer.effectCount} fx
           </span>
-          <span className="text-[10px] text-foreground/30 tabular-nums">
+          <span className="text-xs text-foreground/30 tabular-nums">
             {group.members.length}m
           </span>
         </div>
@@ -1348,7 +1348,7 @@ function DestItemCard({
         <span className="text-[12px] text-foreground/40 truncate">
           {item.model.name}
         </span>
-        <span className="text-[11px] text-foreground/30 italic text-right whitespace-nowrap">
+        <span className="text-xs text-foreground/30 italic text-right whitespace-nowrap">
           covered by group
         </span>
         <div style={{ width: 50 }} />
@@ -1417,13 +1417,13 @@ function DestItemCard({
                 item.topSuggestion!.sourceName,
               );
             }}
-            className="text-[11px] text-foreground/30 hover:text-accent transition-colors"
+            className="text-xs text-foreground/30 hover:text-accent transition-colors"
             title={`Accept: ${item.topSuggestion.sourceName}`}
           >
             + Assign
           </button>
         ) : (
-          <span className="text-[11px] text-foreground/20">+ Assign</span>
+          <span className="text-xs text-foreground/20">+ Assign</span>
         )}
       </div>
       {/* Col 5: Row actions (hover) */}
@@ -1473,17 +1473,17 @@ function DestSuperGroupSection({
             d="M9 5l7 7-7 7"
           />
         </svg>
-        <span className="text-[11px] font-bold text-purple-400/80 uppercase tracking-wider">
+        <span className="text-xs font-bold text-purple-400/80 uppercase tracking-wider">
           Display-Wide Groups
         </span>
-        <span className="text-[10px] text-purple-400/50">
+        <span className="text-xs text-purple-400/50">
           ({superGroups.length})
         </span>
       </button>
 
       {!collapsed && (
         <>
-          <p className="text-[10px] text-foreground/30 px-1 pb-2 leading-relaxed">
+          <p className="text-xs text-foreground/30 px-1 pb-2 leading-relaxed">
             These groups span your entire display or large sections.
           </p>
           <div className="space-y-0.5">
@@ -1583,7 +1583,7 @@ function DestGroupCard({
         {/* Col 1: Status checkbox */}
         <StatusCheck status={groupStatus} />
         {/* Col 2: Member count badge */}
-        <span className="inline-flex items-center justify-center w-[42px] text-[10px] font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none bg-blue-500/10 text-blue-400/70">
+        <span className="inline-flex items-center justify-center w-[42px] text-xs font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none bg-blue-500/10 text-blue-400/70">
           {group.totalCount}m
         </span>
         {/* Col 3: Chevron */}
@@ -1609,7 +1609,7 @@ function DestGroupCard({
         {/* Col 4: Type badge */}
         <TypeBadge type={isSuperGroup ? "SUPER" : "GRP"} />
         {/* Col 5: Name */}
-        <span className="text-[13px] font-semibold text-foreground truncate">
+        <span className="text-sm font-semibold text-foreground truncate">
           {group.family}
           {group.totalCount > 0 && (
             <span className="text-foreground/30 font-normal ml-1">
@@ -1651,7 +1651,7 @@ function DestGroupCard({
             </>
           ) : (
             <span
-              className={`text-[10px] font-semibold tabular-nums ${allCovered ? "text-green-400/60" : "text-foreground/40"}`}
+              className={`text-xs font-semibold tabular-nums ${allCovered ? "text-green-400/60" : "text-foreground/40"}`}
             >
               {group.mappedCount}/{group.totalCount}
             </span>
@@ -1688,7 +1688,7 @@ function PxBadge({ count }: { count: number }) {
     count > 9999 ? `${(count / 1000).toFixed(1)}k` : String(count);
   return (
     <span
-      className={`inline-flex items-center justify-center w-[42px] text-[10px] font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none ${
+      className={`inline-flex items-center justify-center w-[42px] text-xs font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none ${
         count > 0
           ? "bg-emerald-500/10 text-emerald-400/70"
           : "bg-foreground/[0.06] text-foreground/20"

@@ -60,7 +60,7 @@ export function SortDropdown({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium text-foreground/50 hover:text-foreground/70 bg-background border border-border hover:border-foreground/20 rounded-lg transition-colors"
+        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-foreground/50 hover:text-foreground/70 bg-background border border-border hover:border-foreground/20 rounded-lg transition-colors"
         title="Sort items"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@ export function SortDropdown({
         <div className="absolute right-0 top-full mt-1 w-52 bg-surface border border-border rounded-lg shadow-xl z-30 py-1 overflow-hidden">
           {SORT_GROUPS.map((group) => (
             <div key={group.label}>
-              <div className="px-3 py-1 text-[9px] font-semibold text-foreground/25 uppercase tracking-wider">
+              <div className="px-3 py-1 text-xs font-semibold text-foreground/25 uppercase tracking-wider">
                 {group.label}
               </div>
               {group.options.map((option) => (

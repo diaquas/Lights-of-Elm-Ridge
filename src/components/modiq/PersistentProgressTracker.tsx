@@ -62,7 +62,7 @@ export default memo(function PersistentProgressTracker({
         />
 
         {/* Phase indicator */}
-        <span className="text-[10px] text-foreground/40 uppercase tracking-wider max-w-[80px] truncate">
+        <span className="text-xs text-foreground/40 uppercase tracking-wider max-w-[80px] truncate">
           {currentPhase}
         </span>
 
@@ -82,7 +82,7 @@ export default memo(function PersistentProgressTracker({
           </div>
         )}
         {phaseProgress.total > 20 && (
-          <span className="text-[10px] text-foreground/40 tabular-nums">
+          <span className="text-xs text-foreground/40 tabular-nums">
             {phaseProgress.completed}/{phaseProgress.total}
           </span>
         )}
@@ -110,12 +110,12 @@ export default memo(function PersistentProgressTracker({
             />
 
             <div className="pt-2 border-t border-foreground/10">
-              <div className="flex justify-between text-[11px]">
+              <div className="flex justify-between text-xs">
                 <span className="text-foreground/50">Current Phase</span>
                 <span className="font-medium">{currentPhase}</span>
               </div>
               {phaseProgress.total > 0 && (
-                <div className="flex justify-between text-[11px] mt-1">
+                <div className="flex justify-between text-xs mt-1">
                   <span className="text-foreground/50">Phase Progress</span>
                   <span className="font-medium tabular-nums">
                     {phaseProgress.completed} / {phaseProgress.total}
@@ -168,7 +168,7 @@ function MiniRing({
         />
       </svg>
       <span
-        className={`absolute text-[8px] font-bold ${color}`}
+        className={`absolute text-xs font-medium ${color}`}
         style={{ lineHeight: 1 }}
       >
         {label}
@@ -195,7 +195,7 @@ function ExpandedMetric({
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
-        <span className="text-[11px] text-foreground/50">{label}</span>
+        <span className="text-xs text-foreground/50">{label}</span>
         <span className={`text-lg font-bold tabular-nums ${color}`}>
           {Math.round(percent)}%
         </span>
@@ -206,7 +206,7 @@ function ExpandedMetric({
           style={{ width: `${Math.min(100, percent)}%` }}
         />
       </div>
-      <div className="text-[10px] text-foreground/30 mt-0.5 text-right tabular-nums">
+      <div className="text-xs text-foreground/30 mt-0.5 text-right tabular-nums">
         {covered.toLocaleString()} / {total.toLocaleString()} {unit}
       </div>
     </div>

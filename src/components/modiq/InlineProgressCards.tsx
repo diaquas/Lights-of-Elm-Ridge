@@ -45,7 +45,7 @@ export const InlineProgressCards = memo(function InlineProgressCards({
       <div
         className={`rounded-xl border p-6 text-center transition-all duration-500 ${displayBorderColor}`}
       >
-        <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-3">
+        <div className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-3">
           Your Display
         </div>
         <div className={`text-5xl font-bold ${displayTextColor} mb-3`}>
@@ -57,7 +57,7 @@ export const InlineProgressCards = memo(function InlineProgressCards({
             style={{ width: `${state.display.percent}%` }}
           />
         </div>
-        <div className="text-[13px] text-foreground/50">
+        <div className="text-sm text-foreground/50">
           {state.display.current} of {state.display.total} models active
         </div>
         {isReview && state.display.percent >= 90 && (
@@ -76,7 +76,7 @@ export const InlineProgressCards = memo(function InlineProgressCards({
       <div
         className={`rounded-xl border p-6 text-center transition-all duration-500 ${effectsBorderColor}`}
       >
-        <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-3">
+        <div className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-3">
           Sequence Effects
         </div>
         <div className={`text-5xl font-bold ${effectsTextColor} mb-3`}>
@@ -88,7 +88,7 @@ export const InlineProgressCards = memo(function InlineProgressCards({
             style={{ width: `${state.effects.percent}%` }}
           />
         </div>
-        <div className="text-[13px] text-foreground/50">
+        <div className="text-sm text-foreground/50">
           {state.effects.current.toLocaleString()} of{" "}
           {state.effects.total.toLocaleString()} effects
         </div>

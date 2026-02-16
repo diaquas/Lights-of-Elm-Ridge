@@ -25,7 +25,7 @@ export default memo(function AssignedUsersSection({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-1.5 flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-foreground/30 bg-surface-light hover:bg-surface-light/80 sticky top-0 z-10 transition-colors"
+        className="w-full px-3 py-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-foreground/30 bg-surface-light hover:bg-surface-light/80 sticky top-0 z-10 transition-colors"
       >
         <span>Already Assigned ({users.length})</span>
         <svg

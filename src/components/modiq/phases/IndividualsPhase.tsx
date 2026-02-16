@@ -554,7 +554,7 @@ export function IndividualsPhase() {
           <button
             type="button"
             onClick={goToNextPhase}
-            className="text-[13px] font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
+            className="text-sm font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
           >
             Continue to Submodel Groups &rarr;
           </button>
@@ -613,7 +613,7 @@ export function IndividualsPhase() {
                     setShowAllModels((v) => !v);
                     setSortVersion((v) => v + 1);
                   }}
-                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                     showAllModels
                       ? "border-accent/40 bg-accent/10 text-accent"
                       : "border-border text-foreground/40 hover:text-foreground/60"
@@ -686,7 +686,7 @@ export function IndividualsPhase() {
             <button
               type="button"
               onClick={() => setSortVersion((v) => v + 1)}
-              className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors px-1"
+              className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors px-1"
               title="Re-sort"
             >
               &#x21bb;
@@ -733,7 +733,7 @@ export function IndividualsPhase() {
           {/* Expand/Collapse All (only if there are expandable groups) */}
           {itemsSplit.superGroups.length + itemsSplit.regularGroups.length >
             0 && (
-            <div className="flex items-center gap-3 px-4 pb-1.5 text-[10px] text-foreground/30">
+            <div className="flex items-center gap-3 px-4 pb-1.5 text-xs text-foreground/30">
               <button
                 type="button"
                 onClick={() =>
@@ -808,13 +808,13 @@ export function IndividualsPhase() {
                           d="M9 5l7 7-7 7"
                         />
                       </svg>
-                      <span className="text-[10px] font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
+                      <span className="text-xs font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
                         Groups &amp; Models
                       </span>
-                      <span className="text-[10px] text-foreground/30 font-mono">
+                      <span className="text-xs text-foreground/30 font-mono">
                         ({itemsSplit.regularGroups.length})
                       </span>
-                      <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
+                      <span className="text-xs text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
                         xLights model groups &mdash; matched as a unit with
                         their member models
                       </span>
@@ -850,13 +850,13 @@ export function IndividualsPhase() {
                           d="M9 5l7 7-7 7"
                         />
                       </svg>
-                      <span className="text-[10px] font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
+                      <span className="text-xs font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
                         Ungrouped
                       </span>
-                      <span className="text-[10px] text-foreground/30 font-mono">
+                      <span className="text-xs text-foreground/30 font-mono">
                         ({itemsSplit.ungrouped.length})
                       </span>
-                      <span className="text-[10px] text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
+                      <span className="text-xs text-foreground/20 ml-auto opacity-0 group-hover/section:opacity-100 transition-opacity">
                         Models not assigned to any xLights group
                       </span>
                     </button>
@@ -902,7 +902,7 @@ export function IndividualsPhase() {
           </div>
 
           {interactive.hiddenZeroEffectCount > 0 && (
-            <p className="mt-4 text-[11px] text-foreground/25 text-center">
+            <p className="mt-4 text-xs text-foreground/25 text-center">
               {interactive.hiddenZeroEffectCount} model
               {interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0
               effects not shown &mdash; no visual impact in this sequence
@@ -911,7 +911,7 @@ export function IndividualsPhase() {
 
           {skippedItems.length > 0 && (
             <details className="mt-4 px-4">
-              <summary className="text-[11px] text-foreground/25 cursor-pointer hover:text-foreground/40">
+              <summary className="text-xs text-foreground/25 cursor-pointer hover:text-foreground/40">
                 {skippedItems.length} skipped
               </summary>
               <div className="mt-2 space-y-1">
@@ -928,7 +928,7 @@ export function IndividualsPhase() {
                       onClick={() =>
                         interactive.unskipSourceLayer(item.sourceModel.name)
                       }
-                      className="text-[10px] text-accent/50 hover:text-accent transition-colors flex-shrink-0"
+                      className="text-xs text-accent/50 hover:text-accent transition-colors flex-shrink-0"
                     >
                       Restore
                     </button>
@@ -956,7 +956,7 @@ export function IndividualsPhase() {
                   className={`w-2.5 h-2.5 rounded-sm ${item.color}`}
                   style={{ opacity: "dim" in item ? 0.4 : 0.85 }}
                 />
-                <span className="text-[11px] text-foreground/40">
+                <span className="text-xs text-foreground/40">
                   {item.label}
                 </span>
               </div>
@@ -973,13 +973,13 @@ export function IndividualsPhase() {
             <div className={PANEL_STYLES.header.wrapper}>
               <div className="flex items-center gap-2">
                 {selectedItem.isSuperGroup && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-500/15 text-purple-400 rounded">
+                  <span className="px-1.5 py-0.5 text-xs font-medium bg-purple-500/15 text-purple-400 rounded">
                     SUPER
                   </span>
                 )}
                 {selectedItem.isGroup && !selectedItem.isSuperGroup && (
                   <span
-                    className={`px-1.5 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.GRP} rounded`}
+                    className={`px-1.5 py-0.5 text-xs font-medium ${TYPE_BADGE_COLORS.GRP} rounded`}
                   >
                     GRP
                   </span>
@@ -988,7 +988,7 @@ export function IndividualsPhase() {
                   {selectedItem.sourceModel.name}
                 </h3>
               </div>
-              <div className="flex items-center gap-3 mt-0.5 text-[11px] text-foreground/40">
+              <div className="flex items-center gap-3 mt-0.5 text-xs text-foreground/40">
                 {selectedItem.isSuperGroup ? (
                   <span>
                     {selectedItem.memberNames.length} models &middot; contains{" "}
@@ -1314,7 +1314,7 @@ function XLightsGroupCard({
         {/* Col 4: Type badge */}
         <TypeBadge type="GRP" />
         {/* Col 5: Name */}
-        <span className="text-[13px] font-semibold text-foreground truncate">
+        <span className="text-sm font-semibold text-foreground truncate">
           {group.sourceModel.name}
           {fullMemberCount > 0 && (
             <span className="text-foreground/30 font-normal ml-1">
@@ -1367,13 +1367,13 @@ function XLightsGroupCard({
                 e.stopPropagation();
                 onAccept(topSuggestion.model.name);
               }}
-              className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
+              className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
               title={`Accept: ${topSuggestion.model.name}`}
             >
               + Assign
             </button>
           ) : (
-            <span className="text-[11px] text-foreground/20">+ Assign</span>
+            <span className="text-xs text-foreground/20">+ Assign</span>
           )}
         </div>
         {/* Col 7: Skip only */}
@@ -1416,7 +1416,7 @@ function XLightsGroupCard({
         onMapChildren &&
         !cascadeDismissed && (
           <div className="flex items-center gap-2 py-1.5 px-3 pl-10 bg-green-500/[0.04] border-t border-green-500/10">
-            <span className="text-[11px] text-foreground/50">
+            <span className="text-xs text-foreground/50">
               Map {memberStats.unmapped} model
               {memberStats.unmapped !== 1 ? "s" : ""} inside this group to
               matching models in the source?
@@ -1428,7 +1428,7 @@ function XLightsGroupCard({
                 e.stopPropagation();
                 onMapChildren();
               }}
-              className="text-[11px] font-semibold px-2.5 py-0.5 rounded border border-green-500/25 bg-green-500/8 text-green-400 hover:bg-green-500/15 transition-colors"
+              className="text-xs font-semibold px-2.5 py-0.5 rounded border border-green-500/25 bg-green-500/8 text-green-400 hover:bg-green-500/15 transition-colors"
             >
               Yes, Map Models
             </button>
@@ -1438,7 +1438,7 @@ function XLightsGroupCard({
                 e.stopPropagation();
                 setCascadeDismissed(true);
               }}
-              className="text-[11px] font-medium px-2.5 py-0.5 rounded border border-border bg-transparent text-foreground/40 hover:text-foreground/60 transition-colors"
+              className="text-xs font-medium px-2.5 py-0.5 rounded border border-border bg-transparent text-foreground/40 hover:text-foreground/60 transition-colors"
             >
               No thanks
             </button>
@@ -1569,7 +1569,7 @@ function ItemCard({
         <span className="text-[12px] text-foreground/40 truncate">
           {item.sourceModel.name}
         </span>
-        <span className="text-[11px] text-foreground/30 italic text-right whitespace-nowrap">
+        <span className="text-xs text-foreground/30 italic text-right whitespace-nowrap">
           covered by group
         </span>
         <div style={{ width: 50 }} />
@@ -1652,13 +1652,13 @@ function ItemCard({
               e.stopPropagation();
               onAccept(topSuggestion.model.name);
             }}
-            className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
+            className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
             title={`Accept: ${topSuggestion.model.name} (${Math.round(topSuggestion.score * 100)}%)`}
           >
             + Assign
           </button>
         ) : (
-          <span className="text-[11px] text-foreground/20 whitespace-nowrap">
+          <span className="text-xs text-foreground/20 whitespace-nowrap">
             + Assign
           </span>
         )}
@@ -1789,10 +1789,10 @@ function SuperGroupSection({
             d="M9 5l7 7-7 7"
           />
         </svg>
-        <span className="text-[10px] font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
+        <span className="text-xs font-bold text-green-400 uppercase tracking-[0.1em] font-mono">
           Display-Wide Groups
         </span>
-        <span className="text-[10px] text-foreground/30 font-mono">
+        <span className="text-xs text-foreground/30 font-mono">
           ({superGroups.length})
         </span>
       </button>
@@ -2095,7 +2095,7 @@ function SuperGroupCard({
         {/* Col 4: Type badge */}
         <TypeBadge type="SUPER" />
         {/* Col 5: Name */}
-        <span className="text-[13px] font-semibold text-foreground truncate">
+        <span className="text-sm font-semibold text-foreground truncate">
           {group.sourceModel.name}
           {totalCount > 0 && (
             <span className="text-foreground/30 font-normal ml-1">
@@ -2146,13 +2146,13 @@ function SuperGroupCard({
                 e.stopPropagation();
                 onAccept(topSuggestion.model.name);
               }}
-              className="text-[11px] text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
+              className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
               title={`Accept: ${topSuggestion.model.name}`}
             >
               + Assign
             </button>
           ) : (
-            <span className="text-[11px] text-foreground/20">+ Assign</span>
+            <span className="text-xs text-foreground/20">+ Assign</span>
           )}
         </div>
         {/* Col 8: Skip only */}
