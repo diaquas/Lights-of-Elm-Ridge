@@ -64,7 +64,6 @@ export function IndividualsPhase() {
     approveAllReviewItems,
     scoreMap,
     factorsMap,
-    goToNextPhase,
   } = useMappingPhase();
   const dnd = useDragAndDrop();
 
@@ -546,18 +545,11 @@ export function IndividualsPhase() {
     <div className="flex h-full overflow-hidden">
       {/* Left: Model List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
-        {/* Title + Continue */}
-        <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
-          <h1 className="text-[22px] font-bold text-foreground leading-tight">
+        {/* Title */}
+        <div className="flex items-center px-4 py-2 flex-shrink-0">
+          <h2 className="text-base font-semibold text-foreground leading-tight">
             Groups &amp; Models
-          </h1>
-          <button
-            type="button"
-            onClick={goToNextPhase}
-            className="text-[13px] font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
-          >
-            Continue to Submodel Groups &rarr;
-          </button>
+          </h2>
         </div>
 
         <div className={PANEL_STYLES.header.wrapper}>
