@@ -172,7 +172,7 @@ echo "  Created: $ISSUE_URL"
 echo "Creating issue for Ticket 28..."
 ISSUE_URL=$(gh issue create \
   --repo "$REPO" \
-  --title "Ticket 28: Enhanced Processing Screen ("ModIQ is Working")" \
+  --title 'Ticket 28: Enhanced Processing Screen ("ModIQ is Working")' \
   --label "modiq" \
   --body-file "docs/tickets/ticket-28-enhanced-processing-screen.md" \
   2>&1) || echo "  Failed to create issue for Ticket 28"
@@ -252,7 +252,7 @@ echo "  Created: $ISSUE_URL"
 echo "Creating issue for Ticket 36..."
 ISSUE_URL=$(gh issue create \
   --repo "$REPO" \
-  --title "Ticket 36: Enhanced "IN USE" Indicator with Mapping Details & Inline De-map" \
+  --title 'Ticket 36: Enhanced "IN USE" Indicator with Mapping Details & Inline De-map' \
   --label "modiq" \
   --body-file "docs/tickets/ticket-36-enhanced-in-use-indicator.md" \
   2>&1) || echo "  Failed to create issue for Ticket 36"
@@ -392,7 +392,7 @@ echo "  Created: $ISSUE_URL"
 echo "Creating issue for Ticket 56..."
 ISSUE_URL=$(gh issue create \
   --repo "$REPO" \
-  --title "Ticket 56: Rethinking the End Game: New "Finalize" Phase + Review Overhaul" \
+  --title 'Ticket 56: Rethinking the End Game: New "Finalize" Phase + Review Overhaul' \
   --label "modiq" \
   --body-file "docs/tickets/ticket-56.md" \
   2>&1) || echo "  Failed to create issue for Ticket 56"
@@ -630,7 +630,7 @@ fi
 echo "Creating issue for Ticket 78..."
 ISSUE_URL=$(gh issue create \
   --repo "$REPO" \
-  --title "Ticket 78: Merge Submodel Groups Into Unified "Map Your Display" Step" \
+  --title 'Ticket 78: Merge Submodel Groups Into Unified "Map Your Display" Step' \
   --label "modiq,done" \
   --body-file "docs/tickets/ticket-78.md" \
   2>&1) || echo "  Failed to create issue for Ticket 78"
