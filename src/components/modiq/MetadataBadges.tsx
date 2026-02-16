@@ -433,23 +433,23 @@ const STATUS_CONFIGS: Record<
   }
 > = {
   approved: {
-    border: "border-green-400",
-    bg: "bg-green-400",
-    checkColor: "text-white",
+    border: "border-foreground/25",
+    bg: "bg-foreground/15",
+    checkColor: "text-foreground/50",
     opacity: 1,
     hasCheck: true,
   },
   strong: {
-    border: "border-green-400",
-    bg: "bg-green-400",
-    checkColor: "text-white",
+    border: "border-foreground/25",
+    bg: "bg-foreground/15",
+    checkColor: "text-foreground/50",
     opacity: 1,
     hasCheck: true,
   },
   manual: {
-    border: "border-green-400",
-    bg: "bg-green-400",
-    checkColor: "text-white",
+    border: "border-foreground/25",
+    bg: "bg-foreground/15",
+    checkColor: "text-foreground/50",
     opacity: 1,
     hasCheck: true,
   },
@@ -540,7 +540,7 @@ export function FxBadge({ count }: { count: number }) {
     <span
       className={`inline-flex items-center justify-center w-[42px] text-xs font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none ${
         hasEffects
-          ? "bg-purple-500/15 text-purple-300"
+          ? "bg-foreground/[0.06] text-foreground/40"
           : "bg-foreground/[0.06] text-foreground/20"
       }`}
       title={count > 9999 ? `${count.toLocaleString()} fx` : undefined}
@@ -556,9 +556,9 @@ export function FxBadge({ count }: { count: number }) {
  */
 export function TypeBadge({ type }: { type: "SUPER" | "GRP" | "SUB" }) {
   const colors = {
-    SUPER: "bg-purple-500/20 text-purple-400",
-    GRP: "bg-blue-500/20 text-blue-400",
-    SUB: "bg-teal-500/20 text-teal-400",
+    SUPER: "bg-foreground/[0.06] text-foreground/40",
+    GRP: "bg-foreground/[0.06] text-foreground/40",
+    SUB: "bg-foreground/[0.06] text-foreground/40",
   };
 
   return (
@@ -587,18 +587,13 @@ export function FractionBadge({
 
   const ratio = total > 0 ? resolved / total : 0;
 
-  const bg =
-    ratio >= 1
-      ? "rgba(74, 222, 128, 0.15)"
-      : ratio > 0
-        ? "rgba(251, 191, 36, 0.15)"
-        : "rgba(96, 165, 250, 0.15)";
-  const color =
-    ratio >= 1
-      ? "rgb(74, 222, 128)"
-      : ratio > 0
-        ? "rgb(251, 191, 36)"
-        : "rgb(96, 165, 250)";
+  // Neutral styling — row border already communicates status
+  const bg = ratio >= 1
+    ? "rgba(255, 255, 255, 0.04)"
+    : "rgba(255, 255, 255, 0.04)";
+  const color = ratio >= 1
+    ? "rgba(255, 255, 255, 0.45)"
+    : "rgba(255, 255, 255, 0.35)";
 
   const defaultTooltip = `${resolved} resolved · ${total - resolved} need attention · ${total} total`;
 
@@ -641,20 +636,20 @@ export function DestinationPill({
   /** Factor breakdown for hover tooltip (optional) */
   matchFactors?: ModelMapping["factors"];
 }) {
-  const color =
-    confidence != null
-      ? confidence >= 60
-        ? "text-green-400"
-        : confidence >= 40
-          ? "text-amber-400"
-          : "text-red-400"
-      : "text-green-400";
+  // Strong matches get neutral text — the row border already signals status.
+  // Only amber/red matches get colored text to draw attention.
+  const needsAttention = confidence != null && confidence < 60;
+  const textColor = needsAttention
+    ? confidence >= 40
+      ? "text-amber-400"
+      : "text-red-400"
+    : "text-foreground/60";
 
   return (
     <div className="flex items-center gap-1 min-w-0">
       {autoMatched && (
         <svg
-          className={`w-2.5 h-2.5 flex-shrink-0 ${color}`}
+          className={`w-2.5 h-2.5 flex-shrink-0 ${textColor}`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -668,20 +663,22 @@ export function DestinationPill({
         </svg>
       )}
       <span
-        className={`text-[12px] font-medium truncate ${color}`}
+        className={`text-[12px] font-medium truncate ${textColor}`}
         title={name}
       >
         &rarr; {name}
       </span>
       {confidence != null && matchScore != null && matchFactors ? (
-        <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-          <ConfidenceBadge
-            score={matchScore}
-            factors={matchFactors}
-            size="sm"
-          />
-        </div>
-      ) : confidence != null ? (
+        needsAttention ? (
+          <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <ConfidenceBadge
+              score={matchScore}
+              factors={matchFactors}
+              size="sm"
+            />
+          </div>
+        ) : null
+      ) : confidence != null && needsAttention ? (
         <span
           className={`text-xs font-semibold font-mono tabular-nums px-1 py-px rounded flex-shrink-0 ${
             confidence >= 60
