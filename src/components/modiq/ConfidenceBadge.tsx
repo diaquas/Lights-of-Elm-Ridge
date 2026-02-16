@@ -15,16 +15,16 @@ interface ConfidenceBadgeProps {
 }
 
 function getConfidenceTier(score: number): "high" | "medium" | "low" | "none" {
-  if (score >= 0.85) return "high";
-  if (score >= 0.6) return "medium";
-  if (score >= 0.4) return "low";
+  if (score >= 0.6) return "high";
+  if (score >= 0.4) return "medium";
+  if (score >= 0.2) return "low";
   return "none";
 }
 
 const TIER_CLASSES = {
   high: "bg-green-500/15 text-green-400 border-green-500/30",
   medium: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  low: "bg-red-500/15 text-red-400 border-red-500/30",
+  low: "bg-amber-500/10 text-amber-400/70 border-amber-500/20",
   none: "bg-foreground/5 text-foreground/30 border-foreground/10",
 };
 
