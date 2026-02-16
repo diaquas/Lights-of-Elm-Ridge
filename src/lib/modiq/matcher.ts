@@ -60,7 +60,7 @@
  *   - Expanded equivalent bases (~20 new entries: stars, trees, icicles, etc.)
  */
 
-import type { ParsedModel } from "./parser";
+import type { ParsedModel, SubModel } from "./parser";
 import { calculateSynonymBoost, tokenizeName } from "./semanticSynonyms";
 import { hungarianMaximize } from "./hungarian";
 
@@ -1419,9 +1419,7 @@ function isSinging(model: ParsedModel): boolean {
   // A single "eyes" match is too broad — many non-singing props have eye
   // submodels (Bat Eyes, Spider Eyes, Ghost Eyes, etc.). True singing faces
   // always have mouth submodels alongside eyes.
-  const hasMouth = model.submodels.some((s) =>
-    /\bmouth\b/i.test(s.name),
-  );
+  const hasMouth = model.submodels.some((s) => /\bmouth\b/i.test(s.name));
   const hasEyesOrPhoneme = model.submodels.some((s) =>
     /\b(eyes?|phoneme)\b/i.test(s.name),
   );
@@ -2203,7 +2201,7 @@ function isSpinnerSharedMatch(source: ParsedModel, dest: ParsedModel): boolean {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Submodel Matching
+// Submodel Matching (Ticket 86 — Algorithm Rewrite)
 // ═══════════════════════════════════════════════════════════════════
 
 /**
@@ -2216,6 +2214,186 @@ const submodelCache = new Map<string, SubmodelMapping[]>();
  */
 export function clearSubmodelCache(): void {
   submodelCache.clear();
+}
+
+// ── Submodel helpers ─────────────────────────────────────────────
+
+/** Extract base name + numeric index from a submodel name.
+ *  "Hook CCW 03" → { base: "hook ccw", index: 3 }
+ *  "Willow-07"   → { base: "willow", index: 7 }
+ *  "Outline"     → { base: "outline", index: -1 }
+ */
+function parseSubmodelName(raw: string): {
+  base: string;
+  index: number;
+  normalized: string;
+} {
+  const normalized = normalizeName(raw);
+  const base = baseName(raw);
+  const index = extractIndex(raw);
+  return { base, index, normalized };
+}
+
+/** Detect aggregate/parent submodel groups that should NOT match individuals.
+ *  Patterns: "All Rings", "35 Outer Rings", "13 All Rings", leading number aggregates.
+ *  Also detected by disproportionate pixel count vs siblings.
+ */
+function isAggregateSubmodel(sub: SubModel, siblings: SubModel[]): boolean {
+  // Name pattern: contains "all" as a word
+  if (/\ball\b/i.test(sub.name)) return true;
+
+  // Leading number + word aggregate pattern: "35 Outer Rings", "13 All Rings"
+  if (/^\d+\s+\w/i.test(sub.name) && siblings.length > 3) {
+    const leadingNum = parseInt(sub.name.match(/^(\d+)/)?.[1] ?? "0");
+    if (leadingNum > siblings.length) return true; // Number exceeds sibling count → aggregate
+  }
+
+  // Pixel count heuristic: > 3x median sibling pixel count → likely aggregate
+  if (siblings.length >= 3 && sub.pixelCount > 0) {
+    const siblingPx = siblings
+      .filter((s) => s.name !== sub.name && s.pixelCount > 0)
+      .map((s) => s.pixelCount)
+      .sort((a, b) => a - b);
+    if (siblingPx.length >= 2) {
+      const median = siblingPx[Math.floor(siblingPx.length / 2)];
+      if (sub.pixelCount > median * 3) return true;
+    }
+  }
+
+  return false;
+}
+
+/** Pixel count ratio — returns 1 for unknown pixel counts (no penalty). */
+function submodelPixelRatio(a: number, b: number): number {
+  if (a <= 0 || b <= 0) return 1; // unknown pixel counts → no penalty
+  return Math.max(a, b) / Math.max(Math.min(a, b), 1);
+}
+
+// ── Singing face semantic matching (Fix E) ──────────────────────
+
+const FACIAL_FEATURES: Record<string, RegExp> = {
+  eyes: /\b(eyes?\s*(?:open|closed)?|pupils?|iris|irises)\b/i,
+  brow: /\b(eye\s*brows?|brows?|forehead)\b/i,
+  mouth: /\b(mouth|lips?|teeth|smile|grin|frown|tongue)\b/i,
+  mouth_shape: /\b([oau])\b/i, // single-letter mouth shapes: O, A, U
+  outline: /\b(outline|bulb|face|head|silhouette)\b/i,
+  hair: /\b(threads?|hair|wig|strand)\b/i,
+  nose: /\b(nose|nostrils?)\b/i,
+  jaw: /\b(jaw|chin|lower\s*face)\b/i,
+};
+
+function getFacialCategory(name: string): string | null {
+  for (const [cat, pattern] of Object.entries(FACIAL_FEATURES)) {
+    if (pattern.test(name)) return cat;
+  }
+  return null;
+}
+
+// ── Core submodel scoring (replaces inline scoring) ─────────────
+
+function scoreSubmodel(
+  srcSub: SubModel,
+  destSub: SubModel,
+  source: ParsedModel,
+  dest: ParsedModel,
+  srcParsed: { base: string; index: number; normalized: string },
+  destParsed: { base: string; index: number; normalized: string },
+  isSingingFace: boolean,
+  srcIsAggregate: boolean,
+  destIsAggregate: boolean,
+): number {
+  // Fix C: Aggregate exclusion — aggregates only match aggregates
+  if (srcIsAggregate !== destIsAggregate) return 0;
+
+  // Fix D: Pixel count ratio guard — reject extreme mismatches
+  const pxR = submodelPixelRatio(srcSub.pixelCount, destSub.pixelCount);
+  if (pxR > 5) return 0; // 50px → 1px is a 50:1 ratio → hard reject
+
+  // ── Priority 1: Exact normalized name match ──
+  if (srcParsed.normalized === destParsed.normalized) {
+    return 1.0;
+  }
+
+  // ── Priority 2: Same base name + same index (positional match) ──
+  if (
+    srcParsed.base === destParsed.base &&
+    srcParsed.base.length > 0 &&
+    srcParsed.index >= 0 &&
+    srcParsed.index === destParsed.index
+  ) {
+    // Same base, same number → near-perfect
+    let score = 0.95;
+    // Slight pixel bonus/penalty
+    if (srcSub.pixelCount > 0 && destSub.pixelCount > 0) {
+      const pxSim =
+        1.0 -
+        Math.abs(srcSub.pixelCount - destSub.pixelCount) /
+          Math.max(srcSub.pixelCount, destSub.pixelCount);
+      score = score * 0.9 + pxSim * 0.1;
+    }
+    return score;
+  }
+
+  // ── Priority 3: Same base name + different index ──
+  if (srcParsed.base === destParsed.base && srcParsed.base.length > 0) {
+    // Same base but different number — weaker, but still a structural match
+    let score = 0.7;
+    // Index proximity bonus (closer numbers = better)
+    if (srcParsed.index >= 0 && destParsed.index >= 0) {
+      const indexDiff = Math.abs(srcParsed.index - destParsed.index);
+      const proximityBonus = Math.max(0, 0.15 - indexDiff * 0.01);
+      score += proximityBonus;
+    }
+    // Pixel similarity blend
+    if (srcSub.pixelCount > 0 && destSub.pixelCount > 0) {
+      const pxSim =
+        1.0 -
+        Math.abs(srcSub.pixelCount - destSub.pixelCount) /
+          Math.max(srcSub.pixelCount, destSub.pixelCount);
+      score = score * 0.8 + pxSim * 0.2;
+    }
+    return score;
+  }
+
+  // ── Fix E: Singing face semantic matching ──
+  if (isSingingFace) {
+    const srcCat = getFacialCategory(srcSub.name);
+    const destCat = getFacialCategory(destSub.name);
+
+    if (srcCat && destCat) {
+      if (srcCat === destCat) {
+        // Same facial feature category → strong match
+        return 0.9;
+      }
+      // Different facial categories → strong penalty
+      return 0.1;
+    }
+    // One has a facial category, other doesn't → penalty
+    if (srcCat || destCat) return 0.15;
+  }
+
+  // ── Priority 4: Fuzzy name scoring + pixel blend (general fallback) ──
+  const srcFake = { ...source, name: srcSub.name } as ParsedModel;
+  const destFake = { ...dest, name: destSub.name } as ParsedModel;
+  let score = scoreName(srcFake, destFake);
+
+  // Pixel similarity blend (30% weight)
+  if (srcSub.pixelCount > 0 && destSub.pixelCount > 0) {
+    const pxSim =
+      1.0 -
+      Math.abs(srcSub.pixelCount - destSub.pixelCount) /
+        Math.max(srcSub.pixelCount, destSub.pixelCount);
+    score = score * 0.7 + pxSim * 0.3;
+  }
+
+  // Fix D: Penalize high pixel ratio mismatches (3-5x range)
+  if (pxR > 3) {
+    score *= 0.5; // Heavy penalty for 3-5x mismatch
+  } else if (pxR > 2) {
+    score *= 0.8; // Moderate penalty for 2-3x mismatch
+  }
+
+  return score;
 }
 
 function mapSubmodels(
@@ -2245,47 +2423,79 @@ function mapSubmodels(
     return empty;
   }
 
-  const mappings: SubmodelMapping[] = [];
-  const usedDest = new Set<number>();
+  // Detect singing face type for semantic matching (Fix E)
+  const isSingingFace = isSinging(source) || isSinging(dest);
 
-  for (const srcSub of source.submodels) {
-    let bestIdx = -1;
-    let bestScore = 0;
+  // Pre-parse all submodel names (base + index extraction)
+  const srcParsed = source.submodels.map((s) => parseSubmodelName(s.name));
+  const destParsed = dest.submodels.map((s) => parseSubmodelName(s.name));
 
-    for (let i = 0; i < dest.submodels.length; i++) {
-      if (usedDest.has(i)) continue;
-      const destSub = dest.submodels[i];
+  // Pre-detect aggregates (Fix C)
+  const srcAggregates = source.submodels.map((s) =>
+    isAggregateSubmodel(s, source.submodels),
+  );
+  const destAggregates = dest.submodels.map((s) =>
+    isAggregateSubmodel(s, dest.submodels),
+  );
 
-      // Build a temporary ParsedModel-like object for name scoring
-      const srcFake = { ...source, name: srcSub.name } as ParsedModel;
-      const destFake = { ...dest, name: destSub.name } as ParsedModel;
-      let score = scoreName(srcFake, destFake);
+  // ── Build score matrix: score[srcIdx][destIdx] ──
+  const scoreMatrix: number[][] = [];
+  for (let si = 0; si < source.submodels.length; si++) {
+    const row: number[] = [];
+    for (let di = 0; di < dest.submodels.length; di++) {
+      row.push(
+        scoreSubmodel(
+          source.submodels[si],
+          dest.submodels[di],
+          source,
+          dest,
+          srcParsed[si],
+          destParsed[di],
+          isSingingFace,
+          srcAggregates[si],
+          destAggregates[di],
+        ),
+      );
+    }
+    scoreMatrix.push(row);
+  }
 
-      // Blend in pixel similarity if available
-      if (srcSub.pixelCount > 0 && destSub.pixelCount > 0) {
-        const pxRatio =
-          1.0 -
-          Math.abs(srcSub.pixelCount - destSub.pixelCount) /
-            Math.max(srcSub.pixelCount, destSub.pixelCount);
-        score = score * 0.7 + pxRatio * 0.3;
-      }
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestIdx = i;
+  // ── Fix A: Confidence-sorted greedy assignment with dest exclusivity ──
+  // Build candidate list: (srcIdx, destIdx, score) for all viable pairs
+  const candidates: { si: number; di: number; score: number }[] = [];
+  for (let si = 0; si < source.submodels.length; si++) {
+    for (let di = 0; di < dest.submodels.length; di++) {
+      if (scoreMatrix[si][di] > 0.4) {
+        candidates.push({ si, di, score: scoreMatrix[si][di] });
       }
     }
+  }
+  // Sort by confidence descending — best matches get first pick
+  candidates.sort((a, b) => b.score - a.score);
 
-    // Raised threshold from 0.2 to 0.4 to reduce false-positive submodel matches.
-    // A 0.2 threshold was too permissive — common words like "Ring", "Outline",
-    // "Spoke" would match across completely unrelated models.
-    if (bestIdx >= 0 && bestScore > 0.4) {
-      usedDest.add(bestIdx);
-      const destSub = dest.submodels[bestIdx];
+  // Greedy: assign highest-confidence pairs first
+  const assignedSrc = new Set<number>();
+  const assignedDest = new Set<number>();
+  const assignment = new Map<number, { di: number; score: number }>();
+
+  for (const { si, di, score } of candidates) {
+    if (assignedSrc.has(si) || assignedDest.has(di)) continue;
+    assignedSrc.add(si);
+    assignedDest.add(di);
+    assignment.set(si, { di, score });
+  }
+
+  // ── Build output mappings ──
+  const mappings: SubmodelMapping[] = [];
+  for (let si = 0; si < source.submodels.length; si++) {
+    const srcSub = source.submodels[si];
+    const match = assignment.get(si);
+    if (match) {
+      const destSub = dest.submodels[match.di];
       mappings.push({
         sourceName: srcSub.name,
         destName: destSub.name,
-        confidence: scoreToConfidence(bestScore),
+        confidence: scoreToConfidence(match.score),
         pixelDiff: `${srcSub.pixelCount || "?"}px → ${destSub.pixelCount || "?"}px`,
       });
     } else {
@@ -2834,7 +3044,12 @@ function optimalMatch(
   const scoreMatrix: number[][] = [];
   const factorsMatrix: (ModelMapping["factors"] | null)[][] = [];
   const zeroFactors: ModelMapping["factors"] = {
-    name: 0, spatial: 0, shape: 0, type: 0, pixels: 0, structure: 0,
+    name: 0,
+    spatial: 0,
+    shape: 0,
+    type: 0,
+    pixels: 0,
+    structure: 0,
   };
 
   for (let s = 0; s < sources.length; s++) {
@@ -2947,8 +3162,7 @@ function optimalMatch(
         bestScore: Math.round(best.score * 100) / 100,
         bestWentTo:
           winnerIdx !== undefined ? sources[winnerIdx].name : "unassigned",
-        scoreDifference:
-          Math.round((best.score - score) * 100) / 100,
+        scoreDifference: Math.round((best.score - score) * 100) / 100,
       });
     }
   }
@@ -3096,7 +3310,8 @@ export function suggestMatchesForSource(
   const destBounds = getNormalizedBounds(allDestModels);
 
   // Super group isolation: only suggest super↔super matches
-  const sourceIsSuperGroup = superGroups?.source?.has(sourceModel.name) ?? false;
+  const sourceIsSuperGroup =
+    superGroups?.source?.has(sourceModel.name) ?? false;
 
   const suggestions: {
     model: ParsedModel;
