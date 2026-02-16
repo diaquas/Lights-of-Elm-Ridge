@@ -122,7 +122,7 @@ export default memo(function SourceModelPool({
       {/* Compact header */}
       <div className="px-3 py-2.5 border-b border-border flex-shrink-0">
         <h3 className="font-display font-bold text-[15px]">Source Models</h3>
-        <p className="text-[11px] text-foreground/40 mt-0.5">
+        <p className="text-xs text-foreground/40 mt-0.5">
           {unmappedModels.length} available &middot; {mappedModels.length} mapped
           {effectTree && (
             <span className="text-cyan-400/60">
@@ -165,7 +165,7 @@ export default memo(function SourceModelPool({
               {/* Groups with Effects section */}
               {applyFilters(unmappedGroups).length > 0 && (
                 <div>
-                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cyan-400/70 bg-cyan-500/5 sticky top-0 z-10 flex items-center gap-1.5">
+                  <div className="px-3 py-1 text-xs font-bold uppercase tracking-wider text-cyan-400/70 bg-cyan-500/5 sticky top-0 z-10 flex items-center gap-1.5">
                     <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                       <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
                     </svg>
@@ -190,7 +190,7 @@ export default memo(function SourceModelPool({
               {/* Individual Models section */}
               {applyFilters(unmappedIndividuals).length > 0 && (
                 <div>
-                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
+                  <div className="px-3 py-1 text-xs font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
                     Individual Models ({applyFilters(unmappedIndividuals).length})
                   </div>
                   <div className="px-2 py-1.5">
@@ -212,7 +212,7 @@ export default memo(function SourceModelPool({
             </>
           ) : (
             <div>
-              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
+              <div className="px-3 py-1 text-xs font-bold uppercase tracking-wider text-foreground/40 bg-surface-light sticky top-0 z-10">
                 Unmapped ({filteredUnmapped.length})
               </div>
               <div className="px-2 py-1.5">
@@ -232,11 +232,11 @@ export default memo(function SourceModelPool({
             </div>
           )
         ) : unmappedModels.length === 0 ? (
-          <div className="px-3 py-4 text-center text-[13px] text-green-400/60">
+          <div className="px-3 py-4 text-center text-sm text-green-400/60">
             All source models mapped!
           </div>
         ) : (
-          <div className="px-3 py-4 text-center text-[13px] text-foreground/30">
+          <div className="px-3 py-4 text-center text-sm text-foreground/30">
             No models match your search
           </div>
         )}
@@ -247,7 +247,7 @@ export default memo(function SourceModelPool({
             <button
               type="button"
               onClick={() => setShowMapped(!showMapped)}
-              className="w-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/30 bg-surface-light hover:bg-surface-light/80 sticky top-0 z-10 flex items-center justify-between"
+              className="w-full px-3 py-1 text-xs font-bold uppercase tracking-wider text-foreground/30 bg-surface-light hover:bg-surface-light/80 sticky top-0 z-10 flex items-center justify-between"
             >
               <span>Mapped ({filteredMapped.length})</span>
               <svg

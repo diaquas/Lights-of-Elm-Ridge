@@ -193,7 +193,7 @@ export default memo(function CoverageBoostPrompt({
             <div>
               <div className="flex items-center gap-2 mb-2 mt-2">
                 <div className="h-px flex-1 bg-border" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/30">
+                <span className="text-xs font-bold uppercase tracking-wider text-foreground/30">
                   SPINNER MATCHING
                 </span>
                 <div className="h-px flex-1 bg-border" />
@@ -308,7 +308,7 @@ function GroupSuggestionCard({
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1.5 py-0.5 rounded">
+            <span className="text-xs font-bold text-teal-400/70 bg-teal-500/10 px-1.5 py-0.5 rounded">
               GRP
             </span>
             <span className="font-semibold text-sm text-foreground truncate">
@@ -334,8 +334,8 @@ function GroupSuggestionCard({
             )}
           </div>
           <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[10px] text-foreground/30">{reason}</span>
-            <span className="text-[10px] font-semibold text-accent/70">{matchPct}% match</span>
+            <span className="text-xs text-foreground/30">{reason}</span>
+            <span className="text-xs font-semibold text-accent/70">{matchPct}% match</span>
           </div>
         </div>
       </div>
@@ -406,8 +406,8 @@ function SpinnerSuggestionCard({
             Source: {sourceModel.name}
           </div>
           <div className="flex items-center gap-2 mt-1.5">
-            <span className="text-[10px] text-foreground/30">{reason}</span>
-            <span className="text-[10px] font-semibold text-accent/70">{matchPct}%</span>
+            <span className="text-xs text-foreground/30">{reason}</span>
+            <span className="text-xs font-semibold text-accent/70">{matchPct}%</span>
           </div>
         </div>
       </div>

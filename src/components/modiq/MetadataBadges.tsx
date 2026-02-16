@@ -60,7 +60,7 @@ export function HeroEffectBadge({ count }: { count: number }) {
           {count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count}
         </span>
       </div>
-      <span className="text-[7px] uppercase tracking-wider opacity-50 leading-none mt-0.5">
+      <span className="text-xs uppercase tracking-wider opacity-50 leading-none mt-0.5">
         effects
       </span>
     </div>
@@ -77,7 +77,7 @@ export function InlineEffectBadge({ count }: { count: number }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold tabular-nums border ${bg} ${border} ${text} flex-shrink-0`}
+      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium tabular-nums border ${bg} ${border} ${text} flex-shrink-0`}
       title={`${count.toLocaleString()} effects in sequence`}
     >
       <svg
@@ -115,7 +115,7 @@ export function MetadataBadges({ item }: { item: SourceLayerMapping }) {
 function PixelBadge({ count }: { count: number }) {
   return (
     <span
-      className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[10px] font-medium tabular-nums text-foreground/35 bg-foreground/5"
+      className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-xs font-medium tabular-nums text-foreground/35 bg-foreground/5"
       title={`${count} pixels`}
     >
       <svg
@@ -138,7 +138,7 @@ function PixelBadge({ count }: { count: number }) {
 function MemberBadge({ count }: { count: number }) {
   return (
     <span
-      className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[10px] font-medium tabular-nums text-blue-400/60 bg-blue-500/8"
+      className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-xs font-medium tabular-nums text-blue-400/60 bg-blue-500/8"
       title={`${count} member models`}
     >
       <svg
@@ -162,7 +162,7 @@ function MemberBadge({ count }: { count: number }) {
 function SubmodelBadge({ count }: { count: number }) {
   return (
     <span
-      className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-[10px] font-medium tabular-nums text-purple-400/60 bg-purple-500/8"
+      className="inline-flex items-center gap-0.5 px-1.5 py-px rounded text-xs font-medium tabular-nums text-purple-400/60 bg-purple-500/8"
       title={`${count} submodels`}
     >
       <svg
@@ -208,7 +208,7 @@ export function EffectsCoverageBar({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-[10px] text-foreground/35 tabular-nums whitespace-nowrap">
+      <span className="text-xs text-foreground/35 tabular-nums whitespace-nowrap">
         {mappedEffects.toLocaleString()} / {totalEffects.toLocaleString()}{" "}
         effects
       </span>
@@ -316,7 +316,7 @@ export function AutoMatchBanner({
           Showing: {label}
         </span>
         {bannerFilter === "auto-review" && stats.reviewCount > 0 && (
-          <span className="text-[11px] text-foreground/40">
+          <span className="text-xs text-foreground/40">
             Review &amp; approve these before continuing
           </span>
         )}
@@ -327,7 +327,7 @@ export function AutoMatchBanner({
               <button
                 type="button"
                 onClick={onApproveAllReview}
-                className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                className="text-xs font-medium px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
               >
                 Approve All ({stats.reviewCount})
               </button>
@@ -336,7 +336,7 @@ export function AutoMatchBanner({
             <button
               type="button"
               onClick={onClearFilter}
-              className="text-[11px] font-medium text-accent/70 hover:text-accent transition-colors"
+              className="text-xs font-medium text-accent/70 hover:text-accent transition-colors"
             >
               {bannerFilter === "auto-review"
                 ? "Skip review, show all"
@@ -359,7 +359,7 @@ export function AutoMatchBanner({
           <button
             type="button"
             onClick={onFilterStrong}
-            className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-green-500/10 text-green-400/80 hover:bg-green-500/20 transition-colors tabular-nums"
+            className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-500/10 text-green-400/80 hover:bg-green-500/20 transition-colors tabular-nums"
           >
             {stats.strongCount} strong
           </button>
@@ -368,7 +368,7 @@ export function AutoMatchBanner({
           <button
             type="button"
             onClick={onFilterReview}
-            className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400/80 hover:bg-amber-500/20 transition-colors tabular-nums"
+            className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400/80 hover:bg-amber-500/20 transition-colors tabular-nums"
           >
             {stats.reviewCount} needs review
           </button>
@@ -378,7 +378,7 @@ export function AutoMatchBanner({
         <button
           type="button"
           onClick={onAcceptAllStrong}
-          className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-green-500/15 text-green-400 hover:bg-green-500/25 transition-colors flex-shrink-0"
+          className="text-xs font-medium px-2.5 py-1 rounded-md bg-green-500/15 text-green-400 hover:bg-green-500/25 transition-colors flex-shrink-0"
         >
           Accept All Strong ({stats.strongCount})
         </button>
@@ -538,7 +538,7 @@ export function FxBadge({ count }: { count: number }) {
 
   return (
     <span
-      className={`inline-flex items-center justify-center w-[42px] text-[10px] font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none ${
+      className={`inline-flex items-center justify-center w-[42px] text-xs font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none ${
         hasEffects
           ? "bg-foreground/[0.06] text-foreground/40"
           : "bg-foreground/[0.06] text-foreground/20"
@@ -563,7 +563,7 @@ export function TypeBadge({ type }: { type: "SUPER" | "GRP" | "SUB" }) {
 
   return (
     <span
-      className={`inline-flex items-center justify-center w-[42px] text-[9px] font-bold tracking-wider py-0.5 rounded font-mono uppercase flex-shrink-0 text-center leading-none ${colors[type]}`}
+      className={`inline-flex items-center justify-center w-[42px] text-xs font-bold tracking-wider py-0.5 rounded font-mono uppercase flex-shrink-0 text-center leading-none ${colors[type]}`}
     >
       {type}
     </span>
@@ -681,9 +681,11 @@ export function DestinationPill({
       ) : confidence != null && needsAttention ? (
         <span
           className={`text-xs font-semibold font-mono tabular-nums px-1 py-px rounded flex-shrink-0 ${
-            confidence >= 40
-              ? "bg-amber-900/40 text-amber-400"
-              : "bg-red-900/40 text-red-400"
+            confidence >= 60
+              ? "bg-green-900/40 text-green-400"
+              : confidence >= 40
+                ? "bg-amber-900/40 text-amber-400"
+                : "bg-red-900/40 text-red-400"
           }`}
         >
           {confidence}%

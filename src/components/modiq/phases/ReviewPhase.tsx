@@ -75,7 +75,7 @@ export function ReviewPhase({
             <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span className="text-[13px] text-amber-200/80">
+            <span className="text-sm text-amber-200/80">
               Display coverage is {displayCoverage.percent}% &mdash; go back to Finalize to fill gaps?
             </span>
           </div>
@@ -112,7 +112,7 @@ export function ReviewPhase({
                 : "border-border bg-surface"
             }`}
           >
-            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-3">
+            <div className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-3">
               Your Display Coverage
             </div>
             <div
@@ -158,7 +158,7 @@ export function ReviewPhase({
           {/* ═══ Side-by-Side Summary Counts ═══ */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-surface rounded-xl border border-border p-5">
-              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-3">
+              <div className="text-xs font-semibold text-foreground/40 uppercase tracking-wide mb-3">
                 Source Sequence
               </div>
               <div className="space-y-2">
@@ -168,7 +168,7 @@ export function ReviewPhase({
               </div>
             </div>
             <div className="bg-surface rounded-xl border border-border p-5">
-              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-3">
+              <div className="text-xs font-semibold text-foreground/40 uppercase tracking-wide mb-3">
                 My Display
               </div>
               <div className="space-y-2">
@@ -227,7 +227,7 @@ export function ReviewPhase({
 
           {/* ═══ Effects Impact ═══ */}
           <div className="bg-surface rounded-xl border border-border p-6 mb-6">
-            <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-4">
+            <div className="text-xs font-semibold text-foreground/40 uppercase tracking-wide mb-4">
               Effects Impact
             </div>
             <div className="space-y-3">
@@ -261,7 +261,7 @@ export function ReviewPhase({
 
           {/* ═══ Mapping Source ═══ */}
           <div className="bg-surface rounded-xl border border-border p-4 mb-6">
-            <div className="text-[11px] text-foreground/30 uppercase tracking-wide mb-1">
+            <div className="text-xs text-foreground/30 uppercase tracking-wide mb-1">
               Mapping
             </div>
             <div className="text-sm text-foreground">
@@ -452,9 +452,9 @@ function StatCard({
   return (
     <div className="bg-surface rounded-xl border border-border p-4 text-center">
       <div className={`text-2xl font-bold ${colorClasses[color]}`}>{value}</div>
-      <div className="text-[11px] text-foreground/40 mt-1">{label}</div>
+      <div className="text-xs text-foreground/40 mt-1">{label}</div>
       {subtitle && (
-        <div className="text-[10px] text-foreground/25 mt-0.5">{subtitle}</div>
+        <div className="text-xs text-foreground/25 mt-0.5">{subtitle}</div>
       )}
     </div>
   );

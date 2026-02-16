@@ -37,7 +37,7 @@ function DestCountBadge({ count }: { count: number }) {
   if (count <= 1) return null;
   return (
     <span
-      className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[9px] px-[5px] text-[11px] font-semibold tabular-nums flex-shrink-0 transition-all ${
+      className={`inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-[9px] px-[5px] text-xs font-semibold tabular-nums flex-shrink-0 transition-all ${
         count <= 3
           ? "bg-teal-500/[0.08] text-teal-300 border border-teal-500/15"
           : "bg-teal-500/[0.12] text-teal-300 border border-teal-500/20"
@@ -61,7 +61,7 @@ function EffectCountBadge({ count }: { count: number }) {
 
   return (
     <span
-      className={`text-[10px] tabular-nums flex-shrink-0 ${colorClass}`}
+      className={`text-xs tabular-nums flex-shrink-0 ${colorClass}`}
       title={`${count} effects in this sequence`}
     >
       {count} fx
@@ -227,18 +227,18 @@ export default memo(function SourceLayerRow({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5">
               {layer.isGroup && (
-                <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">
+                <span className="text-xs font-medium text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">
                   GRP
                 </span>
               )}
-              <span className="text-[13px] text-foreground truncate">
+              <span className="text-sm text-foreground truncate">
                 {name}
               </span>
               <DestCountBadge count={destCount} />
               <EffectCountBadge count={layer.effectCount} />
               <EffectContextBadge context={effectContext ?? null} mode="inline" />
             </div>
-            <div className="text-[11px] text-foreground/40 truncate">
+            <div className="text-xs text-foreground/40 truncate">
               &rarr; Your &quot;{firstDest.name}&quot;
               {extraCount > 0 && (
                 <span className="text-teal-400/60 ml-1">+{extraCount}</span>
@@ -265,7 +265,7 @@ export default memo(function SourceLayerRow({
         {/* Expanded destination list */}
         {isExpanded && (
           <div className="px-3 pb-2 ml-6">
-            <div className="text-[11px] text-foreground/40 mb-1.5">
+            <div className="text-xs text-foreground/40 mb-1.5">
               Mapped to {destCount} of your models:
             </div>
             {layer.assignedUserModels.map((m, i) => (
@@ -273,13 +273,13 @@ export default memo(function SourceLayerRow({
                 key={m.name}
                 className="flex items-center gap-2 py-1 pl-2 border-l-2 border-foreground/10"
               >
-                <span className="text-[11px] text-foreground/30 w-4 flex-shrink-0 tabular-nums">
+                <span className="text-xs text-foreground/30 w-4 flex-shrink-0 tabular-nums">
                   {i + 1}.
                 </span>
                 <span className="text-[12px] text-foreground/70 truncate flex-1">
                   {m.name}
                 </span>
-                <span className="text-[10px] text-foreground/30 flex-shrink-0">
+                <span className="text-xs text-foreground/30 flex-shrink-0">
                   {m.pixelCount}px
                 </span>
                 <button
@@ -307,7 +307,7 @@ export default memo(function SourceLayerRow({
                   e.stopPropagation();
                   onAcceptSuggestion(name, bestSuggestion.model.name);
                 }}
-                className="flex items-center gap-1.5 mt-1.5 ml-2 px-2 py-1 rounded text-[11px] text-foreground/40 hover:text-green-400 hover:bg-green-500/5 transition-colors"
+                className="flex items-center gap-1.5 mt-1.5 ml-2 px-2 py-1 rounded text-xs text-foreground/40 hover:text-green-400 hover:bg-green-500/5 transition-colors"
               >
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
@@ -320,7 +320,7 @@ export default memo(function SourceLayerRow({
             )}
 
             {destCount > 1 && (
-              <div className="text-[10px] text-foreground/25 mt-1.5 ml-2 italic">
+              <div className="text-xs text-foreground/25 mt-1.5 ml-2 italic">
                 Effects from this source will play on all {destCount} models.
               </div>
             )}
@@ -368,11 +368,11 @@ export default memo(function SourceLayerRow({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             {layer.isGroup && (
-              <span className="text-[9px] font-bold text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">
+              <span className="text-xs font-medium text-teal-400/70 bg-teal-500/10 px-1 py-0.5 rounded">
                 GRP
               </span>
             )}
-            <span className="text-[13px] font-semibold text-foreground truncate">
+            <span className="text-sm font-semibold text-foreground truncate">
               {name}
             </span>
             <EffectCountBadge count={layer.effectCount} />
@@ -391,7 +391,7 @@ export default memo(function SourceLayerRow({
           </div>
 
           {/* Meta line: type/pixels + scenario */}
-          <div className="flex items-center gap-1.5 text-[11px] text-foreground/30">
+          <div className="flex items-center gap-1.5 text-xs text-foreground/30">
             {isDropOver ? (
               <span className="text-green-400">
                 Drop to map &rarr; {draggedModelName || "your model"}
@@ -429,13 +429,13 @@ export default memo(function SourceLayerRow({
               className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 border border-green-500/25 text-green-400 hover:bg-green-500/[0.18] hover:text-green-300 transition-colors text-[12px]"
             >
               <span className="truncate">{bestSuggestion.model.name}</span>
-              <span className="text-green-400/60 text-[11px] flex-shrink-0">
+              <span className="text-green-400/60 text-xs flex-shrink-0">
                 {(bestSuggestion.score * 100).toFixed(0)}%
               </span>
             </button>
             {/* Match reasoning tooltip */}
             <div className="absolute right-0 top-full mt-1 z-50 hidden group-hover/tooltip:block">
-              <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2.5 text-[11px] w-52 animate-[fadeIn_0.1s_ease-out]">
+              <div className="bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-2.5 text-xs w-52 animate-[fadeIn_0.1s_ease-out]">
                 <div className="text-foreground/60 font-medium mb-2">Match factors:</div>
                 <div className="space-y-1">
                   <div className="flex justify-between">
@@ -463,7 +463,7 @@ export default memo(function SourceLayerRow({
                     </span>
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t border-zinc-700/50 text-[10px] text-foreground/30">
+                <div className="mt-2 pt-2 border-t border-zinc-700/50 text-xs text-foreground/30">
                   Click to apply this match
                 </div>
               </div>
@@ -473,7 +473,7 @@ export default memo(function SourceLayerRow({
 
         {/* No close matches */}
         {!isDropOver && (!bestSuggestion || bestSuggestion.score === 0) && (
-          <span className="text-[11px] text-foreground/20 flex-shrink-0">
+          <span className="text-xs text-foreground/20 flex-shrink-0">
             No close matches
           </span>
         )}
@@ -504,7 +504,7 @@ export default memo(function SourceLayerRow({
       {/* Expanded group cascade preview */}
       {hasGroupPreview && isExpanded && (
         <div className="px-3 pb-2.5 ml-6 animate-[slideDown_0.15s_ease-out]">
-          <div className="text-[11px] text-foreground/50 mb-1.5">
+          <div className="text-xs text-foreground/50 mb-1.5">
             Mapping resolves {coveredCount} of {layer.memberNames.length} children:
           </div>
 
@@ -518,7 +518,7 @@ export default memo(function SourceLayerRow({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               <span className="text-foreground/70 truncate">{child}</span>
-              <span className="text-foreground/30 text-[10px]">— covered by group</span>
+              <span className="text-foreground/30 text-xs">— covered by group</span>
             </div>
           ))}
 
@@ -532,13 +532,13 @@ export default memo(function SourceLayerRow({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               <span className="text-foreground/70 truncate">{child}</span>
-              <span className="text-amber-400/60 text-[10px]">— has solo effects, needs own mapping</span>
+              <span className="text-amber-400/60 text-xs">— has solo effects, needs own mapping</span>
             </div>
           ))}
 
           {/* Summary */}
           {soloCount > 0 && (
-            <div className="text-[10px] text-foreground/25 mt-1.5 italic">
+            <div className="text-xs text-foreground/25 mt-1.5 italic">
               {soloCount} member{soloCount > 1 ? "s" : ""} with individual effects will still need separate mapping.
             </div>
           )}

@@ -75,7 +75,7 @@ export function CurrentMappingCard({
             </svg>
           )}
           <span
-            className={`text-[10px] font-semibold ${labelColor} uppercase tracking-wider`}
+            className={`text-xs font-semibold ${labelColor} uppercase tracking-wider`}
           >
             {isSuggested ? "Suggested Match" : "Mapped To"}
           </span>
@@ -90,7 +90,7 @@ export function CurrentMappingCard({
                 <button
                   type="button"
                   onClick={onApprove}
-                  className="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
+                  className="px-1.5 py-0.5 text-xs font-medium rounded bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors"
                 >
                   Approve
                 </button>
@@ -101,7 +101,7 @@ export function CurrentMappingCard({
         <div className="space-y-1.5 ml-5.5">
           {item.assignedUserModels.map((m) => (
             <div key={m.name} className="flex items-center gap-2 group/dest">
-              <span className="text-[13px] font-semibold text-foreground truncate flex-1">
+              <span className="text-sm font-semibold text-foreground truncate flex-1">
                 {m.name}
               </span>
               <button
@@ -117,7 +117,7 @@ export function CurrentMappingCard({
           ))}
         </div>
         {item.coveredChildCount > 0 && (
-          <p className="text-[11px] text-teal-400/60 mt-1.5 ml-5.5">
+          <p className="text-xs text-teal-400/60 mt-1.5 ml-5.5">
             covers {item.coveredChildCount} children
           </p>
         )}
@@ -145,7 +145,7 @@ export function NotMappedBanner() {
             d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
           />
         </svg>
-        <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">
+        <span className="text-xs font-semibold text-foreground/30 uppercase tracking-wider">
           Not Mapped
         </span>
       </div>
@@ -174,7 +174,7 @@ export function ViewModePills({
           key={mode}
           type="button"
           onClick={() => onChange(mode)}
-          className={`px-3 py-1 text-[10px] font-semibold tracking-wide transition-colors ${
+          className={`px-3 py-1 text-xs font-semibold tracking-wide transition-colors ${
             value === mode
               ? "bg-foreground/10 text-foreground"
               : "bg-transparent text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5"
@@ -228,7 +228,7 @@ export function FilterPill({
     <button
       type="button"
       onClick={onClick}
-      className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${active ? c.active : c.inactive}`}
+      className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${active ? c.active : c.inactive}`}
     >
       {label}
     </button>
@@ -254,7 +254,7 @@ export function GhostMemberRow({ name }: { name: string }) {
       <StatusCheck status="covered" />
       <FxBadge count={0} />
       <span className="text-[12px] text-foreground/40 truncate">{name}</span>
-      <span className="text-[11px] text-foreground/30 italic text-right whitespace-nowrap">
+      <span className="text-xs text-foreground/30 italic text-right whitespace-nowrap">
         covered by group
       </span>
       <div style={{ width: 50 }} />
@@ -274,7 +274,7 @@ export function CollapsibleMembers({ members }: { members: string[] }) {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="text-[11px] text-foreground/40 hover:text-foreground/60 flex items-center gap-1 transition-colors"
+        className="text-xs text-foreground/40 hover:text-foreground/60 flex items-center gap-1 transition-colors"
       >
         <span>{members.length} members</span>
         <svg
@@ -296,7 +296,7 @@ export function CollapsibleMembers({ members }: { members: string[] }) {
           {members.map((member) => (
             <span
               key={member}
-              className="px-1.5 py-0.5 text-[10px] bg-foreground/5 text-foreground/40 rounded"
+              className="px-1.5 py-0.5 text-xs bg-foreground/5 text-foreground/40 rounded"
             >
               {member}
             </span>

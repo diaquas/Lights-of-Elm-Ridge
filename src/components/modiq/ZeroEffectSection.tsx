@@ -39,29 +39,29 @@ export function ZeroEffectSection({
         <span>
           0 Effects ({items.length} {phaseLabel})
         </span>
-        <span className="text-[10px] text-foreground/20">— no visual impact in sequence</span>
+        <span className="text-xs text-foreground/20">— no visual impact in sequence</span>
       </summary>
 
       <div className="mt-2 rounded-lg border border-border/50 bg-foreground/[0.01] overflow-hidden">
         {/* Info banner */}
         <div className="px-3 py-2 border-b border-border/30 bg-foreground/[0.02] flex items-center justify-between gap-2">
-          <p className="text-[11px] text-foreground/40">
+          <p className="text-xs text-foreground/40">
             These {phaseLabel} have no effects in this sequence and can safely be skipped.
           </p>
           {confirming ? (
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-[11px] text-amber-400">Skip {items.length}?</span>
+              <span className="text-xs text-amber-400">Skip {items.length}?</span>
               <button
                 type="button"
                 onClick={handleSkipAll}
-                className="px-2 py-0.5 text-[11px] font-medium bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors"
+                className="px-2 py-0.5 text-xs font-medium bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors"
               >
                 Yes
               </button>
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
-                className="px-2 py-0.5 text-[11px] text-foreground/40 hover:text-foreground/60 rounded transition-colors"
+                className="px-2 py-0.5 text-xs text-foreground/40 hover:text-foreground/60 rounded transition-colors"
               >
                 No
               </button>
@@ -70,7 +70,7 @@ export function ZeroEffectSection({
             <button
               type="button"
               onClick={handleSkipAll}
-              className="px-2.5 py-1 text-[11px] font-medium text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded transition-colors flex-shrink-0"
+              className="px-2.5 py-1 text-xs font-medium text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded transition-colors flex-shrink-0"
             >
               Skip All
             </button>
@@ -89,9 +89,9 @@ export function ZeroEffectSection({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
                 </svg>
                 <span className="text-[12px] truncate flex-1">{item.sourceModel.name}</span>
-                <span className="text-[10px] text-foreground/15">{item.sourceModel.type}</span>
+                <span className="text-xs text-foreground/15">{item.sourceModel.type}</span>
                 {item.sourceModel.pixelCount > 0 && (
-                  <span className="text-[10px] text-foreground/15 tabular-nums">{item.sourceModel.pixelCount}px</span>
+                  <span className="text-xs text-foreground/15 tabular-nums">{item.sourceModel.pixelCount}px</span>
                 )}
               </div>
             ))}

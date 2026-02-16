@@ -80,7 +80,7 @@ export default memo(function DraggableSourceCard({
 
       {/* Model name — flex:1 truncate */}
       <span
-        className={`text-[13px] font-medium truncate flex-1 min-w-0 ${
+        className={`text-sm font-medium truncate flex-1 min-w-0 ${
           isMapped ? "text-foreground/40" : "text-foreground/80"
         }`}
       >
@@ -91,13 +91,13 @@ export default memo(function DraggableSourceCard({
       </span>
 
       {/* Type badge */}
-      <span className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/5 text-foreground/40 flex-shrink-0 uppercase tracking-wide">
+      <span className="text-xs px-1.5 py-0.5 rounded bg-foreground/5 text-foreground/40 flex-shrink-0 uppercase tracking-wide">
         {typeLabel}
       </span>
 
       {/* Pixel count */}
       {!model.isGroup && (
-        <span className="text-[11px] text-foreground/30 flex-shrink-0 tabular-nums min-w-[36px] text-right">
+        <span className="text-xs text-foreground/30 flex-shrink-0 tabular-nums min-w-[36px] text-right">
           {model.pixelCount}px
         </span>
       )}

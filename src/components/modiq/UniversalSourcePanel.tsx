@@ -536,7 +536,7 @@ export function UniversalSourcePanel({
           />
         </div>
         {search && (
-          <p className="text-[10px] text-foreground/30 mt-1">
+          <p className="text-xs text-foreground/30 mt-1">
             Showing {filteredSuggestions.length + filteredModels.length} of{" "}
             {suggestions.length + availableModels.length}
           </p>
@@ -571,7 +571,7 @@ export function UniversalSourcePanel({
         {/* Swap source label when re-mapping an already-mapped item */}
         {excludeNames && excludeNames.size > 0 && (
           <div className="px-6 py-2 border-b border-border/50">
-            <span className="text-[10px] font-semibold text-foreground/30 uppercase tracking-wider">
+            <span className="text-xs font-semibold text-foreground/30 uppercase tracking-wider">
               Swap Source
             </span>
           </div>
@@ -579,7 +579,7 @@ export function UniversalSourcePanel({
         {/* AI Suggestions section */}
         {filteredSuggestions.length > 0 && (
           <div className="px-6 py-3 border-b border-border bg-surface/50">
-            <h4 className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wide mb-2">
+            <h4 className="text-xs font-semibold text-foreground/40 uppercase tracking-wide mb-2">
               AI Suggestions ({Math.min(filteredSuggestions.length, 5)})
             </h4>
             <div className="space-y-1.5">
@@ -618,7 +618,7 @@ export function UniversalSourcePanel({
                   {/* Display-Wide Super Groups */}
                   {hierarchyData.superGroups.length > 0 && (
                     <div className="mb-2">
-                      <div className="flex items-center gap-2 px-1 py-1 text-[10px] text-purple-400/60">
+                      <div className="flex items-center gap-2 px-1 py-1 text-xs text-purple-400/60">
                         <span className="font-bold uppercase tracking-wider">
                           Display-Wide
                         </span>
@@ -672,7 +672,7 @@ export function UniversalSourcePanel({
                     hierarchyData.regularGroups.length >
                     0 &&
                     hierarchyData.ungrouped.length > 0 && (
-                      <div className="flex items-center gap-2 py-1 text-[10px] text-foreground/25">
+                      <div className="flex items-center gap-2 py-1 text-xs text-foreground/25">
                         <div className="flex-1 h-px bg-border/40" />
                         <span className="uppercase tracking-wider font-semibold">
                           Ungrouped
@@ -735,7 +735,7 @@ export function UniversalSourcePanel({
                             d="M9 5l7 7-7 7"
                           />
                         </svg>
-                        <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
+                        <span className="text-sm font-semibold text-foreground/50 uppercase tracking-wider">
                           Unmapped
                         </span>
                         <span className="text-[12px] font-semibold text-foreground/35">
@@ -783,7 +783,7 @@ export function UniversalSourcePanel({
                             d="M9 5l7 7-7 7"
                           />
                         </svg>
-                        <span className="text-[13px] font-semibold text-foreground/50 uppercase tracking-wider">
+                        <span className="text-sm font-semibold text-foreground/50 uppercase tracking-wider">
                           Mapped
                         </span>
                         <span className="text-[12px] font-semibold text-foreground/35">
@@ -866,19 +866,19 @@ function FamilyRow({
           {family.prefix}
         </span>
 
-        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-foreground/8 text-foreground/40 font-semibold flex-shrink-0 tabular-nums">
+        <span className="text-xs px-1.5 py-0.5 rounded-full bg-foreground/8 text-foreground/40 font-semibold flex-shrink-0 tabular-nums">
           {family.models.length}
         </span>
       </button>
 
       {/* Type badge */}
-      <span className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 text-foreground/30 flex-shrink-0 uppercase tracking-wide">
+      <span className="text-xs px-1 py-0.5 rounded bg-foreground/5 text-foreground/30 flex-shrink-0 uppercase tracking-wide">
         {family.type.toUpperCase().slice(0, 6)}
       </span>
 
       {/* Pixel count */}
       {family.pixelCount > 0 && (
-        <span className="text-[10px] text-foreground/20 flex-shrink-0 tabular-nums">
+        <span className="text-xs text-foreground/20 flex-shrink-0 tabular-nums">
           {family.pixelCount}px
         </span>
       )}
@@ -886,7 +886,7 @@ function FamilyRow({
       {/* In-use count badge */}
       {family.inUseCount > 0 && (
         <span
-          className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 tabular-nums border ${
+          className={`text-xs px-1.5 py-0.5 rounded font-semibold flex-shrink-0 tabular-nums border ${
             family.inUseCount >= 2
               ? "bg-red-500/10 text-red-400/70 border-red-500/20"
               : "bg-amber-500/10 text-amber-400/70 border-amber-500/20"
@@ -984,13 +984,13 @@ const SuggestionCard = memo(function SuggestionCard({
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-[13px] font-medium text-foreground truncate">
+          <span className="text-sm font-medium text-foreground truncate">
             {sugg.model.name}
           </span>
         </div>
         <ConfidenceBadge score={sugg.score} reasoning={reasoning} size="sm" />
       </div>
-      <div className="flex items-center gap-2 text-[11px] text-foreground/40 mt-0.5">
+      <div className="flex items-center gap-2 text-xs text-foreground/40 mt-0.5">
         {sugg.model.pixelCount ? <span>{sugg.model.pixelCount}px</span> : null}
         <span>{sugg.model.type}</span>
         {memberCount > 0 && (
@@ -1107,14 +1107,14 @@ const ModelCard = memo(function ModelCard({
 
       {/* Member count for groups */}
       {memberCount > 0 && (
-        <span className="text-[10px] text-foreground/25 flex-shrink-0">
+        <span className="text-xs text-foreground/25 flex-shrink-0">
           {memberCount}m
         </span>
       )}
 
       {/* Type badge — with hierarchy icon for SUB, purple for SUPER */}
       <span
-        className={`text-[9px] px-1 py-0.5 rounded flex-shrink-0 uppercase tracking-wide ${
+        className={`text-xs px-1 py-0.5 rounded flex-shrink-0 uppercase tracking-wide ${
           typeLabel === "SUPER"
             ? "bg-purple-500/15 text-purple-400 font-bold"
             : typeLabel === "SUB"
@@ -1140,7 +1140,7 @@ const ModelCard = memo(function ModelCard({
 
       {/* Pixel count */}
       {model.pixelCount ? (
-        <span className="text-[10px] text-foreground/25 flex-shrink-0 tabular-nums">
+        <span className="text-xs text-foreground/25 flex-shrink-0 tabular-nums">
           {model.pixelCount}px
         </span>
       ) : null}
@@ -1272,11 +1272,11 @@ function HierarchyGroupRow({
           </svg>
         </span>
         {group.isSuperGroup ? (
-          <span className="px-1 py-px text-[9px] font-bold bg-purple-500/15 text-purple-400 rounded flex-shrink-0">
+          <span className="px-1 py-px text-xs font-medium bg-purple-500/15 text-purple-400 rounded flex-shrink-0">
             SUPER
           </span>
         ) : (
-          <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/15 text-blue-400 rounded flex-shrink-0">
+          <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-500/15 text-blue-400 rounded flex-shrink-0">
             GRP
           </span>
         )}
@@ -1285,7 +1285,7 @@ function HierarchyGroupRow({
         </span>
         <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
           <span
-            className={`text-[10px] font-semibold tabular-nums ${allMapped ? "text-green-400/60" : "text-foreground/40"}`}
+            className={`text-xs font-semibold tabular-nums ${allMapped ? "text-green-400/60" : "text-foreground/40"}`}
           >
             {group.mappedCount}/{group.members.length}
           </span>
@@ -1388,7 +1388,7 @@ function DestSortDropdown({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-1 px-2 py-1.5 text-[11px] font-medium rounded-lg border transition-colors ${
+        className={`flex items-center gap-1 px-2 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
           linked
             ? "text-foreground/40 bg-background border-border hover:border-foreground/20"
             : "text-accent/70 bg-accent/5 border-accent/20 hover:border-accent/30"
@@ -1443,7 +1443,7 @@ function DestSortDropdown({
                   onResetLink();
                   setOpen(false);
                 }}
-                className="w-full text-left px-3 py-1.5 text-[11px] text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
+                className="w-full text-left px-3 py-1.5 text-xs text-foreground/40 hover:text-foreground/60 hover:bg-foreground/5 transition-colors"
               >
                 Re-link to source sort
               </button>
@@ -1473,7 +1473,7 @@ function SkippedDestSection({
       <button
         type="button"
         onClick={() => setExpanded((p) => !p)}
-        className="flex items-center gap-2 text-[11px] text-foreground/30 hover:text-foreground/50 transition-colors"
+        className="flex items-center gap-2 text-xs text-foreground/30 hover:text-foreground/50 transition-colors"
       >
         <svg
           className={`w-3 h-3 transition-transform ${expanded ? "rotate-90" : ""}`}
@@ -1501,14 +1501,14 @@ function SkippedDestSection({
               <span className="text-[12px] text-foreground/50 truncate flex-1 min-w-0">
                 {model.name}
               </span>
-              <span className="text-[9px] px-1 py-0.5 rounded bg-foreground/5 text-foreground/20 flex-shrink-0 uppercase">
+              <span className="text-xs px-1 py-0.5 rounded bg-foreground/5 text-foreground/20 flex-shrink-0 uppercase">
                 {model.type.toUpperCase().slice(0, 6)}
               </span>
               {onRestore && (
                 <button
                   type="button"
                   onClick={() => onRestore(model.name)}
-                  className="text-[10px] text-accent/60 hover:text-accent transition-colors flex-shrink-0"
+                  className="text-xs text-accent/60 hover:text-accent transition-colors flex-shrink-0"
                 >
                   Restore
                 </button>
@@ -1520,7 +1520,7 @@ function SkippedDestSection({
             <button
               type="button"
               onClick={onRestoreAll}
-              className="mt-1 text-[10px] text-accent/40 hover:text-accent/70 transition-colors"
+              className="mt-1 text-xs text-accent/40 hover:text-accent/70 transition-colors"
             >
               Restore all {skippedModels.length} skipped items
             </button>

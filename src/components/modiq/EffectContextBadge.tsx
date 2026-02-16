@@ -30,7 +30,7 @@ export default memo(function EffectContextBadge({
 function InlineBadge({ context }: { context: EffectSuggestionContext }) {
   if (context.hasSignatureEffects) {
     return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/15 border border-purple-500/25 rounded text-[10px] text-purple-300 font-medium">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-purple-500/15 border border-purple-500/25 rounded text-xs text-purple-300 font-medium">
         <svg className="h-2.5 w-2.5" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 1l2 5h5l-4 3.5 1.5 5L8 11.5 3.5 14.5 5 9.5 1 6h5z" />
         </svg>
@@ -41,7 +41,7 @@ function InlineBadge({ context }: { context: EffectSuggestionContext }) {
 
   if (context.complexityLevel === "high") {
     return (
-      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/15 border border-blue-500/25 rounded text-[10px] text-blue-300 font-medium">
+      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/15 border border-blue-500/25 rounded text-xs text-blue-300 font-medium">
         {context.topEffects.length} effect types
       </span>
     );
@@ -64,7 +64,7 @@ function CardBadge({ context }: { context: EffectSuggestionContext }) {
             <path d="M8 1l2 5h5l-4 3.5 1.5 5L8 11.5 3.5 14.5 5 9.5 1 6h5z" />
           </svg>
         )}
-        <span className="text-[11px] font-medium text-foreground/70">
+        <span className="text-xs font-medium text-foreground/70">
           Effects Preview
         </span>
       </div>
@@ -74,7 +74,7 @@ function CardBadge({ context }: { context: EffectSuggestionContext }) {
         {context.topEffects.map((effect) => (
           <span
             key={effect.name}
-            className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${getCategoryStyle(effect.category)}`}
+            className={`px-1.5 py-0.5 rounded text-xs font-medium ${getCategoryStyle(effect.category)}`}
           >
             {effect.name}{" "}
             <span className="opacity-60">&times;{effect.count}</span>
@@ -83,7 +83,7 @@ function CardBadge({ context }: { context: EffectSuggestionContext }) {
       </div>
 
       {/* Summary */}
-      <p className="text-[10px] text-foreground/40 leading-tight">
+      <p className="text-xs text-foreground/40 leading-tight">
         {context.summary}
       </p>
     </div>

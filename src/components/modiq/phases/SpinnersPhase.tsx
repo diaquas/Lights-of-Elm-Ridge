@@ -604,7 +604,7 @@ export function SpinnersPhase() {
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
         {/* Header bar with progress stats */}
         <div className="flex items-center gap-4 px-4 py-2.5 bg-surface/80 border-b border-border flex-shrink-0">
-          <span className="text-[11px] text-foreground/50 font-mono">
+          <span className="text-xs text-foreground/50 font-mono">
             SUB-GROUPS{" "}
             <span className="text-accent font-bold">
               {mappedCount}/{mappedCount + unmappedCount}
@@ -619,11 +619,11 @@ export function SpinnersPhase() {
               }}
             />
           </div>
-          <span className="text-[11px] text-foreground/50 font-mono">
+          <span className="text-xs text-foreground/50 font-mono">
             Mapped:{" "}
             <span className="text-green-400 font-semibold">{mappedCount}</span>
           </span>
-          <span className="text-[11px] text-foreground/50 font-mono">
+          <span className="text-xs text-foreground/50 font-mono">
             Unmapped:{" "}
             <span className="text-blue-400 font-semibold">{unmappedCount}</span>
           </span>
@@ -633,7 +633,14 @@ export function SpinnersPhase() {
         <div className="flex items-center px-4 py-2 flex-shrink-0">
           <h2 className="text-base font-semibold text-foreground leading-tight">
             Submodel Groups
-          </h2>
+          </h1>
+          <button
+            type="button"
+            onClick={goToNextPhase}
+            className="text-sm font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
+          >
+            Continue to Display Coverage &rarr;
+          </button>
         </div>
 
         {/* View mode + Filter pills */}
@@ -677,7 +684,7 @@ export function SpinnersPhase() {
                     setShowAllModels((v) => !v);
                     setSortVersion((v) => v + 1);
                   }}
-                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                     showAllModels
                       ? "border-accent/40 bg-accent/10 text-accent"
                       : "border-border text-foreground/40 hover:text-foreground/60"
@@ -738,7 +745,7 @@ export function SpinnersPhase() {
         <div className={PANEL_STYLES.scrollArea}>
           {/* Expand/Collapse All (only in "all" view with expandable spinners) */}
           {viewMode === "all" && parentModelList.length > 0 && (
-            <div className="flex items-center gap-3 px-4 pb-1.5 text-[10px] text-foreground/30">
+            <div className="flex items-center gap-3 px-4 pb-1.5 text-xs text-foreground/30">
               <button
                 type="button"
                 onClick={() => {
@@ -847,7 +854,7 @@ export function SpinnersPhase() {
                           {/* Type */}
                           <TypeBadge type="GRP" />
                           {/* Name */}
-                          <span className="text-[13px] font-semibold text-foreground truncate">
+                          <span className="text-sm font-semibold text-foreground truncate">
                             {spinner.name}
                             {stats && (
                               <span className="text-foreground/30 font-normal ml-1">
@@ -969,7 +976,7 @@ export function SpinnersPhase() {
                           <FxBadge count={totalFx} />
                           <div />
                           <TypeBadge type="GRP" />
-                          <span className="text-[13px] font-semibold text-foreground truncate">
+                          <span className="text-sm font-semibold text-foreground truncate">
                             {spinner.name}
                             {stats && (
                               <span className="text-foreground/30 font-normal ml-1">
@@ -1044,7 +1051,7 @@ export function SpinnersPhase() {
           </div>
 
           {interactive.hiddenZeroEffectCount > 0 && (
-            <p className="mt-4 text-[11px] text-foreground/25 text-center">
+            <p className="mt-4 text-xs text-foreground/25 text-center">
               {interactive.hiddenZeroEffectCount} model
               {interactive.hiddenZeroEffectCount === 1 ? "" : "s"} with 0
               effects not shown &mdash; no visual impact in this sequence
@@ -1061,7 +1068,7 @@ export function SpinnersPhase() {
 
           {skippedItems.length > 0 && (
             <details className="mt-4 px-4">
-              <summary className="text-[11px] text-foreground/25 cursor-pointer hover:text-foreground/40">
+              <summary className="text-xs text-foreground/25 cursor-pointer hover:text-foreground/40">
                 {skippedItems.length} skipped
               </summary>
               <div className="mt-2 space-y-1">
@@ -1078,7 +1085,7 @@ export function SpinnersPhase() {
                       onClick={() =>
                         interactive.unskipSourceLayer(item.sourceModel.name)
                       }
-                      className="text-[10px] text-accent/50 hover:text-accent transition-colors flex-shrink-0"
+                      className="text-xs text-accent/50 hover:text-accent transition-colors flex-shrink-0"
                     >
                       Restore
                     </button>
@@ -1101,7 +1108,7 @@ export function SpinnersPhase() {
                   className={`w-2.5 h-2.5 rounded-sm ${item.color}`}
                   style={{ opacity: 0.85 }}
                 />
-                <span className="text-[11px] text-foreground/40">
+                <span className="text-xs text-foreground/40">
                   {item.label}
                 </span>
               </div>
@@ -1118,14 +1125,14 @@ export function SpinnersPhase() {
             <div className={PANEL_STYLES.header.wrapper}>
               <div className="flex items-center gap-2">
                 <span
-                  className={`px-1.5 py-0.5 text-[10px] font-bold ${TYPE_BADGE_COLORS.SUB} rounded`}
+                  className={`px-1.5 py-0.5 text-xs font-medium ${TYPE_BADGE_COLORS.SUB} rounded`}
                 >
                   SUB
                 </span>
                 <h3 className="text-sm font-semibold text-foreground truncate">
                   {selectedItem.sourceModel.name}
                 </h3>
-                <span className="text-[11px] text-foreground/30 ml-auto flex-shrink-0">
+                <span className="text-xs text-foreground/30 ml-auto flex-shrink-0">
                   {selectedItem.effectCount} fx &middot;{" "}
                   {selectedItem.memberNames.length} members
                 </span>
@@ -1397,13 +1404,13 @@ function SubmodelCard({
               e.stopPropagation();
               onAccept(topSuggestion.model.name);
             }}
-            className="text-[11px] text-foreground/30 hover:text-accent transition-colors"
+            className="text-xs text-foreground/30 hover:text-accent transition-colors"
             title={`Accept: ${topSuggestion.model.name}`}
           >
             + Assign
           </button>
         ) : (
-          <span className="text-[11px] text-foreground/20">+ Assign</span>
+          <span className="text-xs text-foreground/20">+ Assign</span>
         )}
       </div>
       {/* Col 6: Row actions (hover) */}
@@ -1525,14 +1532,14 @@ function SectionDivider({
               d="M9 5l7 7-7 7"
             />
           </svg>
-          <span className="text-[10px] font-bold text-teal-400 uppercase tracking-[0.1em] font-mono">
+          <span className="text-xs font-bold text-teal-400 uppercase tracking-[0.1em] font-mono">
             {header}
           </span>
-          <span className="text-[10px] text-foreground/30 font-mono">
+          <span className="text-xs text-foreground/30 font-mono">
             ({items.length})
           </span>
           <span
-            className={`text-[10px] tabular-nums flex-shrink-0 ${mappedInSection >= items.length ? "text-teal-400/50" : "text-foreground/30"}`}
+            className={`text-xs tabular-nums flex-shrink-0 ${mappedInSection >= items.length ? "text-teal-400/50" : "text-foreground/30"}`}
           >
             {mappedInSection}/{items.length}
           </span>

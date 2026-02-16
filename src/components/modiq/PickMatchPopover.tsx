@@ -105,10 +105,10 @@ export default memo(function PickMatchPopover({
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
-  // Close on Escape / Tab
+  // Close on Escape only; Tab is handled by focus trap below
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Tab") {
+      if (e.key === "Escape") {
         e.preventDefault();
         onClose();
       }
@@ -116,6 +116,32 @@ export default memo(function PickMatchPopover({
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  // Focus trap: cycle Tab within the popover (input → list → skip button)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || !popoverRef.current) return;
+      const focusable = popoverRef.current.querySelectorAll<HTMLElement>(
+        'input, button, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   // Focus input on mount
   useEffect(() => {
@@ -273,7 +299,7 @@ export default memo(function PickMatchPopover({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="w-full h-8 pl-8 pr-3 text-[13px] bg-zinc-800 border border-zinc-700 rounded text-zinc-200 outline-none focus:border-zinc-500 placeholder:text-zinc-500"
+              className="w-full h-8 pl-8 pr-3 text-sm bg-zinc-800 border border-zinc-700 rounded text-zinc-200 outline-none focus:border-zinc-500 placeholder:text-zinc-500"
             />
           </div>
         </div>
@@ -283,7 +309,7 @@ export default memo(function PickMatchPopover({
           {/* Suggestions section — green themed */}
           {filteredSuggestions.length > 0 && (
             <>
-              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-green-400 sticky top-0 bg-[#141414]">
+              <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-green-400 sticky top-0 bg-[#141414]">
                 Suggestions
               </div>
               {filteredSuggestions.map((s, i) => {
@@ -302,13 +328,13 @@ export default memo(function PickMatchPopover({
                         : "hover:bg-green-500/[0.05]"
                     }`}
                   >
-                    <span className="text-[13px] font-medium text-green-400 truncate flex-1">
+                    <span className="text-sm font-medium text-green-400 truncate flex-1">
                       {s.model.name}
                     </span>
-                    <span className="text-[11px] text-green-400/60 flex-shrink-0 min-w-[48px] text-right tabular-nums">
+                    <span className="text-xs text-green-400/60 flex-shrink-0 min-w-[48px] text-right tabular-nums">
                       {s.model.pixelCount}px
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-500/[0.08] text-green-400/70 border border-green-500/15 uppercase tracking-wide flex-shrink-0">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/[0.08] text-green-400/70 border border-green-500/15 uppercase tracking-wide flex-shrink-0">
                       {s.model.isGroup ? "GRP" : s.model.type}
                     </span>
                     <span className="text-[12px] font-semibold text-green-400 flex-shrink-0 min-w-[32px] text-right tabular-nums">
@@ -323,7 +349,7 @@ export default memo(function PickMatchPopover({
           {/* All available section — neutral */}
           {filteredAvailable.length > 0 && (
             <>
-              <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 sticky top-0 bg-[#141414]">
+              <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500 sticky top-0 bg-[#141414]">
                 All Available
               </div>
               {filteredAvailable.map((m, i) => {
@@ -342,13 +368,13 @@ export default memo(function PickMatchPopover({
                         : "hover:bg-zinc-800/50"
                     }`}
                   >
-                    <span className="text-[13px] text-zinc-200 truncate flex-1">
+                    <span className="text-sm text-zinc-200 truncate flex-1">
                       {m.name}
                     </span>
-                    <span className="text-[11px] text-zinc-500 flex-shrink-0 min-w-[48px] text-right tabular-nums">
+                    <span className="text-xs text-zinc-500 flex-shrink-0 min-w-[48px] text-right tabular-nums">
                       {m.pixelCount}px
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 uppercase tracking-wide flex-shrink-0">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400 uppercase tracking-wide flex-shrink-0">
                       {m.isGroup ? "GRP" : m.type}
                     </span>
                   </button>
@@ -358,7 +384,7 @@ export default memo(function PickMatchPopover({
           )}
 
           {allItems.length === 0 && (
-            <div className="px-3 py-6 text-center text-[13px] text-zinc-500">
+            <div className="px-3 py-6 text-center text-sm text-zinc-500">
               No available models
             </div>
           )}

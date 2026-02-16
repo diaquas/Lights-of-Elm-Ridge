@@ -12,6 +12,7 @@ export function PhaseNavigation() {
     canGoPrevious,
     focusMode,
     toggleFocusMode,
+    interactive,
   } = useMappingPhase();
 
   const phaseIndex = PHASE_CONFIG.findIndex((p) => p.id === currentPhase);
@@ -50,11 +51,25 @@ export function PhaseNavigation() {
         Back
       </button>
 
-      {/* Focus mode toggle */}
+      {/* Undo + Focus mode */}
+      <div className="flex items-center gap-2">
+        {interactive.canUndo && (
+          <button
+            type="button"
+            onClick={interactive.undo}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium text-foreground/50 hover:text-foreground/80 hover:bg-foreground/5 border border-transparent hover:border-border transition-all"
+            title="Undo last action (Ctrl+Z)"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
+            </svg>
+            Undo
+          </button>
+        )}
       <button
         type="button"
         onClick={toggleFocusMode}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5 border border-transparent hover:border-border transition-all"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5 border border-transparent hover:border-border transition-all"
         title={focusMode ? "Exit Focus View (Esc)" : "Focus View"}
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,6 +81,7 @@ export function PhaseNavigation() {
         </svg>
         {focusMode ? "Exit Focus" : "Focus View"}
       </button>
+      </div>
 
       {/* Next / Export Button */}
       {currentPhase === "review" ? (

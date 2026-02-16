@@ -5,6 +5,8 @@ import { IndividualsPhase } from "./phases/IndividualsPhase";
 import { SpinnersPhase } from "./phases/SpinnersPhase";
 import { FinalizePhase } from "./phases/FinalizePhase";
 import { ReviewPhase, type ReviewPhaseProps } from "./phases/ReviewPhase";
+import { CoachMarkOverlay } from "./CoachMarkOverlay";
+import { KeyboardShortcutBar } from "./KeyboardShortcutBar";
 
 interface PhaseContainerProps {
   /** Props forwarded to ReviewPhase (export handlers, titles, etc.) */
@@ -13,6 +15,8 @@ interface PhaseContainerProps {
 
 export function PhaseContainer({ reviewProps }: PhaseContainerProps) {
   const { currentPhase } = useMappingPhase();
+
+  const isMappingPhase = currentPhase !== "review";
 
   let content: React.ReactNode;
   switch (currentPhase) {
@@ -30,5 +34,11 @@ export function PhaseContainer({ reviewProps }: PhaseContainerProps) {
       break;
   }
 
-  return <div className="h-full overflow-hidden">{content}</div>;
+  return (
+    <div className="h-full overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 overflow-hidden">{content}</div>
+      {isMappingPhase && <KeyboardShortcutBar />}
+      {isMappingPhase && <CoachMarkOverlay />}
+    </div>
+  );
 }

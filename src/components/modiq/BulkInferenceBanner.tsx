@@ -35,7 +35,7 @@ export function BulkInferenceBanner({
         </svg>
 
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-medium text-blue-300">
+          <p className="text-sm font-medium text-blue-300">
             Pattern Detected
           </p>
           <p className="text-[12px] text-foreground/50 mt-0.5">
@@ -52,7 +52,7 @@ export function BulkInferenceBanner({
             {preview.map((pair) => (
               <div
                 key={pair.sourceName}
-                className="flex items-center gap-1.5 text-[11px] text-foreground/40"
+                className="flex items-center gap-1.5 text-xs text-foreground/40"
               >
                 <span className="truncate">{pair.sourceName}</span>
                 <span className="text-foreground/20 flex-shrink-0">&rarr;</span>
@@ -60,7 +60,7 @@ export function BulkInferenceBanner({
               </div>
             ))}
             {remaining > 0 && (
-              <p className="text-[11px] text-foreground/25">
+              <p className="text-xs text-foreground/25">
                 +{remaining} more
               </p>
             )}

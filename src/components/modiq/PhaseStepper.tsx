@@ -127,7 +127,7 @@ export function PhaseStepper({ progressState, onOpenProgressModal }: PhaseSteppe
         <div className="flex items-center gap-1">
           {/* Upload Step (always completed) */}
           <div className="flex items-center">
-            <div className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full text-[13px] font-medium bg-green-500/15 text-green-400 min-h-[2.5rem] min-w-[7rem] text-center">
+            <div className="flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm font-medium bg-green-500/15 text-green-400 min-h-[2.5rem] min-w-[7rem] text-center">
               {CHECK_ICON}
               <span>{UPLOAD_STEP.label}</span>
             </div>
@@ -147,7 +147,7 @@ export function PhaseStepper({ progressState, onOpenProgressModal }: PhaseSteppe
                   type="button"
                   onClick={() => setCurrentPhase(phase.id)}
                   className={`
-                    flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full text-[13px] font-medium
+                    flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-full text-sm font-medium
                     min-h-[2.5rem] min-w-[7rem] text-center whitespace-normal
                     transition-all duration-200
                     ${isComplete ? "bg-green-500/15 text-green-400 hover:bg-green-500/25" : ""}
@@ -160,7 +160,7 @@ export function PhaseStepper({ progressState, onOpenProgressModal }: PhaseSteppe
                   {count > 0 && phase.id !== "review" && phase.id !== "finalize" && (
                     <span
                       className={`
-                        text-[10px] px-1.5 py-0.5 rounded-full font-semibold
+                        text-xs px-1.5 py-0.5 rounded-full font-semibold
                         ${isComplete ? "bg-green-500/20 text-green-400" : ""}
                         ${isCurrent ? "bg-accent/20 text-accent" : ""}
                         ${isPending ? "bg-foreground/10 text-foreground/30" : ""}
@@ -258,10 +258,10 @@ const StatusSummaryBar = memo(function StatusSummaryBar({
             <div className="flex items-center justify-between mb-1">
               <span className="text-[12px] text-foreground/50">Models Mapped</span>
               <div className="flex items-center gap-1.5">
-                <span className={`text-[13px] font-bold tabular-nums ${displayColor}`}>
+                <span className={`text-sm font-bold tabular-nums ${displayColor}`}>
                   {state.display.percent}%
                 </span>
-                <span className="text-[11px] text-foreground/35 tabular-nums">
+                <span className="text-xs text-foreground/35 tabular-nums">
                   ({state.display.current}/{state.display.total})
                 </span>
               </div>
@@ -284,10 +284,10 @@ const StatusSummaryBar = memo(function StatusSummaryBar({
             <div className="flex items-center justify-between mb-1">
               <span className="text-[12px] text-foreground/50">Effects Covered</span>
               <div className="flex items-center gap-1.5">
-                <span className={`text-[13px] font-bold tabular-nums ${effectsColor}`}>
+                <span className={`text-sm font-bold tabular-nums ${effectsColor}`}>
                   {state.effects.percent}%
                 </span>
-                <span className="text-[11px] text-foreground/35 tabular-nums">
+                <span className="text-xs text-foreground/35 tabular-nums">
                   ({formatCompact(state.effects.current)}/{formatCompact(state.effects.total)})
                 </span>
               </div>

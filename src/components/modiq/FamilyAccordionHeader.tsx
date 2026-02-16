@@ -34,7 +34,7 @@ export function FamilyAccordionHeader({
           />
         </svg>
         <span className="font-medium truncate">{prefix}</span>
-        <span className="px-1.5 py-0.5 text-[10px] bg-foreground/8 text-foreground/40 rounded flex-shrink-0">
+        <span className="px-1.5 py-0.5 text-xs bg-foreground/8 text-foreground/40 rounded flex-shrink-0">
           {count}
         </span>
       </button>
