@@ -245,7 +245,7 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     r2Url: "https://downloads.lightsofelmridge.com/Paid/DARKSIDE.zip",
     amazonMusicUrl:
       "https://amazon.com/music/player/albums/B08QTNVB1R?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_vKjKctjtIwdANSNwvz788cqu6&trackAsin=B08QVFLFZ6",
-    youtubeId: "1uFyRa5Xr7c",
+    youtubeId: "fYPAyyLSVwg",
     artworkUrl:
       "https://i1.sndcdn.com/artworks-0mT77eZFtmNZcS4e-F6Ds8Q-t500x500.jpg",
     models: [
