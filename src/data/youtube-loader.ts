@@ -73,8 +73,12 @@ export function findMockupForSequence(
   // Strategy 1: Check if video title contains the slug
   for (const video of mockups) {
     const videoSlug = titleToSlug(video.title);
-    if (videoSlug.includes(sequenceSlug) || sequenceSlug.includes(videoSlug)) {
-      return video;
+    // Only match if the shorter slug is at least MIN_MATCH_LENGTH chars
+    const shorterLength = Math.min(videoSlug.length, sequenceSlug.length);
+    if (shorterLength >= MIN_MATCH_LENGTH) {
+      if (videoSlug.includes(sequenceSlug) || sequenceSlug.includes(videoSlug)) {
+        return video;
+      }
     }
   }
 
