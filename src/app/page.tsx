@@ -173,26 +173,23 @@ export default function Home() {
             </div>
           </Link>
 
-          {/* Spooky Scary Skeletons - has mockup video and r2Url (FREE) */}
-          <Link
-            href="/sequences/spooky-scary-skeletons"
-            className="latest-card"
-          >
+          {/* Darkside - has r2Url and amazonMusicUrl */}
+          <Link href="/sequences/darkside" className="latest-card">
             <div className="latest-card-thumb">
               <Image
-                src="/spookymain.png"
-                alt="Spooky Scary Skeletons by Andrew Gold"
+                src="https://i1.sndcdn.com/artworks-0mT77eZFtmNZcS4e-F6Ds8Q-t500x500.jpg"
+                alt="Darkside by Neoni"
                 width={300}
                 height={300}
                 className="latest-card-img"
                 unoptimized
               />
-              <span className="latest-card-badge badge-free">Free</span>
+              <span className="latest-card-badge badge-new">New</span>
             </div>
             <div className="latest-card-body">
-              <div className="latest-card-title">Spooky Scary Skeletons</div>
-              <div className="latest-card-artist">Andrew Gold</div>
-              <div className="latest-card-price">Free</div>
+              <div className="latest-card-title">Darkside</div>
+              <div className="latest-card-artist">Neoni</div>
+              <div className="latest-card-price">$20</div>
             </div>
           </Link>
         </div>

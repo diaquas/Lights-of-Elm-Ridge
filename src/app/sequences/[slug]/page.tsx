@@ -492,6 +492,17 @@ export default async function SequencePage({ params }: PageProps) {
                     What&apos;s Included
                   </h2>
                   <ul className="space-y-2 text-foreground/70">
+                    <li className="flex items-center gap-2">
+                      <Image
+                        src="/modiq-wordmark-v3-full.png"
+                        alt="Mod:IQ"
+                        width={20}
+                        height={20}
+                        className="w-5 h-5 object-contain"
+                        unoptimized
+                      />
+                      Mod:IQ auto-mapping
+                    </li>
                     {sequence.fileFormats.map((format) => (
                       <li key={format} className="flex items-center gap-2">
                         <svg
@@ -524,7 +535,7 @@ export default async function SequencePage({ params }: PageProps) {
                           d="M5 13l4 4L19 7"
                         />
                       </svg>
-                      Lifetime access to download
+                      All Videos
                     </li>
                     <li className="flex items-center gap-2">
                       <svg
@@ -540,7 +551,23 @@ export default async function SequencePage({ params }: PageProps) {
                           d="M5 13l4 4L19 7"
                         />
                       </svg>
-                      Compatible with xLights {sequence.xlightsVersion}
+                      All Images
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <svg
+                        className="w-5 h-5 text-green-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      Lifetime access to download
                     </li>
                   </ul>
                 </div>
