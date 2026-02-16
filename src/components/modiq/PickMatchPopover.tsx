@@ -105,10 +105,10 @@ export default memo(function PickMatchPopover({
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
-  // Close on Escape / Tab
+  // Close on Escape only; Tab is handled by focus trap below
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" || e.key === "Tab") {
+      if (e.key === "Escape") {
         e.preventDefault();
         onClose();
       }
@@ -116,6 +116,32 @@ export default memo(function PickMatchPopover({
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  // Focus trap: cycle Tab within the popover (input → list → skip button)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Tab" || !popoverRef.current) return;
+      const focusable = popoverRef.current.querySelectorAll<HTMLElement>(
+        'input, button, [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   // Focus input on mount
   useEffect(() => {

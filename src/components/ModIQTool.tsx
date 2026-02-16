@@ -66,6 +66,11 @@ import { ProgressTrackerProvider } from "@/components/modiq/ProgressTrackerProvi
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
 import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
 import { useModiqSessions } from "@/hooks/useModiqSessions";
+import {
+  useSessionPersistence,
+  useSessionRestore,
+  type PersistedSession,
+} from "@/hooks/useSessionPersistence";
 
 type Step = "input" | "processing" | "results" | "exported";
 type MapFromMode = "elm-ridge" | "other-vendor";
@@ -494,6 +499,12 @@ export default function ModIQTool() {
     setProcessingSteps([]);
     setSourceModels([]);
     setExportFileName("");
+    // Clear local session backup
+    try {
+      localStorage.removeItem("modiq_session");
+    } catch {
+      // ignore
+    }
   }, []);
 
   return (
@@ -1895,6 +1906,47 @@ function InteractiveResults({
     sessionIdRef,
   ]);
 
+  // Auto-save mapping state to localStorage (backup for non-authed users / tab close)
+  const { clearSavedSession } = useSessionPersistence(
+    selectedSequence,
+    interactive.getSerializedState,
+    [
+      interactive.mappedLayerCount,
+      interactive.skippedLayerCount,
+      interactive.effectsCoverage.percent,
+    ],
+  );
+
+  // Check for a restorable session from localStorage
+  const {
+    pendingRestore,
+    dismiss: dismissRestore,
+    clearAndDismiss: clearAndDismissRestore,
+  } = useSessionRestore(selectedSequence);
+
+  // Apply restored session state (one-time replay of saved links)
+  const didRestore = useRef(false);
+  const applyRestore = useCallback(
+    (session: PersistedSession) => {
+      if (didRestore.current) return;
+      didRestore.current = true;
+      // Replay source→dest links
+      for (const [sourceName, destNames] of Object.entries(
+        session.state.sourceDestLinks,
+      )) {
+        for (const destName of destNames) {
+          interactive.assignUserModelToLayer(sourceName, destName);
+        }
+      }
+      // Replay skipped source layers
+      for (const sourceName of session.state.skipped) {
+        interactive.skipSourceLayer(sourceName);
+      }
+      dismissRestore();
+    },
+    [interactive, dismissRestore],
+  );
+
   const dnd = useDragAndDrop();
   const telemetry = useMappingTelemetry(selectedSequence);
   const { toasts, showCascadeToast, dismissToast } = useCascadeToasts();
@@ -2288,6 +2340,8 @@ function InteractiveResults({
         groupsCoveredChildCount: interactive.groupsCoveredChildCount,
         directMappedCount: interactive.directMappedCount,
       });
+      // Clear local session backup after successful export
+      clearSavedSession();
     },
     [
       interactive,
@@ -2300,6 +2354,7 @@ function InteractiveResults({
       onExported,
       destModels,
       effectTree,
+      clearSavedSession,
     ],
   );
 
@@ -2426,6 +2481,39 @@ function InteractiveResults({
   return (
     <MappingPhaseProvider interactive={interactive} focusMode={focusMode} toggleFocusMode={toggleFocusMode}>
       <div className={focusMode ? "fixed inset-0 z-50 bg-background flex flex-col" : "space-y-0"}>
+        {/* ── Session Restore Banner ── */}
+        {pendingRestore && !didRestore.current && (
+          <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 mb-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <svg className="w-5 h-5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="text-sm">
+                <span className="font-medium text-foreground">Unfinished mapping found</span>
+                <span className="text-foreground/50 ml-1">
+                  — saved {new Date(pendingRestore.savedAt).toLocaleString()}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => applyRestore(pendingRestore)}
+                className="text-[13px] font-semibold px-4 py-1.5 rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors"
+              >
+                Resume
+              </button>
+              <button
+                type="button"
+                onClick={clearAndDismissRestore}
+                className="text-[13px] px-3 py-1.5 rounded-lg text-foreground/50 hover:text-foreground hover:bg-foreground/5 transition-colors"
+              >
+                Start Fresh
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Focus Mode: Global Coverage Bar ── */}
         {focusMode && (
           <GlobalFocusBar
