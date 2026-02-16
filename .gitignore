@@ -41,3 +41,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env.local
+
+# workspace package build artifacts
+packages/*/dist/
+packages/*/build/
+packages/*/.turbo/

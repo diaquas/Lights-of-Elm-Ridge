@@ -19,7 +19,11 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@lightsofelmridge/xlights-file-gen": ["./packages/xlights-file-gen/src"],
+      "@lightsofelmridge/xlights-file-gen/*": ["./packages/xlights-file-gen/src/*"],
+      "@lightsofelmridge/xwire": ["./packages/xwire/src"],
+      "@lightsofelmridge/xwire/*": ["./packages/xwire/src/*"]
     }
   },
   "include": [
