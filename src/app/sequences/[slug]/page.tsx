@@ -481,133 +481,286 @@ export default async function SequencePage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Detailed Info Sections */}
+          {/* Detailed Info Sections — Redesigned Cards */}
           <div className="max-w-[1100px] mx-auto px-4 md:px-8">
-            <div className="grid md:grid-cols-2 gap-8 mb-16">
-              {/* Left Column: What's Included + Props & Models */}
-              <div className="flex flex-col gap-6">
-                {/* What's Included */}
-                <div className="bg-surface rounded-xl p-6 border border-border">
-                  <h2 className="text-xl font-bold mb-4">
-                    What&apos;s Included
-                  </h2>
-                  <ul className="space-y-2 text-foreground/70">
-                    <li className="flex items-center gap-2">
-                      <Image
-                        src="/modiq-wordmark-v3-full.png"
-                        alt="Mod:IQ"
-                        width={20}
-                        height={20}
-                        className="w-5 h-5 object-contain"
-                        unoptimized
-                      />
-                      Mod:IQ auto-mapping
-                    </li>
-                    {sequence.fileFormats.map((format) => (
-                      <li key={format} className="flex items-center gap-2">
-                        <svg
-                          className="w-5 h-5 text-green-500"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                        {format}
-                      </li>
-                    ))}
-                    <li className="flex items-center gap-2">
-                      <svg
-                        className="w-5 h-5 text-green-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      All Videos
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <svg
-                        className="w-5 h-5 text-green-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      All Images
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <svg
-                        className="w-5 h-5 text-green-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                      Lifetime access to download
-                    </li>
-                  </ul>
-                </div>
+            {/* ═══ Card 1: Works With Your Display (full width) ═══ */}
+            <div className="bg-[#151518] rounded-[14px] p-6 md:p-8 border border-[#27272a] mb-6">
+              <h2 className="font-display text-xl md:text-2xl font-bold text-[#f4f4f5] mb-1">
+                Works With Your Display
+              </h2>
+              <p className="text-[13.5px] text-[#a1a1aa] mb-6">
+                This sequence was built for these props. Don&apos;t have an
+                exact match? Mod:IQ adapts it.
+              </p>
 
-                {/* Props/Models */}
-                <div className="bg-surface rounded-xl p-6 border border-border">
-                  <h2 className="text-xl font-bold mb-4">Props & Models</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {sequence.models.map((model) => (
-                      <span
-                        key={model}
-                        className="px-3 py-1 bg-surface-light rounded-lg text-sm text-foreground/70 border border-border"
-                      >
+              {/* Prop grid */}
+              <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+                {sequence.propCards ? (
+                  sequence.propCards.map((prop) => (
+                    <div
+                      key={prop.name}
+                      className="group bg-[#1c1c20] rounded-xl p-4 border border-[#27272a] hover:border-[rgba(232,67,42,0.25)] transition-colors"
+                    >
+                      <div className="flex items-start justify-between mb-2.5">
+                        <div className="w-9 h-9 rounded-lg bg-[#27272a] flex items-center justify-center text-[#a1a1aa]">
+                          {prop.icon === "grid" && (
+                            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                              <rect x="3" y="3" width="7" height="7" rx="1" />
+                              <rect x="14" y="3" width="7" height="7" rx="1" />
+                              <rect x="3" y="14" width="7" height="7" rx="1" />
+                              <rect x="14" y="14" width="7" height="7" rx="1" />
+                            </svg>
+                          )}
+                          {prop.icon === "mic" && (
+                            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                              <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                              <path d="M19 10v2a7 7 0 01-14 0v-2" />
+                              <line x1="12" y1="19" x2="12" y2="23" />
+                              <line x1="8" y1="23" x2="16" y2="23" />
+                            </svg>
+                          )}
+                          {prop.icon === "sparkles" && (
+                            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                              <path d="M12 2l2.09 6.26L20 10.27l-4.74 3.74L16.18 22 12 18.27 7.82 22l.92-7.99L4 10.27l5.91-2.01L12 2z" />
+                            </svg>
+                          )}
+                          {prop.icon === "sun" && (
+                            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="5" />
+                              <line x1="12" y1="1" x2="12" y2="3" />
+                              <line x1="12" y1="21" x2="12" y2="23" />
+                              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                              <line x1="1" y1="12" x2="3" y2="12" />
+                              <line x1="21" y1="12" x2="23" y2="12" />
+                              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                            </svg>
+                          )}
+                          {prop.icon === "tree" && (
+                            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                              <path d="M12 2L7 9h3l-2 5h3l-2 5h6l-2-5h3l-2-5h3L12 2z" />
+                              <line x1="12" y1="19" x2="12" y2="22" />
+                            </svg>
+                          )}
+                          {prop.icon === "arch" && (
+                            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                              <path d="M4 20c0-8.837 3.582-16 8-16s8 7.163 8 16" />
+                            </svg>
+                          )}
+                          {!["grid", "mic", "sparkles", "sun", "tree", "arch"].includes(prop.icon) && (
+                            <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="10" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          )}
+                        </div>
+                        {prop.tags && prop.tags.length > 0 && (
+                          <div className="flex gap-1">
+                            {prop.tags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded bg-[rgba(232,67,42,0.12)] text-[#e8432a] border border-[rgba(232,67,42,0.2)]"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="font-semibold text-[14px] text-[#f4f4f5] mb-1">
+                        {prop.name}
+                      </h3>
+                      <p className="text-[12px] text-[#63636e] font-mono leading-snug">
+                        {prop.detail}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  /* Fallback for sequences without rich prop data */
+                  sequence.models.map((model) => (
+                    <div
+                      key={model}
+                      className="bg-[#1c1c20] rounded-xl p-4 border border-[#27272a]"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-[#27272a] flex items-center justify-center text-[#a1a1aa] mb-2.5">
+                        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="10" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      </div>
+                      <h3 className="font-semibold text-[14px] text-[#f4f4f5]">
                         {model}
-                      </span>
-                    ))}
-                  </div>
-                  {sequence.hasMatrix && (
-                    <p className="mt-4 text-sm text-accent">
-                      ✓ Includes Matrix effects
-                    </p>
+                      </h3>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Bottom row: stats + CTA */}
+              <div className="flex flex-wrap items-center justify-between mt-6 pt-5 border-t border-[#27272a]">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-[#a1a1aa]">
+                  {sequence.stats ? (
+                    <>
+                      <span className="font-mono">{sequence.stats.modelCount.toLocaleString()} models</span>
+                      <span className="text-[#27272a]">&middot;</span>
+                      <span className="font-mono">{sequence.stats.groupCount} groups</span>
+                      <span className="text-[#27272a]">&middot;</span>
+                      <span className="font-mono">{sequence.stats.effectCount.toLocaleString()} effects</span>
+                      <span className="text-[#27272a]">&middot;</span>
+                      <span className="font-mono">{sequence.duration}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-mono">{sequence.propCount}+ props</span>
+                      <span className="text-[#27272a]">&middot;</span>
+                      <span className="font-mono">{sequence.duration}</span>
+                    </>
                   )}
+                </div>
+                <Link
+                  href="/display"
+                  className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#e8432a] px-4 py-2 rounded-full bg-[rgba(232,67,42,0.06)] border border-[rgba(232,67,42,0.12)] hover:bg-[rgba(232,67,42,0.1)] transition-colors mt-3 sm:mt-0"
+                >
+                  See our display
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            </div>
+
+            {/* ═══ Cards 2 + 3: Side by side ═══ */}
+            <div className="grid md:grid-cols-2 gap-6 mb-16">
+              {/* Card 2: Mod:IQ — "Different props? No problem." */}
+              <div className="bg-[#151518] rounded-[14px] p-6 md:p-8 border border-[#27272a] relative overflow-hidden">
+                {/* Subtle red accent glow */}
+                <div className="absolute -top-20 -right-20 w-60 h-60 bg-[radial-gradient(circle,rgba(232,67,42,0.06)_0%,transparent_70%)] pointer-events-none" />
+
+                <div className="relative">
+                  <Image
+                    src="/modiq-wordmark-v3-full.png"
+                    alt="Mod:IQ"
+                    width={80}
+                    height={16}
+                    className="h-4 w-auto object-contain mb-5"
+                    unoptimized
+                  />
+                  <h2 className="font-display text-xl md:text-[22px] font-bold text-[#f4f4f5] mb-3">
+                    Different props? No problem.
+                  </h2>
+                  <p className="text-[14px] text-[#a1a1aa] leading-relaxed mb-6">
+                    Mod:IQ intelligently maps this sequence to your display
+                    &mdash; even if your props don&apos;t match exactly.
+                    Spinners, arches, matrices, pixel trees &mdash; it figures
+                    out what goes where.
+                  </p>
+
+                  {/* Mini flow diagram */}
+                  <div className="flex items-center gap-3 bg-[#1c1c20] rounded-xl p-4 border border-[#27272a] mb-5">
+                    <div className="flex-1 text-center">
+                      <div className="text-[11px] text-[#63636e] uppercase tracking-wider font-medium mb-1">
+                        Their Display
+                      </div>
+                      <div className="text-[13px] text-[#f4f4f5] font-mono font-medium">
+                        {sequence.stats
+                          ? `${sequence.stats.modelCount} models`
+                          : `${sequence.propCount}+ props`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <div className="w-8 h-px bg-[rgba(232,67,42,0.35)]" />
+                      <svg className="w-5 h-5 text-[#e8432a]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.172 13.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                      <div className="w-8 h-px bg-[rgba(232,67,42,0.35)]" />
+                    </div>
+                    <div className="flex-1 text-center">
+                      <div className="text-[11px] text-[#63636e] uppercase tracking-wider font-medium mb-1">
+                        Your Display
+                      </div>
+                      <div className="text-[13px] text-[#f4f4f5] font-mono font-medium">
+                        Any layout
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-[12.5px] text-[#63636e] italic">
+                    Included free with every sequence purchase.
+                  </p>
                 </div>
               </div>
 
-              {/* Right Column: About This Sequence */}
-              <div className="bg-surface rounded-xl p-6 border border-border h-fit">
-                <h2 className="text-xl font-bold mb-4">About This Sequence</h2>
-                <div className="prose prose-invert max-w-none">
-                  {sequence.longDescription
-                    .split("\n\n")
-                    .map((paragraph, i) => (
-                      <p
-                        key={i}
-                        className="text-foreground/70 mb-4 whitespace-pre-line"
+              {/* Card 3: About + What's Included */}
+              <div className="bg-[#151518] rounded-[14px] p-6 md:p-8 border border-[#27272a]">
+                <h2 className="font-display text-xl md:text-[22px] font-bold text-[#f4f4f5] mb-3">
+                  About This Sequence
+                </h2>
+                <p className="text-[14px] text-[#a1a1aa] leading-relaxed mb-4">
+                  {sequence.description}
+                </p>
+
+                {/* Feature tags */}
+                {sequence.featureTags && sequence.featureTags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-5">
+                    {sequence.featureTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[12px] text-[#c4c4cc] px-2.5 py-1 rounded-full bg-[rgba(255,255,255,0.06)] border border-[rgba(255,255,255,0.08)]"
                       >
-                        {paragraph}
-                      </p>
+                        {tag}
+                      </span>
                     ))}
-                </div>
+                  </div>
+                )}
+
+                {/* Divider */}
+                <hr className="border-[#27272a] mb-5" />
+
+                {/* What's Included */}
+                <h3 className="text-[11px] text-[#63636e] uppercase tracking-widest font-semibold mb-3">
+                  What&apos;s Included
+                </h3>
+                <ul className="space-y-2.5 text-[14px]">
+                  <li className="flex items-center gap-2.5 text-[#f4f4f5]">
+                    <Image
+                      src="/modiq-wordmark-v3-full.png"
+                      alt="Mod:IQ"
+                      width={48}
+                      height={14}
+                      className="h-3.5 w-auto object-contain"
+                      unoptimized
+                    />
+                    <span className="text-[#a1a1aa]">Auto-mapping included</span>
+                  </li>
+                  {sequence.fileFormats.map((format) => (
+                    <li key={format} className="flex items-center gap-2.5 text-[#a1a1aa]">
+                      <svg className="w-4 h-4 text-[#22c55e] shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      {format}
+                    </li>
+                  ))}
+                  <li className="flex items-center gap-2.5 text-[#a1a1aa]">
+                    <svg className="w-4 h-4 text-[#22c55e] shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    All Videos
+                  </li>
+                  <li className="flex items-center gap-2.5 text-[#a1a1aa]">
+                    <svg className="w-4 h-4 text-[#22c55e] shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    All Images
+                  </li>
+                  <li className="flex items-center gap-2.5 text-[#a1a1aa]">
+                    <svg className="w-4 h-4 text-[#22c55e] shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Lifetime access
+                  </li>
+                </ul>
               </div>
             </div>
 

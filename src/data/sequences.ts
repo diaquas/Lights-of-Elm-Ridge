@@ -1,3 +1,30 @@
+export type PropIconType =
+  | "grid"
+  | "mic"
+  | "sparkles"
+  | "sun"
+  | "tree"
+  | "arch"
+  | "circle"
+  | "star"
+  | "candy-cane"
+  | "gift"
+  | "snowflake"
+  | "default";
+
+export interface PropCard {
+  name: string;
+  icon: PropIconType;
+  detail: string;
+  tags?: string[]; // e.g. ["MATRIX", "HD"]
+}
+
+export interface SequenceStats {
+  modelCount: number;
+  groupCount: number;
+  effectCount: number;
+}
+
 export interface Sequence {
   id: number;
   slug: string;
@@ -26,6 +53,9 @@ export interface Sequence {
   releaseDate: string;
   yearAdded: number; // Year the sequence was added to the show
   dominantColors: string[]; // 2-3 hex colors representing the sequence's color palette
+  propCards?: PropCard[]; // Rich prop card data for product page display
+  stats?: SequenceStats; // Detailed sequence stats (models, groups, effects)
+  featureTags?: string[]; // Feature highlight tags for About card
 }
 
 // Get YouTube thumbnail URL from video ID
@@ -261,6 +291,46 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     releaseDate: "2024-10",
     yearAdded: 2025,
     dominantColors: ["#1a1a2e", "#e74c3c", "#9b59b6"],
+    propCards: [
+      {
+        name: "Matrix",
+        icon: "grid",
+        detail: "70\u00d7100 \u00b7 Video effects",
+        tags: ["MATRIX"],
+      },
+      {
+        name: "Singing Pumpkin",
+        icon: "mic",
+        detail: "263px \u00b7 Face animations",
+      },
+      {
+        name: "Fireworks",
+        icon: "sparkles",
+        detail: "2 props \u00b7 Burst patterns",
+      },
+      {
+        name: "Spinners",
+        icon: "sun",
+        detail:
+          "7 props \u00b7 3 Showstopper, GE Overlord, Fuzion, Rosa Grande, Click Click Boom",
+      },
+      {
+        name: "Pixel Forest",
+        icon: "tree",
+        detail: "2 trees \u00b7 Chase effects",
+      },
+    ],
+    stats: {
+      modelCount: 165,
+      groupCount: 25,
+      effectCount: 4852,
+    },
+    featureTags: [
+      "Bass-reactive effects",
+      "Dramatic build-ups",
+      "Cinematic matrix visuals",
+      "Dark palette + bright accents",
+    ],
   },
   {
     id: 5,
