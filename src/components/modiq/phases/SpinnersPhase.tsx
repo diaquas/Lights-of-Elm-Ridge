@@ -147,20 +147,30 @@ export function SpinnersPhase() {
   const skippedItems = interactive.sourceLayerMappings.filter(
     (l) => l.isSkipped,
   );
-  // Build parent model index: group submodel groups by their parent model
+  // Build parent model index: group submodel groups by their parent model.
+  // Each item is assigned to only ONE parent (the first in parentModels) to
+  // prevent visual duplication of dest assignments. Cross-spinner submodel
+  // groups (e.g., "Arms GRP" spanning 4 spinners) appear under the first
+  // parent only; duplicate parents with 0 unique children are omitted.
   const parentModelIndex = useMemo(() => {
     const index = new Map<
       string,
       { items: SourceLayerMapping[]; mapped: number; total: number }
     >();
+    const assignedItems = new Set<string>();
+
     for (const item of phaseItems) {
       const parents = item.sourceModel.parentModels ?? ["Unknown"];
+      // Only assign to the first parent that hasn't been claimed yet
       for (const parent of parents) {
+        if (assignedItems.has(item.sourceModel.name)) break;
         const entry = index.get(parent) ?? { items: [], mapped: 0, total: 0 };
         entry.items.push(item);
         entry.total++;
         if (item.isMapped) entry.mapped++;
         index.set(parent, entry);
+        assignedItems.add(item.sourceModel.name);
+        break; // Only the first parent gets this item
       }
     }
     return index;
