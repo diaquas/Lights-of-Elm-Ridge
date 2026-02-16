@@ -242,6 +242,9 @@ This sequence proves that Halloween isn't just for rock and orchestral music. Ci
     propCount: 35,
     hasMatrix: true,
     xlightsSeqUrl: "https://xlightsseq.com/sequences/darkside-by-neoni.1338/",
+    r2Url: "https://downloads.lightsofelmridge.com/Paid/DARKSIDE.zip",
+    amazonMusicUrl:
+      "https://amazon.com/music/player/albums/B08QTNVB1R?marketplaceId=ATVPDKIKX0DER&musicTerritory=US&ref=dm_sh_vKjKctjtIwdANSNwvz788cqu6&trackAsin=B08QVFLFZ6",
     youtubeId: null, // Cleared - was live show video, waiting for mockup
     artworkUrl:
       "https://i1.sndcdn.com/artworks-0mT77eZFtmNZcS4e-F6Ds8Q-t500x500.jpg",
