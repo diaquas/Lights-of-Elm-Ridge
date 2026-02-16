@@ -123,7 +123,7 @@ function CoverageRow({
 
       {/* Count */}
       <div className="flex justify-end mt-1">
-        <span className="text-[11px] text-foreground/40 tabular-nums">
+        <span className="text-xs text-foreground/40 tabular-nums">
           {covered.toLocaleString()} / {total.toLocaleString()} {unit}
         </span>
       </div>
@@ -151,7 +151,7 @@ function CompactMetric({
       <span className={`text-xs font-bold tabular-nums ${color}`}>
         {Math.round(percent)}%
       </span>
-      <span className="text-[10px] text-foreground/40">{label}</span>
+      <span className="text-xs text-foreground/40">{label}</span>
     </div>
   );
 }

@@ -145,7 +145,7 @@ export default function PostExportScreen({
               >
                 {fmtPct(sequencePct)}%
               </p>
-              <p className="text-[11px] text-foreground/30 mt-1">
+              <p className="text-xs text-foreground/30 mt-1">
                 {sequenceCoverage.mapped} of {sequenceCoverage.total} layers
               </p>
             </div>
@@ -177,7 +177,7 @@ export default function PostExportScreen({
               >
                 {fmtPct(displayCoverage)}%
               </p>
-              <p className="text-[11px] text-foreground/30 mt-1">
+              <p className="text-xs text-foreground/30 mt-1">
                 {displayCoverage >= 100
                   ? "Every group receives effects"
                   : "Groups in your layout receiving effects"}
@@ -213,7 +213,7 @@ export default function PostExportScreen({
           </div>
 
           {/* Labels */}
-          <div className="flex items-center gap-4 mt-2 text-[11px]">
+          <div className="flex items-center gap-4 mt-2 text-xs">
             {(groupsMappedCount ?? 0) > 0 && (
               <span className="text-teal-400">
                 <span className="font-bold tabular-nums">

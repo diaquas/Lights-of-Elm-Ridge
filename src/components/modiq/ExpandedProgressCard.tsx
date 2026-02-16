@@ -35,7 +35,7 @@ export const ExpandedProgressCard = memo(function ExpandedProgressCard({
       <div className="grid grid-cols-2 gap-4 mb-4">
         {/* Display Coverage */}
         <div className="text-center">
-          <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1">
+          <div className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-1">
             Your Display
           </div>
           <div className={`text-2xl font-bold ${displayTextColor}`}>
@@ -47,14 +47,14 @@ export const ExpandedProgressCard = memo(function ExpandedProgressCard({
               style={{ width: `${state.display.percent}%` }}
             />
           </div>
-          <div className="text-[11px] text-foreground/40 mt-1">
+          <div className="text-xs text-foreground/40 mt-1">
             {state.display.current} of {state.display.total} models
           </div>
         </div>
 
         {/* Effects Coverage */}
         <div className="text-center">
-          <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-1">
+          <div className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-1">
             Sequence Effects
           </div>
           <div className={`text-2xl font-bold ${effectsTextColor}`}>
@@ -66,7 +66,7 @@ export const ExpandedProgressCard = memo(function ExpandedProgressCard({
               style={{ width: `${state.effects.percent}%` }}
             />
           </div>
-          <div className="text-[11px] text-foreground/40 mt-1">
+          <div className="text-xs text-foreground/40 mt-1">
             {state.effects.current.toLocaleString()} of{" "}
             {state.effects.total.toLocaleString()}
           </div>
@@ -76,10 +76,10 @@ export const ExpandedProgressCard = memo(function ExpandedProgressCard({
       {/* Gains Since Auto-Match */}
       {(state.gains.displayModels > 0 || state.gains.effectsCount > 0) && (
         <div className="bg-foreground/5 rounded-lg p-3 mb-3">
-          <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
+          <div className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-2">
             Since Auto-Match:
           </div>
-          <div className="flex justify-between text-[13px]">
+          <div className="flex justify-between text-sm">
             {state.gains.displayModels > 0 && (
               <span className="text-green-400">
                 +{state.gains.displayModels} models (+{state.gains.displayPercent}%)
@@ -127,7 +127,7 @@ export const ExpandedProgressCard = memo(function ExpandedProgressCard({
       <button
         type="button"
         onClick={onClickDetails}
-        className="w-full text-[11px] text-accent hover:text-accent/80 text-center py-1 transition-colors"
+        className="w-full text-xs text-accent hover:text-accent/80 text-center py-1 transition-colors"
       >
         Click for detailed breakdown &rarr;
       </button>
@@ -148,10 +148,10 @@ function MiniBar({
 }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="text-[11px] text-foreground/50 w-28 truncate">
+      <span className="text-xs text-foreground/50 w-28 truncate">
         {label}:
       </span>
-      <span className="text-[11px] font-bold text-foreground/70 tabular-nums w-12">
+      <span className="text-xs font-bold text-foreground/70 tabular-nums w-12">
         {mapped}/{total}
       </span>
       <div className="flex-1 h-1.5 bg-foreground/10 rounded-full overflow-hidden">
@@ -160,7 +160,7 @@ function MiniBar({
           style={{ width: `${percent}%` }}
         />
       </div>
-      <span className="text-[11px] text-foreground/40 tabular-nums w-8 text-right">
+      <span className="text-xs text-foreground/40 tabular-nums w-8 text-right">
         {percent}%
       </span>
     </div>

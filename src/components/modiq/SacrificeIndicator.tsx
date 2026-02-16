@@ -30,7 +30,7 @@ export const SacrificeIndicator = memo(function SacrificeIndicator({
       <button
         type="button"
         onClick={toggle}
-        className="flex items-center gap-1.5 text-[11px] text-amber-400/80 hover:text-amber-400 transition-colors"
+        className="flex items-center gap-1.5 text-xs text-amber-400/80 hover:text-amber-400 transition-colors"
       >
         <svg
           className="w-3.5 h-3.5 flex-shrink-0"
@@ -76,7 +76,7 @@ export const SacrificeIndicator = memo(function SacrificeIndicator({
             <button
               type="button"
               onClick={handleSwap}
-              className="mt-1 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-[11px] font-medium transition-colors"
+              className="mt-1 flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-medium transition-colors"
             >
               <svg
                 className="w-3 h-3"
@@ -127,7 +127,7 @@ export const SacrificeSummary = memo(function SacrificeSummary({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-2.5 text-[13px] hover:bg-amber-500/10 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2.5 text-sm hover:bg-amber-500/10 transition-colors"
       >
         <div className="flex items-center gap-2 text-amber-400">
           <svg
@@ -149,7 +149,7 @@ export const SacrificeSummary = memo(function SacrificeSummary({
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[11px] text-foreground/40">
+          <span className="text-xs text-foreground/40">
             Net trade-off: {Math.round(totalSaved * 100)} pts
           </span>
           <svg
@@ -170,7 +170,7 @@ export const SacrificeSummary = memo(function SacrificeSummary({
 
       {expanded && (
         <div className="border-t border-amber-500/20">
-          <div className="px-4 py-2 text-[11px] text-foreground/40">
+          <div className="px-4 py-2 text-xs text-foreground/40">
             These items were assigned to secondary matches so that other items
             could receive better overall matches.
           </div>
@@ -195,7 +195,7 @@ export const SacrificeSummary = memo(function SacrificeSummary({
                     {s.bestMatch} → {s.bestWentTo}
                   </div>
                 </div>
-                <span className="text-amber-400/70 text-[11px] tabular-nums whitespace-nowrap">
+                <span className="text-amber-400/70 text-xs tabular-nums whitespace-nowrap">
                   -{Math.round(s.scoreDifference * 100)} pts
                 </span>
               </div>

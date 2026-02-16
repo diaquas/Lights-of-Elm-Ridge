@@ -160,7 +160,7 @@ export default function MappingDropdown({
       {/* Items */}
       <div className="max-h-64 overflow-y-auto">
         {filteredSuggestions.length > 0 && (
-          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/30 bg-surface-light">
+          <div className="px-3 py-1 text-xs font-bold uppercase tracking-wider text-foreground/30 bg-surface-light">
             Suggestions
           </div>
         )}
@@ -170,7 +170,7 @@ export default function MappingDropdown({
           return (
             <div key={item.name}>
               {isSuggestionBoundary && (
-                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground/30 bg-surface-light">
+                <div className="px-3 py-1 text-xs font-bold uppercase tracking-wider text-foreground/30 bg-surface-light">
                   All Available
                 </div>
               )}
@@ -189,7 +189,7 @@ export default function MappingDropdown({
                   <div className="font-medium text-foreground/80 truncate">
                     {item.name}
                   </div>
-                  <div className="text-[11px] text-foreground/40">
+                  <div className="text-xs text-foreground/40">
                     {item.isGroup
                       ? "Group"
                       : `${item.pixels}px \u00B7 ${item.type}`}

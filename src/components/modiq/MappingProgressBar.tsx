@@ -61,11 +61,11 @@ function V3Bar({
         <span className="text-lg font-semibold text-foreground/40 tabular-nums">
           /{effective}
         </span>
-        <span className="text-[13px] text-foreground/50 ml-0.5">
+        <span className="text-sm text-foreground/50 ml-0.5">
           effects layers covered
         </span>
         {skippedLayerCount > 0 && (
-          <span className="text-[11px] text-foreground/30 ml-1">
+          <span className="text-xs text-foreground/30 ml-1">
             ({skippedLayerCount} skipped)
           </span>
         )}
@@ -94,7 +94,7 @@ function V3Bar({
       </div>
 
       {/* Labels */}
-      <div className="flex items-center gap-3 mt-1.5 text-[11px]">
+      <div className="flex items-center gap-3 mt-1.5 text-xs">
         {groupsMappedCount > 0 && (
           <span className="text-teal-400">
             <span className="font-bold tabular-nums">{groupsMappedCount}</span>{" "}
@@ -155,7 +155,7 @@ function V2Bar({
         <span className="text-lg font-semibold text-foreground/40 tabular-nums">
           /{effectiveTotal}
         </span>
-        <span className="text-[13px] text-foreground/50 ml-0.5">mapped</span>
+        <span className="text-sm text-foreground/50 ml-0.5">mapped</span>
       </div>
 
       {/* Segmented progress bar */}
@@ -199,11 +199,11 @@ function V2Bar({
             className="flex items-center justify-center gap-1 transition-[width] duration-[400ms]"
             style={{ width: `${highPct}%` }}
           >
-            <span className="text-[13px] font-bold text-green-400 tabular-nums">
+            <span className="text-sm font-bold text-green-400 tabular-nums">
               {highCount}
             </span>
             {highPct >= 8 && (
-              <span className="text-[10px] text-foreground/30 uppercase tracking-wide">
+              <span className="text-xs text-foreground/30 uppercase tracking-wide">
                 high
               </span>
             )}
@@ -214,11 +214,11 @@ function V2Bar({
             className="flex items-center justify-center gap-1 transition-[width] duration-[400ms]"
             style={{ width: `${medPct}%` }}
           >
-            <span className="text-[13px] font-bold text-yellow-400 tabular-nums">
+            <span className="text-sm font-bold text-yellow-400 tabular-nums">
               {mediumCount}
             </span>
             {medPct >= 8 && (
-              <span className="text-[10px] text-foreground/30 uppercase tracking-wide">
+              <span className="text-xs text-foreground/30 uppercase tracking-wide">
                 med
               </span>
             )}
@@ -229,11 +229,11 @@ function V2Bar({
             className="flex items-center justify-center gap-1 transition-[width] duration-[400ms]"
             style={{ width: `${lowPct}%` }}
           >
-            <span className="text-[13px] font-bold text-red-400 tabular-nums">
+            <span className="text-sm font-bold text-red-400 tabular-nums">
               {lowCount}
             </span>
             {lowPct >= 8 && (
-              <span className="text-[10px] text-foreground/30 uppercase tracking-wide">
+              <span className="text-xs text-foreground/30 uppercase tracking-wide">
                 low
               </span>
             )}
@@ -244,11 +244,11 @@ function V2Bar({
             className="flex items-center justify-center gap-1 transition-[width] duration-[400ms]"
             style={{ width: `${coveredPct}%` }}
           >
-            <span className="text-[13px] font-bold text-cyan-400 tabular-nums">
+            <span className="text-sm font-bold text-cyan-400 tabular-nums">
               {coveredByGroupCount}
             </span>
             {coveredPct >= 10 && (
-              <span className="text-[10px] text-foreground/30 uppercase tracking-wide">
+              <span className="text-xs text-foreground/30 uppercase tracking-wide">
                 via groups
               </span>
             )}
@@ -259,11 +259,11 @@ function V2Bar({
             className="flex items-center justify-center gap-1 transition-[width] duration-[400ms]"
             style={{ width: `${unmappedPct}%` }}
           >
-            <span className="text-[13px] font-bold text-foreground/40 tabular-nums">
+            <span className="text-sm font-bold text-foreground/40 tabular-nums">
               {unmappedCount}
             </span>
             {unmappedPct >= 8 && (
-              <span className="text-[10px] text-foreground/30 uppercase tracking-wide">
+              <span className="text-xs text-foreground/30 uppercase tracking-wide">
                 unmapped
               </span>
             )}

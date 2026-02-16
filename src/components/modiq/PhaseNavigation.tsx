@@ -69,7 +69,7 @@ export function PhaseNavigation() {
       <button
         type="button"
         onClick={toggleFocusMode}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5 border border-transparent hover:border-border transition-all"
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5 border border-transparent hover:border-border transition-all"
         title={focusMode ? "Exit Focus View (Esc)" : "Focus View"}
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

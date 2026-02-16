@@ -105,7 +105,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
             <div
               className={`rounded-xl border p-5 text-center ${displayBorderColor}`}
             >
-              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
+              <div className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-2">
                 Your Display
               </div>
               <div className={`text-4xl font-bold ${displayTextColor}`}>
@@ -121,7 +121,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
                 {state.display.current} of {state.display.total} models active
               </div>
               {state.display.percent >= 90 && (
-                <div className="text-[11px] text-green-400 mt-1 font-medium">
+                <div className="text-xs text-green-400 mt-1 font-medium">
                   Excellent coverage!
                 </div>
               )}
@@ -131,7 +131,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
             <div
               className={`rounded-xl border p-5 text-center ${effectsBorderColor}`}
             >
-              <div className="text-[10px] font-semibold text-foreground/40 uppercase tracking-widest mb-2">
+              <div className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-2">
                 Sequence Effects
               </div>
               <div className={`text-4xl font-bold ${effectsTextColor}`}>
@@ -148,7 +148,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
                 {state.effects.total.toLocaleString()} effects
               </div>
               {state.effects.percent >= 80 && (
-                <div className="text-[11px] text-blue-400 mt-1 font-medium">
+                <div className="text-xs text-blue-400 mt-1 font-medium">
                   Great effect capture!
                 </div>
               )}
@@ -157,11 +157,11 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
 
           {/* ═══ Phase Breakdown Table ═══ */}
           <div>
-            <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest mb-3">
+            <h3 className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-3">
               Breakdown by Phase
             </h3>
             <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full text-[13px]">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-foreground/5 text-foreground/50 text-left">
                     <th className="px-4 py-2.5 font-medium">Phase</th>
@@ -217,15 +217,15 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
                       </td>
                       <td className="px-4 py-2.5 text-center">
                         {phase.isComplete ? (
-                          <span className="text-[11px] text-green-400 font-medium">
+                          <span className="text-xs text-green-400 font-medium">
                             Done
                           </span>
                         ) : phase.isActive ? (
-                          <span className="text-[11px] text-accent font-medium">
+                          <span className="text-xs text-accent font-medium">
                             In Progress
                           </span>
                         ) : (
-                          <span className="text-[11px] text-foreground/30">
+                          <span className="text-xs text-foreground/30">
                             Pending
                           </span>
                         )}
@@ -242,7 +242,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
             state.itemsMapped.models.total > 0 ||
             state.itemsMapped.submodelGroups.total > 0) && (
             <div>
-              <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest mb-3">
+              <h3 className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-3">
                 Items Mapped
               </h3>
               <div className="space-y-2.5">
@@ -280,7 +280,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
           {/* ═══ Effect Types Captured ═══ */}
           {state.effectTypes.length > 0 && (
             <div>
-              <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest mb-3">
+              <h3 className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-3">
                 Effect Types Captured
               </h3>
               <div className="space-y-1.5">
@@ -301,7 +301,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
                       />
                     </div>
                     {entry.isSignature && (
-                      <span className="text-[10px] text-amber-400 font-medium whitespace-nowrap">
+                      <span className="text-xs text-amber-400 font-medium whitespace-nowrap">
                         Signature
                       </span>
                     )}
@@ -311,7 +311,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
                   <button
                     type="button"
                     onClick={() => setShowAllEffects(true)}
-                    className="text-[11px] text-accent hover:text-accent/80 transition-colors mt-1"
+                    className="text-xs text-accent hover:text-accent/80 transition-colors mt-1"
                   >
                     ... {hiddenCount} more effect types
                   </button>
@@ -323,7 +323,7 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
           {/* ═══ Signature Effects Status ═══ */}
           {state.signatureEffects.length > 0 && (
             <div>
-              <h3 className="text-[11px] font-semibold text-foreground/40 uppercase tracking-widest mb-3">
+              <h3 className="text-xs font-semibold text-foreground/40 uppercase tracking-widest mb-3">
                 Signature Effects Status
               </h3>
               <div className="space-y-1.5">
@@ -337,22 +337,22 @@ export const ProgressDetailsModal = memo(function ProgressDetailsModal({
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-[13px]">
+                      <span className="text-sm">
                         {sig.isMapped ? "\u2705" : "\u26A0\uFE0F"}
                       </span>
-                      <span className="text-[13px] font-medium text-foreground">
+                      <span className="text-sm font-medium text-foreground">
                         {sig.type}
                       </span>
-                      <span className="text-[11px] text-foreground/40">
+                      <span className="text-xs text-foreground/40">
                         ({sig.count.toLocaleString()} effects)
                       </span>
                     </div>
                     {sig.isMapped ? (
-                      <span className="text-[11px] text-green-400 font-medium">
+                      <span className="text-xs text-green-400 font-medium">
                         &rarr; {sig.mappedTo}
                       </span>
                     ) : (
-                      <span className="text-[11px] text-orange-400 font-semibold">
+                      <span className="text-xs text-orange-400 font-semibold">
                         UNMAPPED
                       </span>
                     )}
@@ -382,8 +382,8 @@ function ProgressRow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-[13px] text-foreground/60 w-32">{label}:</span>
-      <span className="text-[13px] font-bold text-foreground/80 tabular-nums w-14">
+      <span className="text-sm text-foreground/60 w-32">{label}:</span>
+      <span className="text-sm font-bold text-foreground/80 tabular-nums w-14">
         {mapped} of {total}
       </span>
       <div className="flex-1 h-2.5 bg-foreground/5 rounded-full overflow-hidden">
@@ -392,7 +392,7 @@ function ProgressRow({
           style={{ width: `${percent}%` }}
         />
       </div>
-      <span className="text-[13px] text-foreground/50 tabular-nums w-10 text-right">
+      <span className="text-sm text-foreground/50 tabular-nums w-10 text-right">
         {percent}%
       </span>
     </div>

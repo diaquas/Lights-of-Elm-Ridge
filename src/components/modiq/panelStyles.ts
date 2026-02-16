@@ -8,7 +8,7 @@ export const PANEL_STYLES = {
   header: {
     wrapper: "px-4 py-2.5 border-b border-border flex-shrink-0",
     title: "text-sm font-semibold text-foreground flex items-center gap-2",
-    subtitle: "text-[11px] text-foreground/50 mt-0.5",
+    subtitle: "text-xs text-foreground/50 mt-0.5",
   },
   search: {
     wrapper: "px-4 py-2 border-b border-border flex-shrink-0",
@@ -18,9 +18,9 @@ export const PANEL_STYLES = {
   },
   card: {
     wrapper: "p-3 rounded-lg border transition-all duration-200 cursor-pointer",
-    title: "text-[13px] font-medium text-foreground truncate",
-    subtitle: "text-[11px] text-foreground/40",
-    badge: "px-1.5 py-0.5 text-[10px] font-bold rounded",
+    title: "text-sm font-medium text-foreground truncate",
+    subtitle: "text-xs text-foreground/40",
+    badge: "px-1.5 py-0.5 text-xs font-bold rounded",
   },
   scrollArea: "flex-1 overflow-y-auto px-4 py-3",
 } as const;
