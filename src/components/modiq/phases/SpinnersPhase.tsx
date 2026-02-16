@@ -622,13 +622,15 @@ export function SpinnersPhase() {
 
         {/* Title + Continue */}
         <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
-          <h1 className="text-lg font-bold text-foreground">Submodel Groups</h1>
+          <h1 className="text-[22px] font-bold text-foreground leading-tight">
+            Submodel Groups
+          </h1>
           <button
             type="button"
             onClick={goToNextPhase}
             className="text-[13px] font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
           >
-            Continue to Finalize &rarr;
+            Continue to Display Coverage &rarr;
           </button>
         </div>
 

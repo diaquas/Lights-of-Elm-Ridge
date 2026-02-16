@@ -591,7 +591,7 @@ export function FinalizePhase() {
 
         {/* Title + Continue */}
         <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
-          <h1 className="text-lg font-bold text-foreground">
+          <h1 className="text-[22px] font-bold text-foreground leading-tight">
             Display Coverage
           </h1>
           <button
