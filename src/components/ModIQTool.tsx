@@ -65,6 +65,7 @@ import { MappingPhaseProvider, useMappingPhase } from "@/contexts/MappingPhaseCo
 import { ProgressTrackerProvider } from "@/components/modiq/ProgressTrackerProvider";
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
 import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
+import ParsedModelPreview from "@/components/modiq/ParsedModelPreview";
 import { useModiqSessions } from "@/hooks/useModiqSessions";
 import {
   useSessionPersistence,
@@ -290,12 +291,6 @@ export default function ModIQTool() {
     };
     reader.readAsText(file);
   }, []);
-
-  // ─── Can we run? ───────────────────────────────────────
-  const canRun =
-    mapFromMode === "elm-ridge"
-      ? !!selectedSequence && isAccessible && !!userLayout
-      : !!vendorXsqFile && !!sourceLayout && !!userLayout;
 
   // ─── Processing ─────────────────────────────────────────
   const runMapping = useCallback(async () => {
@@ -600,6 +595,34 @@ export default function ModIQTool() {
           {/* ── Source Selection Landing ──────────────────── */}
           {inputSubStep === "source-select" && (
             <div className="max-w-[860px] mx-auto space-y-12">
+              {/* How It Works — Above the fold */}
+              <div className="space-y-6">
+                <h2 className="text-2xl font-display font-bold text-center">
+                  How It Works
+                </h2>
+                <div className="grid md:grid-cols-3 gap-6">
+                  <HowItWorksCard
+                    number="1"
+                    title="Select & Upload"
+                    description="Pick the sequence you purchased and upload your xlights_rgbeffects.xml file from your show folder."
+                  />
+                  <HowItWorksCard
+                    number="2"
+                    title="AI Matching"
+                    description="Mod:IQ analyzes model types, pixel counts, spatial positions, names, and submodel structures to find the best mapping."
+                  />
+                  <HowItWorksCard
+                    number="3"
+                    title="Download & Import"
+                    description="Get a .xmap file that imports directly into xLights' mapping dialog. Tweak only the few low-confidence matches."
+                  />
+                </div>
+                <div className="text-center text-xs text-foreground/30 pt-4 border-t border-border">
+                  Your files are processed locally in your browser and never
+                  uploaded to any server.
+                </div>
+              </div>
+
               {/* Source Selection Cards */}
               <div className="grid md:grid-cols-5 gap-6">
                 {/* LOER Card — Prominent (3 cols) */}
@@ -674,34 +697,6 @@ export default function ModIQTool() {
                     Upload Files &rarr;
                   </div>
                 </button>
-              </div>
-
-              {/* How It Works */}
-              <div className="space-y-6">
-                <h2 className="text-2xl font-display font-bold text-center">
-                  How It Works
-                </h2>
-                <div className="grid md:grid-cols-3 gap-6">
-                  <HowItWorksCard
-                    number="1"
-                    title="Select & Upload"
-                    description="Pick the sequence you purchased and upload your xlights_rgbeffects.xml file from your show folder."
-                  />
-                  <HowItWorksCard
-                    number="2"
-                    title="AI Matching"
-                    description="Mod:IQ analyzes model types, pixel counts, spatial positions, names, and submodel structures to find the best mapping."
-                  />
-                  <HowItWorksCard
-                    number="3"
-                    title="Download & Import"
-                    description="Get a .xmap file that imports directly into xLights' mapping dialog. Tweak only the few low-confidence matches."
-                  />
-                </div>
-                <div className="text-center text-xs text-foreground/30 pt-6 border-t border-border">
-                  Your files are processed locally in your browser and never
-                  uploaded to any server.
-                </div>
               </div>
             </div>
           )}
@@ -1028,37 +1023,15 @@ export default function ModIQTool() {
                       </p>
                     </div>
                   ) : (
-                    <div className="bg-accent/[0.04] border border-accent/[0.15] rounded-xl px-4 py-3.5 flex items-center gap-2.5 animate-[slideDown_0.25s_ease-out]">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        className="text-accent flex-shrink-0"
-                      >
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
-                        <polyline points="9 22 9 12 15 12 15 22" />
-                      </svg>
-                      <span className="text-[13px] text-accent/80 flex-1 truncate">
-                        {uploadedFile.name}
-                      </span>
-                      <span className="text-[11px] text-green-400">
-                        &#10003; {userLayout.modelCount} models found
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadedFile(null);
-                          setUserLayout(null);
-                        }}
-                        className="text-foreground/30 hover:text-foreground/60 text-base px-1"
-                      >
-                        &times;
-                      </button>
-                    </div>
+                    <ParsedModelPreview
+                      layout={userLayout}
+                      fileName={uploadedFile.name}
+                      onContinue={runMapping}
+                      onUploadDifferent={() => {
+                        setUploadedFile(null);
+                        setUserLayout(null);
+                      }}
+                    />
                   )}
 
                   {/* Error */}
@@ -1067,27 +1040,6 @@ export default function ModIQTool() {
                       {error}
                     </div>
                   )}
-
-                  {/* ModIQ It Button */}
-                  <button
-                    onClick={runMapping}
-                    disabled={!canRun}
-                    className={`w-full py-4 rounded-xl font-display font-bold text-lg transition-all ${
-                      canRun
-                        ? "bg-gradient-to-r from-accent to-red-700 text-white shadow-[0_4px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_8px_32px_rgba(239,68,68,0.3)] hover:-translate-y-[1px]"
-                        : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
-                    }`}
-                  >
-                    {canRun ? (
-                      <>
-                        Mod<span className="text-white/90">:</span>IQ It &rarr;
-                      </>
-                    ) : (
-                      <>
-                        Mod<span className="text-white/40">:</span>IQ It
-                      </>
-                    )}
-                  </button>
                 </div>
               )}
             </div>
@@ -1486,37 +1438,15 @@ export default function ModIQTool() {
                       </p>
                     </div>
                   ) : (
-                    <div className="bg-accent/[0.04] border border-accent/[0.15] rounded-xl px-4 py-3.5 flex items-center gap-2.5 animate-[slideDown_0.25s_ease-out]">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        className="text-accent flex-shrink-0"
-                      >
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" />
-                        <polyline points="9 22 9 12 15 12 15 22" />
-                      </svg>
-                      <span className="text-[13px] text-accent/80 flex-1 truncate">
-                        {uploadedFile.name}
-                      </span>
-                      <span className="text-[11px] text-green-400">
-                        &#10003; {userLayout.modelCount} models found
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUploadedFile(null);
-                          setUserLayout(null);
-                        }}
-                        className="text-foreground/30 hover:text-foreground/60 text-base px-1"
-                      >
-                        &times;
-                      </button>
-                    </div>
+                    <ParsedModelPreview
+                      layout={userLayout}
+                      fileName={uploadedFile.name}
+                      onContinue={runMapping}
+                      onUploadDifferent={() => {
+                        setUploadedFile(null);
+                        setUserLayout(null);
+                      }}
+                    />
                   )}
 
                   {/* Error */}
@@ -1525,27 +1455,6 @@ export default function ModIQTool() {
                       {error}
                     </div>
                   )}
-
-                  {/* ModIQ It Button */}
-                  <button
-                    onClick={runMapping}
-                    disabled={!canRun}
-                    className={`w-full py-4 rounded-xl font-display font-bold text-lg transition-all ${
-                      canRun
-                        ? "bg-gradient-to-r from-accent to-red-700 text-white shadow-[0_4px_24px_rgba(239,68,68,0.2)] hover:shadow-[0_8px_32px_rgba(239,68,68,0.3)] hover:-translate-y-[1px]"
-                        : "bg-[#1a1a1a] text-foreground/20 cursor-not-allowed"
-                    }`}
-                  >
-                    {canRun ? (
-                      <>
-                        Mod<span className="text-white/90">:</span>IQ It &rarr;
-                      </>
-                    ) : (
-                      <>
-                        Mod<span className="text-white/40">:</span>IQ It
-                      </>
-                    )}
-                  </button>
                 </div>
               )}
             </div>
