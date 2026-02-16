@@ -304,7 +304,7 @@ export function FinalizePhase() {
         members,
         mappedCount: membersEffectivelyCovered
           ? members.length // all count as mapped when covered
-          : members.filter((m) => m.isMapped).length,
+          : members.filter((m) => m.isMapped || m.isCoveredByGroup).length,
         totalCount: members.length,
         membersEffectivelyCovered,
       };
