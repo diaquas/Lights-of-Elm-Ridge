@@ -239,3 +239,253 @@ Snowflake Spoke 01 → Circles (V)-01 (numbered match)
 | 5 | No overflow handling for mismatched counts | MEDIUM | Wrap/distribute or clear "no dest" status |
 | 6 | Semantic mismatch on singing faces | MEDIUM | Facial feature vocabulary matching |
 | 7 | Pixel count ratio not guarded | MEDIUM | Ratio threshold (reject >5:1) |
+
+---
+
+## Fix G: Canonical Pattern Vocabulary (from Cross-Reference Data)
+
+The cross-reference file (`hd_submodel_crossref.json`) contains 1,063 canonical patterns across 74 props. The algorithm should use this as a **matching dictionary** — it tells us which submodel group names are semantically equivalent across different vendors/props even when the names are completely different.
+
+### Universal Patterns (appear in 5+ props)
+
+These are the "lingua franca" of spinner submodel groups. When the algorithm sees any of these base names, it knows what structural role they play:
+
+```
+Spoke (35 props)    Ring (34 props)      Outline (24 props)
+Flower (13 props)   Star (12 props)      Diamond (11 props)
+Inner Circle (10)   Ribbon (9 props)     Outer Circle (9 props)
+Square (9 props)    Hook CCW/CW (7 each) Snowflake (7 props)
+Arrow (7 props)     Feather (6 props)    Web (6 props)
+Fireworks (6 props) Scallops (5 props)   Arrowhead (5 props)
+```
+
+### Structural Category Map
+
+Build a category lookup from the canonical patterns. When names don't match literally, check if they're in the same structural category:
+
+```javascript
+const STRUCTURAL_CATEGORIES = {
+  // Radial segments emanating from center
+  radial: ["Spoke", "Spokes", "Arm", "Arms", "Point", "Cone", "Plunger",
+           "Feather", "Arrow", "Arrows", "Arrowhead", "Trident"],
+
+  // Curved/rotational elements
+  curve: ["Hook CCW", "Hook CW", "Swirl", "Spiral", "Ribbon",
+          "Whirliwig", "Angle Spinner", "Cascading"],
+
+  // Ring/circular elements (concentric)
+  ring: ["Ring", "Rings", "Circle", "Circles", "Oval",
+         "Inner Circle", "Outer Circle", "Inner Ring", "Outer Ring",
+         "Center Rings", "Outer Rings", "All Rings", "Half Moon",
+         "Saucers", "Balls", "Outer Ball"],
+
+  // Decorative/floral elements
+  decorative: ["Flower", "Petal", "Petals", "Leaf", "Star", "Diamond",
+               "Heart", "Snowflake", "Cascading Petal", "Cascading Leaf",
+               "Cascading Arches", "Willow", "Oysters", "Trophies",
+               "Wine Glass", "Chalice", "Umbrella"],
+
+  // Outline/structural frame
+  outline: ["Outline", "Cross", "Crosses", "Starburst", "Web",
+            "Spider Web", "Fireworks", "Geometric Explosion", "Squiggle"],
+
+  // Whole/aggregate groups
+  aggregate: ["All", "Whole", "Full", "Complete", "Entire"],
+};
+```
+
+**Matching boost:** If source base name and destination base name are in the same structural category, boost confidence by +0.15. If they're in different categories, penalty of -0.20. This prevents Ring → Willow type mismatches.
+
+### Cross-Vendor Translation Table
+
+The canonical patterns tell us which specific names are equivalent across vendors. Build a translation table from the cross-reference:
+
+```javascript
+// Patterns that appear together in the same canonical entry
+// meaning they're the same structural concept across vendors
+const TRANSLATIONS = {
+  "Hook CCW": ["Half Moon", "Swirl Right", "Spiral CCW", "Curve Left"],
+  "Hook CW": ["Swirl Left", "Spiral CW", "Curve Right"],
+  "Flower": ["Willow", "Cascading Petal", "Petal", "Oyster"],
+  "Ring": ["All Rings", "Circles", "Balls", "Saucers"],
+  "Spoke": ["Spinners", "Arms", "Feathers", "Arrows"],
+  "Snowflake Spoke": ["Circles (V)", "Radial Spokes"],
+  "Snowflake Center": ["Center Rings", "Inner Circle"],
+  "Whirliwig": ["Circles-Odd/Even", "Rotational"],
+  "Web": ["Spider Web", "Net"],
+  "Outline": ["Outline", "Frame", "Perimeter"],
+};
+```
+
+When `Ring 03` from source doesn't find a literal `Ring 03` in destination, check the translation table: `Ring` → look for `All Rings`, `Circles`, `Balls`, `Saucers` in destination. Found `All Rings-03`? Use it.
+
+---
+
+## Fix H: Odd/Even Awareness
+
+Many spinner props split their submodel groups into Odd/Even pairs for alternating animation effects. The algorithm must respect this:
+
+```
+Source: Spoke Even, Spoke Odd
+Dest:   Circles-Odd (V), Circles-Even (V)
+
+CORRECT:  Spoke Even → Circles-Even (V),  Spoke Odd → Circles-Odd (V)
+WRONG:    Spoke Even → Circles-Odd (V)   (inverted parity)
+```
+
+**Rule:** If both source and destination have Odd/Even variants of the same base pattern, match Odd→Odd and Even→Even. Never cross-match parity unless no same-parity option exists.
+
+Detection:
+```javascript
+function getOddEvenTag(name) {
+  if (/[\s\-_](Odd|odd)/.test(name)) return 'odd';
+  if (/[\s\-_](Even|even)/.test(name)) return 'even';
+  // Also check for numbered patterns where odd/even is implicit
+  const num = parseInt(name.match(/(\d+)$/)?.[1]);
+  if (num && name.includes('-')) return num % 2 === 0 ? 'even' : 'odd';
+  return null;
+}
+```
+
+---
+
+## Fix I: Section-Aware Matching
+
+The Showstopper props have organized sections: `**WHOLE SPINNER`, `**OUTER`, `**MIDDLE`, `**CENTER`, `**HALLOWEEN`. The algorithm should use section position as a strong matching signal:
+
+**Section hierarchy = radial position from outside to center:**
+```
+WHOLE SPINNER  → patterns that span the entire prop (highest priority, map first)
+OUTER          → outer ring/edge elements
+MIDDLE         → mid-radius elements
+CENTER         → innermost elements
+HALLOWEEN (or other themed) → overlay/seasonal elements (map last)
+INDIVIDUAL SUB-MODELS → individual segments (lowest priority)
+```
+
+**Matching rule:** When the source prop has NO sections but the destination does, use the submodel group's **pixel count relative to siblings** to infer which section it belongs to:
+- Largest pixel counts → WHOLE SPINNER tier
+- Large pixel counts → OUTER tier
+- Medium → MIDDLE tier
+- Small → CENTER tier
+
+This prevents a 50px Ring from matching a 384px Outer Rings aggregate — the Ring is CENTER tier, Outer Rings is OUTER tier.
+
+When BOTH props have sections, match section-to-section first, then within-section by name/number/pixel.
+
+---
+
+## Fix J: Count-Ratio Matching for Numbered Sequences
+
+When matching numbered sequences (Hook CCW 01-50 → Half Moon 01-12), the algorithm should:
+
+1. **Calculate the count ratio:** source has 50, dest has 12 → ratio 4.17:1
+2. **Map 1:1 up to the smaller count:** Hook CCW 01→Half Moon-01, ..., 12→12
+3. **For the overflow (13-50), offer two strategies:**
+   - **Leave unmapped** (default) — user can manually distribute
+   - **Modular wrap** — 13→01, 14→02, ..., 24→12, 25→01, etc. (user opt-in)
+   - Show in UI: "38 segments without matching destinations — [Leave unmapped] [Distribute evenly]"
+4. **Never map overflow segments to random unrelated destinations** — this is what's happening now (Spoke 03→Oysters-03, Spoke 07→Oysters-07) where the algorithm grabs whatever it can find
+
+The count ratio also helps with confidence scoring: a 4:1 ratio means the mapping is inherently lossy, so max confidence should cap at MEDIUM even for good name matches.
+
+---
+
+## Fix K: Spinner Structural Fingerprinting
+
+Use the cross-reference to build a **structural fingerprint** for each spinner. This helps spinner monogamy (Ticket 79) pair better spinners together.
+
+A spinner's fingerprint = the set of canonical pattern categories it contains + their counts:
+
+```javascript
+fingerprint("Grand Illusion 1") = {
+  curve: 100,      // Hook CCW (50) + Hook CW (50)
+  ring: 21,        // Ring (20) + Ring All (1)
+  decorative: 16,  // Flower (16)
+  radial: 54,      // Spoke (50+)
+  composite: 20,   // Snowflake variations
+  outline: 18,     // Web (18)
+}
+
+fingerprint("Showstopper Spinner") = {
+  curve: 44,        // Half Moon (12) + Swirl L (12) + Swirl R (12) + Inner Swirl (8)
+  ring: 30,         // All Rings (17) + Outer Rings + Center Rings + Circles
+  decorative: 50,   // Willow + Petals + Cascading + Oysters + Hearts + ...
+  radial: 30,       // Spinners-All + Arrows + Feathers + ...
+  composite: 5,     // Snowflake + Starburst + Fireworks
+  outline: 5,       // Outline + Crosses + Squiggle
+}
+```
+
+**Cosine similarity of fingerprints** gives a much better spinner pairing score than name matching alone. Two spinners with similar category distributions are structurally compatible even if they have completely different names.
+
+---
+
+## Fix L: "All" / Aggregate Group Hierarchy
+
+The cross-reference reveals that many props have both individual segments AND aggregate groups:
+
+```
+Grand Illusion 1:
+  Ring 01, Ring 02, ... Ring 20    (individual)
+  Ring All                          (aggregate of all 20)
+
+Showstopper Spinner:
+  All Rings-01, All Rings-02, ... All Rings-17   (individual)
+  13 All Rings                                     (aggregate of all 17)
+  35 Outer Rings                                   (aggregate of outer subset)
+```
+
+**Rules for aggregate handling:**
+1. **Never map an individual to an aggregate** (Ring 07 → 13 All Rings is WRONG)
+2. **Map aggregate to aggregate** if both sides have them (Ring All → 13 All Rings)
+3. **If source has aggregate but dest doesn't:** leave aggregate unmapped (covered by children)
+4. **If dest has aggregate but source doesn't:** leave dest aggregate unmapped (children will fill it)
+5. **Detect aggregates by:**
+   - Name contains "All" (Ring All, 13 All Rings, All Rings)
+   - Pixel count > 3× median sibling count
+   - Name starts with a number that matches total count (e.g., "13 All Rings" in a group with 17 individual rings → the "13" is a group number, not position)
+   - Pattern: `{number} {base name}` where number > count of individual items
+
+---
+
+## Revised Processing Order for Submodel Auto-Match
+
+Putting all fixes together, the algorithm should process in this order:
+
+```
+1. SECTION MATCHING (Fix I)
+   Map section headers if both sides have them
+   Use section position to bucket submodel groups
+
+2. AGGREGATE MATCHING (Fix L)
+   Identify aggregates on both sides
+   Map aggregate ↔ aggregate, exclude from individual matching pool
+
+3. ODD/EVEN PAIRS (Fix H)
+   Identify Odd/Even pairs
+   Lock Odd→Odd, Even→Even — these are paired first
+
+4. EXACT NAME MATCHING
+   Direct name match (Ring 01 → Ring 01, Outline → Outline)
+   Highest confidence, processed first
+
+5. CANONICAL PATTERN TRANSLATION (Fix G)
+   Use cross-reference vocabulary: Hook CCW → Half Moon
+   Boost for same structural category
+
+6. NUMBERED SEQUENCE MATCHING (Fix J)
+   Match numbered segments 1:1 up to the smaller count
+   Leave overflow unmapped (or offer wrap)
+
+7. PIXEL-RATIO-CONSTRAINED FALLBACK (Fix D from original)
+   For remaining unmatched, use pixel similarity
+   Reject >5:1 ratio mismatches
+
+8. DESTINATION EXCLUSIVITY SWEEP (Fix A from original)
+   Process all matches highest-confidence-first
+   Each destination claimed only once
+   Losers try next-best or go unmapped
+```
+
+This order ensures the best matches get claimed first, structural intelligence guides ambiguous cases, and no destination is ever double-booked.
