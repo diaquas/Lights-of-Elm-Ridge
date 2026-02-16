@@ -151,6 +151,22 @@ export function FinalizePhase() {
       }
     }
 
+    // Pre-compute: member names covered by mapped groups or direct mappings.
+    // Used to detect groups whose members are ALL covered by subgroup mappings
+    // (e.g., "All - Canes - GRP" where all members are in mapped "All - Canes - Medium - GRP").
+    const coveredMemberNames = new Set<string>();
+    for (const model of allDestModels) {
+      if (
+        model.isGroup &&
+        mappedGroupNames.has(model.name) &&
+        model.memberModels
+      ) {
+        for (const memberName of model.memberModels) {
+          coveredMemberNames.add(memberName);
+        }
+      }
+    }
+
     return allDestModels
       .filter((m) => !m.name.startsWith("DMX"))
       .map((model) => {
@@ -172,9 +188,27 @@ export function FinalizePhase() {
           }
         }
 
+        // For unmapped groups: check if all members are already covered by
+        // mapped subgroups or direct individual mappings. If so, suppress
+        // the suggestion — the group is effectively covered and doesn't
+        // need a separate mapping or "Accept" prompt.
+        let isGroupFullyCovered = false;
+        if (
+          model.isGroup &&
+          model.memberModels &&
+          model.memberModels.length > 0 &&
+          sourceNames.length === 0
+        ) {
+          isGroupFullyCovered = model.memberModels.every(
+            (m) =>
+              coveredMemberNames.has(m) ||
+              (destToSourcesMap.get(m)?.size ?? 0) > 0,
+          );
+        }
+
         // Find best suggestion from mapped source layers
         let topSugg: DestItem["topSuggestion"] = null;
-        if (sourceNames.length === 0) {
+        if (sourceNames.length === 0 && !isGroupFullyCovered) {
           for (const layer of sourceLayerMappings) {
             if (layer.isSkipped || !layer.isMapped) continue;
             const suggestions = getSuggestionsForLayer(layer.sourceModel);
