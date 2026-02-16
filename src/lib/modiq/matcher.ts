@@ -2399,13 +2399,17 @@ function scoreSubmodel(
 function mapSubmodels(
   source: ParsedModel,
   dest: ParsedModel,
+  globalClaimedDest?: Set<string>,
 ): SubmodelMapping[] {
   if (source.submodels.length === 0) return [];
 
-  // Check cache
+  // Check cache — skip when globalClaimedDest is provided because results
+  // depend on which dest submodels were already claimed by other pairings.
   const cacheKey = `${source.name}:${dest.name}`;
-  const cached = submodelCache.get(cacheKey);
-  if (cached) return cached;
+  if (!globalClaimedDest) {
+    const cached = submodelCache.get(cacheKey);
+    if (cached) return cached;
+  }
 
   // Type compatibility gate: if parent models are fundamentally incompatible
   // types, skip submodel mapping entirely. Cross-type submodel pairings produce
@@ -2419,7 +2423,7 @@ function mapSubmodels(
       confidence: "unmapped" as const,
       pixelDiff: `${srcSub.pixelCount || "?"}px`,
     }));
-    submodelCache.set(cacheKey, empty);
+    if (!globalClaimedDest) submodelCache.set(cacheKey, empty);
     return empty;
   }
 
@@ -2438,11 +2442,27 @@ function mapSubmodels(
     isAggregateSubmodel(s, dest.submodels),
   );
 
+  // ── Global exclusivity: identify already-claimed dest submodels ──
+  const globallyClaimedIndices = new Set<number>();
+  if (globalClaimedDest) {
+    for (let di = 0; di < dest.submodels.length; di++) {
+      const destKey = `${dest.name}::${dest.submodels[di].name}`;
+      if (globalClaimedDest.has(destKey)) {
+        globallyClaimedIndices.add(di);
+      }
+    }
+  }
+
   // ── Build score matrix: score[srcIdx][destIdx] ──
   const scoreMatrix: number[][] = [];
   for (let si = 0; si < source.submodels.length; si++) {
     const row: number[] = [];
     for (let di = 0; di < dest.submodels.length; di++) {
+      // Skip globally claimed dest submodels
+      if (globallyClaimedIndices.has(di)) {
+        row.push(0);
+        continue;
+      }
       row.push(
         scoreSubmodel(
           source.submodels[si],
@@ -2485,6 +2505,62 @@ function mapSubmodels(
     assignment.set(si, { di, score });
   }
 
+  // ── Wrap/distribute for excess numbered segments (Problem 5) ──
+  // When source has more numbered submodels than dest (e.g., 50 Hook CCW
+  // but only 12 Half Moon), wrap excess sources cyclically through the
+  // matched dest submodels sharing the same base name.
+  const unmappedSrcIndices = [];
+  for (let si = 0; si < source.submodels.length; si++) {
+    if (!assignedSrc.has(si)) unmappedSrcIndices.push(si);
+  }
+
+  if (unmappedSrcIndices.length > 0) {
+    // Group matched assignments by dest base name → ordered dest indices
+    const matchedDestByBase = new Map<string, number[]>();
+    for (const [si, { di }] of assignment) {
+      const srcBase = srcParsed[si].base;
+      if (srcBase.length > 0) {
+        if (!matchedDestByBase.has(srcBase)) matchedDestByBase.set(srcBase, []);
+        matchedDestByBase.get(srcBase)!.push(di);
+      }
+    }
+    // Sort each group's dest indices by their parsed index for stable cycling
+    for (const [, destIndices] of matchedDestByBase) {
+      destIndices.sort((a, b) => destParsed[a].index - destParsed[b].index);
+    }
+
+    // For each unmapped source, if it shares a base with a matched group,
+    // cycle through that group's dest submodels
+    for (const si of unmappedSrcIndices) {
+      const srcBase = srcParsed[si].base;
+      if (srcBase.length === 0) continue;
+      const destGroup = matchedDestByBase.get(srcBase);
+      if (!destGroup || destGroup.length === 0) continue;
+
+      // Wrap: pick dest index cyclically based on source's position
+      // among all source submodels sharing this base name
+      const allSrcWithBase = srcParsed
+        .map((p, idx) => ({ idx, ...p }))
+        .filter((p) => p.base === srcBase)
+        .sort((a, b) => a.index - b.index);
+      const posInBase = allSrcWithBase.findIndex((p) => p.idx === si);
+      if (posInBase < 0) continue;
+
+      const wrapDi = destGroup[posInBase % destGroup.length];
+      // Assign with reduced confidence (0.55 — medium tier) since it's a wrap
+      assignedSrc.add(si);
+      assignment.set(si, { di: wrapDi, score: 0.55 });
+    }
+  }
+
+  // ── Register globally claimed dest submodels ──
+  if (globalClaimedDest) {
+    for (const [, { di }] of assignment) {
+      const destKey = `${dest.name}::${dest.submodels[di].name}`;
+      globalClaimedDest.add(destKey);
+    }
+  }
+
   // ── Build output mappings ──
   const mappings: SubmodelMapping[] = [];
   for (let si = 0; si < source.submodels.length; si++) {
@@ -2508,8 +2584,10 @@ function mapSubmodels(
     }
   }
 
-  // Store in cache before returning
-  submodelCache.set(cacheKey, mappings);
+  // Store in cache before returning (only when not using global exclusivity)
+  if (!globalClaimedDest) {
+    submodelCache.set(cacheKey, mappings);
+  }
   return mappings;
 }
 
@@ -2545,6 +2623,10 @@ export function matchModels(
   const allMappings: ModelMapping[] = [];
   const allSacrifices: SacrificeInfo[] = [];
 
+  // Global dest submodel exclusivity: prevents the same dest submodel from
+  // being assigned to multiple source models when many-to-one occurs.
+  const globalClaimedDest = new Set<string>();
+
   // ── Phase 1: Match Groups (optimal assignment) ─────────
   const groupResult = optimalMatch(
     sourceGroups,
@@ -2553,6 +2635,7 @@ export function matchModels(
     destBounds,
     undefined,
     superGroups,
+    globalClaimedDest,
   );
   for (const m of groupResult.mappings) {
     allMappings.push(m);
@@ -2578,6 +2661,7 @@ export function matchModels(
     destBounds,
     undefined,
     superGroups,
+    globalClaimedDest,
   );
   for (const m of individualResult.mappings) {
     allMappings.push(m);
@@ -2691,7 +2775,7 @@ export function matchModels(
             // Penalize cross-prop matches (cap at 0.8x original)
             const finalScore = bestScore * 0.8;
             const confidence = scoreToConfidence(finalScore);
-            const subMappings = mapSubmodels(src, destMatch);
+            const subMappings = mapSubmodels(src, destMatch, globalClaimedDest);
 
             // Only assign if the result reaches a real confidence tier
             if (confidence === "unmapped") continue;
@@ -2788,7 +2872,7 @@ export function matchModels(
       }
 
       if (bestDest) {
-        const subMappings = mapSubmodels(src, bestDest);
+        const subMappings = mapSubmodels(src, bestDest, globalClaimedDest);
         // Score is capped at medium confidence (0.65) since this is a
         // many-to-one fallback — the user should review these
         const fallbackScore = 0.65;
@@ -2899,7 +2983,7 @@ export function matchModels(
             const destMatch = destPool[bestIdx];
             const finalScore = bestScore * 0.7;
             const confidence = scoreToConfidence(finalScore);
-            const subMappings = mapSubmodels(src, destMatch);
+            const subMappings = mapSubmodels(src, destMatch, globalClaimedDest);
 
             if (confidence === "unmapped") continue;
 
@@ -3037,6 +3121,7 @@ function optimalMatch(
   destBounds: NormalizedBounds,
   effectTypeMap?: Record<string, Record<string, number>>,
   superGroups?: { source?: Set<string>; dest?: Set<string> },
+  globalClaimedDest?: Set<string>,
 ): OptimalMatchResult {
   if (sources.length === 0) return { mappings: [], sacrifices: [] };
 
@@ -3134,7 +3219,7 @@ function optimalMatch(
       confidence,
       factors,
       reason: "",
-      submodelMappings: mapSubmodels(sourceModel, destModel),
+      submodelMappings: mapSubmodels(sourceModel, destModel, globalClaimedDest),
     };
     mapping.reason = generateReason(mapping);
 
@@ -3194,7 +3279,11 @@ function optimalMatch(
         confidence: scoreToConfidence(bestScore),
         factors: bestFactors,
         reason: "",
-        submodelMappings: mapSubmodels(sources[bestSrc], dests[d]),
+        submodelMappings: mapSubmodels(
+          sources[bestSrc],
+          dests[d],
+          globalClaimedDest,
+        ),
       };
       mapping.reason = generateReason(mapping);
       mappings.push(mapping);
