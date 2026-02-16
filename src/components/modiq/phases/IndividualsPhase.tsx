@@ -56,6 +56,7 @@ type StatusFilter =
 export function IndividualsPhase() {
   const {
     phaseItems,
+    phaseZeroEffectItems,
     interactive,
     autoMatchedNames,
     approvedNames,
@@ -81,6 +82,7 @@ export function IndividualsPhase() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [showAllModels, setShowAllModels] = useState(false);
   // Banner filter: set by auto-match banner to show strong/review items (overrides statusFilter)
   const [bannerFilter, setBannerFilter] = useState<
     "auto-strong" | "auto-review" | null
@@ -206,7 +208,9 @@ export function IndividualsPhase() {
 
   // Filtered + stable-sorted items (single unified list)
   const filteredItems = useMemo(() => {
-    let items = [...phaseItems];
+    let items = showAllModels
+      ? [...phaseItems, ...phaseZeroEffectItems]
+      : [...phaseItems];
 
     // Banner filter overrides status filter when active
     const activeFilter = bannerFilter ?? statusFilter;
@@ -264,6 +268,8 @@ export function IndividualsPhase() {
     });
   }, [
     phaseItems,
+    phaseZeroEffectItems,
+    showAllModels,
     statusFilter,
     bannerFilter,
     search,
@@ -584,7 +590,25 @@ export function IndividualsPhase() {
               }}
             />
             {/* View mode toggle: All / Groups / Models */}
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              {phaseZeroEffectItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAllModels((v) => !v);
+                    setSortVersion((v) => v + 1);
+                  }}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                    showAllModels
+                      ? "border-accent/40 bg-accent/10 text-accent"
+                      : "border-border text-foreground/40 hover:text-foreground/60"
+                  }`}
+                >
+                  {showAllModels
+                    ? `All Models (${phaseItems.length + phaseZeroEffectItems.length})`
+                    : `With Effects (${phaseItems.length})`}
+                </button>
+              )}
               <ViewModePills value={viewMode} onChange={setViewMode} />
             </div>
           </div>

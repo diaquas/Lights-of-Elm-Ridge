@@ -54,6 +54,8 @@ interface PhaseContextValue {
   canGoPrevious: boolean;
   /** Items filtered for the current phase */
   phaseItems: SourceLayerMapping[];
+  /** Zero-effect items for the current phase (hidden by default, shown via "Show All Models" toggle) */
+  phaseZeroEffectItems: SourceLayerMapping[];
   /** Get items for a specific phase */
   getPhaseItems: (phase: MappingPhase) => SourceLayerMapping[];
   /** Progress within the current phase */
@@ -224,6 +226,18 @@ export function MappingPhaseProvider({
       }
     }
 
+    // Also assign phases to zero-effect layers (for "Show All Models" toggle)
+    for (const layer of interactive.zeroEffectLayers) {
+      const name = layer.sourceModel.name;
+      if (!phaseAssignmentRef.current.has(name)) {
+        if (isSpinnerType(layer.sourceModel.groupType)) {
+          phaseAssignmentRef.current.set(name, "spinners");
+        } else {
+          phaseAssignmentRef.current.set(name, "individuals");
+        }
+      }
+    }
+
     return {
       scores: new Map(stableScoreRef.current),
       factors: new Map(stableFactorsRef.current),
@@ -376,6 +390,19 @@ export function MappingPhaseProvider({
     [getPhaseItems, currentPhase],
   );
 
+  // Zero-effect items for current phase (available when "Show All Models" is toggled on)
+  const phaseZeroEffectItems = useMemo(
+    () =>
+      sortLayers(
+        interactive.zeroEffectLayers.filter(
+          (layer) =>
+            phaseAssignmentRef.current.get(layer.sourceModel.name) ===
+            currentPhase,
+        ),
+      ),
+    [interactive.zeroEffectLayers, currentPhase],
+  );
+
   const phaseProgress = useMemo((): PhaseProgress => {
     const total = phaseItems.length;
     const completed = phaseItems.filter((item) => item.isMapped).length;
@@ -423,6 +450,7 @@ export function MappingPhaseProvider({
       canGoNext,
       canGoPrevious,
       phaseItems,
+      phaseZeroEffectItems,
       getPhaseItems,
       phaseProgress,
       overallProgress,
@@ -445,6 +473,7 @@ export function MappingPhaseProvider({
       canGoNext,
       canGoPrevious,
       phaseItems,
+      phaseZeroEffectItems,
       getPhaseItems,
       phaseProgress,
       overallProgress,

@@ -126,6 +126,16 @@ export function FinalizePhase() {
     new Set(),
   );
   const [viewMode, setViewMode] = useState<ViewMode>("all");
+  const [showAllModels, setShowAllModels] = useState(false);
+
+  // Merged source layers: include zero-effect layers when "Show All" is toggled
+  const allSourceLayers = useMemo(
+    () =>
+      showAllModels
+        ? [...sourceLayerMappings, ...interactive.zeroEffectLayers]
+        : sourceLayerMappings,
+    [sourceLayerMappings, interactive.zeroEffectLayers, showAllModels],
+  );
 
   // ── Auto-skip: if display coverage is 100%, show a completion message ──
   const isFullCoverage = displayCoverage.percent >= 100;
@@ -334,9 +344,10 @@ export function FinalizePhase() {
     const results: SourceSuggestion[] = [];
     const existingSources = new Set(selectedItem.sources);
 
-    for (const layer of sourceLayerMappings) {
+    for (const layer of allSourceLayers) {
       if (layer.isSkipped) continue;
-      if (layer.effectCount === 0) continue;
+      // Skip zero-effect layers unless "Show All" is toggled on
+      if (!showAllModels && layer.effectCount === 0) continue;
 
       // Get suggestion score for this dest from this source
       const suggestions = getSuggestionsForLayer(layer.sourceModel);
@@ -362,7 +373,7 @@ export function FinalizePhase() {
     });
 
     return results;
-  }, [selectedItem, sourceLayerMappings, getSuggestionsForLayer]);
+  }, [selectedItem, allSourceLayers, showAllModels, getSuggestionsForLayer]);
 
   // Split suggestions into matched vs all
   const { matchedSuggestions, otherSources } = useMemo(() => {
@@ -381,7 +392,7 @@ export function FinalizePhase() {
 
     // Build lookup from source name → layer
     const layerByName = new Map<string, SourceLayerMapping>();
-    for (const layer of sourceLayerMappings) {
+    for (const layer of allSourceLayers) {
       layerByName.set(layer.sourceModel.name, layer);
     }
 
@@ -392,8 +403,12 @@ export function FinalizePhase() {
     // Build member→group mapping from source layers
     const memberToParent = new Map<string, string>();
     const groupLayers: SourceLayerMapping[] = [];
-    for (const layer of sourceLayerMappings) {
-      if (layer.isGroup && !layer.isSkipped && layer.effectCount > 0) {
+    for (const layer of allSourceLayers) {
+      if (
+        layer.isGroup &&
+        !layer.isSkipped &&
+        (showAllModels || layer.effectCount > 0)
+      ) {
         groupLayers.push(layer);
         for (const memberName of layer.memberNames) {
           // Prefer most-specific (smallest) group
@@ -457,7 +472,7 @@ export function FinalizePhase() {
       regularGroups: regularGroupsSrc,
       ungrouped: ungroupedSrc,
     };
-  }, [otherSources, sourceLayerMappings]);
+  }, [otherSources, allSourceLayers, showAllModels]);
 
   // ── Handlers ──
   const handleAssign = useCallback(
@@ -609,7 +624,22 @@ export function FinalizePhase() {
               active={statusFilter === "unmapped"}
               onClick={() => setStatusFilter("unmapped")}
             />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              {interactive.zeroEffectLayers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllModels((v) => !v)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                    showAllModels
+                      ? "border-accent/40 bg-accent/10 text-accent"
+                      : "border-border text-foreground/40 hover:text-foreground/60"
+                  }`}
+                >
+                  {showAllModels
+                    ? `All Sources (${sourceLayerMappings.length + interactive.zeroEffectLayers.length})`
+                    : `With Effects (${sourceLayerMappings.length})`}
+                </button>
+              )}
               <ViewModePills value={viewMode} onChange={setViewMode} />
             </div>
           </div>
