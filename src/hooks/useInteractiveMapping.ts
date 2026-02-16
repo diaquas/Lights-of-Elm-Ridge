@@ -163,6 +163,8 @@ export interface InteractiveMappingState {
   coveragePercentage: number;
   /** Number of zero-effect items hidden from mapping (no visual impact) */
   hiddenZeroEffectCount: number;
+  /** Zero-effect source layers (available for optional display via "Show All Models" toggle) */
+  zeroEffectLayers: SourceLayerMapping[];
   /** Set of source model names covered by a mapped parent group */
   sourcesCoveredByGroup: Set<string>;
   /** Find next unmapped source layer */
@@ -929,163 +931,173 @@ export function useInteractiveMapping(
 
   // Build source-layer mappings from effect tree
   // Zero-effect items are filtered out — they have no visual impact and don't need mapping
-  const { sourceLayerMappings, hiddenZeroEffectCount } = useMemo(() => {
-    if (!effectTree)
+  const { sourceLayerMappings, zeroEffectLayers, hiddenZeroEffectCount } =
+    useMemo(() => {
+      if (!effectTree)
+        return {
+          sourceLayerMappings: [] as SourceLayerMapping[],
+          zeroEffectLayers: [] as SourceLayerMapping[],
+          hiddenZeroEffectCount: 0,
+        };
+
+      // Get effect counts for current sequence (if available)
+      // Use externally provided counts (from vendor .xsq parsing) if available,
+      // otherwise fall back to hardcoded SEQUENCE_EFFECT_COUNTS for elm-ridge mode.
+      const effectCounts =
+        externalEffectCounts ??
+        (sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined);
+
+      // Get per-model effect type distributions (e.g., { Faces: 29, Plasma: 8 })
+      const effectTypeMap = sequenceSlug
+        ? getSequenceEffectTypeCounts(sequenceSlug)
+        : undefined;
+
+      const layers: SourceLayerMapping[] = [];
+
+      // Pre-compute: for each model name, which super groups contain it?
+      const modelSuperGroupMap = new Map<string, string[]>();
+      for (const sg of effectTree.superGroups) {
+        const members = new Set(sg.model.memberModels);
+        for (const memberName of members) {
+          const existing = modelSuperGroupMap.get(memberName) ?? [];
+          existing.push(sg.model.name);
+          modelSuperGroupMap.set(memberName, existing);
+        }
+      }
+
+      // Groups with effects (Scenario A and B — C are individual-only)
+      for (const gInfo of effectTree.groupsWithEffects) {
+        if (gInfo.scenario === "C") continue;
+        const destNames = sourceDestLinks.get(gInfo.model.name);
+        const userModels: ParsedModel[] = [];
+        if (destNames) {
+          for (const dn of destNames) {
+            const m = destByName.get(dn);
+            if (m) userModels.push(m);
+          }
+        }
+
+        // Count children resolved by mapping this group
+        let coveredChildCount = 0;
+        if (userModels.length > 0 && !gInfo.isAllEncompassing) {
+          coveredChildCount = gInfo.membersWithoutEffects.length;
+        }
+
+        layers.push({
+          sourceModel: gInfo.model,
+          assignedUserModels: userModels,
+          isGroup: true,
+          scenario: gInfo.scenario,
+          memberNames: gInfo.model.memberModels,
+          membersWithEffects: gInfo.membersWithEffects,
+          membersWithoutEffects: gInfo.membersWithoutEffects,
+          isAllEncompassing: gInfo.isAllEncompassing,
+          coveredChildCount,
+          isSkipped: skippedSourceLayers.has(gInfo.model.name),
+          isMapped: userModels.length > 0,
+          isCoveredByMappedGroup: false,
+          effectCount: effectCounts?.[gInfo.model.name] ?? 0,
+          effectTypeCounts: effectTypeMap?.[gInfo.model.name],
+          isSuperGroup: gInfo.isSuperGroup,
+          containedGroupCount: gInfo.containedGroupCount,
+          parentSuperGroup:
+            effectTree.groupParentMap.get(gInfo.model.name) ?? null,
+          superGroupLayers: [],
+        });
+      }
+
+      // Individual models needing mapping
+      for (const mInfo of effectTree.modelsWithEffects) {
+        if (!mInfo.needsIndividualMapping) continue;
+        const destNames = sourceDestLinks.get(mInfo.model.name);
+        const userModels: ParsedModel[] = [];
+        if (destNames) {
+          for (const dn of destNames) {
+            const m = destByName.get(dn);
+            if (m) userModels.push(m);
+          }
+        }
+
+        layers.push({
+          sourceModel: mInfo.model,
+          assignedUserModels: userModels,
+          isGroup: false,
+          scenario: null,
+          memberNames: [],
+          membersWithEffects: [],
+          membersWithoutEffects: [],
+          isAllEncompassing: false,
+          coveredChildCount: 0,
+          isSkipped: skippedSourceLayers.has(mInfo.model.name),
+          isMapped: userModels.length > 0,
+          isCoveredByMappedGroup: false,
+          effectCount: effectCounts?.[mInfo.model.name] ?? 0,
+          effectTypeCounts: effectTypeMap?.[mInfo.model.name],
+          isSuperGroup: false,
+          containedGroupCount: 0,
+          parentSuperGroup: null,
+          superGroupLayers: modelSuperGroupMap.get(mInfo.model.name) ?? [],
+        });
+      }
+
+      // Group coverage: members with 0 own effects are "covered by group" ONLY
+      // when their parent group is actively mapped. This combines the static
+      // source-data check (membersWithoutEffects) with a dynamic runtime check
+      // (parent group is mapped and not skipped).
+      const coveredMemberNames = new Set<string>();
+      for (const layer of layers) {
+        if (layer.isGroup && layer.isMapped && !layer.isSkipped) {
+          for (const memberName of layer.membersWithoutEffects) {
+            coveredMemberNames.add(memberName);
+          }
+        }
+      }
+      if (coveredMemberNames.size > 0) {
+        for (const layer of layers) {
+          if (
+            !layer.isGroup &&
+            !layer.isMapped &&
+            coveredMemberNames.has(layer.sourceModel.name)
+          ) {
+            layer.isCoveredByMappedGroup = true;
+          }
+        }
+      }
+
+      // Filter out zero-effect items when effect counts are available.
+      // These are groups/models that exist in the source layout and pass
+      // the effect tree (via isModelInSequence prefix matching) but have
+      // 0 direct effects in SEQUENCE_EFFECT_COUNTS for this sequence.
+      if (effectCounts) {
+        const filtered: SourceLayerMapping[] = [];
+        const zeroEffect: SourceLayerMapping[] = [];
+        for (const layer of layers) {
+          if (layer.effectCount === 0) {
+            zeroEffect.push(layer);
+          } else {
+            filtered.push(layer);
+          }
+        }
+        return {
+          sourceLayerMappings: filtered,
+          zeroEffectLayers: zeroEffect,
+          hiddenZeroEffectCount: zeroEffect.length,
+        };
+      }
+
       return {
-        sourceLayerMappings: [] as SourceLayerMapping[],
+        sourceLayerMappings: layers,
+        zeroEffectLayers: [] as SourceLayerMapping[],
         hiddenZeroEffectCount: 0,
       };
-
-    // Get effect counts for current sequence (if available)
-    // Use externally provided counts (from vendor .xsq parsing) if available,
-    // otherwise fall back to hardcoded SEQUENCE_EFFECT_COUNTS for elm-ridge mode.
-    const effectCounts =
-      externalEffectCounts ??
-      (sequenceSlug ? getSequenceEffectCounts(sequenceSlug) : undefined);
-
-    // Get per-model effect type distributions (e.g., { Faces: 29, Plasma: 8 })
-    const effectTypeMap = sequenceSlug
-      ? getSequenceEffectTypeCounts(sequenceSlug)
-      : undefined;
-
-    const layers: SourceLayerMapping[] = [];
-
-    // Pre-compute: for each model name, which super groups contain it?
-    const modelSuperGroupMap = new Map<string, string[]>();
-    for (const sg of effectTree.superGroups) {
-      const members = new Set(sg.model.memberModels);
-      for (const memberName of members) {
-        const existing = modelSuperGroupMap.get(memberName) ?? [];
-        existing.push(sg.model.name);
-        modelSuperGroupMap.set(memberName, existing);
-      }
-    }
-
-    // Groups with effects (Scenario A and B — C are individual-only)
-    for (const gInfo of effectTree.groupsWithEffects) {
-      if (gInfo.scenario === "C") continue;
-      const destNames = sourceDestLinks.get(gInfo.model.name);
-      const userModels: ParsedModel[] = [];
-      if (destNames) {
-        for (const dn of destNames) {
-          const m = destByName.get(dn);
-          if (m) userModels.push(m);
-        }
-      }
-
-      // Count children resolved by mapping this group
-      let coveredChildCount = 0;
-      if (userModels.length > 0 && !gInfo.isAllEncompassing) {
-        coveredChildCount = gInfo.membersWithoutEffects.length;
-      }
-
-      layers.push({
-        sourceModel: gInfo.model,
-        assignedUserModels: userModels,
-        isGroup: true,
-        scenario: gInfo.scenario,
-        memberNames: gInfo.model.memberModels,
-        membersWithEffects: gInfo.membersWithEffects,
-        membersWithoutEffects: gInfo.membersWithoutEffects,
-        isAllEncompassing: gInfo.isAllEncompassing,
-        coveredChildCount,
-        isSkipped: skippedSourceLayers.has(gInfo.model.name),
-        isMapped: userModels.length > 0,
-        isCoveredByMappedGroup: false,
-        effectCount: effectCounts?.[gInfo.model.name] ?? 0,
-        effectTypeCounts: effectTypeMap?.[gInfo.model.name],
-        isSuperGroup: gInfo.isSuperGroup,
-        containedGroupCount: gInfo.containedGroupCount,
-        parentSuperGroup:
-          effectTree.groupParentMap.get(gInfo.model.name) ?? null,
-        superGroupLayers: [],
-      });
-    }
-
-    // Individual models needing mapping
-    for (const mInfo of effectTree.modelsWithEffects) {
-      if (!mInfo.needsIndividualMapping) continue;
-      const destNames = sourceDestLinks.get(mInfo.model.name);
-      const userModels: ParsedModel[] = [];
-      if (destNames) {
-        for (const dn of destNames) {
-          const m = destByName.get(dn);
-          if (m) userModels.push(m);
-        }
-      }
-
-      layers.push({
-        sourceModel: mInfo.model,
-        assignedUserModels: userModels,
-        isGroup: false,
-        scenario: null,
-        memberNames: [],
-        membersWithEffects: [],
-        membersWithoutEffects: [],
-        isAllEncompassing: false,
-        coveredChildCount: 0,
-        isSkipped: skippedSourceLayers.has(mInfo.model.name),
-        isMapped: userModels.length > 0,
-        isCoveredByMappedGroup: false,
-        effectCount: effectCounts?.[mInfo.model.name] ?? 0,
-        effectTypeCounts: effectTypeMap?.[mInfo.model.name],
-        isSuperGroup: false,
-        containedGroupCount: 0,
-        parentSuperGroup: null,
-        superGroupLayers: modelSuperGroupMap.get(mInfo.model.name) ?? [],
-      });
-    }
-
-    // Group coverage: members with 0 own effects are "covered by group" ONLY
-    // when their parent group is actively mapped. This combines the static
-    // source-data check (membersWithoutEffects) with a dynamic runtime check
-    // (parent group is mapped and not skipped).
-    const coveredMemberNames = new Set<string>();
-    for (const layer of layers) {
-      if (layer.isGroup && layer.isMapped && !layer.isSkipped) {
-        for (const memberName of layer.membersWithoutEffects) {
-          coveredMemberNames.add(memberName);
-        }
-      }
-    }
-    if (coveredMemberNames.size > 0) {
-      for (const layer of layers) {
-        if (
-          !layer.isGroup &&
-          !layer.isMapped &&
-          coveredMemberNames.has(layer.sourceModel.name)
-        ) {
-          layer.isCoveredByMappedGroup = true;
-        }
-      }
-    }
-
-    // Filter out zero-effect items when effect counts are available.
-    // These are groups/models that exist in the source layout and pass
-    // the effect tree (via isModelInSequence prefix matching) but have
-    // 0 direct effects in SEQUENCE_EFFECT_COUNTS for this sequence.
-    if (effectCounts) {
-      const filtered: SourceLayerMapping[] = [];
-      let hidden = 0;
-      for (const layer of layers) {
-        if (layer.effectCount === 0) {
-          hidden++;
-        } else {
-          filtered.push(layer);
-        }
-      }
-      return { sourceLayerMappings: filtered, hiddenZeroEffectCount: hidden };
-    }
-
-    return { sourceLayerMappings: layers, hiddenZeroEffectCount: 0 };
-  }, [
-    effectTree,
-    sourceDestLinks,
-    destByName,
-    skippedSourceLayers,
-    sequenceSlug,
-    externalEffectCounts,
-  ]);
+    }, [
+      effectTree,
+      sourceDestLinks,
+      destByName,
+      skippedSourceLayers,
+      sequenceSlug,
+      externalEffectCounts,
+    ]);
 
   // Set of source model names covered by a mapped parent group (ticket-73 §1)
   const sourcesCoveredByGroup = useMemo(() => {
@@ -1535,6 +1547,7 @@ export function useInteractiveMapping(
     unmappedLayerCount: sourceStats.unmapped,
     coveragePercentage: sourceStats.pct,
     hiddenZeroEffectCount,
+    zeroEffectLayers,
     sourcesCoveredByGroup,
     nextUnmappedLayer,
     effectsCoverage,

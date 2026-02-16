@@ -49,6 +49,7 @@ type StatusFilter =
 export function SpinnersPhase() {
   const {
     phaseItems,
+    phaseZeroEffectItems,
     interactive,
     autoMatchedNames,
     approvedNames,
@@ -74,6 +75,7 @@ export function SpinnersPhase() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [sortBy] = useState<SortOption>("name-asc");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [showAllModels, setShowAllModels] = useState(false);
   // View mode: all (hierarchy), spinners-only, or sub-groups-only
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   // Expand/collapse state for spinner cards (default: all expanded)
@@ -419,7 +421,10 @@ export function SpinnersPhase() {
 
   // Filtered + stable-sorted items (all submodel groups across all spinners)
   const filteredItems = useMemo(() => {
-    let items = phaseItems.filter((i) => !i.sourceModel.name.startsWith("**"));
+    const base = showAllModels
+      ? [...phaseItems, ...phaseZeroEffectItems]
+      : phaseItems;
+    let items = base.filter((i) => !i.sourceModel.name.startsWith("**"));
 
     // Banner filter overrides status filter when active
     const activeFilter = bannerFilter ?? statusFilter;
@@ -466,6 +471,8 @@ export function SpinnersPhase() {
     });
   }, [
     phaseItems,
+    phaseZeroEffectItems,
+    showAllModels,
     statusFilter,
     bannerFilter,
     sortBy,
@@ -658,7 +665,25 @@ export function SpinnersPhase() {
                 setSortVersion((v) => v + 1);
               }}
             />
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              {phaseZeroEffectItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAllModels((v) => !v);
+                    setSortVersion((v) => v + 1);
+                  }}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                    showAllModels
+                      ? "border-accent/40 bg-accent/10 text-accent"
+                      : "border-border text-foreground/40 hover:text-foreground/60"
+                  }`}
+                >
+                  {showAllModels
+                    ? `All Models (${phaseItems.length + phaseZeroEffectItems.length})`
+                    : `With Effects (${phaseItems.length})`}
+                </button>
+              )}
               <ViewModePills
                 value={viewMode}
                 onChange={setViewMode}
