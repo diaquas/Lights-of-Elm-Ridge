@@ -43,6 +43,8 @@ import type { AlignedWord } from "@/lib/lyriq/lyrics-processor";
 // API clients
 import { fetchLyrics, searchLyrics } from "./lrclib-client";
 import { separateStems, checkDemucsAvailable } from "./replicate-client";
+import { forceAlignLyrics } from "./force-align-client";
+import type { ForceAlignWord } from "./force-align-client";
 
 /** Callback for pipeline progress updates */
 export type ProgressCallback = (pipeline: PipelineProgress[]) => void;
@@ -363,28 +365,43 @@ export async function runPipeline(
   }
 
   if (lyrics && lyrics.plainText.trim().length > 0) {
-    update("lyrics", "active", "Generating singing face timing...");
+    let alignedWords: AlignedWord[] = [];
 
-    // If we have synced lines + a vocals stem, use audio onset detection
-    // within each line segment for better word-level timing.
-    let vocalsSamples: { samples: Float32Array; sampleRate: number } | null =
-      null;
-    if (stems?.vocals && lyrics.syncedLines && lyrics.syncedLines.length > 0) {
+    // Strategy 1: Force-align on Replicate (best — Whisper + wav2vec2)
+    // Requires: Demucs vocals stem URL + lyrics text.
+    // Feed the ISOLATED vocals stem, NOT the original MP3.
+    if (stems?.vocals) {
       try {
-        vocalsSamples = await fetchAndDecodeStem(stems.vocals);
+        update("lyrics", "active", "Running forced alignment on vocals...");
+        const wordstamps = await forceAlignLyrics(
+          stems.vocals,
+          lyrics.plainText,
+          (msg) => update("lyrics", "active", msg),
+        );
+        alignedWords = forceAlignToAlignedWords(wordstamps);
       } catch {
-        // Vocals stem fetch failed — fall back to character distribution
+        // Force-align failed — fall through to fallback strategies
       }
     }
 
-    const alignedWords = lyricsToAlignedWords(
-      lyrics.plainText,
-      lyrics.syncedLines,
-      durationMs,
-      vocalsSamples,
-    );
+    // Strategy 2: LRCLIB synced lines + proportional word distribution
+    if (alignedWords.length === 0 && lyrics.syncedLines?.length) {
+      update("lyrics", "active", "Using LRCLIB synced timestamps...");
+      alignedWords = alignWithSyncedLines(lyrics.syncedLines, durationMs);
+    }
+
+    // Strategy 3: Even distribution (no sync data, no stems)
+    if (alignedWords.length === 0) {
+      update("lyrics", "active", "Estimating word timing...");
+      const lines = lyrics.plainText
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+      alignedWords = distributeWordsEvenly(lines, durationMs);
+    }
 
     if (alignedWords.length > 0) {
+      update("lyrics", "active", "Generating singing face timing...");
       const leadTrack = processAlignedWords(alignedWords, "lead");
       vocalTracks = [leadTrack];
       lyriqStats = computeLyriqStats(vocalTracks);
@@ -531,45 +548,27 @@ async function addDrumSubBands(
 }
 
 /**
- * Convert lyrics text (+ optional synced lines) to AlignedWord[].
- * Uses synced timestamps when available, otherwise estimates timing.
- * If a vocals stem is provided, uses audio onset detection within each
- * line segment for much better word-level alignment.
+ * Convert force-align-wordstamps output to AlignedWord[].
+ * The model returns { word, start (sec), end (sec), probability? }.
  */
-function lyricsToAlignedWords(
-  plainText: string,
-  syncedLines: SyncedLine[] | null,
-  durationMs: number,
-  vocalsStem?: { samples: Float32Array; sampleRate: number } | null,
-): AlignedWord[] {
-  const lines = plainText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  if (lines.length === 0) return [];
-
-  // If we have synced timestamps, use them for line-level timing
-  if (syncedLines && syncedLines.length > 0) {
-    return alignWithSyncedLines(syncedLines, durationMs, vocalsStem ?? null);
-  }
-
-  // Fallback: distribute words evenly across the song duration
-  return distributeWordsEvenly(lines, durationMs);
+function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
+  return wordstamps
+    .filter((w) => w.word.trim().length > 0)
+    .map((w) => ({
+      text: w.word.trim(),
+      startMs: Math.round(w.start * 1000),
+      endMs: Math.round(w.end * 1000),
+      confidence: w.probability ?? 0.9,
+    }));
 }
 
 /**
- * Create aligned words from LRCLIB synced lines.
- *
- * Each synced line gives us a precise "restart" point — we know exactly
- * when each lyric line begins.  Within each line segment:
- * - If we have the vocals stem, detect energy onsets to find word boundaries.
- * - Otherwise, distribute words proportionally by character length.
+ * Fallback: create aligned words from LRCLIB synced lines.
+ * Distributes words proportionally by character length within each line.
  */
 function alignWithSyncedLines(
   syncedLines: SyncedLine[],
   durationMs: number,
-  vocalsStem: { samples: Float32Array; sampleRate: number } | null,
 ): AlignedWord[] {
   const result: AlignedWord[] = [];
 
@@ -590,42 +589,7 @@ function alignWithSyncedLines(
     const lineStartMs = line.timeMs;
     const lineEndMs = nextTime;
 
-    // Try audio-based word alignment using vocals stem onsets
-    if (vocalsStem && words.length > 1) {
-      const onsetTimes = detectWordOnsetsInSegment(
-        vocalsStem.samples,
-        vocalsStem.sampleRate,
-        lineStartMs,
-        lineEndMs,
-      );
-
-      // If we got enough onset points, assign words to them
-      if (onsetTimes.length >= words.length - 1) {
-        // Use the line start + detected onsets as word start times
-        const wordStarts = [
-          lineStartMs,
-          ...onsetTimes.slice(0, words.length - 1),
-        ];
-
-        for (let w = 0; w < words.length; w++) {
-          const startMs = Math.round(wordStarts[w]);
-          const endMs =
-            w + 1 < words.length
-              ? Math.round(wordStarts[w + 1])
-              : Math.round(lineEndMs);
-
-          result.push({
-            text: words[w],
-            startMs,
-            endMs,
-            confidence: 0.85,
-          });
-        }
-        continue;
-      }
-    }
-
-    // Fallback: distribute words proportionally by character length
+    // Distribute words proportionally by character length
     const totalChars = words.reduce((sum, w) => sum + w.length, 0);
     const lineMs = lineEndMs - lineStartMs;
     let cursor = lineStartMs;
@@ -651,57 +615,7 @@ function alignWithSyncedLines(
 }
 
 /**
- * Detect word onsets within a time segment of the vocals stem.
- * Returns onset times (in ms) relative to the audio start.
- */
-function detectWordOnsetsInSegment(
-  samples: Float32Array,
-  sampleRate: number,
-  startMs: number,
-  endMs: number,
-): number[] {
-  const startSample = Math.floor((startMs / 1000) * sampleRate);
-  const endSample = Math.min(
-    Math.ceil((endMs / 1000) * sampleRate),
-    samples.length,
-  );
-
-  if (endSample - startSample < 1024) return [];
-
-  // Extract the segment
-  const segment = samples.subarray(startSample, endSample);
-
-  // Compute short-time energy envelope with small hop for word-level resolution
-  const frameSize = 1024;
-  const hopSize = 256;
-  const numFrames = Math.max(
-    0,
-    Math.floor((segment.length - frameSize) / hopSize) + 1,
-  );
-  if (numFrames < 3) return [];
-
-  const energyEnv = new Float32Array(numFrames);
-  const frameTimes = new Float32Array(numFrames);
-
-  for (let f = 0; f < numFrames; f++) {
-    const offset = f * hopSize;
-    let energy = 0;
-    for (let i = 0; i < frameSize && offset + i < segment.length; i++) {
-      energy += segment[offset + i] * segment[offset + i];
-    }
-    energyEnv[f] = Math.sqrt(energy / frameSize);
-    frameTimes[f] = startMs + ((offset + frameSize / 2) / sampleRate) * 1000;
-  }
-
-  // Use existing onset detector with moderate sensitivity
-  const marks = detectOnsets(energyEnv, frameTimes, 0.3, 80);
-
-  // Return onset times, sorted
-  return marks.map((m) => m.timeMs).sort((a, b) => a - b);
-}
-
-/**
- * Distribute words evenly across the duration (no sync data).
+ * Last-resort fallback: distribute words evenly across the duration.
  */
 function distributeWordsEvenly(
   lines: string[],
@@ -714,7 +628,10 @@ function distributeWordsEvenly(
       .map((w) => w.replace(/[^\w']/g, ""))
       .filter((w) => w.length > 0);
     for (let i = 0; i < words.length; i++) {
-      allWords.push({ text: words[i], lineBreakAfter: i === words.length - 1 });
+      allWords.push({
+        text: words[i],
+        lineBreakAfter: i === words.length - 1,
+      });
     }
   }
 
