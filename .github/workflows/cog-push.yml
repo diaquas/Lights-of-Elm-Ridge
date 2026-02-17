@@ -1,0 +1,42 @@
+name: Push Essentia Cog Model to Replicate
+
+on:
+  # Manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      model_name:
+        description: "Replicate model (e.g. your-username/essentia-onset)"
+        required: true
+        default: "lightsofelmridge/essentia-onset"
+
+  # Auto-push when cog model files change on main
+  push:
+    branches: [main]
+    paths:
+      - "cog/essentia-onset/**"
+
+concurrency:
+  group: cog-push
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Cog
+        run: |
+          sudo curl -o /usr/local/bin/cog -L \
+            https://github.com/replicate/cog/releases/latest/download/cog_Linux_x86_64
+          sudo chmod +x /usr/local/bin/cog
+          cog --version
+
+      - name: Build and push to Replicate
+        working-directory: cog/essentia-onset
+        env:
+          COG_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+        run: |
+          MODEL="${{ github.event.inputs.model_name || secrets.REPLICATE_MODEL_NAME || 'lightsofelmridge/essentia-onset' }}"
+          echo "Pushing to r8.im/${MODEL}"
+          cog push "r8.im/${MODEL}"
