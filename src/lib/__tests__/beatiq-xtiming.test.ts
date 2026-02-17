@@ -147,7 +147,7 @@ describe("xtiming-generator", () => {
     it("returns single-track format for one track", () => {
       const xml = generateMultiTrackXtiming([SAMPLE_TRACK]);
       expect(xml).not.toContain("<timings>");
-      expect(xml).toContain('<timing name="Drums');
+      expect(xml).toContain('<timing offset="0" name="Drums');
     });
 
     it("returns empty string for no enabled tracks", () => {
