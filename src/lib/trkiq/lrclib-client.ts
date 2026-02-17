@@ -41,6 +41,7 @@ async function proxyGet(
     method: "POST",
     headers: {
       apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ action: "get", artist, title }),
@@ -61,6 +62,7 @@ async function proxySearch(query: string): Promise<LrclibResponse | null> {
     method: "POST",
     headers: {
       apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ action: "search", query }),
