@@ -13,8 +13,8 @@ export const DEFAULT_BANDS: FrequencyBand[] = [
     category: "drums",
     lowHz: 20,
     highHz: 150,
-    threshold: 0.35,
-    minIntervalMs: 100,
+    threshold: 0.55,
+    minIntervalMs: 150,
   },
   {
     id: "snare",
@@ -22,8 +22,8 @@ export const DEFAULT_BANDS: FrequencyBand[] = [
     category: "drums",
     lowHz: 200,
     highHz: 2000,
-    threshold: 0.3,
-    minIntervalMs: 80,
+    threshold: 0.45,
+    minIntervalMs: 120,
   },
   {
     id: "hihat",
@@ -31,8 +31,8 @@ export const DEFAULT_BANDS: FrequencyBand[] = [
     category: "drums",
     lowHz: 5000,
     highHz: 15000,
-    threshold: 0.25,
-    minIntervalMs: 50,
+    threshold: 0.45,
+    minIntervalMs: 100,
   },
   {
     id: "bass",
@@ -40,8 +40,8 @@ export const DEFAULT_BANDS: FrequencyBand[] = [
     category: "melodic",
     lowHz: 60,
     highHz: 250,
-    threshold: 0.3,
-    minIntervalMs: 100,
+    threshold: 0.45,
+    minIntervalMs: 150,
   },
   {
     id: "midrange",
@@ -49,8 +49,8 @@ export const DEFAULT_BANDS: FrequencyBand[] = [
     category: "melodic",
     lowHz: 250,
     highHz: 4000,
-    threshold: 0.25,
-    minIntervalMs: 60,
+    threshold: 0.45,
+    minIntervalMs: 120,
   },
 ];
 
