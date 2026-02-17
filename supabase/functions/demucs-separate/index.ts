@@ -31,9 +31,8 @@ function getCorsHeaders(req: Request): Record<string, string> {
 }
 
 const REPLICATE_API = "https://api.replicate.com/v1";
-// Demucs model — htdemucs_6s splits into: vocals, drums, bass, guitar, piano, other
-const DEMUCS_VERSION =
-  "25a173108cff36ef9f80f854c162d01df9e6528be175794b81571f6571d6c1df";
+// Demucs model on Replicate — uses model identifier so we always get latest version
+const DEMUCS_MODEL = "cjwbw/demucs";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -99,26 +98,28 @@ async function handleStart(
     );
   }
 
-  // Create a Replicate prediction
-  const response = await fetch(`${REPLICATE_API}/predictions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${replicateToken}`,
-      "Content-Type": "application/json",
-      Prefer: "respond-async",
-    },
-    body: JSON.stringify({
-      version: DEMUCS_VERSION,
-      input: {
-        audio: signedUrlData.signedUrl,
-        // htdemucs_6s gives us 6 stems: vocals, drums, bass, guitar, piano, other
-        model: "htdemucs_6s",
-        stem: "none", // return all stems
-        mp3: true, // return as mp3 for faster download
-        mp3_bitrate: 128,
+  // Create a Replicate prediction using model identifier (always latest version)
+  const response = await fetch(
+    `${REPLICATE_API}/models/${DEMUCS_MODEL}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${replicateToken}`,
+        "Content-Type": "application/json",
+        Prefer: "respond-async",
       },
-    }),
-  });
+      body: JSON.stringify({
+        input: {
+          audio: signedUrlData.signedUrl,
+          // htdemucs_6s gives us 6 stems: vocals, drums, bass, guitar, piano, other
+          model: "htdemucs_6s",
+          stem: "none", // return all stems
+          mp3: true, // return as mp3 for faster download
+          mp3_bitrate: 128,
+        },
+      }),
+    },
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
