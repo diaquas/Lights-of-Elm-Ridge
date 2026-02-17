@@ -64,7 +64,6 @@ import CascadeToastContainer, {
 import { MappingPhaseProvider, useMappingPhase } from "@/contexts/MappingPhaseContext";
 import { ProgressTrackerProvider } from "@/components/modiq/ProgressTrackerProvider";
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
-import { PhaseNavigation } from "@/components/modiq/PhaseNavigation";
 import ParsedModelPreview from "@/components/modiq/ParsedModelPreview";
 import { useModiqSessions } from "@/hooks/useModiqSessions";
 import {
@@ -503,7 +502,7 @@ export default function ModIQTool() {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className={step === "mapping" ? "px-4 sm:px-5 py-2" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"}>
       {/* ── Hero ───────────────────────────────────────── */}
       {(step === "input" || step === "processing") && (
         <div className="text-center mb-12">
@@ -2433,10 +2432,9 @@ function InteractiveResults({
 
         {/* ── V4 Phased Wizard Header (hidden in focus mode) ─────────────────────── */}
         {!focusMode && (
-          <div className="sticky top-0 z-40 bg-background/95 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 mb-4">
-            <div className="max-w-7xl mx-auto">
+          <div className="sticky top-0 z-40 bg-background/95 mb-2">
               {/* Title Bar */}
-              <div className="flex items-center justify-between py-2.5 border-b border-border">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border">
                 <div className="flex items-center gap-3 min-w-0">
                   <h2 className="text-[15px] font-display font-bold flex-shrink-0">
                     Mod<span className="text-accent">:</span>
@@ -2482,7 +2480,6 @@ function InteractiveResults({
 
               {/* Phase Stepper + Progress Tracker */}
               <ProgressTrackerProvider />
-            </div>
           </div>
         )}
 
@@ -2490,9 +2487,8 @@ function InteractiveResults({
         <div className={
           focusMode
             ? "bg-surface overflow-hidden flex flex-col flex-1 min-h-0"
-            : "bg-surface rounded-xl border border-border overflow-hidden flex flex-col h-[calc(100vh-11rem)]"
+            : "bg-surface rounded-lg border border-border overflow-hidden flex flex-col h-[calc(100vh-8rem)]"
         }>
-          <PhaseNavigation />
           <div className="flex-1 min-h-0 overflow-hidden">
             <PhaseContainer
               reviewProps={{
