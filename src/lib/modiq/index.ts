@@ -117,3 +117,56 @@ export type {
   HiddenGem,
   EffectSuggestionContext,
 } from "./effect-analysis";
+
+// ─── AI Enhancements ────────────────────────────────────────────────
+
+export {
+  normalizeName,
+  detectVendor,
+  lookupMapping,
+  batchLookup,
+  storeMappingEvents,
+  buildSessionEvents,
+  invalidateDictionaryCache,
+} from "./mapping-dictionary";
+export type {
+  DictionaryEntry,
+  DictionaryLookupResult,
+  MappingSessionEvent,
+  MatchSource,
+} from "./mapping-dictionary";
+
+export {
+  classifyAmbiguousPairs,
+  mapLLMResultsToConfidence,
+} from "./llm-classifier";
+export type {
+  AmbiguousPair,
+  LLMClassificationResult,
+  LLMClassificationResponse,
+  LLMClassifierConfig,
+  LLMConfidenceUpdate,
+  ConfidenceSource,
+} from "./llm-classifier";
+
+export {
+  preprocessForEmbedding,
+  cosineSimilarity,
+  getEmbeddings,
+  computeSemanticScores,
+  computeCombinedScore,
+  clearEmbeddingCache,
+  getEmbeddingCacheSize,
+} from "./semantic-embeddings";
+export type {
+  EmbeddingConfig,
+  SemanticScore,
+  EmbeddingResponse,
+} from "./semantic-embeddings";
+
+export {
+  runAIPipeline,
+  getAICapabilities,
+  buildPipelineConfigFromEnv,
+} from "./ai-pipeline";
+export type { AIPipelineConfig, AIPipelineResult } from "./ai-pipeline";
