@@ -15,9 +15,12 @@ import type {
 import type { BeatTrack, BeatiqStats, LabeledMark } from "@/lib/beatiq/types";
 import type { VocalTrack, LyriqStats } from "@/lib/lyriq/types";
 
-// Beat:IQ — local helpers for data assembly (no audio processing)
+// Beat:IQ — local analysis (fallback when Essentia is unavailable)
 import { generateBars } from "@/lib/beatiq/tempo-detector";
-import { computeStats as computeBeatStats } from "@/lib/beatiq/beat-processor";
+import {
+  analyzeAudio as localBeatAnalysis,
+  computeStats as computeBeatStats,
+} from "@/lib/beatiq/beat-processor";
 
 // Lyr:IQ — phoneme engine (local, no API needed)
 import {
@@ -51,13 +54,13 @@ export interface TrkiqResult {
 /**
  * Run the full TRK:IQ pipeline.
  *
- * All audio processing runs on Replicate — no local WASM or DSP:
- *
  *   1. Decode audio (get duration metadata)
  *   2. Demucs on Replicate → stem separation
  *   3. In parallel after Demucs:
  *      a. Essentia Cog on Replicate → onset detection on drums/bass/other
+ *         Falls back to local beatiq analysis if Essentia is unavailable
  *      b. force-align-wordstamps on Replicate → lyrics alignment on vocals
+ *         (runs independently — always completes regardless of Essentia)
  *   4. Assemble all timing tracks into .xtiming
  */
 export async function runPipeline(
@@ -138,13 +141,14 @@ export async function runPipeline(
   let detectedBpm = 0;
   let usedEssentia = false;
 
+  const hasLyrics = !!(lyrics && lyrics.plainText.trim().length > 0);
+
   if (stems) {
     // Both paths run in parallel — they don't depend on each other:
     //   Path A: Essentia Cog → instrument onset/beat detection
     //   Path B: force-align-wordstamps → lyrics alignment
 
     update("analyze", "active", "Running Essentia on stems...");
-    const hasLyrics = !!(lyrics && lyrics.plainText.trim().length > 0);
     if (hasLyrics) {
       update("lyrics", "active", "Running forced alignment on vocals...");
     }
@@ -174,8 +178,28 @@ export async function runPipeline(
       );
       beatTracks = tracks;
       detectedBpm = bpm;
+      update("analyze", "done");
+    } else {
+      // Essentia failed or returned no results — fall back to local
+      // beatiq frequency-band analysis on the raw audio file
+      update(
+        "analyze",
+        "active",
+        "Essentia unavailable \u2014 analyzing audio locally...",
+      );
+      try {
+        const fallback = await localBeatAnalysis(
+          file,
+          updatedMetadata,
+          () => {},
+        );
+        beatTracks = fallback.tracks;
+        detectedBpm = fallback.stats.bpm;
+        update("analyze", "done", "Local beat analysis (Essentia unavailable)");
+      } catch {
+        update("analyze", "error", "Beat analysis failed");
+      }
     }
-    update("analyze", "done");
 
     // ── Build vocal tracks from force-align results ────────────────
     if (alignedWords && alignedWords.length > 0) {
@@ -198,12 +222,24 @@ export async function runPipeline(
       update("lyrics", "skipped", "No lyrics found");
     }
   } else {
-    // ── No stems — limited processing (no Replicate calls) ────────
-    update("analyze", "skipped", "Sign in for instrument analysis");
+    // ── No stems — run local beat analysis + lyrics fallback ──────
+    update("analyze", "active", "Analyzing audio locally...");
+    try {
+      const fallback = await localBeatAnalysis(
+        file,
+        updatedMetadata,
+        () => {},
+      );
+      beatTracks = fallback.tracks;
+      detectedBpm = fallback.stats.bpm;
+      update("analyze", "done", "Local beat analysis");
+    } catch {
+      update("analyze", "error", "Beat analysis failed");
+    }
 
-    if (lyrics && lyrics.plainText.trim().length > 0) {
+    if (hasLyrics) {
       update("lyrics", "active", "Processing lyrics...");
-      const fallbackWords = buildLyricsFallback(lyrics, durationMs);
+      const fallbackWords = buildLyricsFallback(lyrics!, durationMs);
       if (fallbackWords.length > 0) {
         const leadTrack = processAlignedWords(fallbackWords, "lead");
         vocalTracks = [leadTrack];
