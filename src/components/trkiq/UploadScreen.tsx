@@ -7,6 +7,7 @@ import { parseID3Tags } from "@/lib/id3-parser";
 interface UploadScreenProps {
   metadata: SongMetadata | null;
   lyrics: LyricsData | null;
+  lyricsFetching?: boolean;
   stemsAvailable: boolean;
   onAudioLoad: (file: File, url: string) => void;
   onMetadataLoad: (metadata: SongMetadata) => void;
@@ -17,6 +18,7 @@ interface UploadScreenProps {
 export default function UploadScreen({
   metadata,
   lyrics,
+  lyricsFetching,
   stemsAvailable,
   onAudioLoad,
   onMetadataLoad,
@@ -25,8 +27,16 @@ export default function UploadScreen({
 }: UploadScreenProps) {
   const [dragActive, setDragActive] = useState(false);
   const [audioFile, setAudioFile] = useState<File | null>(null);
-  const [showLyricsEditor, setShowLyricsEditor] = useState(false);
+  // null = user hasn't toggled; auto-expand when LRCLIB lyrics arrive
+  const [userToggledLyrics, setUserToggledLyrics] = useState<boolean | null>(
+    null,
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const lrclibHasLyrics =
+    lyrics?.source === "lrclib" && lyrics.plainText.trim().length > 0;
+  const showLyricsEditor =
+    userToggledLyrics ?? (lrclibHasLyrics || lyrics?.source === "user");
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -239,7 +249,7 @@ export default function UploadScreen({
       {metadata && (
         <div className="rounded-xl bg-surface border border-border overflow-hidden">
           <button
-            onClick={() => setShowLyricsEditor(!showLyricsEditor)}
+            onClick={() => setUserToggledLyrics(!showLyricsEditor)}
             className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-surface-light transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -257,11 +267,31 @@ export default function UploadScreen({
                 />
               </svg>
               <span className="text-foreground/70 text-sm font-medium">
-                Lyrics{" "}
-                <span className="text-foreground/30 font-normal">
-                  (auto-fetched from LRCLIB, or paste your own)
-                </span>
+                Lyrics
               </span>
+              {lyricsFetching && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-accent/10 text-accent text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+                  Fetching from LRCLIB...
+                </span>
+              )}
+              {!lyricsFetching && lyrics?.source === "lrclib" && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-500/10 text-green-500 text-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  LRCLIB
+                  {lyrics.syncedLines ? " (synced)" : ""}
+                </span>
+              )}
+              {!lyricsFetching && lyrics?.source === "user" && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-foreground/5 text-foreground/40 text-xs">
+                  Custom
+                </span>
+              )}
+              {!lyricsFetching && !lyrics && metadata && (
+                <span className="text-foreground/30 text-xs font-normal">
+                  No lyrics found
+                </span>
+              )}
             </div>
             <svg
               className={`w-4 h-4 text-foreground/30 transition-transform ${showLyricsEditor ? "rotate-180" : ""}`}
@@ -282,8 +312,8 @@ export default function UploadScreen({
             <div className="px-5 pb-4 border-t border-border pt-3">
               <textarea
                 rows={8}
-                placeholder="Paste lyrics here to include singing face timing tracks in your export. Leave blank to auto-fetch from LRCLIB."
-                value={lyrics?.source === "user" ? lyrics.plainText : ""}
+                placeholder="Paste lyrics here to include singing face timing tracks in your export, or wait for auto-fetch from LRCLIB."
+                value={lyrics?.plainText ?? ""}
                 onChange={(e) =>
                   onLyricsChange({
                     plainText: e.target.value,
@@ -294,8 +324,9 @@ export default function UploadScreen({
                 className="w-full bg-background border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-foreground/25 resize-none focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50"
               />
               <p className="text-foreground/25 text-xs mt-2">
-                Tip: name your file &quot;Artist - Title.mp3&quot; for best
-                auto-fetch results.
+                {lyrics?.source === "lrclib"
+                  ? "Auto-fetched from LRCLIB. Edit to override."
+                  : 'Tip: name your file "Artist - Title.mp3" for best auto-fetch results.'}
               </p>
             </div>
           )}

@@ -133,6 +133,8 @@ export interface TrkiqSession {
   pipeline: PipelineProgress[];
   /** Whether Demucs stem separation is available */
   stemsAvailable: boolean;
+  /** Whether lyrics are currently being fetched from LRCLIB */
+  lyricsFetching?: boolean;
   /** Demucs prediction ID (for polling) */
   predictionId: string | null;
   /** Generated instrument timing tracks */
