@@ -502,7 +502,7 @@ export default function ModIQTool() {
   }, []);
 
   return (
-    <div className={step === "mapping" ? "px-4 sm:px-5 py-2" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"}>
+    <div className={step === "results" ? "px-4 sm:px-5 py-2" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"}>
       {/* ── Hero ───────────────────────────────────────── */}
       {(step === "input" || step === "processing") && (
         <div className="text-center mb-12">
