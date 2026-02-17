@@ -22,7 +22,7 @@ export function escapeXml(str: string): string {
  * Generate a single Effect XML element.
  */
 function effectXml(label: string, startTime: number, endTime: number): string {
-  return `      <Effect label="${escapeXml(label)}" startTime="${Math.round(startTime)}" endTime="${Math.round(endTime)}"/>`;
+  return `      <Effect label="${escapeXml(label)}" starttime="${Math.round(startTime)}" endtime="${Math.round(endTime)}"/>`;
 }
 
 /**
@@ -83,7 +83,7 @@ function appendTrackEffects(
   if (track.labeledMarks && track.labeledMarks.length > 0) {
     for (const mark of track.labeledMarks) {
       lines.push(
-        `${indent}      <Effect label="${escapeXml(mark.label)}" startTime="${Math.round(mark.startMs)}" endTime="${Math.round(mark.endMs)}"/>`,
+        `${indent}      <Effect label="${escapeXml(mark.label)}" starttime="${Math.round(mark.startMs)}" endtime="${Math.round(mark.endMs)}"/>`,
       );
     }
     return;
@@ -93,7 +93,7 @@ function appendTrackEffects(
   const DEFAULT_MARK_DURATION_MS = 50;
   for (const mark of track.marks) {
     lines.push(
-      `${indent}      <Effect label="" startTime="${Math.round(mark.timeMs)}" endTime="${Math.round(mark.timeMs + DEFAULT_MARK_DURATION_MS)}"/>`,
+      `${indent}      <Effect label="" starttime="${Math.round(mark.timeMs)}" endtime="${Math.round(mark.timeMs + DEFAULT_MARK_DURATION_MS)}"/>`,
     );
   }
 }

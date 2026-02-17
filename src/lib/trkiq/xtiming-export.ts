@@ -58,7 +58,7 @@ export function generateCombinedXtiming(
     lines.push("    <EffectLayer>");
     for (const phrase of track.phrases) {
       lines.push(
-        `      <Effect label="${escapeXml(phrase.text)}" startTime="${Math.round(phrase.startMs)}" endTime="${Math.round(phrase.endMs)}"/>`,
+        `      <Effect label="${escapeXml(phrase.text)}" starttime="${Math.round(phrase.startMs)}" endtime="${Math.round(phrase.endMs)}"/>`,
       );
     }
     lines.push("    </EffectLayer>");
@@ -68,7 +68,7 @@ export function generateCombinedXtiming(
     for (const phrase of track.phrases) {
       for (const word of phrase.words) {
         lines.push(
-          `      <Effect label="${escapeXml(word.text)}" startTime="${Math.round(word.startMs)}" endTime="${Math.round(word.endMs)}"/>`,
+          `      <Effect label="${escapeXml(word.text)}" starttime="${Math.round(word.startMs)}" endtime="${Math.round(word.endMs)}"/>`,
         );
       }
     }
@@ -80,7 +80,7 @@ export function generateCombinedXtiming(
       for (const word of phrase.words) {
         for (const phoneme of word.phonemes) {
           lines.push(
-            `      <Effect label="${escapeXml(phoneme.code)}" startTime="${Math.round(phoneme.startMs)}" endTime="${Math.round(phoneme.endMs)}"/>`,
+            `      <Effect label="${escapeXml(phoneme.code)}" starttime="${Math.round(phoneme.startMs)}" endtime="${Math.round(phoneme.endMs)}"/>`,
           );
         }
       }
@@ -103,7 +103,7 @@ function appendBeatEffects(track: BeatTrack, lines: string[]): void {
   if (track.labeledMarks && track.labeledMarks.length > 0) {
     for (const mark of track.labeledMarks) {
       lines.push(
-        `      <Effect label="${escapeXml(mark.label)}" startTime="${Math.round(mark.startMs)}" endTime="${Math.round(mark.endMs)}"/>`,
+        `      <Effect label="${escapeXml(mark.label)}" starttime="${Math.round(mark.startMs)}" endtime="${Math.round(mark.endMs)}"/>`,
       );
     }
     return;
@@ -111,7 +111,7 @@ function appendBeatEffects(track: BeatTrack, lines: string[]): void {
 
   for (const mark of track.marks) {
     lines.push(
-      `      <Effect label="" startTime="${Math.round(mark.timeMs)}" endTime="${Math.round(mark.timeMs + DEFAULT_DURATION)}"/>`,
+      `      <Effect label="" starttime="${Math.round(mark.timeMs)}" endtime="${Math.round(mark.timeMs + DEFAULT_DURATION)}"/>`,
     );
   }
 }

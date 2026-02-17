@@ -181,7 +181,7 @@ describe("trkiq xtiming-export", () => {
 
     it("uses integer timestamps", () => {
       const xml = generateCombinedXtiming([SAMPLE_BEAT], [SAMPLE_VOCAL]);
-      const times = xml.match(/(?:start|end)Time="([^"]+)"/g) || [];
+      const times = xml.match(/(?:start|end)time="([^"]+)"/g) || [];
       for (const t of times) {
         const value = t.match(/"([^"]+)"/)?.[1];
         expect(value).toMatch(/^\d+$/);
