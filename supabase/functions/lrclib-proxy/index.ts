@@ -39,6 +39,17 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Health check — visit the URL in a browser to verify deployment
+  if (req.method === "GET") {
+    return new Response(
+      JSON.stringify({ ok: true, function: "lrclib-proxy", v: 2 }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
+  }
+
   try {
     const body = await req.json();
 

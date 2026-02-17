@@ -42,6 +42,17 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Health check — visit the URL in a browser to verify deployment
+  if (req.method === "GET") {
+    return new Response(
+      JSON.stringify({ ok: true, function: "demucs-separate", v: 2 }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
+  }
+
   try {
     const replicateToken = Deno.env.get("REPLICATE_API_TOKEN");
     if (!replicateToken) {

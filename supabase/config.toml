@@ -1,0 +1,8 @@
+# Supabase project configuration
+# https://supabase.com/docs/guides/functions/config
+
+[functions.lrclib-proxy]
+verify_jwt = false
+
+[functions.demucs-separate]
+verify_jwt = false
