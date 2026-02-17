@@ -12,6 +12,8 @@ This document outlines all external services and infrastructure used by the proj
 | Resend           | Transactional Email | Free tier    | [resend.com](https://resend.com)                             |
 | YouTube Data API | Video sync          | Free         | [console.cloud.google.com](https://console.cloud.google.com) |
 | Stripe           | Payments            | 2.9% + $0.30 | [dashboard.stripe.com](https://dashboard.stripe.com)         |
+| Replicate        | AI Stem Separation  | ~$0.05/song  | [replicate.com](https://replicate.com)                       |
+| LRCLIB           | Lyrics API          | Free         | [lrclib.net](https://lrclib.net)                             |
 | GitHub           | Source code         | Free         | [github.com](https://github.com)                             |
 
 ---
@@ -73,6 +75,8 @@ This document outlines all external services and infrastructure used by the proj
 **Features Used:**
 
 - [x] Authentication (email/password)
+- [x] Edge Functions (demucs-separate, checkout, webhook)
+- [x] Storage (audio-uploads bucket for TRK:IQ)
 - [ ] Database (coming - for purchase history)
 - [ ] Row Level Security (coming - for user data)
 
@@ -158,10 +162,11 @@ User completes payment → Stripe Webhook → Edge Function → Save to Supabase
 
 **Edge Functions:**
 
-| Function                  | Purpose                            |
-| ------------------------- | ---------------------------------- |
-| `create-checkout-session` | Creates Stripe Checkout session    |
-| `stripe-webhook`          | Handles payment completion webhook |
+| Function                  | Purpose                                      |
+| ------------------------- | -------------------------------------------- |
+| `create-checkout-session` | Creates Stripe Checkout session              |
+| `stripe-webhook`          | Handles payment completion webhook           |
+| `demucs-separate`         | Proxies Demucs stem separation via Replicate |
 
 **Environment Variables:**
 
@@ -239,8 +244,42 @@ Set these in GitHub → Settings → Secrets → Actions:
 | Supabase         | 50k MAU, 500MB DB          | Minimal       | $0            |
 | Resend           | 3,000 emails/mo            | Minimal       | $0            |
 | YouTube API      | 10,000 units/day           | ~100/day      | $0            |
+| Replicate        | Pay-per-use                | Not active    | ~$0.05/song   |
+| LRCLIB           | Unlimited                  | 0             | $0            |
 | Stripe           | No monthly fee             | Not active    | $0 + fees     |
 | **Total**        |                            |               | **~$0/month** |
+
+---
+
+## Replicate (AI Stem Separation)
+
+**Purpose:** Demucs AI stem separation for TRK:IQ (splits audio into vocals, drums, bass, guitar, piano, other)
+
+**Setup:**
+
+- Account: [replicate.com](https://replicate.com)
+- Model: `cjwbw/demucs` with `htdemucs_6s` (6-stem separation)
+- Called via Supabase Edge Function `demucs-separate` (browser never talks to Replicate directly)
+
+**Cost:** ~$0.05/song (GPU inference time)
+
+**Edge Function Secrets:**
+
+```
+REPLICATE_API_TOKEN=r8_...
+```
+
+**Function URL:** `https://bzmpcgsloptensafzfle.supabase.co/functions/v1/demucs-separate`
+
+---
+
+## LRCLIB (Lyrics)
+
+**Purpose:** Free public lyrics API for TRK:IQ (plain text + LRC synced lyrics)
+
+**Setup:** No API key needed — public endpoint at `https://lrclib.net/api/`
+
+**Cost:** Free
 
 ---
 
@@ -248,6 +287,7 @@ Set these in GitHub → Settings → Secrets → Actions:
 
 - **Cloudflare Workers** - Signed URL generation for paid downloads
 - **Analytics** - Google Analytics or Plausible
+- **Essentia.js** - WASM-based beat/chord/key detection (would replace client-side BPM algorithms)
 
 ---
 

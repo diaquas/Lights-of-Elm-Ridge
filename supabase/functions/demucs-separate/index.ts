@@ -9,13 +9,12 @@
 //   REPLICATE_API_TOKEN — Your Replicate API token
 //   ALLOWED_ORIGIN      — CORS origin (e.g., https://lightsofelmridge.com)
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const ALLOWED_ORIGIN =
   Deno.env.get("ALLOWED_ORIGIN") || "https://lightsofelmridge.com";
 
-const corsHeaders = {
+const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
@@ -23,22 +22,10 @@ const corsHeaders = {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 // Demucs model — htdemucs_6s splits into: vocals, drums, bass, guitar, piano, other
-const DEMUCS_MODEL =
-  "cjwbw/demucs:25a173108cff36ef9f80f854c162d01df9e6528be175794b81571f6571d6c1df";
+const DEMUCS_VERSION =
+  "25a173108cff36ef9f80f854c162d01df9e6528be175794b81571f6571d6c1df";
 
-interface StartRequest {
-  action: "start";
-  storagePath: string;
-}
-
-interface StatusRequest {
-  action: "status";
-  predictionId: string;
-}
-
-type RequestBody = StartRequest | StatusRequest;
-
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -68,23 +55,21 @@ serve(async (req) => {
       throw new Error("Invalid authentication");
     }
 
-    const body: RequestBody = await req.json();
+    const body = await req.json();
 
-    if (body.action === "start") {
-      return await handleStart(body, supabase, replicateToken);
-    } else if (body.action === "status") {
-      return await handleStatus(body, replicateToken);
+    if (body.action === "start" && body.storagePath) {
+      return await handleStart(body.storagePath, supabase, replicateToken);
+    } else if (body.action === "status" && body.predictionId) {
+      return await handleStatus(body.predictionId, replicateToken);
     } else {
       throw new Error("Invalid action");
     }
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message || "Internal error" }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
-      },
-    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Internal error";
+    return new Response(JSON.stringify({ error: message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
   }
 });
 
@@ -93,14 +78,14 @@ serve(async (req) => {
  * Gets a signed URL for the uploaded audio, sends it to Replicate.
  */
 async function handleStart(
-  body: StartRequest,
+  storagePath: string,
   supabase: ReturnType<typeof createClient>,
   replicateToken: string,
-) {
+): Promise<Response> {
   // Create a signed URL for the uploaded audio file
   const { data: signedUrlData, error: signedUrlError } = await supabase.storage
     .from("audio-uploads")
-    .createSignedUrl(body.storagePath, 3600); // 1 hour expiry
+    .createSignedUrl(storagePath, 3600); // 1 hour expiry
 
   if (signedUrlError || !signedUrlData?.signedUrl) {
     throw new Error(
@@ -109,7 +94,6 @@ async function handleStart(
   }
 
   // Create a Replicate prediction
-  const [owner, modelAndVersion] = DEMUCS_MODEL.split(":");
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
@@ -118,7 +102,7 @@ async function handleStart(
       Prefer: "respond-async",
     },
     body: JSON.stringify({
-      version: modelAndVersion,
+      version: DEMUCS_VERSION,
       input: {
         audio: signedUrlData.signedUrl,
         // htdemucs_6s gives us 6 stems: vocals, drums, bass, guitar, piano, other
@@ -153,15 +137,15 @@ async function handleStart(
  * Check the status of a Demucs prediction.
  * Returns stems when the prediction has succeeded.
  */
-async function handleStatus(body: StatusRequest, replicateToken: string) {
-  const response = await fetch(
-    `${REPLICATE_API}/predictions/${body.predictionId}`,
-    {
-      headers: {
-        Authorization: `Bearer ${replicateToken}`,
-      },
+async function handleStatus(
+  predictionId: string,
+  replicateToken: string,
+): Promise<Response> {
+  const response = await fetch(`${REPLICATE_API}/predictions/${predictionId}`, {
+    headers: {
+      Authorization: `Bearer ${replicateToken}`,
     },
-  );
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -178,7 +162,11 @@ async function handleStatus(body: StatusRequest, replicateToken: string) {
   if (prediction.status === "succeeded" && prediction.output) {
     // Demucs output is a URL to a zip or individual stem URLs
     // depending on the model version — normalize to StemSet
-    result.stems = normalizeStemOutput(prediction.output);
+    if (typeof prediction.output === "string") {
+      result.stems = { archive: prediction.output };
+    } else {
+      result.stems = prediction.output;
+    }
   }
 
   if (prediction.status === "failed") {
@@ -189,20 +177,4 @@ async function handleStatus(body: StatusRequest, replicateToken: string) {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
     status: 200,
   });
-}
-
-/**
- * Normalize Demucs output to our StemSet shape.
- * Different model versions return different output formats.
- */
-function normalizeStemOutput(
-  output: Record<string, string> | string,
-): Record<string, string> {
-  // If output is a single string (zip URL), return as-is
-  if (typeof output === "string") {
-    return { archive: output };
-  }
-
-  // Otherwise it's a dictionary of stem name → URL
-  return output;
 }
