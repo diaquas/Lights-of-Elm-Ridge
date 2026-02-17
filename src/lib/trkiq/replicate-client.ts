@@ -61,38 +61,32 @@ async function uploadAudio(file: File): Promise<string> {
 }
 
 /**
- * Call the Demucs Edge Function.
- * Uses raw fetch so error messages from the function are surfaced.
+ * Call the Demucs Edge Function via the Supabase SDK.
+ * Uses supabase.functions.invoke() which correctly handles
+ * body serialization through the Supabase gateway.
  */
 async function callDemucsFunction(
   body: Record<string, unknown>,
 ): Promise<DemucsResponse> {
   const supabase = getClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/demucs-separate`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${session?.access_token ?? supabaseKey}`,
-      apikey: supabaseKey || "",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
+  const { data, error } = await supabase.functions.invoke("demucs-separate", {
+    body,
   });
 
-  if (!response.ok) {
-    const err = await response
-      .json()
-      .catch(() => ({ error: `HTTP ${response.status}` }));
-    throw new Error(err.error || `Edge Function error: ${response.status}`);
+  if (error) {
+    // error.message contains the response body text from the function
+    let errMsg = error.message;
+    try {
+      const parsed = JSON.parse(errMsg);
+      errMsg = parsed.error || errMsg;
+    } catch {
+      // message is already a plain string
+    }
+    throw new Error(errMsg);
   }
 
-  return response.json();
+  return data as DemucsResponse;
 }
 
 /**

@@ -8,6 +8,7 @@
 /*  Falls back to direct LRCLIB calls if Supabase is not configured.   */
 /* ------------------------------------------------------------------ */
 
+import { createClient } from "@/lib/supabase/client";
 import type { LyricsData, SyncedLine } from "./types";
 
 const LRCLIB_BASE = "https://lrclib.net/api";
@@ -26,58 +27,39 @@ interface LrclibResponse {
 /* ── Proxy helpers ─────────────────────────────────────────────────── */
 
 /**
- * Call the LRCLIB proxy edge function.
+ * Call the LRCLIB proxy edge function via the Supabase SDK.
  * Returns null if Supabase is not configured or the call fails.
  */
 async function proxyGet(
   artist: string,
   title: string,
 ): Promise<LrclibResponse | null> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return null;
+  const supabase = createClient();
+  if (!supabase) return null;
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/lrclib-proxy`, {
-    method: "POST",
-    headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ action: "get", artist, title }),
+  const { data, error } = await supabase.functions.invoke("lrclib-proxy", {
+    body: { action: "get", artist, title },
   });
 
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => "");
-    // Surface the actual error for debugging — caught by fetchLyrics
-    throw new Error(`lrclib-proxy ${response.status}: ${errBody}`);
+  if (error) {
+    throw new Error(`lrclib-proxy: ${error.message}`);
   }
-  const data = await response.json();
-  if (!data.found) return null;
+  if (!data?.found) return null;
   return data as LrclibResponse;
 }
 
 async function proxySearch(query: string): Promise<LrclibResponse | null> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return null;
+  const supabase = createClient();
+  if (!supabase) return null;
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/lrclib-proxy`, {
-    method: "POST",
-    headers: {
-      apikey: supabaseKey,
-      Authorization: `Bearer ${supabaseKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ action: "search", query }),
+  const { data, error } = await supabase.functions.invoke("lrclib-proxy", {
+    body: { action: "search", query },
   });
 
-  if (!response.ok) {
-    const errBody = await response.text().catch(() => "");
-    throw new Error(`lrclib-proxy search ${response.status}: ${errBody}`);
+  if (error) {
+    throw new Error(`lrclib-proxy search: ${error.message}`);
   }
-  const data = await response.json();
-  if (!data.results || data.results.length === 0) return null;
+  if (!data?.results || data.results.length === 0) return null;
   return data.results[0] as LrclibResponse;
 }
 
