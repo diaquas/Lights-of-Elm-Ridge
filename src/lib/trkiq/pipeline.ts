@@ -467,30 +467,32 @@ async function addDrumSubBands(
   sampleRate: number,
   tracks: BeatTrack[],
 ): Promise<void> {
+  // Lower thresholds than the full-mix defaults because we're operating
+  // on an already-isolated drums stem (no bass/guitar/vocal bleed).
   const drumBands = [
     {
       id: "kick",
       name: "Drums \u2014 Kick",
       lowHz: 20,
       highHz: 150,
-      threshold: 0.55,
-      minIntervalMs: 150,
+      threshold: 0.35,
+      minIntervalMs: 120,
     },
     {
       id: "snare",
       name: "Drums \u2014 Snare",
       lowHz: 200,
       highHz: 2000,
-      threshold: 0.45,
-      minIntervalMs: 120,
+      threshold: 0.3,
+      minIntervalMs: 100,
     },
     {
       id: "hihat",
       name: "Drums \u2014 Hi-Hat",
       lowHz: 5000,
       highHz: 15000,
-      threshold: 0.45,
-      minIntervalMs: 100,
+      threshold: 0.3,
+      minIntervalMs: 80,
     },
   ];
 
