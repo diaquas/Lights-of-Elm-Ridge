@@ -59,9 +59,9 @@ export default function EditorScreen({ session, onReset }: EditorScreenProps) {
       totalWords: lyriqStats?.totalWords || 0,
       totalPhonemes: lyriqStats?.totalPhonemes || 0,
       durationMs: beatStats?.durationMs || 0,
-      usedStems: session.stemsAvailable,
+      usedStems: session.usedStems,
     }),
-    [beatTracks, vocalTracks, beatStats, lyriqStats, session.stemsAvailable],
+    [beatTracks, vocalTracks, beatStats, lyriqStats, session.usedStems],
   );
 
   const filteredBeatTracks =
@@ -318,26 +318,21 @@ function BeatTrackRow({
       : track.category === "melodic"
         ? "text-blue-400"
         : "text-green-400";
+  const label =
+    track.labeledMarks && track.labeledMarks.length > 0 ? "sections" : "hits";
 
   return (
-    <div className="flex items-center gap-4 px-5 py-3.5">
+    <div className="flex items-center gap-3 px-5 py-2">
       <Checkbox checked={enabled} onToggle={onToggle} />
-      <div className="flex-1 min-w-0">
-        <p className="text-foreground text-sm font-medium truncate">
-          {track.name}
-        </p>
-        <p className={`text-xs ${categoryColor} opacity-70`}>
-          {CATEGORY_LABELS[track.category]}
-        </p>
-      </div>
-      <div className="text-right flex-shrink-0">
-        <p className="text-foreground/50 text-sm font-mono">{markCount}</p>
-        <p className="text-foreground/25 text-xs">
-          {track.labeledMarks && track.labeledMarks.length > 0
-            ? "sections"
-            : "hits"}
-        </p>
-      </div>
+      <span className="text-foreground text-sm font-medium truncate flex-1 min-w-0">
+        {track.name}
+      </span>
+      <span
+        className={`text-xs ${categoryColor} opacity-70 flex-shrink-0 hidden sm:inline`}
+      >
+        {CATEGORY_LABELS[track.category]}
+      </span>
+      <HitBadge count={markCount} label={label} />
     </div>
   );
 }
@@ -358,21 +353,64 @@ function VocalTrackRow({
   );
 
   return (
-    <div className="flex items-center gap-4 px-5 py-3.5">
+    <div className="flex items-center gap-3 px-5 py-2">
       <Checkbox checked={enabled} onToggle={onToggle} />
-      <div className="flex-1 min-w-0">
-        <p className="text-foreground text-sm font-medium truncate">
-          {track.label}
-        </p>
-        <p className="text-xs text-purple-400 opacity-70">Singing Faces</p>
-      </div>
-      <div className="text-right flex-shrink-0">
-        <p className="text-foreground/50 text-sm font-mono">{wordCount}</p>
-        <p className="text-foreground/25 text-xs">
-          words / {phonemeCount} phonemes
-        </p>
-      </div>
+      <span className="text-foreground text-sm font-medium truncate flex-1 min-w-0">
+        {track.label}
+      </span>
+      <span className="text-xs text-purple-400 opacity-70 flex-shrink-0 hidden sm:inline">
+        Singing Faces
+      </span>
+      <HitBadge count={wordCount} label="words" />
+      <HitBadge count={phonemeCount} label="phonemes" />
     </div>
+  );
+}
+
+function getHitColor(count: number) {
+  if (count >= 500)
+    return {
+      text: "text-green-400",
+      bg: "bg-green-500/10",
+      border: "border-green-500/20",
+    };
+  if (count >= 50)
+    return {
+      text: "text-amber-400",
+      bg: "bg-amber-500/10",
+      border: "border-amber-500/20",
+    };
+  if (count >= 10)
+    return {
+      text: "text-foreground/50",
+      bg: "bg-foreground/5",
+      border: "border-foreground/10",
+    };
+  return {
+    text: "text-red-400/70",
+    bg: "bg-red-500/5",
+    border: "border-red-500/10",
+  };
+}
+
+function HitBadge({ count, label }: { count: number; label: string }) {
+  const { text, bg, border } = getHitColor(count);
+  const display = count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count;
+
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium tabular-nums border ${bg} ${border} ${text} flex-shrink-0`}
+      title={`${count.toLocaleString()} ${label}`}
+    >
+      <svg
+        className="w-2 h-2 opacity-70"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+      >
+        <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+      {display} {label}
+    </span>
   );
 }
 
