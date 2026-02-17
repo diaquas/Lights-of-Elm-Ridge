@@ -60,8 +60,16 @@ export default function EditorScreen({ session, onReset }: EditorScreenProps) {
       totalPhonemes: lyriqStats?.totalPhonemes || 0,
       durationMs: beatStats?.durationMs || 0,
       usedStems: session.usedStems,
+      usedEssentia: session.usedEssentia,
     }),
-    [beatTracks, vocalTracks, beatStats, lyriqStats, session.usedStems],
+    [
+      beatTracks,
+      vocalTracks,
+      beatStats,
+      lyriqStats,
+      session.usedStems,
+      session.usedEssentia,
+    ],
   );
 
   const filteredBeatTracks =
@@ -128,6 +136,16 @@ export default function EditorScreen({ session, onReset }: EditorScreenProps) {
             ) : (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-foreground/5 text-foreground/40 text-xs font-medium">
                 Client-side analysis
+              </span>
+            )}
+            {combined.usedEssentia ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-500 text-xs font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                Essentia Beat Detection
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-foreground/5 text-foreground/40 text-xs font-medium">
+                Fallback Beat Detection
               </span>
             )}
             {combined.totalWords > 0 && (

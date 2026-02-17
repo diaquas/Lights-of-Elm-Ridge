@@ -42,6 +42,7 @@ function createInitialSession(): TrkiqSession {
     beatStats: null,
     lyriqStats: null,
     usedStems: false,
+    usedEssentia: false,
   };
 }
 
@@ -113,6 +114,7 @@ export default function TrkIQTool() {
       beatStats: BeatiqStats,
       lyriqStats: LyriqStats | null,
       usedStems: boolean,
+      usedEssentia: boolean,
     ) => {
       setSession((prev) => ({
         ...prev,
@@ -123,6 +125,7 @@ export default function TrkIQTool() {
         beatStats,
         lyriqStats,
         usedStems,
+        usedEssentia,
       }));
     },
     [],
@@ -155,6 +158,7 @@ export default function TrkIQTool() {
           result.beatStats,
           result.lyriqStats,
           result.combined.usedStems,
+          result.combined.usedEssentia,
         );
         setScreen("editor");
       } catch {
