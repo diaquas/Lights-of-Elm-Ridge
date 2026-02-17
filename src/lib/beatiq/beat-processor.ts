@@ -128,21 +128,22 @@ export async function analyzeAudio(
   // Step 5: Generate structural tracks
   updateStep("tracks", "active");
 
-  // Beat grid
+  // Beat grid (labeled with cycling 1,2,3,4)
   const allOnsets = tracks.flatMap((t) => t.marks);
   const beats = generateBeatGrid(tempo.bpm, durationMs, allOnsets);
   if (beats.length > 0) {
     tracks.push({
       id: "beats",
-      name: "Beats",
+      name: "Beat Count",
       category: "structure",
       enabled: true,
-      marks: beats,
+      marks: [],
+      labeledMarks: beats,
     });
   }
 
   // Bars
-  const bars = generateBars(beats);
+  const bars = generateBars(beats, tempo.bpm, durationMs);
   if (bars.length > 0) {
     tracks.push({
       id: "bars",
@@ -159,7 +160,7 @@ export async function analyzeAudio(
   if (sections.length > 0) {
     tracks.push({
       id: "sections",
-      name: "Song Sections",
+      name: "Sections",
       category: "structure",
       enabled: true,
       marks: [],

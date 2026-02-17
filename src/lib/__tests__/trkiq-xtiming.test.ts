@@ -153,9 +153,9 @@ describe("trkiq xtiming-export", () => {
       const xml = generateCombinedXtiming([], [SAMPLE_VOCAL]);
       // Phrase
       expect(xml).toContain('label="hello world"');
-      // Words
-      expect(xml).toContain('label="hello"');
-      expect(xml).toContain('label="world"');
+      // Words (uppercased per xLights convention)
+      expect(xml).toContain('label="HELLO"');
+      expect(xml).toContain('label="WORLD"');
       // Phonemes
       expect(xml).toContain('label="MBP"');
       expect(xml).toContain('label="E"');

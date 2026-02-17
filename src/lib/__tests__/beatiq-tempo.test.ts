@@ -5,7 +5,7 @@ import {
   generateBars,
   detectSections,
 } from "@/lib/beatiq/tempo-detector";
-import type { TimingMark } from "@/lib/beatiq/types";
+import type { TimingMark, LabeledMark } from "@/lib/beatiq/types";
 
 describe("tempo-detector", () => {
   describe("detectTempo", () => {
@@ -68,12 +68,20 @@ describe("tempo-detector", () => {
       expect(beats.length).toBeLessThan(25);
     });
 
-    it("marks every 4th beat as a downbeat (strength 1.0)", () => {
+    it("labels beats cycling 1,2,3,4", () => {
       const beats = generateBeatGrid(120, 10000);
-      const downbeats = beats.filter((b) => b.strength === 1.0);
-      const offbeats = beats.filter((b) => b.strength < 1.0);
-      expect(downbeats.length).toBeGreaterThan(0);
-      expect(offbeats.length).toBeGreaterThan(0);
+      expect(beats[0].label).toBe("1");
+      expect(beats[1].label).toBe("2");
+      expect(beats[2].label).toBe("3");
+      expect(beats[3].label).toBe("4");
+      expect(beats[4].label).toBe("1"); // cycles back
+    });
+
+    it("produces contiguous effects (endMs = next startMs)", () => {
+      const beats = generateBeatGrid(120, 10000);
+      for (let i = 0; i < beats.length - 1; i++) {
+        expect(beats[i].endMs).toBe(beats[i + 1].startMs);
+      }
     });
 
     it("returns empty for zero BPM", () => {
@@ -92,57 +100,72 @@ describe("tempo-detector", () => {
       ];
       const beats = generateBeatGrid(120, 5000, onsets);
       expect(beats.length).toBeGreaterThan(0);
-      // All beat times should be integers
+      // All timestamps should be integers
       for (const b of beats) {
-        expect(b.timeMs).toBe(Math.round(b.timeMs));
+        expect(b.startMs).toBe(Math.round(b.startMs));
+        expect(b.endMs).toBe(Math.round(b.endMs));
       }
     });
 
     it("produces integer timestamps", () => {
       const beats = generateBeatGrid(127.3, 60000);
       for (const b of beats) {
-        expect(b.timeMs).toBe(Math.round(b.timeMs));
+        expect(b.startMs).toBe(Math.round(b.startMs));
+        expect(b.endMs).toBe(Math.round(b.endMs));
       }
     });
   });
 
   describe("generateBars", () => {
     it("groups beats into bars of 4", () => {
-      const beats: TimingMark[] = [];
+      // Create labeled beats like generateBeatGrid produces
+      const beats: LabeledMark[] = [];
       for (let i = 0; i < 16; i++) {
-        beats.push({ timeMs: i * 500, strength: i % 4 === 0 ? 1.0 : 0.6 });
+        beats.push({
+          label: String((i % 4) + 1),
+          startMs: i * 500,
+          endMs: (i + 1) * 500,
+        });
       }
 
-      const bars = generateBars(beats, 4);
+      const bars = generateBars(beats, 120, 10000);
       expect(bars.length).toBe(4);
-      expect(bars[0].label).toBe("Bar 1");
+      expect(bars[0].label).toBe("1");
       expect(bars[0].startMs).toBe(0);
-      expect(bars[1].label).toBe("Bar 2");
+      expect(bars[1].label).toBe("2");
       expect(bars[1].startMs).toBe(2000);
     });
 
     it("returns empty for empty beats", () => {
-      expect(generateBars([])).toHaveLength(0);
+      expect(generateBars([], 120, 10000)).toHaveLength(0);
     });
 
     it("handles beats not evenly divisible by beatsPerBar", () => {
-      const beats: TimingMark[] = [];
+      const beats: LabeledMark[] = [];
       for (let i = 0; i < 7; i++) {
-        beats.push({ timeMs: i * 500, strength: 0.6 });
+        beats.push({
+          label: String((i % 4) + 1),
+          startMs: i * 500,
+          endMs: (i + 1) * 500,
+        });
       }
 
-      const bars = generateBars(beats, 4);
-      // 7 beats / 4 = 1 full bar + 1 partial bar
+      const bars = generateBars(beats, 120, 10000);
+      // 7 beats: downbeats at 0 and 2000 = 2 bars
       expect(bars.length).toBe(2);
     });
 
     it("produces integer timestamps", () => {
-      const beats: TimingMark[] = [];
+      const beats: LabeledMark[] = [];
       for (let i = 0; i < 8; i++) {
-        beats.push({ timeMs: i * 471.7, strength: 0.6 });
+        beats.push({
+          label: String((i % 4) + 1),
+          startMs: Math.round(i * 471.7),
+          endMs: Math.round((i + 1) * 471.7),
+        });
       }
 
-      const bars = generateBars(beats, 4);
+      const bars = generateBars(beats, 127.2, 10000);
       for (const bar of bars) {
         expect(bar.startMs).toBe(Math.round(bar.startMs));
         expect(bar.endMs).toBe(Math.round(bar.endMs));
@@ -189,6 +212,27 @@ describe("tempo-detector", () => {
         0,
       );
       expect(sections).toHaveLength(0);
+    });
+
+    it("produces contiguous sections covering the full duration", () => {
+      const len = 300;
+      const flux = new Float32Array(len);
+      const times = new Float32Array(len);
+      for (let i = 0; i < len; i++) {
+        times[i] = i * 100; // 30 seconds
+        // Alternating quiet/loud every 10 seconds
+        flux[i] = i < 100 ? 0.2 : i < 200 ? 0.8 : 0.2;
+      }
+
+      const sections = detectSections(flux, times, 30000);
+      // First section starts at 0
+      expect(sections[0].startMs).toBe(0);
+      // Last section ends at duration
+      expect(sections[sections.length - 1].endMs).toBe(30000);
+      // Sections are contiguous
+      for (let i = 1; i < sections.length; i++) {
+        expect(sections[i].startMs).toBe(sections[i - 1].endMs);
+      }
     });
   });
 });

@@ -29,7 +29,9 @@ import {
   generateBars,
   detectSections,
 } from "@/lib/beatiq/tempo-detector";
+import type { LabeledMark } from "@/lib/beatiq/types";
 import { computeStats as computeBeatStats } from "@/lib/beatiq/beat-processor";
+import { detectBeatsWithEssentia } from "@/lib/beatiq/essentia-client";
 
 // Lyr:IQ engine
 import {
@@ -124,19 +126,62 @@ export async function runPipeline(
   // ── Step 3: Analyze (BPM, beats, onsets) ──────────────────────────
   update("analyze", "active", "Detecting tempo...");
 
-  // Compute spectral flux for tempo detection
+  // Run Essentia.js beat detection in parallel with spectral flux
+  const essentiaPromise = detectBeatsWithEssentia(samples, sampleRate);
+
+  // Compute spectral flux (needed for sections + fallback tempo)
   const { flux, frameTimes: fluxTimes } = computeSpectralFlux(
     samples,
     sampleRate,
   );
-  const tempo = detectTempo(flux, fluxTimes);
-  updatedMetadata.bpm = tempo.bpm;
+  const fallbackTempo = detectTempo(flux, fluxTimes);
 
-  update("analyze", "active", "Detecting onsets...");
+  // Await Essentia — use its results if available, otherwise fall back
+  const essentiaResult = await essentiaPromise;
+
+  let detectedBpm: number;
+  let essentiaTicks: number[] | null = null;
+
+  if (
+    essentiaResult &&
+    essentiaResult.bpm > 0 &&
+    essentiaResult.ticksMs.length > 4
+  ) {
+    detectedBpm = essentiaResult.bpm;
+    essentiaTicks = essentiaResult.ticksMs;
+    update(
+      "analyze",
+      "active",
+      `Essentia: ${detectedBpm} BPM — detecting onsets...`,
+    );
+  } else {
+    detectedBpm = fallbackTempo.bpm;
+    update(
+      "analyze",
+      "active",
+      `Fallback: ${detectedBpm} BPM — detecting onsets...`,
+    );
+  }
+  updatedMetadata.bpm = detectedBpm;
+
   const beatTracks: BeatTrack[] = [];
 
+  // ── Onset detection per stem (higher thresholds = fewer, cleaner hits) ──
+  // Per-stem sensitivity: drums get stricter thresholds, melodic instruments
+  // even stricter to only catch prominent transients.
+  const stemOnsetConfig: Record<
+    string,
+    { threshold: number; minIntervalMs: number }
+  > = {
+    drums: { threshold: 0.5, minIntervalMs: 80 },
+    bass: { threshold: 0.45, minIntervalMs: 150 },
+    guitar: { threshold: 0.45, minIntervalMs: 120 },
+    piano: { threshold: 0.45, minIntervalMs: 120 },
+    other: { threshold: 0.5, minIntervalMs: 120 },
+  };
+
   if (stems) {
-    // Onset detection on separated stems (much better accuracy)
+    // Onset detection on separated stems
     const stemEntries = Object.entries(stems).filter(
       ([key]) => key !== "archive" && key !== "vocals",
     );
@@ -145,6 +190,11 @@ export async function runPipeline(
       try {
         const stemSamples = await fetchAndDecodeStem(stemUrl);
         if (!stemSamples) continue;
+
+        const cfg = stemOnsetConfig[stemName] ?? {
+          threshold: 0.45,
+          minIntervalMs: 120,
+        };
 
         const stemEnergies = computeBandEnergies(
           stemSamples.samples,
@@ -159,8 +209,8 @@ export async function runPipeline(
                 category: stemName === "drums" ? "drums" : "melodic",
                 lowHz: 20,
                 highHz: 20000,
-                threshold: 0.25,
-                minIntervalMs: 60,
+                threshold: cfg.threshold,
+                minIntervalMs: cfg.minIntervalMs,
               },
             ],
           },
@@ -170,8 +220,8 @@ export async function runPipeline(
           const marks = detectOnsets(
             stemEnergies[0].values,
             stemEnergies[0].frameTimes,
-            0.25,
-            60,
+            cfg.threshold,
+            cfg.minIntervalMs,
           );
 
           if (marks.length > 0) {
@@ -233,20 +283,41 @@ export async function runPipeline(
     }
   }
 
-  // Beat grid + bars + sections (always from full mix)
-  const allOnsets = beatTracks.flatMap((t) => t.marks);
-  const beats = generateBeatGrid(tempo.bpm, durationMs, allOnsets);
+  // ── Beat grid + bars + sections ─────────────────────────────────────
+  let beats: LabeledMark[];
+
+  if (essentiaTicks && essentiaTicks.length > 4) {
+    // Use Essentia's actual beat positions — much more accurate than a
+    // rigid grid because they track real tempo fluctuations.
+    beats = essentiaTicks.map((ms, i) => ({
+      label: String((i % 4) + 1),
+      startMs: Math.round(ms),
+      endMs:
+        i + 1 < essentiaTicks.length
+          ? Math.round(essentiaTicks[i + 1])
+          : Math.min(
+              Math.round(ms + 60000 / detectedBpm),
+              Math.round(durationMs),
+            ),
+    }));
+  } else {
+    // Fallback: generate an even grid from BPM
+    const allOnsets = beatTracks.flatMap((t) => t.marks);
+    beats = generateBeatGrid(detectedBpm, durationMs, allOnsets);
+  }
+
   if (beats.length > 0) {
     beatTracks.push({
       id: "beats",
-      name: "Beats",
+      name: "Beat Count",
       category: "structure",
       enabled: true,
-      marks: beats,
+      marks: [],
+      labeledMarks: beats,
     });
   }
 
-  const bars = generateBars(beats);
+  const bars = generateBars(beats, detectedBpm, durationMs);
   if (bars.length > 0) {
     beatTracks.push({
       id: "bars",
@@ -262,7 +333,7 @@ export async function runPipeline(
   if (sections.length > 0) {
     beatTracks.push({
       id: "sections",
-      name: "Song Sections",
+      name: "Sections",
       category: "structure",
       enabled: true,
       marks: [],
@@ -294,11 +365,23 @@ export async function runPipeline(
   if (lyrics && lyrics.plainText.trim().length > 0) {
     update("lyrics", "active", "Generating singing face timing...");
 
-    // Convert lyrics to aligned words for Lyr:IQ processing
+    // If we have synced lines + a vocals stem, use audio onset detection
+    // within each line segment for better word-level timing.
+    let vocalsSamples: { samples: Float32Array; sampleRate: number } | null =
+      null;
+    if (stems?.vocals && lyrics.syncedLines && lyrics.syncedLines.length > 0) {
+      try {
+        vocalsSamples = await fetchAndDecodeStem(stems.vocals);
+      } catch {
+        // Vocals stem fetch failed — fall back to character distribution
+      }
+    }
+
     const alignedWords = lyricsToAlignedWords(
       lyrics.plainText,
       lyrics.syncedLines,
       durationMs,
+      vocalsSamples,
     );
 
     if (alignedWords.length > 0) {
@@ -315,10 +398,10 @@ export async function runPipeline(
   // ── Step 5: Assemble ──────────────────────────────────────────────
   update("generate", "active", "Assembling timing tracks...");
 
-  const beatStats = computeBeatStats(beatTracks, tempo.bpm, durationMs);
+  const beatStats = computeBeatStats(beatTracks, detectedBpm, durationMs);
 
   const combined: TrkiqStats = {
-    bpm: tempo.bpm,
+    bpm: detectedBpm,
     instrumentTracks: beatTracks.length,
     vocalTracks: vocalTracks.length,
     totalMarks: beatStats.totalMarks,
@@ -389,24 +472,24 @@ async function addDrumSubBands(
       name: "Drums \u2014 Kick",
       lowHz: 20,
       highHz: 150,
-      threshold: 0.3,
-      minIntervalMs: 100,
+      threshold: 0.55,
+      minIntervalMs: 150,
     },
     {
       id: "snare",
       name: "Drums \u2014 Snare",
       lowHz: 200,
       highHz: 2000,
-      threshold: 0.25,
-      minIntervalMs: 80,
+      threshold: 0.45,
+      minIntervalMs: 120,
     },
     {
       id: "hihat",
       name: "Drums \u2014 Hi-Hat",
       lowHz: 5000,
       highHz: 15000,
-      threshold: 0.2,
-      minIntervalMs: 50,
+      threshold: 0.45,
+      minIntervalMs: 100,
     },
   ];
 
@@ -447,11 +530,14 @@ async function addDrumSubBands(
 /**
  * Convert lyrics text (+ optional synced lines) to AlignedWord[].
  * Uses synced timestamps when available, otherwise estimates timing.
+ * If a vocals stem is provided, uses audio onset detection within each
+ * line segment for much better word-level alignment.
  */
 function lyricsToAlignedWords(
   plainText: string,
   syncedLines: SyncedLine[] | null,
   durationMs: number,
+  vocalsStem?: { samples: Float32Array; sampleRate: number } | null,
 ): AlignedWord[] {
   const lines = plainText
     .split("\n")
@@ -462,7 +548,7 @@ function lyricsToAlignedWords(
 
   // If we have synced timestamps, use them for line-level timing
   if (syncedLines && syncedLines.length > 0) {
-    return alignWithSyncedLines(syncedLines, durationMs);
+    return alignWithSyncedLines(syncedLines, durationMs, vocalsStem ?? null);
   }
 
   // Fallback: distribute words evenly across the song duration
@@ -471,11 +557,16 @@ function lyricsToAlignedWords(
 
 /**
  * Create aligned words from LRCLIB synced lines.
- * Distributes words within each line based on character length.
+ *
+ * Each synced line gives us a precise "restart" point — we know exactly
+ * when each lyric line begins.  Within each line segment:
+ * - If we have the vocals stem, detect energy onsets to find word boundaries.
+ * - Otherwise, distribute words proportionally by character length.
  */
 function alignWithSyncedLines(
   syncedLines: SyncedLine[],
   durationMs: number,
+  vocalsStem: { samples: Float32Array; sampleRate: number } | null,
 ): AlignedWord[] {
   const result: AlignedWord[] = [];
 
@@ -493,13 +584,51 @@ function alignWithSyncedLines(
 
     if (words.length === 0) continue;
 
-    // Distribute words proportionally by character length
+    const lineStartMs = line.timeMs;
+    const lineEndMs = nextTime;
+
+    // Try audio-based word alignment using vocals stem onsets
+    if (vocalsStem && words.length > 1) {
+      const onsetTimes = detectWordOnsetsInSegment(
+        vocalsStem.samples,
+        vocalsStem.sampleRate,
+        lineStartMs,
+        lineEndMs,
+      );
+
+      // If we got enough onset points, assign words to them
+      if (onsetTimes.length >= words.length - 1) {
+        // Use the line start + detected onsets as word start times
+        const wordStarts = [
+          lineStartMs,
+          ...onsetTimes.slice(0, words.length - 1),
+        ];
+
+        for (let w = 0; w < words.length; w++) {
+          const startMs = Math.round(wordStarts[w]);
+          const endMs =
+            w + 1 < words.length
+              ? Math.round(wordStarts[w + 1])
+              : Math.round(lineEndMs);
+
+          result.push({
+            text: words[w],
+            startMs,
+            endMs,
+            confidence: 0.85,
+          });
+        }
+        continue;
+      }
+    }
+
+    // Fallback: distribute words proportionally by character length
     const totalChars = words.reduce((sum, w) => sum + w.length, 0);
-    const lineMs = nextTime - line.timeMs;
-    let cursor = line.timeMs;
+    const lineMs = lineEndMs - lineStartMs;
+    let cursor = lineStartMs;
 
     for (const word of words) {
-      const wordMs = (word.length / totalChars) * lineMs * 0.85; // 85% active, 15% gaps
+      const wordMs = (word.length / totalChars) * lineMs * 0.85;
       const gap = (lineMs * 0.15) / words.length;
       const startMs = Math.round(cursor);
       const endMs = Math.round(cursor + wordMs);
@@ -508,7 +637,7 @@ function alignWithSyncedLines(
         text: word,
         startMs,
         endMs,
-        confidence: 0.7, // Line-level sync, not word-level
+        confidence: 0.7,
       });
 
       cursor = endMs + gap;
@@ -516,6 +645,56 @@ function alignWithSyncedLines(
   }
 
   return result;
+}
+
+/**
+ * Detect word onsets within a time segment of the vocals stem.
+ * Returns onset times (in ms) relative to the audio start.
+ */
+function detectWordOnsetsInSegment(
+  samples: Float32Array,
+  sampleRate: number,
+  startMs: number,
+  endMs: number,
+): number[] {
+  const startSample = Math.floor((startMs / 1000) * sampleRate);
+  const endSample = Math.min(
+    Math.ceil((endMs / 1000) * sampleRate),
+    samples.length,
+  );
+
+  if (endSample - startSample < 1024) return [];
+
+  // Extract the segment
+  const segment = samples.subarray(startSample, endSample);
+
+  // Compute short-time energy envelope with small hop for word-level resolution
+  const frameSize = 1024;
+  const hopSize = 256;
+  const numFrames = Math.max(
+    0,
+    Math.floor((segment.length - frameSize) / hopSize) + 1,
+  );
+  if (numFrames < 3) return [];
+
+  const energyEnv = new Float32Array(numFrames);
+  const frameTimes = new Float32Array(numFrames);
+
+  for (let f = 0; f < numFrames; f++) {
+    const offset = f * hopSize;
+    let energy = 0;
+    for (let i = 0; i < frameSize && offset + i < segment.length; i++) {
+      energy += segment[offset + i] * segment[offset + i];
+    }
+    energyEnv[f] = Math.sqrt(energy / frameSize);
+    frameTimes[f] = startMs + ((offset + frameSize / 2) / sampleRate) * 1000;
+  }
+
+  // Use existing onset detector with moderate sensitivity
+  const marks = detectOnsets(energyEnv, frameTimes, 0.3, 80);
+
+  // Return onset times, sorted
+  return marks.map((m) => m.timeMs).sort((a, b) => a - b);
 }
 
 /**
