@@ -107,18 +107,6 @@ export function IndividualsPhase() {
     return { total: phaseAutoCount, strongCount, reviewCount };
   }, [phaseItems, autoMatchedNames, approvedNames, scoreMap, phaseAutoCount]);
 
-  // Auto-start with "needs review" filter when there are review items
-  const didAutoStartRef = useRef(false);
-  useEffect(() => {
-    if (didAutoStartRef.current) return;
-    if (phaseAutoMatchStats.reviewCount > 0) {
-      setBannerFilter("auto-review");
-      didAutoStartRef.current = true;
-    } else if (phaseAutoMatchStats.total > 0) {
-      didAutoStartRef.current = true;
-    }
-  }, [phaseAutoMatchStats]);
-
   // Auto-clear banner filter when all review items are resolved
   const [reviewClearToast, setReviewClearToast] = useState(false);
   useEffect(() => {
@@ -1186,6 +1174,14 @@ function XLightsGroupCard({
     };
   }, [members, scoreMap, amNames, apNames, fullMemberCount, activeMemberCount]);
 
+  // Count items needing review: group header + members with needsReview/weak status
+  const needsReviewCount = useMemo(() => {
+    let count = memberStats.review + memberStats.weak;
+    // Include the group header itself if it needs review
+    if (groupStatus === "needsReview" || groupStatus === "weak") count++;
+    return count;
+  }, [memberStats.review, memberStats.weak, groupStatus]);
+
   // Ghost members: names in the group definition but not in the active members list
   const activeMemberNames = useMemo(
     () => new Set(members.map((m) => m.sourceModel.name)),
@@ -1225,7 +1221,7 @@ function XLightsGroupCard({
         onClick={onSelect}
         style={{
           display: "grid",
-          gridTemplateColumns: "16px 42px 1fr auto auto auto 36px",
+          gridTemplateColumns: "16px 42px 1fr auto auto auto auto 36px",
           alignItems: "center",
           padding: "4px 8px 4px 6px",
           gap: "0 6px",
@@ -1259,7 +1255,23 @@ function XLightsGroupCard({
             <FractionBadge resolved={memberStats.resolved} total={memberStats.total} />
           )}
         </div>
-        {/* Col 5: Destination / suggestion + unlink */}
+        {/* Col 5: Needs Review indicator */}
+        <div className="flex-shrink-0">
+          {needsReviewCount > 0 && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 whitespace-nowrap"
+              title={`${needsReviewCount} model${needsReviewCount !== 1 ? "s" : ""} need${needsReviewCount === 1 ? "s" : ""} review`}
+            >
+              <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              {needsReviewCount} review
+            </span>
+          )}
+        </div>
+        {/* Col 6: Destination / suggestion + unlink */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {group.isMapped ? (
             <>
@@ -1295,7 +1307,7 @@ function XLightsGroupCard({
             <span className="text-xs text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 6: Map Children shortcut (hidden unless mapped w/ unmapped children) */}
+        {/* Col 7: Map Children shortcut (hidden unless mapped w/ unmapped children) */}
         <div className="flex-shrink-0">
           {group.isMapped && memberStats.unmapped > 0 && onMapChildren && (
             <button
@@ -1308,7 +1320,7 @@ function XLightsGroupCard({
             </button>
           )}
         </div>
-        {/* Col 7: Skip (hover) */}
+        {/* Col 8: Skip (hover) */}
         <div
           className="flex items-center justify-end"
           style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.1s ease" }}
@@ -1881,6 +1893,13 @@ function SuperGroupCard({
     };
   }, [members, scoreMap, autoMatchedNames, approvedNames, totalCount]);
 
+  // Count items needing review: super group header + all members with needsReview/weak status
+  const superNeedsReviewCount = useMemo(() => {
+    let count = superMemberStats.review + superMemberStats.weak;
+    if (superStatus === "needsReview" || superStatus === "weak") count++;
+    return count;
+  }, [superMemberStats.review, superMemberStats.weak, superStatus]);
+
   return (
     <div
       className={`rounded-md overflow-hidden transition-all border-l-[3px] ${leftBorder} mb-0.5 ${
@@ -1903,7 +1922,7 @@ function SuperGroupCard({
         onClick={onSelect}
         style={{
           display: "grid",
-          gridTemplateColumns: "16px 42px 1fr auto auto 36px",
+          gridTemplateColumns: "16px 42px 1fr auto auto auto 36px",
           alignItems: "center",
           padding: "4px 8px 4px 6px",
           gap: "0 6px",
@@ -1937,7 +1956,23 @@ function SuperGroupCard({
             <FractionBadge resolved={superMemberStats.resolved} total={superMemberStats.total} />
           )}
         </div>
-        {/* Col 5: Destination / suggestion + unlink */}
+        {/* Col 5: Needs Review indicator */}
+        <div className="flex-shrink-0">
+          {superNeedsReviewCount > 0 && (
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 whitespace-nowrap"
+              title={`${superNeedsReviewCount} model${superNeedsReviewCount !== 1 ? "s" : ""} need${superNeedsReviewCount === 1 ? "s" : ""} review`}
+            >
+              <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              {superNeedsReviewCount} review
+            </span>
+          )}
+        </div>
+        {/* Col 6: Destination / suggestion + unlink */}
         <div className="flex items-center gap-1 flex-shrink-0">
           {group.isMapped ? (
             <>
@@ -1971,7 +2006,7 @@ function SuperGroupCard({
             <span className="text-xs text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 6: Skip (hover) */}
+        {/* Col 7: Skip (hover) */}
         <div
           className="flex items-center justify-end"
           style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.1s ease" }}

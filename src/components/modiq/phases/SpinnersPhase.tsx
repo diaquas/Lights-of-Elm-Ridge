@@ -108,18 +108,6 @@ export function SpinnersPhase() {
     return { total: phaseAutoCount, strongCount, reviewCount };
   }, [phaseItems, autoMatchedNames, approvedNames, scoreMap, phaseAutoCount]);
 
-  // Auto-start with "needs review" filter when there are review items
-  const didAutoStartRef = useRef(false);
-  useEffect(() => {
-    if (didAutoStartRef.current) return;
-    if (phaseAutoMatchStats.reviewCount > 0) {
-      setBannerFilter("auto-review");
-      didAutoStartRef.current = true;
-    } else if (phaseAutoMatchStats.total > 0) {
-      didAutoStartRef.current = true;
-    }
-  }, [phaseAutoMatchStats]);
-
   // Auto-clear banner filter when all review items are resolved
   const [reviewClearToast, setReviewClearToast] = useState(false);
   useEffect(() => {
