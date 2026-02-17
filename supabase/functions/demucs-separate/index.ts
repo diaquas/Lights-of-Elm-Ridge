@@ -32,8 +32,9 @@ function getCorsHeaders(req: Request): Record<string, string> {
 }
 
 const REPLICATE_API = "https://api.replicate.com/v1";
-// Demucs model on Replicate — uses model identifier so we always get latest version
-const DEMUCS_MODEL = "cjwbw/demucs";
+// ryan5453/demucs — maintained Demucs model on Replicate with pinned version
+const DEMUCS_VERSION =
+  "5a7041cc9b82e5a558fea6b3d7b12dea89625e89da33f0447bd727c2d0ab9e77";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -110,28 +111,21 @@ async function handleStart(
     );
   }
 
-  // Create a Replicate prediction using model identifier (always latest version)
-  const response = await fetch(
-    `${REPLICATE_API}/models/${DEMUCS_MODEL}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${replicateToken}`,
-        "Content-Type": "application/json",
-        Prefer: "respond-async",
-      },
-      body: JSON.stringify({
-        input: {
-          audio: signedUrlData.signedUrl,
-          // htdemucs_6s gives us 6 stems: vocals, drums, bass, guitar, piano, other
-          model: "htdemucs_6s",
-          stem: "none", // return all stems
-          mp3: true, // return as mp3 for faster download
-          mp3_bitrate: 128,
-        },
-      }),
+  // Create a Replicate prediction using pinned version hash
+  const response = await fetch(`${REPLICATE_API}/predictions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${replicateToken}`,
+      "Content-Type": "application/json",
+      Prefer: "respond-async",
     },
-  );
+    body: JSON.stringify({
+      version: DEMUCS_VERSION,
+      input: {
+        audio: signedUrlData.signedUrl,
+      },
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
