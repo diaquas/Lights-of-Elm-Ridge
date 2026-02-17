@@ -45,6 +45,8 @@ export interface StemSet {
   piano?: string;
   /** URL to the other/residual stem */
   other?: string;
+  /** URL to zip archive (legacy fallback — not directly usable) */
+  archive?: string;
 }
 
 /** Status of a Replicate prediction */

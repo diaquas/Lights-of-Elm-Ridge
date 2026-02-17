@@ -141,7 +141,19 @@ export async function separateStems(
     const result = await pollStatus(predictionId);
 
     if (result.status === "succeeded" && result.stems) {
-      // Clean up the uploaded file (fire and forget)
+      // Validate that we have at least one usable stem URL
+      const { archive: _archive, ...usableStems } = result.stems;
+      const stemCount = Object.values(usableStems).filter(
+        (v) => typeof v === "string" && v.startsWith("http"),
+      ).length;
+
+      if (stemCount === 0) {
+        cleanupUpload(storagePath).catch(() => {});
+        throw new Error(
+          "Demucs returned no usable stem URLs — check edge function logs",
+        );
+      }
+
       cleanupUpload(storagePath).catch(() => {});
       return result.stems;
     }
