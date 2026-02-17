@@ -19,18 +19,19 @@ interface EditorScreenProps {
   onReset: () => void;
 }
 
-type FilterTab = "all" | "drums" | "melodic" | "structure" | "vocals";
+type FilterTab = "all" | "drums" | "melodic" | "structure" | "singing-faces";
 
 const TAB_LABELS: Record<FilterTab, string> = {
   all: "All",
   drums: "Drums",
   melodic: "Melodic",
   structure: "Structure",
-  vocals: "Vocals",
+  "singing-faces": "Singing Faces",
 };
 
 export default function EditorScreen({ session, onReset }: EditorScreenProps) {
-  const { beatTracks, vocalTracks, metadata, beatStats, lyriqStats } = session;
+  const { beatTracks, vocalTracks, metadata, beatStats, lyriqStats, lyrics } =
+    session;
 
   const [enabledBeats, setEnabledBeats] = useState<Record<string, boolean>>(
     () => Object.fromEntries(beatTracks.map((t) => [t.id, t.enabled])),
@@ -39,6 +40,7 @@ export default function EditorScreen({ session, onReset }: EditorScreenProps) {
     () => Object.fromEntries(vocalTracks.map((t, i) => [`vocal-${i}`, true])),
   );
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [showLyrics, setShowLyrics] = useState(false);
 
   const toggleBeat = useCallback((id: string) => {
     setEnabledBeats((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -63,13 +65,13 @@ export default function EditorScreen({ session, onReset }: EditorScreenProps) {
   );
 
   const filteredBeatTracks =
-    activeTab === "all" || activeTab === "vocals"
-      ? activeTab === "vocals"
+    activeTab === "all" || activeTab === "singing-faces"
+      ? activeTab === "singing-faces"
         ? []
         : beatTracks
       : beatTracks.filter((t) => t.category === activeTab);
 
-  const showVocals = activeTab === "all" || activeTab === "vocals";
+  const showVocals = activeTab === "all" || activeTab === "singing-faces";
 
   const totalEnabled =
     Object.values(enabledBeats).filter(Boolean).length +
@@ -140,11 +142,17 @@ export default function EditorScreen({ session, onReset }: EditorScreenProps) {
       {/* Tabs */}
       <div className="flex gap-2 overflow-x-auto">
         {(
-          ["all", "drums", "melodic", "structure", "vocals"] as FilterTab[]
+          [
+            "all",
+            "drums",
+            "melodic",
+            "structure",
+            "singing-faces",
+          ] as FilterTab[]
         ).map((tab) => {
           let count = 0;
           if (tab === "all") count = beatTracks.length + vocalTracks.length;
-          else if (tab === "vocals") count = vocalTracks.length;
+          else if (tab === "singing-faces") count = vocalTracks.length;
           else count = beatTracks.filter((t) => t.category === tab).length;
 
           if (count === 0 && tab !== "all") return null;
@@ -195,6 +203,70 @@ export default function EditorScreen({ session, onReset }: EditorScreenProps) {
             </div>
           )}
       </div>
+
+      {/* Lyrics Preview */}
+      {lyrics && lyrics.plainText.trim().length > 0 && (
+        <div className="rounded-xl bg-surface border border-border overflow-hidden">
+          <button
+            onClick={() => setShowLyrics(!showLyrics)}
+            className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-surface-light transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <svg
+                className="w-4 h-4 text-purple-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <span className="text-foreground/70 text-sm font-medium">
+                Lyrics{" "}
+                <span className="text-foreground/30 font-normal">
+                  (from{" "}
+                  {lyrics.source === "lrclib"
+                    ? "LRCLIB"
+                    : lyrics.source === "user"
+                      ? "your input"
+                      : "auto-fetch"}
+                  )
+                </span>
+              </span>
+            </div>
+            <svg
+              className={`w-4 h-4 text-foreground/30 transition-transform ${showLyrics ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+
+          {showLyrics && (
+            <div className="px-5 pb-4 border-t border-border pt-3">
+              <pre className="text-foreground/60 text-sm font-mono leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
+                {lyrics.plainText}
+              </pre>
+              {lyrics.syncedLines && lyrics.syncedLines.length > 0 && (
+                <p className="text-foreground/25 text-xs mt-3">
+                  {lyrics.syncedLines.length} synced lines available
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Action Bar */}
       <div className="flex flex-col sm:flex-row gap-3">
@@ -292,7 +364,7 @@ function VocalTrackRow({
         <p className="text-foreground text-sm font-medium truncate">
           {track.label}
         </p>
-        <p className="text-xs text-purple-400 opacity-70">Vocals</p>
+        <p className="text-xs text-purple-400 opacity-70">Singing Faces</p>
       </div>
       <div className="text-right flex-shrink-0">
         <p className="text-foreground/50 text-sm font-mono">{wordCount}</p>

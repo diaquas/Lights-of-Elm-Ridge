@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import type { LyricsData, SongMetadata } from "@/lib/lyriq/types";
+import { parseID3Tags } from "@/lib/id3-parser";
 
 interface UploadScreenProps {
   metadata: SongMetadata | null;
@@ -30,7 +31,7 @@ export default function UploadScreen({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
-    (file: File) => {
+    async (file: File) => {
       if (!file.type.startsWith("audio/") && !file.name.endsWith(".mp3")) {
         return;
       }
@@ -39,16 +40,21 @@ export default function UploadScreen({
       const url = URL.createObjectURL(file);
       onAudioLoad(file, url);
 
-      // Extract basic metadata from filename if no ID3
+      // Extract metadata from ID3 tags, falling back to filename parsing
+      const id3 = await parseID3Tags(file);
       const nameWithoutExt = file.name.replace(/\.[^.]+$/, "");
       const parts = nameWithoutExt.split(/[-_]/);
+      const hasId3 = !!(id3.artist || id3.title);
 
       onMetadataLoad({
         title:
-          parts.length > 1 ? parts.slice(1).join(" ").trim() : nameWithoutExt,
-        artist: parts.length > 1 ? parts[0].trim() : "Unknown Artist",
+          id3.title ||
+          (parts.length > 1 ? parts.slice(1).join(" ").trim() : nameWithoutExt),
+        artist:
+          id3.artist || (parts.length > 1 ? parts[0].trim() : "Unknown Artist"),
+        album: id3.album,
         durationSec: 0,
-        source: "filename",
+        source: hasId3 ? "id3" : "filename",
       });
     },
     [onAudioLoad, onMetadataLoad],

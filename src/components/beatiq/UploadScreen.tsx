@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import type { SongMetadata } from "@/lib/beatiq/types";
+import { parseID3Tags } from "@/lib/id3-parser";
 
 interface UploadScreenProps {
   metadata: SongMetadata | null;
@@ -30,13 +31,19 @@ export default function UploadScreen({
       const url = URL.createObjectURL(file);
       onAudioLoad(file, url);
 
-      // Extract metadata from filename (ID3 parsing would require a library)
+      // Extract metadata from ID3 tags, falling back to filename parsing
+      const id3 = await parseID3Tags(file);
       const nameWithoutExt = file.name.replace(/\.[^.]+$/, "");
       const parts = nameWithoutExt.split(/\s*[-\u2014]\s*/);
       const meta: SongMetadata = {
-        artist: parts.length > 1 ? parts[0].trim() : "Unknown Artist",
+        artist:
+          id3.artist || (parts.length > 1 ? parts[0].trim() : "Unknown Artist"),
         title:
-          parts.length > 1 ? parts.slice(1).join(" - ").trim() : nameWithoutExt,
+          id3.title ||
+          (parts.length > 1
+            ? parts.slice(1).join(" - ").trim()
+            : nameWithoutExt),
+        album: id3.album,
         durationMs: 0,
       };
 
