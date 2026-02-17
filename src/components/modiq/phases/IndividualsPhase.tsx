@@ -11,7 +11,6 @@ import { UniversalSourcePanel } from "../UniversalSourcePanel";
 import {
   AutoMatchBanner,
   UnlinkIcon,
-  StatusCheck,
   FxBadge,
   TypeBadge,
   FractionBadge,
@@ -29,9 +28,6 @@ import { useBulkInference } from "@/hooks/useBulkInference";
 import { BulkInferenceBanner } from "../BulkInferenceBanner";
 import {
   PANEL_STYLES,
-  TYPE_BADGE_COLORS,
-  GROUP_GRID,
-  MODEL_GRID,
 } from "../panelStyles";
 import {
   CurrentMappingCard,
@@ -545,6 +541,10 @@ export function IndividualsPhase() {
     <div className="flex h-full overflow-hidden">
       {/* Left: Model List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
+<<<<<<< claude/redesign-modiqu-ux-1TRpO
+        {/* Toolbar: Search + Sort + Filter + View mode + Continue — single row */}
+        <div className="px-3 py-1.5 border-b border-border flex-shrink-0">
+=======
         {/* Title */}
         <div className="flex items-center px-4 py-2 flex-shrink-0">
           <h2 className="text-base font-semibold text-foreground leading-tight">
@@ -623,8 +623,10 @@ export function IndividualsPhase() {
 
         {/* Search + Sort */}
         <div className={PANEL_STYLES.search.wrapper}>
+>>>>>>> main
           <div className="flex items-center gap-2">
-            <div className="relative flex-1">
+            {/* Search */}
+            <div className="relative flex-1 min-w-0">
               <svg
                 className={PANEL_STYLES.search.icon}
                 fill="none"
@@ -652,22 +654,13 @@ export function IndividualsPhase() {
                   onClick={() => setSearch("")}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-foreground/30 hover:text-foreground/60"
                 >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               )}
             </div>
+            {/* Sort */}
             <SortDropdown
               value={sortBy}
               onChange={(v) => {
@@ -675,13 +668,36 @@ export function IndividualsPhase() {
                 setSortVersion((sv) => sv + 1);
               }}
             />
+            {/* Filter pills */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <FilterPill
+                label="All"
+                color="blue"
+                active={statusFilter === "all" && !bannerFilter}
+                onClick={() => { setBannerFilter(null); setStatusFilter("all"); setSortVersion((v) => v + 1); }}
+              />
+              <FilterPill
+                label={`Mapped (${mappedCount})`}
+                color="green"
+                active={statusFilter === "mapped" && !bannerFilter}
+                onClick={() => { setBannerFilter(null); setStatusFilter("mapped"); setSortVersion((v) => v + 1); }}
+              />
+              <FilterPill
+                label={`Unmapped (${unmappedCount})`}
+                color="amber"
+                active={statusFilter === "unmapped" && !bannerFilter}
+                onClick={() => { setBannerFilter(null); setStatusFilter("unmapped"); setSortVersion((v) => v + 1); }}
+              />
+            </div>
+            {/* View mode toggle */}
+            <ViewModePills value={viewMode} onChange={setViewMode} />
+            {/* Continue — inline */}
             <button
               type="button"
-              onClick={() => setSortVersion((v) => v + 1)}
-              className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors px-1"
-              title="Re-sort"
+              onClick={goToNextPhase}
+              className="text-xs font-semibold px-3.5 py-1.5 rounded-md bg-accent text-white hover:brightness-110 transition-all flex-shrink-0 whitespace-nowrap"
             >
-              &#x21bb;
+              Continue &rarr;
             </button>
           </div>
         </div>
@@ -930,25 +946,19 @@ export function IndividualsPhase() {
             </details>
           )}
 
-          {/* Color legend */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 mt-3 border-t border-border">
+          {/* Color legend — simplified 3-color scheme */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 mt-3 border-t border-border">
             {[
-              { color: "bg-green-400", label: "Mapped (60%+ / manual)" },
-              { color: "bg-amber-400", label: "Review (40-59%)" },
-              { color: "bg-red-400", label: "Weak (<40%)" },
-              { color: "bg-blue-400", label: "Unmapped" },
-              {
-                color: "bg-foreground/30",
-                label: "Covered by group",
-                dim: true,
-              },
+              { color: "bg-green-500", label: "Mapped" },
+              { color: "bg-amber-400", label: "Needs review" },
+              { color: "bg-foreground/20", label: "Unmapped", dim: true },
             ].map((item) => (
               <div key={item.label} className="flex items-center gap-1.5">
                 <div
-                  className={`w-2.5 h-2.5 rounded-sm ${item.color}`}
-                  style={{ opacity: "dim" in item ? 0.4 : 0.85 }}
+                  className={`w-5 h-1 rounded-full ${item.color}`}
+                  style={{ opacity: "dim" in item ? 0.5 : 0.7 }}
                 />
-                <span className="text-xs text-foreground/40">
+                <span className="text-xs text-foreground/35">
                   {item.label}
                 </span>
               </div>
@@ -957,59 +967,35 @@ export function IndividualsPhase() {
         </div>
       </div>
 
-      {/* Right: Source Panel */}
+      {/* Right: Suggestion Panel — redesigned with hero best match */}
       <div className="w-1/2 flex flex-col bg-surface/50 overflow-hidden">
         {selectedItem ? (
           <>
-            {/* Item Info Header — compact, same height as left */}
-            <div className={PANEL_STYLES.header.wrapper}>
+            {/* Compact header */}
+            <div className="px-5 py-3 border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2">
-                {selectedItem.isSuperGroup && (
-                  <span className="px-1.5 py-0.5 text-xs font-medium bg-purple-500/15 text-purple-400 rounded">
-                    SUPER
-                  </span>
-                )}
-                {selectedItem.isGroup && !selectedItem.isSuperGroup && (
-                  <span
-                    className={`px-1.5 py-0.5 text-xs font-medium ${TYPE_BADGE_COLORS.GRP} rounded`}
-                  >
-                    GRP
-                  </span>
+                {(selectedItem.isSuperGroup || selectedItem.isGroup) && (
+                  <TypeBadge type={selectedItem.isSuperGroup ? "SUPER" : "GRP"} inline />
                 )}
                 <h3 className="text-sm font-semibold text-foreground truncate">
                   {selectedItem.sourceModel.name}
                 </h3>
               </div>
-              <div className="flex items-center gap-3 mt-0.5 text-xs text-foreground/40">
-                {selectedItem.isSuperGroup ? (
-                  <span>
-                    {selectedItem.memberNames.length} models &middot; contains{" "}
-                    {selectedItem.containedGroupCount} groups &middot; Scenario{" "}
-                    {selectedItem.scenario || "A"}
-                  </span>
-                ) : selectedItem.isGroup ? (
-                  <span>
-                    {selectedItem.memberNames.length} members &middot; Scenario{" "}
-                    {selectedItem.scenario || "A"}
-                  </span>
+              <div className="flex items-center gap-2 mt-0.5 text-xs text-foreground/35">
+                {selectedItem.isGroup ? (
+                  <span>{selectedItem.memberNames.length} members</span>
                 ) : (
                   <>
                     {selectedItem.sourceModel.pixelCount ? (
                       <span>{selectedItem.sourceModel.pixelCount}px</span>
                     ) : null}
-                    <span>{selectedItem.sourceModel.type}</span>
-                    {selectedItem.superGroupLayers.length > 0 && (
-                      <span className="text-purple-400/60">
-                        +{selectedItem.superGroupLayers.length} layer
-                        {selectedItem.superGroupLayers.length !== 1 ? "s" : ""}
-                      </span>
-                    )}
+                    <span>{selectedItem.effectCount} effects</span>
                   </>
                 )}
               </div>
             </div>
 
-            {/* Mapping state card: SUGGESTED MATCH / ✓ MAPPED TO / NOT MAPPED */}
+            {/* Hero card: Best Match or Current Mapping */}
             {selectedItem.isMapped ? (
               <CurrentMappingCard
                 item={selectedItem}
@@ -1031,11 +1017,81 @@ export function IndividualsPhase() {
                   )
                 }
               />
+            ) : suggestions.length > 0 ? (
+              /* Hero Best Match card for unmapped items */
+              <div className="px-5 py-4 border-b border-border flex-shrink-0">
+                <div className="text-xs font-semibold text-foreground/40 uppercase tracking-wider mb-2">
+                  Best Match
+                </div>
+                <div className="rounded-lg border border-green-500/20 bg-green-500/[0.04] p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-semibold text-foreground flex-1 truncate min-w-0">
+                      {suggestions[0].model.name}
+                    </span>
+                    <ConfidenceBadge
+                      score={suggestions[0].score}
+                      factors={suggestions[0].factors}
+                      size="md"
+                    />
+                  </div>
+                  <div className="text-xs text-foreground/40 mb-3">
+                    {suggestions[0].model.pixelCount ? `${suggestions[0].model.pixelCount}px` : ""}
+                    {suggestions[0].model.pixelCount && selectedItem.sourceModel.pixelCount ? ` (source: ${selectedItem.sourceModel.pixelCount}px)` : ""}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAccept(selectedItem.sourceModel.name, suggestions[0].model.name)}
+                      className="flex-1 py-2 text-sm font-semibold rounded-md bg-accent text-white hover:bg-accent/90 transition-colors"
+                    >
+                      Accept Match
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSkip(selectedItem.sourceModel.name)}
+                      className="px-4 py-2 text-sm font-medium rounded-md border border-border text-foreground/50 hover:text-foreground/70 hover:border-foreground/20 transition-colors"
+                    >
+                      Skip
+                    </button>
+                  </div>
+                </div>
+
+                {/* Other options (collapsed) */}
+                {suggestions.length > 1 && (
+                  <div className="mt-3">
+                    <div className="text-xs text-foreground/30 mb-1.5">
+                      {suggestions.length - 1} other option{suggestions.length > 2 ? "s" : ""}
+                    </div>
+                    <div className="space-y-1">
+                      {suggestions.slice(1, 4).map((s) => (
+                        <button
+                          key={s.model.name}
+                          type="button"
+                          onClick={() => handleAccept(selectedItem.sourceModel.name, s.model.name)}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-foreground/5 transition-colors text-left"
+                        >
+                          <span className="text-[12px] text-foreground/60 truncate flex-1 min-w-0">
+                            {s.model.name}
+                          </span>
+                          <ConfidenceBadge score={s.score} factors={s.factors} size="sm" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
-              <NotMappedBanner />
+              <div className="px-5 py-4 border-b border-border flex-shrink-0">
+                <div className="flex items-center gap-2 text-foreground/25">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                  <span className="text-xs font-semibold uppercase tracking-wider">No suggestions found</span>
+                </div>
+              </div>
             )}
 
-            {/* Universal Source Panel — always visible for suggestions + add another */}
+            {/* All Models panel — for manual selection */}
             <div className="flex-1 min-h-0 overflow-hidden">
               <UniversalSourcePanel
                 allModels={interactive.allDestModels}
@@ -1066,25 +1122,12 @@ export function IndividualsPhase() {
                 sourceSortBy={sortBy}
               />
             </div>
-
-            {/* Skip (only for unmapped) */}
-            {!selectedItem.isMapped && (
-              <div className="px-6 py-3 border-t border-border flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => handleSkip(selectedItem.sourceModel.name)}
-                  className="w-full py-2 text-sm text-foreground/40 hover:text-foreground/60 border border-border hover:border-foreground/20 rounded-lg transition-colors"
-                >
-                  Skip This {selectedItem.isGroup ? "Group" : "Model"}
-                </button>
-              </div>
-            )}
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-foreground/30">
-            <div className="text-center">
+          <div className="flex-1 flex items-center justify-center text-foreground/25">
+            <div className="text-center max-w-[240px]">
               <svg
-                className="w-10 h-10 mx-auto mb-3 text-foreground/15"
+                className="w-8 h-8 mx-auto mb-3 text-foreground/10"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1096,11 +1139,8 @@ export function IndividualsPhase() {
                   d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
                 />
               </svg>
-              <p className="text-sm">
-                Select a group or model to see suggestions
-              </p>
-              <p className="text-xs text-foreground/20 mt-1.5">
-                Already-mapped items can be clicked to review or swap
+              <p className="text-sm text-foreground/30">
+                Select a model to see match suggestions
               </p>
             </div>
           </div>
@@ -1170,7 +1210,6 @@ function XLightsGroupCard({
   renderItemCard: (item: SourceLayerMapping) => React.ReactNode;
 }) {
   const [hovered, setHovered] = useState(false);
-  const [cascadeDismissed, setCascadeDismissed] = useState(false);
   const fullMemberCount = group.memberNames.length;
   const activeMemberCount = members.length;
   const groupFxCount =
@@ -1259,72 +1298,48 @@ function XLightsGroupCard({
       onDragLeave={() => onDragLeave?.()}
       onDrop={onDrop}
     >
-      {/* Group header row — CSS Grid */}
+      {/* Group header — single-line grid */}
       <div
         className="cursor-pointer"
+        onClick={onSelect}
         style={{
           display: "grid",
-          gridTemplateColumns: GROUP_GRID,
+          gridTemplateColumns: "16px 42px 1fr auto auto auto 36px",
           alignItems: "center",
-          padding: "6px 10px 6px 8px",
+          padding: "4px 8px 4px 6px",
           gap: "0 6px",
-          minHeight: 32,
+          minHeight: 30,
         }}
-        onClick={onSelect}
       >
-        {/* Col 1: Status checkbox */}
-        <StatusCheck
-          status={groupStatus}
-          onClick={
-            groupStatus === "needsReview" || groupStatus === "weak"
-              ? () => onApprove?.()
-              : undefined
-          }
-        />
-        {/* Col 2: FX badge */}
-        <FxBadge count={groupFxCount} />
-        {/* Col 3: Chevron */}
+        {/* Col 1: Chevron */}
         <div
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
           className="flex items-center justify-center cursor-pointer"
         >
           <svg
             className={`w-[13px] h-[13px] text-foreground/30 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
           >
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </div>
-        {/* Col 4: Type badge */}
-        <TypeBadge type="GRP" />
-        {/* Col 5: Name */}
-        <span className="text-sm font-semibold text-foreground truncate">
+        {/* Col 2: FX badge */}
+        <FxBadge count={groupFxCount} />
+        {/* Col 3: Name */}
+        <span className="text-[13px] font-semibold text-foreground truncate min-w-0">
           {group.sourceModel.name}
           {fullMemberCount > 0 && (
-            <span className="text-foreground/30 font-normal ml-1">
-              ({fullMemberCount})
-            </span>
+            <span className="text-foreground/30 font-normal ml-1">({fullMemberCount})</span>
           )}
         </span>
-        {/* Col 6: Fraction badge */}
-        <div className="flex items-center">
+        {/* Col 4: Fraction badge */}
+        <div className="flex-shrink-0">
           {fullMemberCount > 0 && (
-            <FractionBadge
-              resolved={memberStats.resolved}
-              total={memberStats.total}
-            />
+            <FractionBadge resolved={memberStats.resolved} total={memberStats.total} />
           )}
         </div>
-        {/* Col 7: Destination + inline unlink */}
-        <div className="flex items-center justify-end gap-1">
+        {/* Col 5: Destination / suggestion + unlink */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           {group.isMapped ? (
             <>
               <DestinationPill
@@ -1337,16 +1352,10 @@ function XLightsGroupCard({
               {onUnlink && (
                 <button
                   type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onUnlink();
-                  }}
+                  onClick={(e) => { e.stopPropagation(); onUnlink(); }}
                   className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
                   title="Remove mapping"
-                  style={{
-                    opacity: hovered ? 0.6 : 0,
-                    transition: "opacity 0.1s ease",
-                  }}
+                  style={{ opacity: hovered ? 0.6 : 0, transition: "opacity 0.1s ease" }}
                 >
                   <UnlinkIcon className="w-[11px] h-[11px]" />
                 </button>
@@ -1355,10 +1364,7 @@ function XLightsGroupCard({
           ) : topSuggestion && onAccept ? (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAccept(topSuggestion.model.name);
-              }}
+              onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
               className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
               title={`Accept: ${topSuggestion.model.name}`}
             >
@@ -1368,74 +1374,39 @@ function XLightsGroupCard({
             <span className="text-xs text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 7: Skip only */}
+        {/* Col 6: Map Children shortcut (hidden unless mapped w/ unmapped children) */}
+        <div className="flex-shrink-0">
+          {group.isMapped && memberStats.unmapped > 0 && onMapChildren && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onMapChildren(); }}
+              className="text-[10px] text-green-400/60 hover:text-green-400 transition-colors whitespace-nowrap"
+              title={`Map ${memberStats.unmapped} child model${memberStats.unmapped !== 1 ? "s" : ""}`}
+            >
+              Map&nbsp;kids
+            </button>
+          )}
+        </div>
+        {/* Col 7: Skip (hover) */}
         <div
           className="flex items-center justify-end"
-          style={{
-            opacity: hovered ? 1 : 0,
-            transition: "opacity 0.1s ease",
-          }}
+          style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.1s ease" }}
         >
           {onSkip && (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSkip();
-              }}
-              className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-red-500/15 transition-colors"
+              onClick={(e) => { e.stopPropagation(); onSkip(); }}
+              className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
               title={`Skip group and ${fullMemberCount} members`}
             >
-              <svg
-                className="w-[10px] h-[10px] text-foreground/30"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
+              <svg className="w-[10px] h-[10px] text-foreground/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           )}
         </div>
       </div>
-      {/* Cascade prompt — map children inside this group */}
-      {group.isMapped &&
-        memberStats.unmapped > 0 &&
-        onMapChildren &&
-        !cascadeDismissed && (
-          <div className="flex items-center gap-2 py-1.5 px-3 pl-10 bg-green-500/[0.04] border-t border-green-500/10">
-            <span className="text-xs text-foreground/50">
-              Map {memberStats.unmapped} model
-              {memberStats.unmapped !== 1 ? "s" : ""} inside this group to
-              matching models in the source?
-            </span>
-            <div className="flex-1" />
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMapChildren();
-              }}
-              className="text-xs font-semibold px-2.5 py-0.5 rounded border border-green-500/25 bg-green-500/8 text-green-400 hover:bg-green-500/15 transition-colors"
-            >
-              Yes, Map Models
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setCascadeDismissed(true);
-              }}
-              className="text-xs font-medium px-2.5 py-0.5 rounded border border-border bg-transparent text-foreground/40 hover:text-foreground/60 transition-colors"
-            >
-              No thanks
-            </button>
-          </div>
-        )}
+      {/* Cascade prompt removed — "Map kids" button is now inline in the grid row */}
       {/* Expanded children */}
       {isExpanded && hasChildren && (
         <div className="pl-5 pr-2 pb-2 pt-0.5 border-t border-border/20">
@@ -1475,11 +1446,10 @@ function getLeftBorderColor(status: StatusCheckStatus): string {
     case "manual":
       return "border-l-green-500/70";
     case "needsReview":
-      return "border-l-amber-400/70";
     case "weak":
-      return "border-l-red-400/70";
+      return "border-l-amber-400/70";
     case "unmapped":
-      return "border-l-blue-400/40";
+      return "border-l-transparent";
     case "covered":
       return "border-l-foreground/15";
   }
@@ -1548,15 +1518,14 @@ function ItemCard({
         className="rounded border-l-[3px] border-l-foreground/15 mb-px"
         style={{
           display: "grid",
-          gridTemplateColumns: MODEL_GRID,
+          gridTemplateColumns: "42px 1fr auto 36px",
           alignItems: "center",
-          padding: "3px 10px 3px 8px",
+          padding: "3px 8px 3px 6px",
           gap: "0 6px",
           minHeight: 26,
           opacity: 0.4,
         }}
       >
-        <StatusCheck status="covered" />
         <FxBadge count={item.effectCount} />
         <span className="text-[12px] text-foreground/40 truncate">
           {item.sourceModel.name}
@@ -1564,7 +1533,7 @@ function ItemCard({
         <span className="text-xs text-foreground/30 italic text-right whitespace-nowrap">
           covered by group
         </span>
-        <div style={{ width: 50 }} />
+        <div />
       </div>
     );
   }
@@ -1575,14 +1544,14 @@ function ItemCard({
         isDropTarget
           ? "bg-accent/10 ring-2 ring-accent/30"
           : isSelected
-            ? "bg-accent/5 ring-1 ring-accent/20"
+            ? "bg-accent/[0.06] ring-1 ring-accent/20"
             : "hover:bg-foreground/[0.02]"
       }`}
       style={{
         display: "grid",
-        gridTemplateColumns: MODEL_GRID,
+        gridTemplateColumns: "42px 1fr auto 36px",
         alignItems: "center",
-        padding: "3px 10px 3px 8px",
+        padding: "3px 8px 3px 6px",
         gap: "0 6px",
         minHeight: 28,
       }}
@@ -1594,22 +1563,13 @@ function ItemCard({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
-      {/* Col 1: Status checkbox */}
-      <StatusCheck
-        status={status}
-        onClick={
-          status === "needsReview" || status === "weak"
-            ? () => onApprove()
-            : undefined
-        }
-      />
-      {/* Col 2: FX badge */}
+      {/* Col 1: FX badge */}
       <FxBadge count={item.effectCount} />
-      {/* Col 3: Name */}
+      {/* Col 2: Name */}
       <span className="text-[12px] font-medium text-foreground truncate">
         {item.sourceModel.name}
       </span>
-      {/* Col 4: Destination / suggestion + inline unlink */}
+      {/* Col 3: Destination / suggestion + inline unlink */}
       <div className="flex items-center justify-end gap-1">
         {item.isMapped ? (
           <>
@@ -1620,19 +1580,12 @@ function ItemCard({
               matchScore={matchScore}
               matchFactors={matchFactors}
             />
-            {/* Unlink icon — inline with destination pill (hover-only) */}
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUnlink();
-              }}
+              onClick={(e) => { e.stopPropagation(); onUnlink(); }}
               className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
               title="Remove mapping"
-              style={{
-                opacity: hovered ? 0.6 : 0,
-                transition: "opacity 0.1s ease",
-              }}
+              style={{ opacity: hovered ? 0.6 : 0, transition: "opacity 0.1s ease" }}
             >
               <UnlinkIcon className="w-[11px] h-[11px]" />
             </button>
@@ -1640,46 +1593,29 @@ function ItemCard({
         ) : topSuggestion ? (
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onAccept(topSuggestion.model.name);
-            }}
+            onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
             className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
             title={`Accept: ${topSuggestion.model.name} (${Math.round(topSuggestion.score * 100)}%)`}
           >
             + Assign
           </button>
         ) : (
-          <span className="text-xs text-foreground/20 whitespace-nowrap">
-            + Assign
-          </span>
+          <span className="text-xs text-foreground/20 whitespace-nowrap">+ Assign</span>
         )}
       </div>
-      {/* Col 5: Skip action only (hover) */}
+      {/* Col 4: Skip (hover) */}
       <div
         className="flex items-center justify-end"
         style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.1s ease" }}
       >
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSkip();
-          }}
-          className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-red-500/15 transition-colors"
-          title="Skip — remove from workflow"
+          onClick={(e) => { e.stopPropagation(); onSkip(); }}
+          className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
+          title="Skip"
         >
-          <svg
-            className="w-[10px] h-[10px] text-foreground/30"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
+          <svg className="w-[10px] h-[10px] text-foreground/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
       </div>
@@ -2040,72 +1976,48 @@ function SuperGroupCard({
       onDragLeave={() => onDragLeave?.()}
       onDrop={onDrop}
     >
-      {/* Super group header row — CSS Grid */}
+      {/* Super group header — single-line grid */}
       <div
         className="cursor-pointer"
+        onClick={onSelect}
         style={{
           display: "grid",
-          gridTemplateColumns: GROUP_GRID,
+          gridTemplateColumns: "16px 42px 1fr auto auto 36px",
           alignItems: "center",
-          padding: "6px 10px 6px 8px",
+          padding: "4px 8px 4px 6px",
           gap: "0 6px",
-          minHeight: 32,
+          minHeight: 30,
         }}
-        onClick={onSelect}
       >
-        {/* Col 1: Status checkbox */}
-        <StatusCheck
-          status={superStatus}
-          onClick={
-            superStatus === "needsReview" || superStatus === "weak"
-              ? () => onApprove()
-              : undefined
-          }
-        />
-        {/* Col 2: FX badge */}
-        <FxBadge count={groupFxCount} />
-        {/* Col 3: Chevron */}
+        {/* Col 1: Chevron */}
         <div
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
           className="flex items-center justify-center cursor-pointer"
         >
           <svg
-            className={`w-[13px] h-[13px] text-purple-400/50 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            className={`w-[13px] h-[13px] text-foreground/30 transition-transform duration-150 ${isExpanded ? "rotate-90" : ""}`}
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
           >
             <polyline points="9 18 15 12 9 6" />
           </svg>
         </div>
-        {/* Col 4: Type badge */}
-        <TypeBadge type="SUPER" />
-        {/* Col 5: Name */}
-        <span className="text-sm font-semibold text-foreground truncate">
+        {/* Col 2: FX badge */}
+        <FxBadge count={groupFxCount} />
+        {/* Col 3: Name */}
+        <span className="text-[13px] font-semibold text-foreground truncate min-w-0">
           {group.sourceModel.name}
           {totalCount > 0 && (
-            <span className="text-foreground/30 font-normal ml-1">
-              ({totalCount})
-            </span>
+            <span className="text-foreground/30 font-normal ml-1">({totalCount})</span>
           )}
         </span>
-        {/* Col 6: Fraction badge */}
-        <div className="flex items-center">
+        {/* Col 4: Fraction badge */}
+        <div className="flex-shrink-0">
           {totalCount > 0 && (
-            <FractionBadge
-              resolved={superMemberStats.resolved}
-              total={superMemberStats.total}
-            />
+            <FractionBadge resolved={superMemberStats.resolved} total={superMemberStats.total} />
           )}
         </div>
-        {/* Col 7: Destination + inline unlink */}
-        <div className="flex items-center justify-end gap-1">
+        {/* Col 5: Destination / suggestion + unlink */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           {group.isMapped ? (
             <>
               <DestinationPill
@@ -2117,16 +2029,10 @@ function SuperGroupCard({
               />
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onUnlink();
-                }}
+                onClick={(e) => { e.stopPropagation(); onUnlink(); }}
                 className="w-[18px] h-[18px] flex items-center justify-center rounded hover:bg-amber-500/15 transition-all flex-shrink-0"
                 title="Remove mapping"
-                style={{
-                  opacity: hovered ? 0.6 : 0,
-                  transition: "opacity 0.1s ease",
-                }}
+                style={{ opacity: hovered ? 0.6 : 0, transition: "opacity 0.1s ease" }}
               >
                 <UnlinkIcon className="w-[11px] h-[11px]" />
               </button>
@@ -2134,10 +2040,7 @@ function SuperGroupCard({
           ) : topSuggestion ? (
             <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onAccept(topSuggestion.model.name);
-              }}
+              onClick={(e) => { e.stopPropagation(); onAccept(topSuggestion.model.name); }}
               className="text-xs text-foreground/30 hover:text-foreground/60 transition-colors whitespace-nowrap"
               title={`Accept: ${topSuggestion.model.name}`}
             >
@@ -2147,34 +2050,19 @@ function SuperGroupCard({
             <span className="text-xs text-foreground/20">+ Assign</span>
           )}
         </div>
-        {/* Col 8: Skip only */}
+        {/* Col 6: Skip (hover) */}
         <div
           className="flex items-center justify-end"
-          style={{
-            opacity: hovered ? 1 : 0,
-            transition: "opacity 0.1s ease",
-          }}
+          style={{ opacity: hovered ? 1 : 0, transition: "opacity 0.1s ease" }}
         >
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onSkip();
-            }}
-            className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-red-500/15 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onSkip(); }}
+            className="w-[22px] h-[22px] flex items-center justify-center rounded hover:bg-foreground/10 transition-colors"
             title={`Skip group and ${totalCount} members`}
           >
-            <svg
-              className="w-[10px] h-[10px] text-foreground/30"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
+            <svg className="w-[10px] h-[10px] text-foreground/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>

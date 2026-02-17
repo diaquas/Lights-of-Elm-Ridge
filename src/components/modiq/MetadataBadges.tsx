@@ -532,16 +532,38 @@ export function StatusCheck({
  * Fixed-width FX badge (always 42px) for the grid fx column.
  * Shows "N fx" in monospace; 5+ digit counts truncate with tooltip.
  */
-export function FxBadge({ count }: { count: number }) {
-  const display = count > 9999 ? "9.9k" : String(count);
+export function FxBadge({ count, inline }: { count: number; inline?: boolean }) {
+  const display = count > 9999 ? `${(count / 1000).toFixed(1)}k` : String(count);
   const hasEffects = count > 0;
+
+  /* Inline variant: no background, just icon + text for metadata lines */
+  if (inline) {
+    return (
+      <span
+        className={`inline-flex items-center gap-0.5 text-xs tabular-nums flex-shrink-0 ${
+          hasEffects ? "text-foreground/45" : "text-foreground/20"
+        }`}
+        title={`${count.toLocaleString()} effects`}
+      >
+        <svg className="w-2.5 h-2.5 opacity-60" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        {display} fx
+      </span>
+    );
+  }
 
   return (
     <span
       className={`inline-flex items-center justify-center w-[42px] text-xs font-semibold py-0.5 rounded font-mono tabular-nums flex-shrink-0 text-center leading-none ${
         hasEffects
+<<<<<<< claude/redesign-modiqu-ux-1TRpO
+          ? "bg-foreground/[0.06] text-foreground/45"
+          : "bg-foreground/[0.04] text-foreground/20"
+=======
           ? "bg-foreground/[0.06] text-foreground/40"
           : "bg-foreground/[0.06] text-foreground/20"
+>>>>>>> main
       }`}
       title={count > 9999 ? `${count.toLocaleString()} fx` : undefined}
     >
@@ -554,16 +576,28 @@ export function FxBadge({ count }: { count: number }) {
  * Fixed-width type badge (always 42px) for the grid badge column.
  * Color = hierarchy type identity only; never reflects mapping status.
  */
+<<<<<<< claude/redesign-modiqu-ux-1TRpO
+export function TypeBadge({ type, inline }: { type: "SUPER" | "GRP" | "SUB"; inline?: boolean }) {
+  /* Inline variant: plain text label for metadata lines */
+  if (inline) {
+    return (
+      <span className="text-xs font-semibold tracking-wide text-foreground/35 uppercase flex-shrink-0">
+        {type}
+      </span>
+    );
+  }
+=======
 export function TypeBadge({ type }: { type: "SUPER" | "GRP" | "SUB" }) {
   const colors = {
     SUPER: "bg-foreground/[0.06] text-foreground/40",
     GRP: "bg-foreground/[0.06] text-foreground/40",
     SUB: "bg-foreground/[0.06] text-foreground/40",
   };
+>>>>>>> main
 
   return (
     <span
-      className={`inline-flex items-center justify-center w-[42px] text-xs font-bold tracking-wider py-0.5 rounded font-mono uppercase flex-shrink-0 text-center leading-none ${colors[type]}`}
+      className="inline-flex items-center justify-center w-[42px] text-xs font-bold tracking-wider py-0.5 rounded font-mono uppercase flex-shrink-0 text-center leading-none bg-foreground/[0.06] text-foreground/40"
     >
       {type}
     </span>
@@ -587,6 +621,16 @@ export function FractionBadge({
 
   const ratio = total > 0 ? resolved / total : 0;
 
+<<<<<<< claude/redesign-modiqu-ux-1TRpO
+  const bg =
+    ratio >= 1
+      ? "rgba(74, 222, 128, 0.15)"
+      : "rgba(255, 255, 255, 0.05)";
+  const color =
+    ratio >= 1
+      ? "rgb(74, 222, 128)"
+      : "rgba(255, 255, 255, 0.45)";
+=======
   // Neutral styling — row border already communicates status
   const bg = ratio >= 1
     ? "rgba(255, 255, 255, 0.04)"
@@ -594,6 +638,7 @@ export function FractionBadge({
   const color = ratio >= 1
     ? "rgba(255, 255, 255, 0.45)"
     : "rgba(255, 255, 255, 0.35)";
+>>>>>>> main
 
   const defaultTooltip = `${resolved} resolved · ${total - resolved} need attention · ${total} total`;
 
@@ -636,6 +681,14 @@ export function DestinationPill({
   /** Factor breakdown for hover tooltip (optional) */
   matchFactors?: ModelMapping["factors"];
 }) {
+<<<<<<< claude/redesign-modiqu-ux-1TRpO
+  const color =
+    confidence != null
+      ? confidence >= 60
+        ? "text-green-400"
+        : "text-amber-400"
+      : "text-green-400";
+=======
   // Strong matches get neutral text — the row border already signals status.
   // Only amber/red matches get colored text to draw attention.
   const needsAttention = confidence != null && confidence < 60;
@@ -644,6 +697,7 @@ export function DestinationPill({
       ? "text-amber-400"
       : "text-red-400"
     : "text-foreground/60";
+>>>>>>> main
 
   return (
     <div className="flex items-center gap-1 min-w-0">
@@ -683,9 +737,7 @@ export function DestinationPill({
           className={`text-xs font-semibold font-mono tabular-nums px-1 py-px rounded flex-shrink-0 ${
             confidence >= 60
               ? "bg-green-900/40 text-green-400"
-              : confidence >= 40
-                ? "bg-amber-900/40 text-amber-400"
-                : "bg-red-900/40 text-red-400"
+              : "bg-amber-900/40 text-amber-400"
           }`}
         >
           {confidence}%

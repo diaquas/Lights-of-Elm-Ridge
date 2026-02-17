@@ -191,7 +191,7 @@ export function ViewModePills({
 
 const PILL_COLORS = {
   blue: {
-    active: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+    active: "bg-foreground/10 text-foreground border-foreground/20",
     inactive:
       "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5",
   },
@@ -206,7 +206,7 @@ const PILL_COLORS = {
       "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5",
   },
   purple: {
-    active: "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    active: "bg-foreground/10 text-foreground/70 border-foreground/20",
     inactive:
       "text-foreground/40 border-border hover:text-foreground/60 hover:bg-foreground/5",
   },
@@ -240,24 +240,15 @@ export function FilterPill({
 export function GhostMemberRow({ name }: { name: string }) {
   return (
     <div
-      className="rounded border-l-[3px] border-l-foreground/15 mb-px"
-      style={{
-        display: "grid",
-        gridTemplateColumns: MODEL_GRID,
-        alignItems: "center",
-        padding: "3px 10px 3px 8px",
-        gap: "0 6px",
-        minHeight: 26,
-        opacity: 0.35,
-      }}
+      className="rounded-md border-l-[3px] border-l-foreground/15 border-l-dashed mb-px px-3 py-1"
+      style={{ opacity: 0.35 }}
     >
-      <StatusCheck status="covered" />
-      <FxBadge count={0} />
-      <span className="text-[12px] text-foreground/40 truncate">{name}</span>
-      <span className="text-xs text-foreground/30 italic text-right whitespace-nowrap">
-        covered by group
-      </span>
-      <div style={{ width: 50 }} />
+      <div className="flex items-center gap-2">
+        <span className="text-[12px] text-foreground/40 truncate flex-1 min-w-0">{name}</span>
+        <span className="text-xs text-foreground/30 italic whitespace-nowrap flex-shrink-0">
+          covered by group
+        </span>
+      </div>
     </div>
   );
 }

@@ -10,8 +10,6 @@ export function PhaseNavigation() {
     goToPreviousPhase,
     canGoNext,
     canGoPrevious,
-    focusMode,
-    toggleFocusMode,
     interactive,
   } = useMappingPhase();
 
@@ -51,7 +49,7 @@ export function PhaseNavigation() {
         Back
       </button>
 
-      {/* Undo + Focus mode */}
+      {/* Undo */}
       <div className="flex items-center gap-2">
         {interactive.canUndo && (
           <button
@@ -66,21 +64,6 @@ export function PhaseNavigation() {
             Undo
           </button>
         )}
-      <button
-        type="button"
-        onClick={toggleFocusMode}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground/40 hover:text-foreground/70 hover:bg-foreground/5 border border-transparent hover:border-border transition-all"
-        title={focusMode ? "Exit Focus View (Esc)" : "Focus View"}
-      >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          {focusMode ? (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.5 3.5M15 9h4.5M15 9V4.5M15 9l5.5-5.5M9 15v4.5M9 15H4.5M9 15l-5.5 5.5M15 15h4.5M15 15v4.5m0-4.5l5.5 5.5" />
-          ) : (
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.5 3.5L9 9m0 0V4.5M9 9H4.5M20.5 3.5L15 9m0 0V4.5M15 9h4.5M3.5 20.5L9 15m0 0v4.5M9 15H4.5M20.5 20.5L15 15m0 0v4.5m0-4.5h4.5" />
-          )}
-        </svg>
-        {focusMode ? "Exit Focus" : "Focus View"}
-      </button>
       </div>
 
       {/* Next / Export Button */}
