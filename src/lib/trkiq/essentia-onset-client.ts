@@ -164,16 +164,26 @@ export async function analyzeStems(
   );
 
   const results: EssentiaOnsetResult[] = [];
+  const errors: string[] = [];
   for (const outcome of settled) {
     if (outcome.status === "fulfilled") {
       results.push(outcome.value);
+    } else {
+      errors.push(outcome.reason?.message || "Unknown error");
     }
-    // Skip failed stems silently — partial results are still useful
   }
 
-  onStatusUpdate?.(
-    `Essentia: analyzed ${results.length}/${stemJobs.length} stems`,
-  );
+  if (errors.length > 0 && results.length === 0) {
+    onStatusUpdate?.(`Essentia failed: ${errors[0]}`);
+  } else if (errors.length > 0) {
+    onStatusUpdate?.(
+      `Essentia: ${results.length}/${stemJobs.length} stems (${errors.length} failed)`,
+    );
+  } else {
+    onStatusUpdate?.(
+      `Essentia: analyzed ${results.length}/${stemJobs.length} stems`,
+    );
+  }
 
   return results;
 }
