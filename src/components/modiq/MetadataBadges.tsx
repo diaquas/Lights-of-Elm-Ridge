@@ -272,7 +272,6 @@ export function UnlinkIcon({
 export function AutoMatchBanner({
   stats,
   phaseAutoCount,
-  onAcceptAllStrong,
   onApproveAllReview,
   bannerFilter,
   onFilterStrong,
@@ -282,7 +281,6 @@ export function AutoMatchBanner({
   stats: AutoMatchStats;
   /** Number of auto-matched items visible in THIS phase (not global total) */
   phaseAutoCount: number;
-  onAcceptAllStrong?: () => void;
   /** Approve all items that need review */
   onApproveAllReview?: () => void;
   /** Currently active banner filter (if any) */
@@ -297,7 +295,7 @@ export function AutoMatchBanner({
   const [dismissed, setDismissed] = useState(false);
   if (dismissed || phaseAutoCount === 0) return null;
 
-  // If banner filter is active, show the "Showing" state instead
+  // If banner filter is active, show the filter state with a clear option
   if (bannerFilter) {
     const label =
       bannerFilter === "auto-review"
@@ -315,11 +313,6 @@ export function AutoMatchBanner({
         <span className="text-[12px] font-semibold text-foreground/80">
           Showing: {label}
         </span>
-        {bannerFilter === "auto-review" && stats.reviewCount > 0 && (
-          <span className="text-xs text-foreground/40">
-            Review &amp; approve these before continuing
-          </span>
-        )}
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
           {bannerFilter === "auto-review" &&
             stats.reviewCount > 0 &&
@@ -338,9 +331,7 @@ export function AutoMatchBanner({
               onClick={onClearFilter}
               className="text-xs font-medium text-accent/70 hover:text-accent transition-colors"
             >
-              {bannerFilter === "auto-review"
-                ? "Skip review, show all"
-                : "Clear filter"}
+              Clear filter
             </button>
           )}
         </div>
@@ -348,8 +339,16 @@ export function AutoMatchBanner({
     );
   }
 
+  // Default: informational banner — shows summary, no auto-filtering
+  const hasReview = stats.reviewCount > 0;
   return (
-    <div className="mx-4 mt-2 mb-1 px-4 py-2.5 rounded-lg border border-green-500/20 bg-green-500/5 flex items-center gap-3 flex-shrink-0">
+    <div
+      className={`mx-4 mt-2 mb-1 px-4 py-2.5 rounded-lg border flex items-center gap-3 flex-shrink-0 ${
+        hasReview
+          ? "border-amber-500/20 bg-amber-500/5"
+          : "border-green-500/20 bg-green-500/5"
+      }`}
+    >
       <Link2Badge />
       <div className="flex-1 min-w-0 flex items-center gap-2">
         <span className="text-[12px] font-semibold text-foreground/80">
@@ -364,7 +363,7 @@ export function AutoMatchBanner({
             {stats.strongCount} strong
           </button>
         )}
-        {stats.reviewCount > 0 && (
+        {hasReview && (
           <button
             type="button"
             onClick={onFilterReview}
@@ -374,13 +373,13 @@ export function AutoMatchBanner({
           </button>
         )}
       </div>
-      {onAcceptAllStrong && stats.strongCount > 0 && (
+      {hasReview && onApproveAllReview && (
         <button
           type="button"
-          onClick={onAcceptAllStrong}
-          className="text-xs font-medium px-2.5 py-1 rounded-md bg-green-500/15 text-green-400 hover:bg-green-500/25 transition-colors flex-shrink-0"
+          onClick={onApproveAllReview}
+          className="text-xs font-medium px-2.5 py-1 rounded-md bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition-colors flex-shrink-0"
         >
-          Accept All Strong ({stats.strongCount})
+          Approve All ({stats.reviewCount})
         </button>
       )}
       <button
