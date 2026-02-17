@@ -7,18 +7,28 @@
 //
 // Required secrets:
 //   REPLICATE_API_TOKEN — Your Replicate API token
-//   ALLOWED_ORIGIN      — CORS origin (e.g., https://lightsofelmridge.com)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
-const ALLOWED_ORIGIN =
-  Deno.env.get("ALLOWED_ORIGIN") || "https://lightsofelmridge.com";
+/**
+ * Validate request origin against allowlist.
+ * Accepts: production domain, Cloudflare Pages previews, localhost dev.
+ */
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") || "";
+  const allowed =
+    origin === "https://lightsofelmridge.com" ||
+    origin.endsWith(".pages.dev") ||
+    origin.startsWith("http://localhost:");
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+  return {
+    "Access-Control-Allow-Origin": allowed
+      ? origin
+      : "https://lightsofelmridge.com",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 // Demucs model — htdemucs_6s splits into: vocals, drums, bass, guitar, piano, other
@@ -26,6 +36,8 @@ const DEMUCS_VERSION =
   "25a173108cff36ef9f80f854c162d01df9e6528be175794b81571f6571d6c1df";
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -58,9 +70,14 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
 
     if (body.action === "start" && body.storagePath) {
-      return await handleStart(body.storagePath, supabase, replicateToken);
+      return await handleStart(
+        body.storagePath,
+        supabase,
+        replicateToken,
+        corsHeaders,
+      );
     } else if (body.action === "status" && body.predictionId) {
-      return await handleStatus(body.predictionId, replicateToken);
+      return await handleStatus(body.predictionId, replicateToken, corsHeaders);
     } else {
       throw new Error("Invalid action");
     }
@@ -81,6 +98,7 @@ async function handleStart(
   storagePath: string,
   supabase: ReturnType<typeof createClient>,
   replicateToken: string,
+  corsHeaders: Record<string, string>,
 ): Promise<Response> {
   // Create a signed URL for the uploaded audio file
   const { data: signedUrlData, error: signedUrlError } = await supabase.storage
@@ -140,6 +158,7 @@ async function handleStart(
 async function handleStatus(
   predictionId: string,
   replicateToken: string,
+  corsHeaders: Record<string, string>,
 ): Promise<Response> {
   const response = await fetch(`${REPLICATE_API}/predictions/${predictionId}`, {
     headers: {

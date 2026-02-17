@@ -7,20 +7,33 @@
 //   get    — Exact match by artist + title
 //   search — Free-text search query
 
-const ALLOWED_ORIGIN =
-  Deno.env.get("ALLOWED_ORIGIN") || "https://lightsofelmridge.com";
+/**
+ * Validate request origin against allowlist.
+ * Accepts: production domain, Cloudflare Pages previews, localhost dev.
+ */
+function getCorsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin") || "";
+  const allowed =
+    origin === "https://lightsofelmridge.com" ||
+    origin.endsWith(".pages.dev") ||
+    origin.startsWith("http://localhost:");
 
-const corsHeaders: Record<string, string> = {
-  "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+  return {
+    "Access-Control-Allow-Origin": allowed
+      ? origin
+      : "https://lightsofelmridge.com",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+  };
+}
 
 const LRCLIB_BASE = "https://lrclib.net/api";
 const USER_AGENT =
   "TrkIQ/1.0 lightsofelmridge.com (github.com/diaquas/Lights-of-Elm-Ridge)";
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -29,9 +42,9 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
 
     if (body.action === "get" && body.artist && body.title) {
-      return await handleGet(body.artist, body.title);
+      return await handleGet(body.artist, body.title, corsHeaders);
     } else if (body.action === "search" && body.query) {
-      return await handleSearch(body.query);
+      return await handleSearch(body.query, corsHeaders);
     } else {
       throw new Error("Invalid action — expected get or search");
     }
@@ -47,7 +60,11 @@ Deno.serve(async (req: Request) => {
 /**
  * Exact match: GET /api/get?artist_name=...&track_name=...
  */
-async function handleGet(artist: string, title: string): Promise<Response> {
+async function handleGet(
+  artist: string,
+  title: string,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
   const params = new URLSearchParams({
     artist_name: artist,
     track_name: title,
@@ -77,7 +94,10 @@ async function handleGet(artist: string, title: string): Promise<Response> {
 /**
  * Search: GET /api/search?q=...
  */
-async function handleSearch(query: string): Promise<Response> {
+async function handleSearch(
+  query: string,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
   const params = new URLSearchParams({ q: query });
 
   const response = await fetch(`${LRCLIB_BASE}/search?${params.toString()}`, {
