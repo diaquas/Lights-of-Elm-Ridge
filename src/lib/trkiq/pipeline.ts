@@ -113,9 +113,9 @@ export async function runPipeline(
         update("stems", "active", msg),
       );
       update("stems", "done");
-    } catch {
-      // Demucs failed — fall back to client-side analysis
-      update("stems", "skipped", "Using client-side analysis");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      update("stems", "skipped", `Client-side fallback — ${msg}`);
     }
   } else {
     update("stems", "skipped", "Sign in for AI stem separation");
@@ -284,7 +284,8 @@ export async function runPipeline(
     try {
       lyrics =
         (await fetchLyrics(metadata.artist, metadata.title)) ||
-        (await searchLyrics(`${metadata.artist} ${metadata.title}`));
+        (await searchLyrics(`${metadata.artist} ${metadata.title}`)) ||
+        (await searchLyrics(metadata.title));
     } catch {
       // Lyrics fetch failed — not critical
     }

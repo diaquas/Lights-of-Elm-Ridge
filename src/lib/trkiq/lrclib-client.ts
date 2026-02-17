@@ -2,6 +2,10 @@
 /*  TRK:IQ — LRCLIB Client                                            */
 /*  Fetches plain + synced lyrics from the free LRCLIB API             */
 /*  https://lrclib.net — no API key required                           */
+/*                                                                     */
+/*  Browser fetch() cannot set User-Agent (forbidden header), so we    */
+/*  route through a Supabase edge function that adds the header.       */
+/*  Falls back to direct LRCLIB calls if Supabase is not configured.   */
 /* ------------------------------------------------------------------ */
 
 import type { LyricsData, SyncedLine } from "./types";
@@ -19,72 +23,126 @@ interface LrclibResponse {
   syncedLyrics: string | null;
 }
 
+/* ── Proxy helpers ─────────────────────────────────────────────────── */
+
+/**
+ * Call the LRCLIB proxy edge function.
+ * Returns null if Supabase is not configured or the call fails.
+ */
+async function proxyGet(
+  artist: string,
+  title: string,
+): Promise<LrclibResponse | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/lrclib-proxy`, {
+    method: "POST",
+    headers: {
+      apikey: supabaseKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ action: "get", artist, title }),
+  });
+
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (!data.found) return null;
+  return data as LrclibResponse;
+}
+
+async function proxySearch(query: string): Promise<LrclibResponse | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return null;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/lrclib-proxy`, {
+    method: "POST",
+    headers: {
+      apikey: supabaseKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ action: "search", query }),
+  });
+
+  if (!response.ok) return null;
+  const data = await response.json();
+  if (!data.results || data.results.length === 0) return null;
+  return data.results[0] as LrclibResponse;
+}
+
+/* ── Direct LRCLIB helpers (fallback when proxy unavailable) ──────── */
+
+async function directGet(
+  artist: string,
+  title: string,
+): Promise<LrclibResponse | null> {
+  const params = new URLSearchParams({
+    artist_name: artist,
+    track_name: title,
+  });
+
+  const response = await fetch(`${LRCLIB_BASE}/get?${params.toString()}`);
+  if (!response.ok) return null;
+
+  const data: LrclibResponse = await response.json();
+  return data;
+}
+
+async function directSearch(query: string): Promise<LrclibResponse | null> {
+  const params = new URLSearchParams({ q: query });
+  const response = await fetch(`${LRCLIB_BASE}/search?${params.toString()}`);
+  if (!response.ok) return null;
+
+  const results: LrclibResponse[] = await response.json();
+  if (results.length === 0) return null;
+  return results[0];
+}
+
+/* ── Shared helpers ────────────────────────────────────────────────── */
+
+function responseToLyricsData(data: LrclibResponse): LyricsData | null {
+  if (!data.plainLyrics && !data.syncedLyrics) return null;
+
+  const syncedLines = data.syncedLyrics ? parseLrc(data.syncedLyrics) : null;
+
+  return {
+    plainText: data.plainLyrics || extractPlainFromSynced(syncedLines) || "",
+    syncedLines,
+    source: "lrclib",
+  };
+}
+
+/* ── Public API ────────────────────────────────────────────────────── */
+
 /**
  * Fetch lyrics from LRCLIB by artist and track name.
- * Returns null if no lyrics are found.
- *
- * LRCLIB is a free, public API — no key needed, CORS supported.
+ * Tries edge function proxy first, falls back to direct browser fetch.
  */
 export async function fetchLyrics(
   artist: string,
   title: string,
 ): Promise<LyricsData | null> {
   try {
-    const params = new URLSearchParams({
-      artist_name: artist,
-      track_name: title,
-    });
-
-    const response = await fetch(`${LRCLIB_BASE}/get?${params.toString()}`, {
-      headers: { "User-Agent": "TrkIQ/1.0 lightsofelmridge.com" },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) return null;
-      return null;
-    }
-
-    const data: LrclibResponse = await response.json();
-
-    if (!data.plainLyrics && !data.syncedLyrics) return null;
-
-    const syncedLines = data.syncedLyrics ? parseLrc(data.syncedLyrics) : null;
-
-    return {
-      plainText: data.plainLyrics || extractPlainFromSynced(syncedLines) || "",
-      syncedLines,
-      source: "lrclib",
-    };
+    const data =
+      (await proxyGet(artist, title)) || (await directGet(artist, title));
+    if (!data) return null;
+    return responseToLyricsData(data);
   } catch {
     return null;
   }
 }
 
 /**
- * Search LRCLIB for lyrics (fallback if exact match fails).
+ * Search LRCLIB for lyrics by query string.
+ * Tries edge function proxy first, falls back to direct browser fetch.
  */
 export async function searchLyrics(query: string): Promise<LyricsData | null> {
   try {
-    const params = new URLSearchParams({ q: query });
-    const response = await fetch(`${LRCLIB_BASE}/search?${params.toString()}`, {
-      headers: { "User-Agent": "TrkIQ/1.0 lightsofelmridge.com" },
-    });
-
-    if (!response.ok) return null;
-
-    const results: LrclibResponse[] = await response.json();
-    if (results.length === 0) return null;
-
-    const best = results[0];
-    if (!best.plainLyrics && !best.syncedLyrics) return null;
-
-    const syncedLines = best.syncedLyrics ? parseLrc(best.syncedLyrics) : null;
-
-    return {
-      plainText: best.plainLyrics || extractPlainFromSynced(syncedLines) || "",
-      syncedLines,
-      source: "lrclib",
-    };
+    const data = (await proxySearch(query)) || (await directSearch(query));
+    if (!data) return null;
+    return responseToLyricsData(data);
   } catch {
     return null;
   }

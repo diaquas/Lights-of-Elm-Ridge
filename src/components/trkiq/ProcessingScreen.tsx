@@ -79,7 +79,16 @@ export default function ProcessingScreen({
                 {STEP_LABELS[entry.step]}
               </span>
               {entry.detail && (
-                <p className="text-foreground/30 text-xs mt-0.5 truncate">
+                <p
+                  className={`text-xs mt-0.5 ${
+                    entry.status === "error"
+                      ? "text-red-400/80"
+                      : entry.status === "skipped" && entry.detail.includes("—")
+                        ? "text-amber-400/70"
+                        : "text-foreground/30"
+                  }`}
+                  title={entry.detail}
+                >
                   {entry.detail}
                 </p>
               )}
