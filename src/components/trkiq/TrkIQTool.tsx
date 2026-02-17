@@ -68,13 +68,16 @@ export default function TrkIQTool() {
   const setMetadata = useCallback((metadata: SongMetadata) => {
     setSession((prev) => ({ ...prev, metadata, lyricsFetching: true }));
 
-    // Auto-fetch lyrics from LRCLIB using the extracted metadata
+    // Auto-fetch lyrics from LRCLIB using the extracted metadata.
+    // Chain: exact match → artist+title search → title-only search
+    // (title-only catches covers where the artist doesn't match LRCLIB)
     const { artist, title } = metadata;
     if (artist && title) {
       (async () => {
         const result =
           (await fetchLyrics(artist, title)) ||
-          (await searchLyrics(`${artist} ${title}`));
+          (await searchLyrics(`${artist} ${title}`)) ||
+          (await searchLyrics(title));
 
         setSession((prev) => {
           // Don't overwrite user-pasted lyrics

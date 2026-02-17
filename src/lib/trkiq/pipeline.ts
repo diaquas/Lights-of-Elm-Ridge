@@ -284,7 +284,8 @@ export async function runPipeline(
     try {
       lyrics =
         (await fetchLyrics(metadata.artist, metadata.title)) ||
-        (await searchLyrics(`${metadata.artist} ${metadata.title}`));
+        (await searchLyrics(`${metadata.artist} ${metadata.title}`)) ||
+        (await searchLyrics(metadata.title));
     } catch {
       // Lyrics fetch failed — not critical
     }
