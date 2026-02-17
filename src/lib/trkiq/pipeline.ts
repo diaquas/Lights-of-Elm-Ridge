@@ -409,6 +409,7 @@ export async function runPipeline(
     totalPhonemes: lyriqStats?.totalPhonemes || 0,
     durationMs,
     usedStems: stems !== null,
+    usedEssentia: essentiaTicks !== null,
   };
 
   update("generate", "done");

@@ -147,6 +147,8 @@ export interface TrkiqSession {
   lyriqStats: LyriqStats | null;
   /** Whether AI stems were actually used for this analysis */
   usedStems: boolean;
+  /** Whether Essentia.js was used for beat detection */
+  usedEssentia: boolean;
 }
 
 /* -- Combined Stats ------------------------------------------------ */
@@ -161,4 +163,6 @@ export interface TrkiqStats {
   totalPhonemes: number;
   durationMs: number;
   usedStems: boolean;
+  /** Whether Essentia.js was used for beat detection (vs. fallback) */
+  usedEssentia: boolean;
 }
