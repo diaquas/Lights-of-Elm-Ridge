@@ -34,33 +34,37 @@ async function proxyGet(
   artist: string,
   title: string,
 ): Promise<LrclibResponse | null> {
-  const supabase = createClient();
-  if (!supabase) return null;
+  try {
+    const supabase = createClient();
+    if (!supabase) return null;
 
-  const { data, error } = await supabase.functions.invoke("lrclib-proxy", {
-    body: { action: "get", artist, title },
-  });
+    const { data, error } = await supabase.functions.invoke("lrclib-proxy", {
+      body: { action: "get", artist, title },
+    });
 
-  if (error) {
-    throw new Error(`lrclib-proxy: ${error.message}`);
+    if (error) return null;
+    if (!data?.found) return null;
+    return data as LrclibResponse;
+  } catch {
+    return null;
   }
-  if (!data?.found) return null;
-  return data as LrclibResponse;
 }
 
 async function proxySearch(query: string): Promise<LrclibResponse | null> {
-  const supabase = createClient();
-  if (!supabase) return null;
+  try {
+    const supabase = createClient();
+    if (!supabase) return null;
 
-  const { data, error } = await supabase.functions.invoke("lrclib-proxy", {
-    body: { action: "search", query },
-  });
+    const { data, error } = await supabase.functions.invoke("lrclib-proxy", {
+      body: { action: "search", query },
+    });
 
-  if (error) {
-    throw new Error(`lrclib-proxy search: ${error.message}`);
+    if (error) return null;
+    if (!data?.results || data.results.length === 0) return null;
+    return data.results[0] as LrclibResponse;
+  } catch {
+    return null;
   }
-  if (!data?.results || data.results.length === 0) return null;
-  return data.results[0] as LrclibResponse;
 }
 
 /* ── Direct LRCLIB helpers (fallback when proxy unavailable) ──────── */
