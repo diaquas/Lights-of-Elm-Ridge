@@ -47,7 +47,11 @@ async function proxyGet(
     body: JSON.stringify({ action: "get", artist, title }),
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => "");
+    // Surface the actual error for debugging — caught by fetchLyrics
+    throw new Error(`lrclib-proxy ${response.status}: ${errBody}`);
+  }
   const data = await response.json();
   if (!data.found) return null;
   return data as LrclibResponse;
@@ -68,7 +72,10 @@ async function proxySearch(query: string): Promise<LrclibResponse | null> {
     body: JSON.stringify({ action: "search", query }),
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    const errBody = await response.text().catch(() => "");
+    throw new Error(`lrclib-proxy search ${response.status}: ${errBody}`);
+  }
   const data = await response.json();
   if (!data.results || data.results.length === 0) return null;
   return data.results[0] as LrclibResponse;

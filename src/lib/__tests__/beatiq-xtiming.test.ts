@@ -80,7 +80,7 @@ describe("xtiming-generator", () => {
 
     it("uses integer millisecond timestamps", () => {
       const xml = generateXtiming(SAMPLE_TRACK);
-      const times = xml.match(/(?:start|end)Time="([^"]+)"/g) || [];
+      const times = xml.match(/(?:start|end)time="([^"]+)"/g) || [];
       for (const t of times) {
         const value = t.match(/"([^"]+)"/)?.[1];
         expect(value).toMatch(/^\d+$/);
@@ -89,17 +89,17 @@ describe("xtiming-generator", () => {
 
     it("generates effects with 50ms default duration for onset marks", () => {
       const xml = generateXtiming(SAMPLE_TRACK);
-      expect(xml).toContain('startTime="500" endTime="550"');
-      expect(xml).toContain('startTime="1000" endTime="1050"');
+      expect(xml).toContain('starttime="500" endtime="550"');
+      expect(xml).toContain('starttime="1000" endtime="1050"');
     });
 
     it("generates labeled effects for labeled marks", () => {
       const xml = generateXtiming(SAMPLE_LABELED_TRACK);
-      expect(xml).toContain('label="intro" startTime="0" endTime="15000"');
+      expect(xml).toContain('label="intro" starttime="0" endtime="15000"');
       expect(xml).toContain(
-        'label="verse 1" startTime="15000" endTime="45000"',
+        'label="verse 1" starttime="15000" endtime="45000"',
       );
-      expect(xml).toContain('label="chorus" startTime="45000" endTime="65000"');
+      expect(xml).toContain('label="chorus" starttime="45000" endtime="65000"');
     });
 
     it("handles empty marks array", () => {

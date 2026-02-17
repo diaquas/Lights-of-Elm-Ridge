@@ -27,7 +27,7 @@ function escapeXml(str: string): string {
  * Generate a single Effect element.
  */
 function effectXml(label: string, startTime: number, endTime: number): string {
-  return `    <Effect label="${escapeXml(label)}" startTime="${Math.round(startTime)}" endTime="${Math.round(endTime)}"/>`;
+  return `    <Effect label="${escapeXml(label)}" starttime="${Math.round(startTime)}" endtime="${Math.round(endTime)}"/>`;
 }
 
 /**

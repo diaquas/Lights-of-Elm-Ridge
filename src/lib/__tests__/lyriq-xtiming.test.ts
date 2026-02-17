@@ -201,27 +201,27 @@ describe("xtiming-generator", () => {
     it("includes phrase-level effects in layer 0", () => {
       const xml = generateXtiming(SAMPLE_TRACK);
       expect(xml).toContain(
-        'label="jingle bells jingle bells" startTime="2400" endTime="5200"',
+        'label="jingle bells jingle bells" starttime="2400" endtime="5200"',
       );
     });
 
     it("includes word-level effects in layer 1", () => {
       const xml = generateXtiming(SAMPLE_TRACK);
-      expect(xml).toContain('label="jingle" startTime="2400" endTime="3100"');
-      expect(xml).toContain('label="bells" startTime="3100" endTime="3800"');
+      expect(xml).toContain('label="jingle" starttime="2400" endtime="3100"');
+      expect(xml).toContain('label="bells" starttime="3100" endtime="3800"');
     });
 
     it("includes phoneme-level effects in layer 2", () => {
       const xml = generateXtiming(SAMPLE_TRACK);
-      expect(xml).toContain('label="etc" startTime="2400" endTime="2480"');
-      expect(xml).toContain('label="MBP" startTime="3100" endTime="3170"');
-      expect(xml).toContain('label="E" startTime="3170" endTime="3600"');
+      expect(xml).toContain('label="etc" starttime="2400" endtime="2480"');
+      expect(xml).toContain('label="MBP" starttime="3100" endtime="3170"');
+      expect(xml).toContain('label="E" starttime="3170" endtime="3600"');
     });
 
     it("uses integer millisecond values", () => {
       const xml = generateXtiming(SAMPLE_TRACK);
       // All startTime and endTime should be integers (no decimal points)
-      const times = xml.match(/(?:start|end)Time="([^"]+)"/g) || [];
+      const times = xml.match(/(?:start|end)time="([^"]+)"/g) || [];
       for (const t of times) {
         const value = t.match(/"([^"]+)"/)?.[1];
         expect(value).toMatch(/^\d+$/);
