@@ -7,7 +7,7 @@
 import type { BeatTrack } from "@/lib/beatiq/types";
 import type { VocalTrack } from "@/lib/lyriq/types";
 
-const SOURCE_VERSION = "2024.x";
+const SOURCE_VERSION = "2026.02";
 
 function escapeXml(str: string): string {
   return str
@@ -63,12 +63,12 @@ export function generateCombinedXtiming(
     }
     lines.push("    </EffectLayer>");
 
-    // Layer 1: Words
+    // Layer 1: Words (uppercase per xLights convention)
     lines.push("    <EffectLayer>");
     for (const phrase of track.phrases) {
       for (const word of phrase.words) {
         lines.push(
-          `      <Effect label="${escapeXml(word.text)}" starttime="${Math.round(word.startMs)}" endtime="${Math.round(word.endMs)}"/>`,
+          `      <Effect label="${escapeXml(word.text.toUpperCase())}" starttime="${Math.round(word.startMs)}" endtime="${Math.round(word.endMs)}"/>`,
         );
       }
     }

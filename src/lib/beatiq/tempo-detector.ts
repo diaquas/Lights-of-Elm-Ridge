@@ -78,7 +78,23 @@ export function detectTempo(
 
   // Parabolic interpolation for sub-frame accuracy
   const refinedLag = parabolicInterp(correlations, bestLag, minLag, safeLag);
-  const bpm = 60000 / (refinedLag * frameIntervalMs);
+  let bpm = 60000 / (refinedLag * frameIntervalMs);
+
+  // ── Octave correction ──────────────────────────────────────────────
+  // Autocorrelation naturally favors half-tempo (every beat at 120 BPM
+  // also correlates at 60 BPM).  Check if doubling the BPM yields a
+  // comparable correlation; prefer the faster tempo when it does,
+  // since most popular music lives in the 90-180 BPM range.
+  const halfLag = Math.round(refinedLag / 2);
+  if (halfLag >= minLag && halfLag <= safeLag) {
+    const halfCorr = correlations[halfLag];
+    // If the double-BPM candidate has ≥80% of the best correlation
+    // and falls in the common 80-200 range, prefer it
+    const doubleBpm = 60000 / (halfLag * frameIntervalMs);
+    if (halfCorr >= bestCorr * 0.8 && doubleBpm <= MAX_BPM) {
+      bpm = doubleBpm;
+    }
+  }
 
   // Clamp and round to reasonable precision
   const clampedBpm = Math.max(MIN_BPM, Math.min(MAX_BPM, bpm));
@@ -111,16 +127,21 @@ function parabolicInterp(
  * Generate a beat grid (evenly-spaced beats) at the given BPM,
  * aligned to the strongest onset near the expected beat positions.
  *
+ * Returns LabeledMark[] with cycling "1","2","3","4" labels and
+ * contiguous timing (each beat's endMs = next beat's startMs).
+ *
  * @param bpm          - Detected BPM
  * @param durationMs   - Total audio duration in ms
  * @param onsets       - Optional onset marks for alignment
- * @returns Array of TimingMark representing beat positions
+ * @param beatsPerBar  - Beats per measure (default 4, for labeling)
+ * @returns Array of LabeledMark representing beat positions
  */
 export function generateBeatGrid(
   bpm: number,
   durationMs: number,
   onsets?: TimingMark[],
-): TimingMark[] {
+  beatsPerBar: number = 4,
+): LabeledMark[] {
   if (bpm <= 0 || durationMs <= 0) return [];
 
   const beatIntervalMs = 60000 / bpm;
@@ -129,13 +150,15 @@ export function generateBeatGrid(
   // Find the best starting offset by aligning to onsets
   const startOffset = findBestOffset(beatIntervalMs, durationMs, onsets);
 
-  const beats: TimingMark[] = [];
+  const beats: LabeledMark[] = [];
   for (let i = 0; i < totalBeats; i++) {
-    const timeMs = Math.round(startOffset + i * beatIntervalMs);
-    if (timeMs >= 0 && timeMs <= durationMs) {
+    const startMs = Math.round(startOffset + i * beatIntervalMs);
+    const endMs = Math.round(startOffset + (i + 1) * beatIntervalMs);
+    if (startMs >= 0 && startMs <= durationMs) {
       beats.push({
-        timeMs,
-        strength: i % 4 === 0 ? 1.0 : 0.6, // Downbeats are stronger
+        label: String((i % beatsPerBar) + 1),
+        startMs,
+        endMs: Math.min(endMs, Math.round(durationMs)),
       });
     }
   }
@@ -186,38 +209,50 @@ function findBestOffset(
 }
 
 /**
- * Generate bar (measure) marks from a beat grid.
- * Assumes 4/4 time signature (standard for most popular music).
+ * Generate bar (measure) marks from a labeled beat grid.
+ * Groups beats into bars based on label "1" (downbeat).
  *
- * @param beats         - Beat positions from generateBeatGrid
- * @param beatsPerBar   - Beats per measure (default 4)
+ * @param beats       - Labeled beat positions from generateBeatGrid
+ * @param bpm         - Detected BPM (for calculating last bar's end)
+ * @param durationMs  - Total audio duration in ms
  * @returns Array of LabeledMark representing bar boundaries
  */
 export function generateBars(
-  beats: TimingMark[],
-  beatsPerBar: number = 4,
+  beats: LabeledMark[],
+  bpm: number,
+  durationMs: number,
 ): LabeledMark[] {
   if (beats.length === 0) return [];
 
   const bars: LabeledMark[] = [];
   let barNumber = 1;
+  let barStart = beats[0].startMs;
 
-  for (let i = 0; i < beats.length; i += beatsPerBar) {
-    const startMs = Math.round(beats[i].timeMs);
-    const endIdx = Math.min(i + beatsPerBar, beats.length);
-    const endMs =
-      endIdx < beats.length
-        ? beats[endIdx].timeMs
-        : startMs +
-          (beats[Math.min(i + 1, beats.length - 1)].timeMs - startMs) *
-            beatsPerBar;
+  for (let i = 1; i < beats.length; i++) {
+    // A new bar starts on every downbeat (label "1")
+    if (beats[i].label === "1") {
+      bars.push({
+        label: String(barNumber),
+        startMs: barStart,
+        endMs: beats[i].startMs,
+      });
+      barNumber++;
+      barStart = beats[i].startMs;
+    }
+  }
 
+  // Final partial bar
+  const beatIntervalMs = 60000 / bpm;
+  const lastEnd = Math.min(
+    Math.round(barStart + 4 * beatIntervalMs),
+    Math.round(durationMs),
+  );
+  if (lastEnd > barStart) {
     bars.push({
-      label: `Bar ${barNumber}`,
-      startMs,
-      endMs: Math.round(endMs),
+      label: String(barNumber),
+      startMs: barStart,
+      endMs: lastEnd,
     });
-    barNumber++;
   }
 
   return bars;
@@ -225,7 +260,7 @@ export function generateBars(
 
 /**
  * Detect approximate song sections based on energy changes.
- * Groups the audio into quiet/loud regions and labels them.
+ * Produces contiguous, non-overlapping sections that cover the full track.
  *
  * @param flux        - Spectral flux values per frame
  * @param frameTimes  - Timestamp in ms per frame
@@ -252,59 +287,85 @@ export function detectSections(
   const median = sorted[Math.floor(sorted.length / 2)];
 
   // Find transition points (energy crossing the median)
-  const sections: LabeledMark[] = [];
+  // Build contiguous sections — every ms belongs to a section
+  const rawSections: { isHigh: boolean; startMs: number; endMs: number }[] = [];
   let currentIsHigh = smoothed[0] > median;
-  let sectionStart = 0;
-  let sectionIdx = 0;
-
-  const sectionLabels = [
-    "intro",
-    "verse",
-    "chorus",
-    "verse",
-    "chorus",
-    "bridge",
-    "chorus",
-    "outro",
-  ];
+  let sectionStartFrame = 0;
 
   for (let i = 1; i < len; i++) {
     const isHigh = smoothed[i] > median;
     if (isHigh !== currentIsHigh) {
       const startMs =
-        sectionStart === 0 ? 0 : Math.round(frameTimes[sectionStart]);
+        sectionStartFrame === 0 ? 0 : Math.round(frameTimes[sectionStartFrame]);
       const endMs = Math.round(frameTimes[i]);
-
-      // Only create sections longer than 3 seconds
-      if (endMs - startMs >= 3000) {
-        sections.push({
-          label: sectionLabels[sectionIdx % sectionLabels.length],
-          startMs,
-          endMs,
-        });
-        sectionIdx++;
-      }
-
-      sectionStart = i;
+      rawSections.push({ isHigh: currentIsHigh, startMs, endMs });
+      sectionStartFrame = i;
       currentIsHigh = isHigh;
     }
   }
 
-  // Final section
+  // Final section extends to end of track
   const finalStartMs =
-    sectionStart === 0 ? 0 : Math.round(frameTimes[sectionStart]);
-  if (durationMs - finalStartMs >= 3000) {
+    sectionStartFrame === 0 ? 0 : Math.round(frameTimes[sectionStartFrame]);
+  rawSections.push({
+    isHigh: currentIsHigh,
+    startMs: finalStartMs,
+    endMs: Math.round(durationMs),
+  });
+
+  // Merge short sections (< 8 seconds) into their neighbors
+  const MIN_SECTION_MS = 8000;
+  const merged: typeof rawSections = [];
+  for (const section of rawSections) {
+    if (
+      merged.length > 0 &&
+      (section.endMs - section.startMs < MIN_SECTION_MS ||
+        merged[merged.length - 1].endMs - merged[merged.length - 1].startMs <
+          MIN_SECTION_MS)
+    ) {
+      // Absorb into previous section
+      merged[merged.length - 1].endMs = section.endMs;
+      merged[merged.length - 1].isHigh =
+        section.endMs - section.startMs >
+        merged[merged.length - 1].endMs - merged[merged.length - 1].startMs
+          ? section.isHigh
+          : merged[merged.length - 1].isHigh;
+    } else {
+      merged.push({ ...section });
+    }
+  }
+
+  // Assign labels based on energy pattern and position
+  const sections: LabeledMark[] = [];
+  const total = merged.length;
+
+  for (let i = 0; i < total; i++) {
+    const m = merged[i];
+    let label: string;
+    if (i === 0 && !m.isHigh) {
+      label = "INTRO";
+    } else if (i === total - 1 && !m.isHigh) {
+      label = "OUTRO";
+    } else if (m.isHigh) {
+      label = `CHORUS ${sections.filter((s) => s.label.startsWith("CHORUS")).length + 1}`;
+    } else {
+      const verseCount = sections.filter(
+        (s) => s.label.startsWith("VERSE") || s.label.startsWith("BREAKDOWN"),
+      ).length;
+      label = verseCount === 0 ? "VERSE 1" : `VERSE ${verseCount + 1}`;
+    }
+
     sections.push({
-      label: sectionLabels[sectionIdx % sectionLabels.length],
-      startMs: finalStartMs,
-      endMs: Math.round(durationMs),
+      label,
+      startMs: m.startMs,
+      endMs: m.endMs,
     });
   }
 
-  // If no transitions found, return one big section
+  // If no sections at all, return one big section
   if (sections.length === 0) {
     sections.push({
-      label: "full song",
+      label: "FULL SONG",
       startMs: 0,
       endMs: Math.round(durationMs),
     });

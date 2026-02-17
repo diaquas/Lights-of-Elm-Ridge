@@ -239,14 +239,15 @@ export async function runPipeline(
   if (beats.length > 0) {
     beatTracks.push({
       id: "beats",
-      name: "Beats",
+      name: "Beat Count",
       category: "structure",
       enabled: true,
-      marks: beats,
+      marks: [],
+      labeledMarks: beats,
     });
   }
 
-  const bars = generateBars(beats);
+  const bars = generateBars(beats, tempo.bpm, durationMs);
   if (bars.length > 0) {
     beatTracks.push({
       id: "bars",
@@ -262,7 +263,7 @@ export async function runPipeline(
   if (sections.length > 0) {
     beatTracks.push({
       id: "sections",
-      name: "Song Sections",
+      name: "Sections",
       category: "structure",
       enabled: true,
       marks: [],
