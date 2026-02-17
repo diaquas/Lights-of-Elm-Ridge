@@ -32,10 +32,11 @@ jobs:
           sudo chmod +x /usr/local/bin/cog
           cog --version
 
+      - name: Authenticate with Replicate
+        run: echo "${{ secrets.COG_TOKEN }}" | cog login --token-stdin
+
       - name: Build and push to Replicate
         working-directory: cog/essentia-onset
-        env:
-          COG_TOKEN: ${{ secrets.COG_TOKEN }}
         run: |
           MODEL="${{ github.event.inputs.model_name || secrets.REPLICATE_MODEL_NAME || 'lightsofelmridge/essentia-onset' }}"
           echo "Pushing to r8.im/${MODEL}"
