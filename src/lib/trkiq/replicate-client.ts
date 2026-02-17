@@ -61,34 +61,56 @@ async function uploadAudio(file: File): Promise<string> {
 }
 
 /**
- * Call the Demucs Edge Function to start stem separation.
- * Uses supabase.functions.invoke() for proper auth token management.
+ * Call the Demucs Edge Function.
+ * Uses raw fetch so error messages from the function are surfaced.
  */
-async function startSeparation(storagePath: string): Promise<string> {
+async function callDemucsFunction(
+  body: Record<string, unknown>,
+): Promise<DemucsResponse> {
   const supabase = getClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  const { data, error } = await supabase.functions.invoke("demucs-separate", {
-    body: { action: "start", storagePath },
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/demucs-separate`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session?.access_token ?? supabaseKey}`,
+      apikey: supabaseKey || "",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
   });
 
-  if (error) throw new Error(error.message || "Edge Function error");
-  const result = data as DemucsResponse;
+  if (!response.ok) {
+    const err = await response
+      .json()
+      .catch(() => ({ error: `HTTP ${response.status}` }));
+    throw new Error(err.error || `Edge Function error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Start a Demucs separation job via Edge Function.
+ */
+async function startSeparation(storagePath: string): Promise<string> {
+  const result = await callDemucsFunction({
+    action: "start",
+    storagePath,
+  });
   return result.predictionId;
 }
 
 /**
  * Poll the Edge Function for prediction status.
- * Uses supabase.functions.invoke() for proper auth token management.
  */
 async function pollStatus(predictionId: string): Promise<DemucsResponse> {
-  const supabase = getClient();
-
-  const { data, error } = await supabase.functions.invoke("demucs-separate", {
-    body: { action: "status", predictionId },
-  });
-
-  if (error) throw new Error(error.message || "Poll error");
-  return data as DemucsResponse;
+  return callDemucsFunction({ action: "status", predictionId });
 }
 
 /**
