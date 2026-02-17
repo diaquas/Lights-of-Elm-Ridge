@@ -32,7 +32,7 @@ export function generateXtiming(track: BeatTrack): string {
   const lines: string[] = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
   lines.push(
-    `<timing name="${escapeXml(track.name)}" SourceVersion="${SOURCE_VERSION}">`,
+    `<timing offset="0" name="${escapeXml(track.name)}" SourceVersion="${SOURCE_VERSION}">`,
   );
 
   lines.push("  <EffectLayer>");

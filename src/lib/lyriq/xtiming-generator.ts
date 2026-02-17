@@ -47,7 +47,7 @@ export function generateXtiming(track: VocalTrack): string {
 
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
   lines.push(
-    `<timing name="${escapeXml(track.label)}" SourceVersion="2024.x">`,
+    `<timing offset="0" name="${escapeXml(track.label)}" SourceVersion="2024.x">`,
   );
 
   // Layer 0: Phrases
@@ -96,7 +96,7 @@ export function generateMultiTrackXtiming(tracks: VocalTrack[]): string {
 
   for (const track of tracks) {
     lines.push(
-      `  <timing name="${escapeXml(track.label)}" SourceVersion="2024.x">`,
+      `  <timing offset="0" name="${escapeXml(track.label)}" SourceVersion="2024.x">`,
     );
 
     // Phrases

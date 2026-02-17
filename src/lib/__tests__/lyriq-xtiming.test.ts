@@ -188,7 +188,7 @@ describe("xtiming-generator", () => {
       const xml = generateXtiming(SAMPLE_TRACK);
 
       expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
-      expect(xml).toContain('<timing name="Lyrics (Lead)"');
+      expect(xml).toContain('<timing offset="0" name="Lyrics (Lead)"');
       expect(xml).toContain("SourceVersion=");
     });
 

@@ -40,7 +40,7 @@ export function generateCombinedXtiming(
   // Instrument timing tracks
   for (const track of enabledBeatTracks) {
     lines.push(
-      `  <timing name="${escapeXml(track.name)}" SourceVersion="${SOURCE_VERSION}">`,
+      `  <timing offset="0" name="${escapeXml(track.name)}" SourceVersion="${SOURCE_VERSION}">`,
     );
     lines.push("    <EffectLayer>");
     appendBeatEffects(track, lines);
@@ -51,7 +51,7 @@ export function generateCombinedXtiming(
   // Vocal timing tracks (3 layers each: phrases, words, phonemes)
   for (const track of vocalTracks) {
     lines.push(
-      `  <timing name="${escapeXml(track.label)}" SourceVersion="${SOURCE_VERSION}">`,
+      `  <timing offset="0" name="${escapeXml(track.label)}" SourceVersion="${SOURCE_VERSION}">`,
     );
 
     // Layer 0: Phrases
