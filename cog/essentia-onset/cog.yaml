@@ -1,0 +1,13 @@
+build:
+  python_version: "3.10"
+  python_packages:
+    - "essentia==2.1b6.dev1034"
+    - "numpy"
+    - "scipy"
+  system_packages:
+    - "libfftw3-dev"
+    - "libyaml-dev"
+    - "libsamplerate0-dev"
+    - "libtag1-dev"
+    - "ffmpeg"
+predict: "predict.py:Predictor"

@@ -1,6 +1,6 @@
 /* ------------------------------------------------------------------ */
 /*  TRK:IQ — Unified Processing Pipeline                              */
-/*  One upload → parallel analysis → combined timing tracks            */
+/*  All audio processing on Replicate: Demucs + Essentia + Force-Align */
 /* ------------------------------------------------------------------ */
 
 import type {
@@ -12,39 +12,27 @@ import type {
   TrkiqStats,
   SyncedLine,
 } from "./types";
-import type { BeatTrack, BeatiqStats } from "@/lib/beatiq/types";
+import type { BeatTrack, BeatiqStats, LabeledMark } from "@/lib/beatiq/types";
 import type { VocalTrack, LyriqStats } from "@/lib/lyriq/types";
 
-// Beat:IQ engine
-import {
-  decodeAudio,
-  computeBandEnergies,
-  computeSpectralFlux,
-  DEFAULT_CONFIG,
-} from "@/lib/beatiq/audio-analyzer";
-import { detectOnsets } from "@/lib/beatiq/onset-detector";
-import {
-  detectTempo,
-  generateBeatGrid,
-  generateBars,
-  detectSections,
-} from "@/lib/beatiq/tempo-detector";
-import type { LabeledMark } from "@/lib/beatiq/types";
+// Beat:IQ — local helpers for data assembly (no audio processing)
+import { generateBars } from "@/lib/beatiq/tempo-detector";
 import { computeStats as computeBeatStats } from "@/lib/beatiq/beat-processor";
-import { detectBeatsWithEssentia } from "@/lib/beatiq/essentia-client";
 
-// Lyr:IQ engine
+// Lyr:IQ — phoneme engine (local, no API needed)
 import {
   processAlignedWords,
   computeStats as computeLyriqStats,
 } from "@/lib/lyriq/lyrics-processor";
 import type { AlignedWord } from "@/lib/lyriq/lyrics-processor";
 
-// API clients
+// API clients — all Replicate processing goes through Edge Functions
 import { fetchLyrics, searchLyrics } from "./lrclib-client";
 import { separateStems, checkDemucsAvailable } from "./replicate-client";
 import { forceAlignLyrics } from "./force-align-client";
 import type { ForceAlignWord } from "./force-align-client";
+import { analyzeStems } from "./essentia-onset-client";
+import type { EssentiaOnsetResult } from "./essentia-onset-client";
 
 /** Callback for pipeline progress updates */
 export type ProgressCallback = (pipeline: PipelineProgress[]) => void;
@@ -63,12 +51,14 @@ export interface TrkiqResult {
 /**
  * Run the full TRK:IQ pipeline.
  *
- * Flow:
- *   1. Decode audio (client)
- *   2. [If auth] Separate stems via Demucs (Replicate)
- *   3. Analyze: BPM/beats + onset detection (on stems or full mix)
- *   4. Fetch lyrics (LRCLIB) + process to phonemes
- *   5. Assemble all timing tracks
+ * All audio processing runs on Replicate — no local WASM or DSP:
+ *
+ *   1. Decode audio (get duration metadata)
+ *   2. Demucs on Replicate → stem separation
+ *   3. In parallel after Demucs:
+ *      a. Essentia Cog on Replicate → onset detection on drums/bass/other
+ *      b. force-align-wordstamps on Replicate → lyrics alignment on vocals
+ *   4. Assemble all timing tracks into .xtiming
  */
 export async function runPipeline(
   file: File,
@@ -100,13 +90,13 @@ export async function runPipeline(
     }
   };
 
-  // ── Step 1: Decode audio ──────────────────────────────────────────
-  update("decode", "active", "Decoding audio...");
-  const { samples, sampleRate, durationMs } = await decodeAudio(file);
+  // ── Step 1: Decode audio (duration metadata only) ─────────────────
+  update("decode", "active", "Reading audio metadata...");
+  const durationMs = await getAudioDuration(file);
   const updatedMetadata = { ...metadata, durationMs };
   update("decode", "done");
 
-  // ── Step 2: Stem separation (if available) ────────────────────────
+  // ── Step 2: Stem separation via Demucs (Replicate) ────────────────
   let stems: StemSet | null = null;
   const demucsAvailable = await checkDemucsAvailable();
 
@@ -119,241 +109,18 @@ export async function runPipeline(
       update("stems", "done");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
-      update("stems", "skipped", `Client-side fallback — ${msg}`);
+      update("stems", "skipped", `Stem separation failed — ${msg}`);
     }
   } else {
     update("stems", "skipped", "Sign in for AI stem separation");
   }
 
-  // ── Step 3: Analyze (BPM, beats, onsets) ──────────────────────────
-  update("analyze", "active", "Detecting tempo...");
-
-  // Run Essentia.js beat detection in parallel with spectral flux
-  const essentiaPromise = detectBeatsWithEssentia(samples, sampleRate);
-
-  // Compute spectral flux (needed for sections + fallback tempo)
-  const { flux, frameTimes: fluxTimes } = computeSpectralFlux(
-    samples,
-    sampleRate,
-  );
-  const fallbackTempo = detectTempo(flux, fluxTimes);
-
-  // Await Essentia — use its results if available, otherwise fall back
-  const essentiaResult = await essentiaPromise;
-
-  let detectedBpm: number;
-  let essentiaTicks: number[] | null = null;
-
-  if (
-    essentiaResult &&
-    essentiaResult.bpm > 0 &&
-    essentiaResult.ticksMs.length > 4
-  ) {
-    detectedBpm = essentiaResult.bpm;
-    essentiaTicks = essentiaResult.ticksMs;
-    update(
-      "analyze",
-      "active",
-      `Essentia: ${detectedBpm} BPM — detecting onsets...`,
-    );
-  } else {
-    detectedBpm = fallbackTempo.bpm;
-    update(
-      "analyze",
-      "active",
-      `Fallback: ${detectedBpm} BPM — detecting onsets...`,
-    );
-  }
-  updatedMetadata.bpm = detectedBpm;
-
-  const beatTracks: BeatTrack[] = [];
-
-  // ── Onset detection per stem (higher thresholds = fewer, cleaner hits) ──
-  // Per-stem sensitivity: drums get stricter thresholds, melodic instruments
-  // even stricter to only catch prominent transients.
-  const stemOnsetConfig: Record<
-    string,
-    { threshold: number; minIntervalMs: number }
-  > = {
-    drums: { threshold: 0.5, minIntervalMs: 80 },
-    bass: { threshold: 0.45, minIntervalMs: 150 },
-    guitar: { threshold: 0.45, minIntervalMs: 120 },
-    piano: { threshold: 0.45, minIntervalMs: 120 },
-    other: { threshold: 0.5, minIntervalMs: 120 },
-  };
-
-  if (stems) {
-    // Onset detection on separated stems
-    const stemEntries = Object.entries(stems).filter(
-      ([key]) => key !== "archive" && key !== "vocals",
-    );
-
-    for (const [stemName, stemUrl] of stemEntries) {
-      try {
-        const stemSamples = await fetchAndDecodeStem(stemUrl);
-        if (!stemSamples) continue;
-
-        const cfg = stemOnsetConfig[stemName] ?? {
-          threshold: 0.45,
-          minIntervalMs: 120,
-        };
-
-        const stemEnergies = computeBandEnergies(
-          stemSamples.samples,
-          stemSamples.sampleRate,
-          {
-            frameSize: 2048,
-            hopSize: 512,
-            bands: [
-              {
-                id: stemName,
-                name: formatStemName(stemName),
-                category: stemName === "drums" ? "drums" : "melodic",
-                lowHz: 20,
-                highHz: 20000,
-                threshold: cfg.threshold,
-                minIntervalMs: cfg.minIntervalMs,
-              },
-            ],
-          },
-        );
-
-        if (stemEnergies.length > 0) {
-          const marks = detectOnsets(
-            stemEnergies[0].values,
-            stemEnergies[0].frameTimes,
-            cfg.threshold,
-            cfg.minIntervalMs,
-          );
-
-          if (marks.length > 0) {
-            beatTracks.push({
-              id: stemName,
-              name: formatStemName(stemName),
-              category: stemName === "drums" ? "drums" : "melodic",
-              enabled: true,
-              marks,
-            });
-          }
-        }
-      } catch {
-        // Skip this stem if it fails to decode
-      }
-    }
-
-    // If drums stem exists, also try sub-band separation on it
-    if (stems.drums) {
-      try {
-        const drumSamples = await fetchAndDecodeStem(stems.drums);
-        if (drumSamples) {
-          await addDrumSubBands(
-            drumSamples.samples,
-            drumSamples.sampleRate,
-            beatTracks,
-          );
-        }
-      } catch {
-        // Sub-band drum separation failed — main drums track is still there
-      }
-    }
-  } else {
-    // Fallback: frequency-band analysis on full mix
-    const bandEnergies = computeBandEnergies(
-      samples,
-      sampleRate,
-      DEFAULT_CONFIG,
-    );
-
-    for (let i = 0; i < DEFAULT_CONFIG.bands.length; i++) {
-      const band = DEFAULT_CONFIG.bands[i];
-      const energy = bandEnergies[i];
-      const marks = detectOnsets(
-        energy.values,
-        energy.frameTimes,
-        band.threshold,
-        band.minIntervalMs,
-      );
-      if (marks.length > 0) {
-        beatTracks.push({
-          id: band.id,
-          name: band.name,
-          category: band.category,
-          enabled: true,
-          marks,
-        });
-      }
-    }
-  }
-
-  // ── Beat grid + bars + sections ─────────────────────────────────────
-  let beats: LabeledMark[];
-
-  if (essentiaTicks && essentiaTicks.length > 4) {
-    // Use Essentia's actual beat positions — much more accurate than a
-    // rigid grid because they track real tempo fluctuations.
-    beats = essentiaTicks.map((ms, i) => ({
-      label: String((i % 4) + 1),
-      startMs: Math.round(ms),
-      endMs:
-        i + 1 < essentiaTicks.length
-          ? Math.round(essentiaTicks[i + 1])
-          : Math.min(
-              Math.round(ms + 60000 / detectedBpm),
-              Math.round(durationMs),
-            ),
-    }));
-  } else {
-    // Fallback: generate an even grid from BPM
-    const allOnsets = beatTracks.flatMap((t) => t.marks);
-    beats = generateBeatGrid(detectedBpm, durationMs, allOnsets);
-  }
-
-  if (beats.length > 0) {
-    beatTracks.push({
-      id: "beats",
-      name: "Beat Count",
-      category: "structure",
-      enabled: true,
-      marks: [],
-      labeledMarks: beats,
-    });
-  }
-
-  const bars = generateBars(beats, detectedBpm, durationMs);
-  if (bars.length > 0) {
-    beatTracks.push({
-      id: "bars",
-      name: "Bars",
-      category: "structure",
-      enabled: true,
-      marks: [],
-      labeledMarks: bars,
-    });
-  }
-
-  const sections = detectSections(flux, fluxTimes, durationMs);
-  if (sections.length > 0) {
-    beatTracks.push({
-      id: "sections",
-      name: "Sections",
-      category: "structure",
-      enabled: true,
-      marks: [],
-      labeledMarks: sections,
-    });
-  }
-
-  update("analyze", "done");
-
-  // ── Step 4: Lyrics ────────────────────────────────────────────────
+  // ── Fetch lyrics (can start right after we have metadata) ─────────
   let lyrics: LyricsData | null = existingLyrics ?? null;
-  let vocalTracks: VocalTrack[] = [];
-  let lyriqStats: LyriqStats | null = null;
 
   if (lyrics && lyrics.plainText.trim().length > 0) {
-    update("lyrics", "active", "Using pre-loaded lyrics...");
+    // Already have lyrics — no fetch needed
   } else {
-    update("lyrics", "active", "Searching for lyrics...");
     try {
       lyrics =
         (await fetchLyrics(metadata.artist, metadata.title)) ||
@@ -364,53 +131,91 @@ export async function runPipeline(
     }
   }
 
-  if (lyrics && lyrics.plainText.trim().length > 0) {
-    let alignedWords: AlignedWord[] = [];
+  // ── Steps 3 + 4: Analyze + Lyrics (parallel on Replicate) ────────
+  let beatTracks: BeatTrack[] = [];
+  let vocalTracks: VocalTrack[] = [];
+  let lyriqStats: LyriqStats | null = null;
+  let detectedBpm = 0;
+  let usedEssentia = false;
 
-    // Strategy 1: Force-align on Replicate (best — Whisper + wav2vec2)
-    // Requires: Demucs vocals stem URL + lyrics text.
-    // Feed the ISOLATED vocals stem, NOT the original MP3.
-    if (stems?.vocals) {
-      try {
-        update("lyrics", "active", "Running forced alignment on vocals...");
-        const wordstamps = await forceAlignLyrics(
-          stems.vocals,
-          lyrics.plainText,
-          (msg) => update("lyrics", "active", msg),
-        );
-        alignedWords = forceAlignToAlignedWords(wordstamps);
-      } catch {
-        // Force-align failed — fall through to fallback strategies
-      }
+  if (stems) {
+    // Both paths run in parallel — they don't depend on each other:
+    //   Path A: Essentia Cog → instrument onset/beat detection
+    //   Path B: force-align-wordstamps → lyrics alignment
+
+    update("analyze", "active", "Running Essentia on stems...");
+    const hasLyrics = !!(lyrics && lyrics.plainText.trim().length > 0);
+    if (hasLyrics) {
+      update("lyrics", "active", "Running forced alignment on vocals...");
     }
 
-    // Strategy 2: LRCLIB synced lines + proportional word distribution
-    if (alignedWords.length === 0 && lyrics.syncedLines?.length) {
-      update("lyrics", "active", "Using LRCLIB synced timestamps...");
-      alignedWords = alignWithSyncedLines(lyrics.syncedLines, durationMs);
-    }
+    const essentiaPromise = analyzeStems(stems, (msg) =>
+      update("analyze", "active", msg),
+    );
 
-    // Strategy 3: Even distribution (no sync data, no stems)
-    if (alignedWords.length === 0) {
-      update("lyrics", "active", "Estimating word timing...");
-      const lines = lyrics.plainText
-        .split("\n")
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0);
-      alignedWords = distributeWordsEvenly(lines, durationMs);
-    }
+    const lyricsPromise =
+      hasLyrics && stems.vocals
+        ? runForceAlign(stems.vocals, lyrics!, (msg) =>
+            update("lyrics", "active", msg),
+          )
+        : Promise.resolve(null);
 
-    if (alignedWords.length > 0) {
+    const [essentiaResults, alignedWords] = await Promise.all([
+      essentiaPromise,
+      lyricsPromise,
+    ]);
+
+    // ── Build instrument tracks from Essentia results ──────────────
+    if (essentiaResults.length > 0) {
+      usedEssentia = true;
+      const { tracks, bpm } = buildTracksFromEssentia(
+        essentiaResults,
+        durationMs,
+      );
+      beatTracks = tracks;
+      detectedBpm = bpm;
+    }
+    update("analyze", "done");
+
+    // ── Build vocal tracks from force-align results ────────────────
+    if (alignedWords && alignedWords.length > 0) {
       update("lyrics", "active", "Generating singing face timing...");
       const leadTrack = processAlignedWords(alignedWords, "lead");
       vocalTracks = [leadTrack];
       lyriqStats = computeLyriqStats(vocalTracks);
+      update("lyrics", "done");
+    } else if (hasLyrics) {
+      // Force-align didn't return results — use fallback
+      const fallbackWords = buildLyricsFallback(lyrics!, durationMs);
+      if (fallbackWords.length > 0) {
+        update("lyrics", "active", "Generating singing face timing...");
+        const leadTrack = processAlignedWords(fallbackWords, "lead");
+        vocalTracks = [leadTrack];
+        lyriqStats = computeLyriqStats(vocalTracks);
+      }
+      update("lyrics", "done");
+    } else {
+      update("lyrics", "skipped", "No lyrics found");
     }
-
-    update("lyrics", "done");
   } else {
-    update("lyrics", "skipped", "No lyrics found");
+    // ── No stems — limited processing (no Replicate calls) ────────
+    update("analyze", "skipped", "Sign in for instrument analysis");
+
+    if (lyrics && lyrics.plainText.trim().length > 0) {
+      update("lyrics", "active", "Processing lyrics...");
+      const fallbackWords = buildLyricsFallback(lyrics, durationMs);
+      if (fallbackWords.length > 0) {
+        const leadTrack = processAlignedWords(fallbackWords, "lead");
+        vocalTracks = [leadTrack];
+        lyriqStats = computeLyriqStats(vocalTracks);
+      }
+      update("lyrics", "done");
+    } else {
+      update("lyrics", "skipped", "No lyrics found");
+    }
   }
+
+  updatedMetadata.bpm = detectedBpm || undefined;
 
   // ── Step 5: Assemble ──────────────────────────────────────────────
   update("generate", "active", "Assembling timing tracks...");
@@ -426,7 +231,7 @@ export async function runPipeline(
     totalPhonemes: lyriqStats?.totalPhonemes || 0,
     durationMs,
     usedStems: stems !== null,
-    usedEssentia: essentiaTicks !== null,
+    usedEssentia,
   };
 
   update("generate", "done");
@@ -445,111 +250,53 @@ export async function runPipeline(
 /* ── Helpers ──────────────────────────────────────────────────────── */
 
 /**
- * Fetch and decode a stem audio file from a URL.
+ * Get audio duration without full PCM decode.
+ * Uses an Audio element to read metadata only.
  */
-async function fetchAndDecodeStem(
-  url: string,
-): Promise<{ samples: Float32Array; sampleRate: number } | null> {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
+function getAudioDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio();
+    const objectUrl = URL.createObjectURL(file);
 
-    const arrayBuffer = await response.arrayBuffer();
-    const ctx = new AudioContext();
-    try {
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-      // Mix to mono
-      const mono = new Float32Array(audioBuffer.length);
-      const numChannels = audioBuffer.numberOfChannels;
-      for (let ch = 0; ch < numChannels; ch++) {
-        const channelData = audioBuffer.getChannelData(ch);
-        for (let i = 0; i < audioBuffer.length; i++) {
-          mono[i] += channelData[i] / numChannels;
-        }
-      }
-      return { samples: mono, sampleRate: audioBuffer.sampleRate };
-    } finally {
-      await ctx.close();
-    }
+    audio.onloadedmetadata = () => {
+      const ms = audio.duration * 1000;
+      URL.revokeObjectURL(objectUrl);
+      resolve(ms);
+    };
+
+    audio.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Failed to read audio metadata"));
+    };
+
+    audio.src = objectUrl;
+  });
+}
+
+/**
+ * Run force-align and convert results to AlignedWord[].
+ * Returns null if alignment fails.
+ */
+async function runForceAlign(
+  vocalsUrl: string,
+  lyrics: LyricsData,
+  onStatusUpdate: (msg: string) => void,
+): Promise<AlignedWord[] | null> {
+  try {
+    const wordstamps = await forceAlignLyrics(
+      vocalsUrl,
+      lyrics.plainText,
+      onStatusUpdate,
+    );
+    const aligned = forceAlignToAlignedWords(wordstamps);
+    return aligned.length > 0 ? aligned : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Add sub-band drum tracks (kick, snare, hi-hat) from the drums stem.
- */
-async function addDrumSubBands(
-  samples: Float32Array,
-  sampleRate: number,
-  tracks: BeatTrack[],
-): Promise<void> {
-  // Lower thresholds than the full-mix defaults because we're operating
-  // on an already-isolated drums stem (no bass/guitar/vocal bleed).
-  const drumBands = [
-    {
-      id: "kick",
-      name: "Drums \u2014 Kick",
-      lowHz: 20,
-      highHz: 150,
-      threshold: 0.35,
-      minIntervalMs: 120,
-    },
-    {
-      id: "snare",
-      name: "Drums \u2014 Snare",
-      lowHz: 200,
-      highHz: 2000,
-      threshold: 0.3,
-      minIntervalMs: 100,
-    },
-    {
-      id: "hihat",
-      name: "Drums \u2014 Hi-Hat",
-      lowHz: 5000,
-      highHz: 15000,
-      threshold: 0.3,
-      minIntervalMs: 80,
-    },
-  ];
-
-  const config = {
-    frameSize: 2048,
-    hopSize: 512,
-    bands: drumBands.map((b) => ({
-      ...b,
-      category: "drums" as const,
-    })),
-  };
-
-  const energies = computeBandEnergies(samples, sampleRate, config);
-
-  for (let i = 0; i < drumBands.length; i++) {
-    const band = drumBands[i];
-    const energy = energies[i];
-    const marks = detectOnsets(
-      energy.values,
-      energy.frameTimes,
-      band.threshold,
-      band.minIntervalMs,
-    );
-
-    // Only add if we have reasonable marks and don't already have this track
-    if (marks.length > 0 && !tracks.some((t) => t.id === band.id)) {
-      tracks.push({
-        id: band.id,
-        name: band.name,
-        category: "drums",
-        enabled: true,
-        marks,
-      });
-    }
-  }
-}
-
-/**
  * Convert force-align-wordstamps output to AlignedWord[].
- * The model returns { word, start (sec), end (sec), probability? }.
  */
 function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
   return wordstamps
@@ -560,6 +307,139 @@ function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
       endMs: Math.round(w.end * 1000),
       confidence: w.probability ?? 0.9,
     }));
+}
+
+/**
+ * Build lyrics alignment using fallback strategies (no Replicate).
+ * Strategy 1: LRCLIB synced lines + proportional word distribution
+ * Strategy 2: Even distribution across song duration
+ */
+function buildLyricsFallback(
+  lyrics: LyricsData,
+  durationMs: number,
+): AlignedWord[] {
+  // Try LRCLIB synced lines first
+  if (lyrics.syncedLines && lyrics.syncedLines.length > 0) {
+    return alignWithSyncedLines(lyrics.syncedLines, durationMs);
+  }
+
+  // Last resort: even distribution
+  const lines = lyrics.plainText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  return distributeWordsEvenly(lines, durationMs);
+}
+
+/**
+ * Build BeatTrack[] from Essentia Cog results.
+ * Converts onset times (seconds) to TimingMark[] and beat times to LabeledMark[].
+ */
+function buildTracksFromEssentia(
+  results: EssentiaOnsetResult[],
+  durationMs: number,
+): { tracks: BeatTrack[]; bpm: number } {
+  const tracks: BeatTrack[] = [];
+
+  // Use the drums stem for BPM (most reliable), or first available
+  const drumsResult = results.find((r) => r.stemType === "drums");
+  const primaryResult = drumsResult ?? results[0];
+  const bpm = primaryResult?.bpm ?? 0;
+
+  // ── Onset tracks (one per stem) ──────────────────────────────────
+  for (const result of results) {
+    if (result.onsets.length > 0) {
+      tracks.push({
+        id: result.stemType,
+        name: formatStemName(result.stemType),
+        category: result.stemType === "drums" ? "drums" : "melodic",
+        enabled: true,
+        marks: result.onsets.map((t) => ({
+          timeMs: Math.round(t * 1000),
+          strength: 1.0,
+        })),
+      });
+    }
+
+    // Drum sub-bands (kick, snare, hi-hat)
+    if (result.stemType === "drums") {
+      if (result.kickOnsets && result.kickOnsets.length > 0) {
+        tracks.push({
+          id: "kick",
+          name: "Drums \u2014 Kick",
+          category: "drums",
+          enabled: true,
+          marks: result.kickOnsets.map((t) => ({
+            timeMs: Math.round(t * 1000),
+            strength: 1.0,
+          })),
+        });
+      }
+      if (result.snareOnsets && result.snareOnsets.length > 0) {
+        tracks.push({
+          id: "snare",
+          name: "Drums \u2014 Snare",
+          category: "drums",
+          enabled: true,
+          marks: result.snareOnsets.map((t) => ({
+            timeMs: Math.round(t * 1000),
+            strength: 1.0,
+          })),
+        });
+      }
+      if (result.hihatOnsets && result.hihatOnsets.length > 0) {
+        tracks.push({
+          id: "hihat",
+          name: "Drums \u2014 Hi-Hat",
+          category: "drums",
+          enabled: true,
+          marks: result.hihatOnsets.map((t) => ({
+            timeMs: Math.round(t * 1000),
+            strength: 1.0,
+          })),
+        });
+      }
+    }
+  }
+
+  // ── Beat grid from Essentia beat tracking ────────────────────────
+  if (primaryResult && primaryResult.beats.length > 4) {
+    const beats: LabeledMark[] = primaryResult.beats.map((t, i) => ({
+      label: String((i % 4) + 1),
+      startMs: Math.round(t * 1000),
+      endMs:
+        i + 1 < primaryResult.beats.length
+          ? Math.round(primaryResult.beats[i + 1] * 1000)
+          : Math.min(
+              Math.round(t * 1000 + 60000 / bpm),
+              Math.round(durationMs),
+            ),
+    }));
+
+    tracks.push({
+      id: "beats",
+      name: "Beat Count",
+      category: "structure",
+      enabled: true,
+      marks: [],
+      labeledMarks: beats,
+    });
+
+    // Generate bars from beat positions
+    const bars = generateBars(beats, bpm, durationMs);
+    if (bars.length > 0) {
+      tracks.push({
+        id: "bars",
+        name: "Bars",
+        category: "structure",
+        enabled: true,
+        marks: [],
+        labeledMarks: bars,
+      });
+    }
+  }
+
+  return { tracks, bpm };
 }
 
 /**
