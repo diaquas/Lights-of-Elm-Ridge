@@ -129,77 +129,149 @@ export default function UploadScreen({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Drop Zone */}
-      <div
-        role="button"
-        tabIndex={0}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        className={`rounded-2xl border-2 border-dashed transition-all duration-200 py-16 px-8 cursor-pointer text-center ${
-          dragActive
-            ? "border-accent bg-accent/5 scale-[1.01]"
-            : audioFile
-              ? "border-green-500/40 bg-green-500/5"
-              : "border-border hover:border-foreground/30 hover:bg-surface-light"
-        }`}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="audio/*,.mp3"
-          onChange={handleInputChange}
-          className="hidden"
-        />
-
-        {!audioFile ? (
-          <>
-            <svg
-              className="w-12 h-12 mx-auto text-foreground/25 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-              />
-            </svg>
-            <p className="text-foreground/70 text-lg font-medium">
-              Drop your MP3 here
-            </p>
-            <p className="text-foreground/40 text-sm mt-1">
-              or click to browse
-            </p>
-          </>
-        ) : (
-          <div className="flex items-center justify-center gap-3">
-            <svg
-              className="w-6 h-6 text-green-500 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            <span className="text-foreground/70">{audioFile.name}</span>
+    <div className="max-w-[860px] mx-auto space-y-12">
+      {/* ── How It Works ──────────────────────────────── */}
+      {!audioFile && (
+        <div className="space-y-6">
+          <h2 className="text-2xl font-display font-bold text-center">
+            How It Works
+          </h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            <HowItWorksCard
+              number="1"
+              title="Drop Your MP3"
+              description="Upload any song. We read the ID3 tags and auto-fetch lyrics so you don't have to."
+              icon={
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+              }
+            />
+            <HowItWorksCard
+              number="2"
+              title="AI Stem Separation"
+              description="Your audio is split into isolated instruments and vocals using AI — drums, bass, guitar, keys, and more."
+              icon={
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 12h2l3-9 3 18 3-12 3 6 2-3h4" />
+                </svg>
+              }
+            />
+            <HowItWorksCard
+              number="3"
+              title="Download &amp; Import"
+              description="Get a single .xtiming file with every track named and ready. Import once into xLights and go."
+              icon={
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              }
+            />
           </div>
-        )}
+          <div className="text-center text-xs text-foreground/30 pt-4 border-t border-border">
+            Audio is processed via secure AI services. Your files are never
+            stored or shared.
+          </div>
+        </div>
+      )}
+
+      {/* ── Upload Card ───────────────────────────────── */}
+      <div className="flex justify-center">
+        <div className="w-full max-w-[540px]">
+          <div
+            role="button"
+            tabIndex={0}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={!audioFile ? handleClick : undefined}
+            onKeyDown={!audioFile ? handleKeyDown : undefined}
+            className={`rounded-2xl border-2 border-dashed transition-all duration-200 text-center ${
+              audioFile
+                ? "border-green-500/40 bg-green-500/5 p-6"
+                : dragActive
+                  ? "border-accent bg-accent/10 scale-[1.02] shadow-[0_8px_32px_rgba(239,68,68,0.2)] p-10 cursor-pointer"
+                  : "border-accent bg-accent/5 p-10 cursor-pointer hover:scale-[1.01] hover:shadow-[0_8px_32px_rgba(239,68,68,0.15)]"
+            }`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*,.mp3"
+              onChange={handleInputChange}
+              className="hidden"
+            />
+
+            {!audioFile ? (
+              <>
+                <div className="mb-5">
+                  <span className="text-[28px] font-display font-black tracking-tight leading-none">
+                    <span className="text-foreground">TRK</span>
+                    <span className="text-accent">:</span>
+                    <span className="text-accent">IQ</span>
+                  </span>
+                </div>
+                <div className="flex justify-center mb-4">
+                  <svg
+                    width="48"
+                    height="48"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-foreground/20"
+                  >
+                    <path d="M9 18V5l12-2v13" />
+                    <circle cx="6" cy="18" r="3" />
+                    <circle cx="18" cy="16" r="3" />
+                  </svg>
+                </div>
+                <p className="text-lg font-display font-bold text-foreground mb-1">
+                  Drop your MP3 here
+                </p>
+                <p className="text-sm text-foreground/40">or click to browse</p>
+              </>
+            ) : (
+              <div className="flex items-center justify-center gap-3">
+                <svg
+                  className="w-6 h-6 text-green-500 flex-shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+                <span className="text-foreground/70">{audioFile.name}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="text-xs text-accent hover:text-accent-secondary transition-colors ml-2"
+                >
+                  Change
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Metadata Card */}
+      {/* ── Metadata Card ─────────────────────────────── */}
       {metadata && (
-        <div className="rounded-xl bg-surface border border-border p-5">
+        <div className="max-w-[540px] mx-auto rounded-xl bg-surface border border-border p-5">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
               <svg
@@ -245,9 +317,9 @@ export default function UploadScreen({
         </div>
       )}
 
-      {/* Optional: Paste lyrics */}
+      {/* ── Lyrics Editor (optional) ──────────────────── */}
       {metadata && (
-        <div className="rounded-xl bg-surface border border-border overflow-hidden">
+        <div className="max-w-[540px] mx-auto rounded-xl bg-surface border border-border overflow-hidden">
           <button
             onClick={() => setUserToggledLyrics(!showLyricsEditor)}
             className="w-full flex items-center justify-between px-5 py-3.5 text-left hover:bg-surface-light transition-colors"
@@ -333,30 +405,34 @@ export default function UploadScreen({
         </div>
       )}
 
-      {/* Generate Button */}
-      <button
-        disabled={!canGenerate}
-        onClick={() => audioFile && onGenerate(audioFile)}
-        className={`w-full py-4 rounded-xl text-lg font-semibold transition-all duration-200 ${
-          canGenerate
-            ? "bg-accent hover:bg-accent-secondary text-white shadow-lg shadow-accent/20"
-            : "bg-surface-light text-foreground/30 cursor-not-allowed"
-        }`}
-        style={{ fontFamily: "var(--font-display)" }}
-      >
-        Generate Timing Tracks
-      </button>
+      {/* ── Generate Button ───────────────────────────── */}
+      {audioFile && (
+        <div className="max-w-[540px] mx-auto">
+          <button
+            disabled={!canGenerate}
+            onClick={() => audioFile && onGenerate(audioFile)}
+            className={`w-full py-4 rounded-xl text-lg font-semibold transition-all duration-200 ${
+              canGenerate
+                ? "bg-accent hover:bg-accent-secondary text-white shadow-lg shadow-accent/20"
+                : "bg-surface-light text-foreground/30 cursor-not-allowed"
+            }`}
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            Generate Timing Tracks
+          </button>
+        </div>
+      )}
 
-      {/* Feature Cards */}
+      {/* ── Feature Cards ─────────────────────────────── */}
       {!audioFile && (
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-3 gap-6">
           <FeatureCard
             title="Instrument Timing"
-            description="Kick, snare, hi-hat, bass, and melodic onsets detected from your audio. AI stem separation when signed in."
+            description="Kick, snare, hi-hat, bass, and melodic onsets detected from isolated stems. Way beyond what VAMP plugins can do."
           />
           <FeatureCard
             title="Singing Faces"
-            description="Lyrics auto-fetched from LRCLIB, processed through our phoneme engine for Preston Blair mouth positions."
+            description="Lyrics auto-fetched, processed through our phoneme engine for Preston Blair mouth positions. Lead AND background vocals."
           />
           <FeatureCard
             title="One File, Everything"
@@ -364,6 +440,33 @@ export default function UploadScreen({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Subcomponents ───────────────────────────────────────
+
+function HowItWorksCard({
+  number,
+  title,
+  description,
+  icon,
+}: {
+  number: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="bg-surface rounded-xl border border-border p-6 text-center flex flex-col">
+      <div className="w-10 h-10 rounded-full bg-accent/20 text-accent flex items-center justify-center text-lg font-bold mx-auto mb-3">
+        {number}
+      </div>
+      <h3 className="font-display font-bold mb-2 h-[3.5rem] flex items-end justify-center leading-tight">
+        {title}
+      </h3>
+      <div className="flex justify-center mb-3 text-foreground/25">{icon}</div>
+      <p className="text-sm text-foreground/60 flex-1">{description}</p>
     </div>
   );
 }
@@ -376,11 +479,9 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="rounded-xl bg-surface border border-border p-5">
-      <p className="text-foreground font-medium text-sm">{title}</p>
-      <p className="text-foreground/40 text-xs mt-1.5 leading-relaxed">
-        {description}
-      </p>
+    <div className="bg-surface rounded-xl border border-border p-6 text-center flex flex-col">
+      <h3 className="font-display font-bold mb-2">{title}</h3>
+      <p className="text-sm text-foreground/60 flex-1">{description}</p>
     </div>
   );
 }

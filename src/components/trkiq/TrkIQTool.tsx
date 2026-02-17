@@ -170,21 +170,22 @@ export default function TrkIQTool() {
   }, [session.audioUrl]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-      {/* Header */}
-      <div className="text-center mb-8 sm:mb-12">
-        <h1
-          className="text-3xl sm:text-4xl font-bold tracking-tight"
-          style={{ fontFamily: "var(--font-display)" }}
-        >
-          <span className="text-foreground">TRK</span>
-          <span className="text-accent">:</span>
-          <span className="text-foreground">IQ</span>
-        </h1>
-        <p className="text-foreground/50 mt-2 text-sm sm:text-base">
-          Complete timing track generator for xLights
-        </p>
-      </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      {/* ── Hero ───────────────────────────────────────── */}
+      {session.screen !== "editor" && (
+        <div className="text-center mb-12">
+          <div className="mb-3">
+            <span className="text-[56px] sm:text-[64px] font-display font-black tracking-tight leading-none">
+              <span className="text-foreground">TRK</span>
+              <span className="text-accent">:</span>
+              <span className="text-accent">IQ</span>
+            </span>
+          </div>
+          <p className="text-xl text-gray-200 tracking-[0.015em] max-w-2xl mx-auto">
+            Complete timing tracks for xLights — in seconds.
+          </p>
+        </div>
+      )}
 
       {/* Screen Router */}
       {session.screen === "upload" && (
