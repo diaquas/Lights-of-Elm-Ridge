@@ -62,65 +62,33 @@ async function uploadAudio(file: File): Promise<string> {
 
 /**
  * Call the Demucs Edge Function to start stem separation.
+ * Uses supabase.functions.invoke() for proper auth token management.
  */
 async function startSeparation(storagePath: string): Promise<string> {
   const supabase = getClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) throw new Error("No active session");
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/demucs-separate`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-      apikey: supabaseKey || "",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ action: "start", storagePath }),
+  const { data, error } = await supabase.functions.invoke("demucs-separate", {
+    body: { action: "start", storagePath },
   });
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(err.error || `Edge Function error: ${response.status}`);
-  }
-
-  const data: DemucsResponse = await response.json();
-  return data.predictionId;
+  if (error) throw new Error(error.message || "Edge Function error");
+  const result = data as DemucsResponse;
+  return result.predictionId;
 }
 
 /**
  * Poll the Edge Function for prediction status.
+ * Uses supabase.functions.invoke() for proper auth token management.
  */
 async function pollStatus(predictionId: string): Promise<DemucsResponse> {
   const supabase = getClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session) throw new Error("No active session");
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/demucs-separate`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-      apikey: supabaseKey || "",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ action: "status", predictionId }),
+  const { data, error } = await supabase.functions.invoke("demucs-separate", {
+    body: { action: "status", predictionId },
   });
 
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: "Unknown error" }));
-    throw new Error(err.error || `Poll error: ${response.status}`);
-  }
-
-  return response.json();
+  if (error) throw new Error(error.message || "Poll error");
+  return data as DemucsResponse;
 }
 
 /**
