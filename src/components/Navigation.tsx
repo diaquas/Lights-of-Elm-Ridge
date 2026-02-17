@@ -17,6 +17,7 @@ const navLinks = [
 
 const toolsLinks = [
   { href: "/modiq", label: "ModIQ", badge: "NEW" },
+  { href: "/lyriq", label: "LyrIQ", badge: "NEW" },
   { href: "/build-your-show", label: "Shop Wizard" },
 ];
 
