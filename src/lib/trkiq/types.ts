@@ -145,6 +145,8 @@ export interface TrkiqSession {
   beatStats: BeatiqStats | null;
   /** Lyr:IQ stats */
   lyriqStats: LyriqStats | null;
+  /** Whether AI stems were actually used for this analysis */
+  usedStems: boolean;
 }
 
 /* -- Combined Stats ------------------------------------------------ */

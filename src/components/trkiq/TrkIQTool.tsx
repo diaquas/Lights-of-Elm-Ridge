@@ -41,6 +41,7 @@ function createInitialSession(): TrkiqSession {
     vocalTracks: [],
     beatStats: null,
     lyriqStats: null,
+    usedStems: false,
   };
 }
 
@@ -108,6 +109,7 @@ export default function TrkIQTool() {
       lyrics: LyricsData | null,
       beatStats: BeatiqStats,
       lyriqStats: LyriqStats | null,
+      usedStems: boolean,
     ) => {
       setSession((prev) => ({
         ...prev,
@@ -117,6 +119,7 @@ export default function TrkIQTool() {
         lyrics,
         beatStats,
         lyriqStats,
+        usedStems,
       }));
     },
     [],
@@ -148,6 +151,7 @@ export default function TrkIQTool() {
           result.lyrics,
           result.beatStats,
           result.lyriqStats,
+          result.combined.usedStems,
         );
         setScreen("editor");
       } catch {
