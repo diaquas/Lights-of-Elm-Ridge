@@ -99,7 +99,7 @@ function getDestLeftBorder(status: StatusCheckStatus): string {
 // ─── Component ──────────────────────────────────────────
 
 export function FinalizePhase() {
-  const { interactive, goToNextPhase } = useMappingPhase();
+  const { interactive } = useMappingPhase();
 
   const {
     displayCoverage,
@@ -574,13 +574,6 @@ export function FinalizePhase() {
             >
               Review Mappings
             </button>
-            <button
-              type="button"
-              onClick={goToNextPhase}
-              className="px-6 py-2.5 bg-accent hover:bg-accent/90 text-white font-medium rounded-lg transition-all duration-200"
-            >
-              Continue to Review
-            </button>
           </div>
         </div>
       </div>
@@ -623,18 +616,11 @@ export function FinalizePhase() {
           </span>
         </div>
 
-        {/* Title + Continue */}
-        <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
-          <h1 className="text-[22px] font-bold text-foreground leading-tight">
+        {/* Title */}
+        <div className="flex items-center px-4 py-2 flex-shrink-0">
+          <h2 className="text-base font-semibold text-foreground leading-tight">
             Display Coverage
-          </h1>
-          <button
-            type="button"
-            onClick={goToNextPhase}
-            className="text-sm font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
-          >
-            Continue to Review &rarr;
-          </button>
+          </h2>
         </div>
 
         {/* View mode + Filter pills */}

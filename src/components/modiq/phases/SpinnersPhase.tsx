@@ -57,7 +57,6 @@ export function SpinnersPhase() {
     approveAllReviewItems,
     scoreMap,
     factorsMap,
-    goToNextPhase,
   } = useMappingPhase();
   const dnd = useDragAndDrop();
 
@@ -630,18 +629,11 @@ export function SpinnersPhase() {
           </span>
         </div>
 
-        {/* Title + Continue */}
-        <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
-          <h1 className="text-[22px] font-bold text-foreground leading-tight">
+        {/* Title */}
+        <div className="flex items-center px-4 py-2 flex-shrink-0">
+          <h2 className="text-base font-semibold text-foreground leading-tight">
             Submodel Groups
-          </h1>
-          <button
-            type="button"
-            onClick={goToNextPhase}
-            className="text-sm font-semibold px-5 py-2 rounded-md border-none bg-accent text-white cursor-pointer hover:brightness-110 transition-all"
-          >
-            Continue to Display Coverage &rarr;
-          </button>
+          </h2>
         </div>
 
         {/* View mode + Filter pills */}

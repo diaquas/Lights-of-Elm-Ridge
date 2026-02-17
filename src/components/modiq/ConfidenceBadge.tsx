@@ -22,7 +22,7 @@ function getConfidenceTier(score: number): "high" | "medium" | "low" | "none" {
 }
 
 const TIER_CLASSES = {
-  high: "bg-green-500/15 text-green-400 border-green-500/30",
+  high: "bg-foreground/5 text-foreground/35 border-foreground/10",
   medium: "bg-amber-500/15 text-amber-400 border-amber-500/30",
   low: "bg-amber-500/10 text-amber-400/70 border-amber-500/20",
   none: "bg-foreground/5 text-foreground/30 border-foreground/10",

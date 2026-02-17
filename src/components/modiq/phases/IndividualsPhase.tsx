@@ -60,7 +60,6 @@ export function IndividualsPhase() {
     approveAllReviewItems,
     scoreMap,
     factorsMap,
-    goToNextPhase,
   } = useMappingPhase();
   const dnd = useDragAndDrop();
 
@@ -542,8 +541,89 @@ export function IndividualsPhase() {
     <div className="flex h-full overflow-hidden">
       {/* Left: Model List */}
       <div className="w-1/2 flex flex-col border-r border-border overflow-hidden">
+<<<<<<< claude/redesign-modiqu-ux-1TRpO
         {/* Toolbar: Search + Sort + Filter + View mode + Continue — single row */}
         <div className="px-3 py-1.5 border-b border-border flex-shrink-0">
+=======
+        {/* Title */}
+        <div className="flex items-center px-4 py-2 flex-shrink-0">
+          <h2 className="text-base font-semibold text-foreground leading-tight">
+            Groups &amp; Models
+          </h2>
+        </div>
+
+        <div className={PANEL_STYLES.header.wrapper}>
+          <div className="flex items-center gap-2">
+            <FilterPill
+              label={`All (${phaseItems.length})`}
+              color="blue"
+              active={statusFilter === "all" && !bannerFilter}
+              onClick={() => {
+                setBannerFilter(null);
+                setStatusFilter("all");
+                setSortVersion((v) => v + 1);
+              }}
+            />
+            {hasSuperGroups && (
+              <FilterPill
+                label={`Display-Wide (${superGroupCount})`}
+                color="purple"
+                active={statusFilter === "display-wide" && !bannerFilter}
+                onClick={() => {
+                  setBannerFilter(null);
+                  setStatusFilter("display-wide");
+                  setSortVersion((v) => v + 1);
+                }}
+              />
+            )}
+            <FilterPill
+              label={`Mapped (${mappedCount})`}
+              color="green"
+              active={statusFilter === "mapped" && !bannerFilter}
+              onClick={() => {
+                setBannerFilter(null);
+                setStatusFilter("mapped");
+                setSortVersion((v) => v + 1);
+              }}
+            />
+            <FilterPill
+              label={`Unmapped (${unmappedCount})`}
+              color="amber"
+              active={statusFilter === "unmapped" && !bannerFilter}
+              onClick={() => {
+                setBannerFilter(null);
+                setStatusFilter("unmapped");
+                setSortVersion((v) => v + 1);
+              }}
+            />
+            {/* View mode toggle: All / Groups / Models */}
+            <div className="ml-auto flex items-center gap-2">
+              {phaseZeroEffectItems.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAllModels((v) => !v);
+                    setSortVersion((v) => v + 1);
+                  }}
+                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                    showAllModels
+                      ? "border-accent/40 bg-accent/10 text-accent"
+                      : "border-border text-foreground/40 hover:text-foreground/60"
+                  }`}
+                >
+                  {showAllModels
+                    ? `All Models (${phaseItems.length + phaseZeroEffectItems.length})`
+                    : `With Effects (${phaseItems.length})`}
+                </button>
+              )}
+              <ViewModePills value={viewMode} onChange={setViewMode} />
+            </div>
+          </div>
+        </div>
+
+        {/* Search + Sort */}
+        <div className={PANEL_STYLES.search.wrapper}>
+>>>>>>> main
           <div className="flex items-center gap-2">
             {/* Search */}
             <div className="relative flex-1 min-w-0">
