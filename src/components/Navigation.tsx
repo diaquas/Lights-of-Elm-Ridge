@@ -16,9 +16,8 @@ const navLinks = [
 ];
 
 const toolsLinks = [
-  { href: "/modiq", label: "ModIQ", badge: "NEW" },
-  { href: "/beatiq", label: "BeatIQ", badge: "NEW" },
-  { href: "/lyriq", label: "LyrIQ", badge: "NEW" },
+  { href: "/trkiq", label: "TRK:IQ", badge: "NEW" },
+  { href: "/modiq", label: "ModIQ" },
   { href: "/build-your-show", label: "Shop Wizard" },
 ];
 
