@@ -70,6 +70,7 @@ export async function runPipeline(
   file: File,
   metadata: SongMetadata,
   onProgress: ProgressCallback,
+  existingLyrics?: LyricsData | null,
 ): Promise<TrkiqResult> {
   const steps: TrkiqPipelineStep[] = [
     "decode",
@@ -272,17 +273,21 @@ export async function runPipeline(
   update("analyze", "done");
 
   // ── Step 4: Lyrics ────────────────────────────────────────────────
-  update("lyrics", "active", "Searching for lyrics...");
-  let lyrics: LyricsData | null = null;
+  let lyrics: LyricsData | null = existingLyrics ?? null;
   let vocalTracks: VocalTrack[] = [];
   let lyriqStats: LyriqStats | null = null;
 
-  try {
-    lyrics =
-      (await fetchLyrics(metadata.artist, metadata.title)) ||
-      (await searchLyrics(`${metadata.artist} ${metadata.title}`));
-  } catch {
-    // Lyrics fetch failed — not critical
+  if (lyrics && lyrics.plainText.trim().length > 0) {
+    update("lyrics", "active", "Using pre-loaded lyrics...");
+  } else {
+    update("lyrics", "active", "Searching for lyrics...");
+    try {
+      lyrics =
+        (await fetchLyrics(metadata.artist, metadata.title)) ||
+        (await searchLyrics(`${metadata.artist} ${metadata.title}`));
+    } catch {
+      // Lyrics fetch failed — not critical
+    }
   }
 
   if (lyrics && lyrics.plainText.trim().length > 0) {

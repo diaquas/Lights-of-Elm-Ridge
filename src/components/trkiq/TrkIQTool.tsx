@@ -14,6 +14,7 @@ import type {
 } from "@/lib/trkiq/types";
 import { runPipeline } from "@/lib/trkiq/pipeline";
 import { checkDemucsAvailable } from "@/lib/trkiq/replicate-client";
+import { fetchLyrics, searchLyrics } from "@/lib/trkiq/lrclib-client";
 import UploadScreen from "./UploadScreen";
 import ProcessingScreen from "./ProcessingScreen";
 import EditorScreen from "./EditorScreen";
@@ -64,7 +65,27 @@ export default function TrkIQTool() {
   }, []);
 
   const setMetadata = useCallback((metadata: SongMetadata) => {
-    setSession((prev) => ({ ...prev, metadata }));
+    setSession((prev) => ({ ...prev, metadata, lyricsFetching: true }));
+
+    // Auto-fetch lyrics from LRCLIB using the extracted metadata
+    const { artist, title } = metadata;
+    if (artist && title) {
+      (async () => {
+        const result =
+          (await fetchLyrics(artist, title)) ||
+          (await searchLyrics(`${artist} ${title}`));
+
+        setSession((prev) => {
+          // Don't overwrite user-pasted lyrics
+          if (prev.lyrics?.source === "user") {
+            return { ...prev, lyricsFetching: false };
+          }
+          return { ...prev, lyrics: result, lyricsFetching: false };
+        });
+      })();
+    } else {
+      setSession((prev) => ({ ...prev, lyricsFetching: false }));
+    }
   }, []);
 
   const setAudio = useCallback((file: File, url: string) => {
@@ -117,6 +138,7 @@ export default function TrkIQTool() {
             durationMs: 0,
           },
           updatePipeline,
+          session.lyrics,
         );
 
         setResults(
@@ -133,7 +155,7 @@ export default function TrkIQTool() {
         // Stay on processing screen so the user can see what failed
       }
     },
-    [session.metadata, setScreen, updatePipeline, setResults],
+    [session.metadata, session.lyrics, setScreen, updatePipeline, setResults],
   );
 
   const handleReset = useCallback(() => {
@@ -169,6 +191,7 @@ export default function TrkIQTool() {
         <UploadScreen
           metadata={session.metadata}
           lyrics={session.lyrics}
+          lyricsFetching={session.lyricsFetching}
           stemsAvailable={session.stemsAvailable}
           onAudioLoad={setAudio}
           onMetadataLoad={setMetadata}
