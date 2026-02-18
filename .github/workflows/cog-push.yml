@@ -49,6 +49,8 @@ jobs:
     needs: detect
     if: needs.detect.outputs.essentia == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.hash }}
     steps:
       - uses: actions/checkout@v4
 
@@ -74,10 +76,27 @@ jobs:
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
 
+      - name: Get latest version hash from Replicate
+        id: version
+        run: |
+          HASH=$(curl -sf -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+            "https://api.replicate.com/v1/models/diaquas/essentia-onset/versions" \
+            | jq -r '.results[0].id')
+          if [ -z "$HASH" ] || [ "$HASH" = "null" ]; then
+            echo "::error::Failed to fetch essentia-onset version hash"
+            exit 1
+          fi
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "New essentia-onset version: $HASH"
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
   push-forcealign:
     needs: detect
     if: needs.detect.outputs.forcealign == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.hash }}
     steps:
       - uses: actions/checkout@v4
 
@@ -102,3 +121,62 @@ jobs:
           cog push "r8.im/diaquas/force-align"
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
+      - name: Get latest version hash from Replicate
+        id: version
+        run: |
+          HASH=$(curl -sf -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+            "https://api.replicate.com/v1/models/diaquas/force-align/versions" \
+            | jq -r '.results[0].id')
+          if [ -z "$HASH" ] || [ "$HASH" = "null" ]; then
+            echo "::error::Failed to fetch force-align version hash"
+            exit 1
+          fi
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "New force-align version: $HASH"
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
+  # After pushes complete, update the edge function version hashes and commit.
+  # The commit to supabase/functions/ auto-triggers deploy-edge-functions.yml.
+  update-versions:
+    needs: [push-essentia, push-forcealign]
+    if: always() && (needs.push-essentia.result == 'success' || needs.push-forcealign.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update essentia-onset version hash
+        if: needs.push-essentia.result == 'success'
+        run: |
+          NEW_HASH="${{ needs.push-essentia.outputs.version }}"
+          FILE="supabase/functions/essentia-onset/index.ts"
+          sed -i "/ESSENTIA_VERSION =$/{n;s/\"[a-f0-9]\{64\}\"/\"${NEW_HASH}\"/}" "$FILE"
+          echo "Updated ESSENTIA_VERSION to $NEW_HASH"
+          grep -A1 "ESSENTIA_VERSION" "$FILE"
+
+      - name: Update force-align version hash
+        if: needs.push-forcealign.result == 'success'
+        run: |
+          NEW_HASH="${{ needs.push-forcealign.outputs.version }}"
+          FILE="supabase/functions/force-align/index.ts"
+          sed -i "/FORCE_ALIGN_VERSION =$/{n;s/\"[a-f0-9]\{64\}\"/\"${NEW_HASH}\"/}" "$FILE"
+          echo "Updated FORCE_ALIGN_VERSION to $NEW_HASH"
+          grep -A1 "FORCE_ALIGN_VERSION" "$FILE"
+
+      - name: Commit and push version updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/essentia-onset/index.ts supabase/functions/force-align/index.ts
+          if git diff --cached --quiet; then
+            echo "No version changes to commit"
+          else
+            git commit -m "chore: auto-update Replicate model version hashes
+
+          Triggered by cog-push workflow after successful model push.
+          This commit auto-triggers edge function redeployment."
+            git push
+          fi
