@@ -10,7 +10,6 @@ import {
   parseRgbEffectsXml,
   getSourceModelsForSequence,
   sourceModelToParsedModel,
-  matchModels,
   generateXmap,
   downloadXmap,
   generateMappingReport,
@@ -39,6 +38,13 @@ import type {
   DisplayCoverage,
 } from "@/lib/modiq";
 import { isDmxModel, getActiveSourceNamesForExport } from "@/lib/modiq";
+import {
+  runAIPipeline,
+  buildPipelineConfigFromEnv,
+  storeMappingEvents,
+  buildSessionEvents,
+  detectVendor,
+} from "@/lib/modiq";
 import { sequences } from "@/data/sequences";
 import { getMockupVideoId } from "@/data/youtube-loader";
 import { usePurchasedSequences } from "@/hooks/usePurchasedSequences";
@@ -419,15 +425,24 @@ export default function ModIQTool() {
     const estimate = Math.round(srcModels.length * 0.85);
     setProcessingStats((s) => ({ ...s, matchEstimate: estimate }));
 
-    // Let the climb animation run visibly before the sync matchModels call
-    // blocks the main thread. Use setTimeout to flush pending rAF frames.
+    // Let the climb animation run visibly before the AI pipeline runs.
     await delay(800);
     const srcSuperGroups = detectModelSuperGroups(srcModels);
     const destSuperGroups = detectModelSuperGroups(userLayout.models);
     const superGroupSets = { source: srcSuperGroups, dest: destSuperGroups };
-    const result = await new Promise<ReturnType<typeof matchModels>>((resolve) => {
-      setTimeout(() => resolve(matchModels(srcModels, userLayout.models, superGroupSets)), 0);
+    // AI-enhanced matching: dictionary lookup → algorithm → embeddings → LLM
+    const pipelineConfig = buildPipelineConfigFromEnv({
+      vendorHint: detectVendor(
+        srcModels[0]?.name ?? "",
+        sourceFile?.name,
+      ),
     });
+    const result = await runAIPipeline(
+      srcModels,
+      userLayout.models,
+      pipelineConfig,
+      superGroupSets,
+    );
 
     // Animate from climb position up to actual result (600ms ease-out in counter)
     setProcessingStats((s) => ({
@@ -2197,6 +2212,35 @@ function InteractiveResults({
   const doExport = useCallback(
     (boostLines?: { userGroupName: string; sourceGroupName: string }[]) => {
       const result = interactive.toMappingResult();
+
+      // Store user's confirmed/corrected mappings in the dictionary (non-blocking)
+      if (initialResult) {
+        const originalMappings = initialResult.mappings.map((m) => ({
+          sourceName: m.sourceModel.name,
+          sourceType: m.sourceModel.isGroup ? "group" : "model",
+          sourcePixelCount: m.sourceModel.pixelCount,
+          destName: m.destModel?.name ?? null,
+          destType: m.destModel?.isGroup ? "group" : (m.destModel?.type ?? "model"),
+          destPixelCount: m.destModel?.pixelCount ?? null,
+        }));
+        const finalMappings = result.mappings.map((m) => ({
+          sourceName: m.sourceModel.name,
+          sourceType: m.sourceModel.isGroup ? "group" : "model",
+          sourcePixelCount: m.sourceModel.pixelCount,
+          destName: m.destModel?.name ?? null,
+          destType: m.destModel?.isGroup ? "group" : (m.destModel?.type ?? "model"),
+          destPixelCount: m.destModel?.pixelCount ?? null,
+        }));
+        const vendorHint = detectVendor(
+          sourceModels[0]?.name ?? "",
+          sourceFileName,
+        );
+        const events = buildSessionEvents(originalMappings, finalMappings, vendorHint);
+        storeMappingEvents(events).catch(() => {
+          // Dictionary storage is best-effort — never block export
+        });
+      }
+
       // Only export mappings for source layers that have effects (reduces red rows in xLights)
       const activeSourceNames = effectTree
         ? getActiveSourceNamesForExport(effectTree)
@@ -2263,6 +2307,9 @@ function InteractiveResults({
       destModels,
       effectTree,
       clearSavedSession,
+      initialResult,
+      sourceModels,
+      sourceFileName,
     ],
   );
 
