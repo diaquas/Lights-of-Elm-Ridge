@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "essentia-onset",
         model: ESSENTIA_MODEL,
-        v: 5,
+        v: 6,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -67,6 +67,28 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
+
+    // Debug action — hits the Replicate model endpoint to verify visibility
+    if (body.action === "test") {
+      const modelRes = await fetch(
+        `${REPLICATE_API}/models/${ESSENTIA_MODEL}`,
+        {
+          headers: { Authorization: `Bearer ${replicateToken}` },
+        },
+      );
+      const modelBody = await modelRes.text();
+      return new Response(
+        JSON.stringify({
+          replicateStatus: modelRes.status,
+          replicateUrl: `${REPLICATE_API}/models/${ESSENTIA_MODEL}`,
+          replicateResponse: modelBody.slice(0, 2000),
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }
 
     if (body.action === "start" && body.stemUrl && body.stemType) {
       return await handleStart(
