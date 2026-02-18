@@ -194,6 +194,7 @@ jobs:
             git commit -m "chore: auto-update Replicate model version hashes
 
           Triggered by cog-push workflow after successful model push."
+            git pull --rebase
             git push
           fi
 
