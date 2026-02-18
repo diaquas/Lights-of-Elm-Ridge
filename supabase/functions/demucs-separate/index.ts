@@ -47,7 +47,12 @@ Deno.serve(async (req: Request) => {
   // Health check — visit the URL in a browser to verify deployment
   if (req.method === "GET") {
     return new Response(
-      JSON.stringify({ ok: true, function: "demucs-separate", version: DEMUCS_VERSION.slice(0, 12), v: 4 }),
+      JSON.stringify({
+        ok: true,
+        function: "demucs-separate",
+        version: DEMUCS_VERSION.slice(0, 12),
+        v: 4,
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -175,8 +180,13 @@ async function handleStatus(
     status: prediction.status,
   };
 
-  if (prediction.status === "succeeded" && prediction.output) {
-    result.stems = normalizeStemOutput(prediction.output);
+  if (prediction.status === "succeeded") {
+    if (prediction.output) {
+      result.stems = normalizeStemOutput(prediction.output);
+    } else {
+      result.status = "failed";
+      result.error = "Model succeeded but returned no output";
+    }
   }
 
   if (prediction.status === "failed") {
