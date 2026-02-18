@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "force-align",
         model: FORCE_ALIGN_MODEL,
-        v: 4,
+        v: 5,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -100,21 +100,25 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  const response = await fetch(`${REPLICATE_API}/predictions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${replicateToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: FORCE_ALIGN_MODEL,
-      input: {
-        audio_file: vocalsUrl,
-        transcript,
-        show_probabilities: true,
+  // Use models endpoint — auto-resolves to latest version after each cog push
+  const response = await fetch(
+    `${REPLICATE_API}/models/${FORCE_ALIGN_MODEL}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${replicateToken}`,
+        "Content-Type": "application/json",
+        Prefer: "respond-async",
       },
-    }),
-  });
+      body: JSON.stringify({
+        input: {
+          audio_file: vocalsUrl,
+          transcript,
+          show_probabilities: true,
+        },
+      }),
+    },
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
