@@ -90,9 +90,9 @@ describe("audio-analyzer", () => {
       const numSamples = Math.floor(sampleRate * duration);
       const samples = new Float32Array(numSamples);
 
-      // 100Hz sine wave (should appear in the kick band)
+      // 65Hz sine wave (should appear in the kick band 50-80Hz)
       for (let i = 0; i < numSamples; i++) {
-        samples[i] = Math.sin((2 * Math.PI * 100 * i) / sampleRate);
+        samples[i] = Math.sin((2 * Math.PI * 65 * i) / sampleRate);
       }
 
       const config = {
@@ -143,9 +143,9 @@ describe("audio-analyzer", () => {
       const numSamples = Math.floor(sampleRate * duration);
       const samples = new Float32Array(numSamples);
 
-      // 100Hz sine = kick band (20-150Hz)
+      // 65Hz sine = kick band (50-80Hz)
       for (let i = 0; i < numSamples; i++) {
-        samples[i] = Math.sin((2 * Math.PI * 100 * i) / sampleRate);
+        samples[i] = Math.sin((2 * Math.PI * 65 * i) / sampleRate);
       }
 
       const config = {

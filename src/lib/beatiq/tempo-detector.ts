@@ -343,16 +343,16 @@ export function detectSections(
     const m = merged[i];
     let label: string;
     if (i === 0 && !m.isHigh) {
-      label = "INTRO";
+      label = "Intro";
     } else if (i === total - 1 && !m.isHigh) {
-      label = "OUTRO";
+      label = "Outro";
     } else if (m.isHigh) {
-      label = `CHORUS ${sections.filter((s) => s.label.startsWith("CHORUS")).length + 1}`;
+      label = `Chorus ${sections.filter((s) => s.label.startsWith("Chorus")).length + 1}`;
     } else {
       const verseCount = sections.filter(
-        (s) => s.label.startsWith("VERSE") || s.label.startsWith("BREAKDOWN"),
+        (s) => s.label.startsWith("Verse") || s.label.startsWith("Breakdown"),
       ).length;
-      label = verseCount === 0 ? "VERSE 1" : `VERSE ${verseCount + 1}`;
+      label = verseCount === 0 ? "Verse 1" : `Verse ${verseCount + 1}`;
     }
 
     sections.push({
@@ -365,7 +365,7 @@ export function detectSections(
   // If no sections at all, return one big section
   if (sections.length === 0) {
     sections.push({
-      label: "FULL SONG",
+      label: "Full Song",
       startMs: 0,
       endMs: Math.round(durationMs),
     });

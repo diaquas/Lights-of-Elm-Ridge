@@ -34,14 +34,14 @@ from scipy.signal import butter, sosfiltfilt  # noqa: E402
 # and minimum intervals to produce distinct onset tracks.
 DRUM_BANDS = {
     "kick": {
-        "low_hz": 20,
-        "high_hz": 120,      # Kick fundamental lives 40-100 Hz
+        "low_hz": 50,
+        "high_hz": 80,       # Tight kick fundamental only (50-80 Hz)
         "threshold": 0.6,    # Higher — kick is typically loudest
         "min_interval_ms": 180,  # Kicks rarely < 180ms apart
     },
     "snare": {
-        "low_hz": 150,
-        "high_hz": 450,      # Snare body 150-400 Hz (NOT 2kHz)
+        "low_hz": 1000,
+        "high_hz": 3000,     # Snare crack/attack lives 1-3 kHz
         "threshold": 0.45,   # Medium — snare varies more in level
         "min_interval_ms": 140,  # Snares rarely < 140ms apart
     },
@@ -150,8 +150,9 @@ class Predictor(BasePredictor):
         """Detect song structure boundaries using chroma novelty.
 
         Computes HPCP (chroma) features per frame, builds a self-similarity
-        matrix, and finds peaks in the novelty curve (large timbral/harmonic
-        changes). Returns section boundaries with generic labels.
+        matrix, and finds peaks in a smoothed novelty curve.  Labels sections
+        using per-section RMS energy and chroma similarity (repeating sections
+        get the same label family) rather than position-based templates.
         """
         sr = 44100
         hop = 4096  # ~93ms per frame — good resolution for structure
@@ -172,7 +173,7 @@ class Predictor(BasePredictor):
             freqs, mags = peaks(spectrum)
             chroma_frames.append(hpcp(freqs, mags))
 
-        if len(chroma_frames) < 16:
+        if len(chroma_frames) < 32:
             return []
 
         chroma = np.array(chroma_frames)
@@ -184,12 +185,12 @@ class Predictor(BasePredictor):
         # Self-similarity matrix (cosine similarity)
         ssm = chroma @ chroma.T
 
-        # Novelty curve: sum of checkerboard kernel along the diagonal
-        kernel_size = 16  # ~1.5s context on each side
+        # Novelty curve: checkerboard kernel along the diagonal
+        # Larger kernel (~3s context each side) captures structural changes
+        kernel_size = 32
         n = ssm.shape[0]
         novelty = np.zeros(n)
         for i in range(kernel_size, n - kernel_size):
-            # Compare block before vs after this point
             before = ssm[i - kernel_size : i, i - kernel_size : i]
             after = ssm[i : i + kernel_size, i : i + kernel_size]
             cross = ssm[i - kernel_size : i, i : i + kernel_size]
@@ -197,13 +198,24 @@ class Predictor(BasePredictor):
                 np.mean(before) + np.mean(after) - 2 * np.mean(cross)
             )
 
-        # Normalize novelty
+        # Smooth novelty curve to suppress noisy peaks
+        smooth_len = 5
+        kernel = np.ones(smooth_len) / smooth_len
+        novelty = np.convolve(novelty, kernel, mode="same")
+
+        # Normalize
         max_nov = np.max(novelty)
         if max_nov > 0:
             novelty /= max_nov
 
-        # Find peaks above threshold (significant structural changes)
-        threshold = 0.3
+        # Adaptive threshold: mean + 0.5*std of positive novelty values
+        positive = novelty[novelty > 0]
+        if len(positive) > 0:
+            threshold = float(np.mean(positive) + 0.5 * np.std(positive))
+            threshold = max(0.2, min(threshold, 0.6))
+        else:
+            threshold = 0.3
+
         min_section_frames = int(8.0 * sr / hop)  # Minimum 8s per section
         boundary_frames = []
         for i in range(1, len(novelty) - 1):
@@ -212,74 +224,120 @@ class Predictor(BasePredictor):
                 and novelty[i] > novelty[i - 1]
                 and novelty[i] > novelty[i + 1]
             ):
-                # Check minimum distance from last boundary
                 if (
                     not boundary_frames
                     or (i - boundary_frames[-1]) >= min_section_frames
                 ):
                     boundary_frames.append(i)
 
-        # Convert frame indices to time and build labeled sections
+        # Build unlabeled sections
         frame_to_sec = hop / sr
         duration_s = len(audio_data) / sr
-        sections = []
-
-        # Always start with the beginning
         all_boundaries = [0] + boundary_frames + [len(novelty) - 1]
 
-        section_labels = self._generate_section_labels(len(all_boundaries) - 1)
-
+        sections = []
         for i in range(len(all_boundaries) - 1):
             start_s = all_boundaries[i] * frame_to_sec
             end_s = all_boundaries[i + 1] * frame_to_sec
-            # Clamp to song duration
             end_s = min(end_s, duration_s)
             sections.append({
-                "label": section_labels[i],
+                "label": "",
                 "start": round(start_s, 3),
                 "end": round(end_s, 3),
             })
 
+        if not sections:
+            return []
+        if len(sections) == 1:
+            sections[0]["label"] = "Full Song"
+            return sections
+
+        # --- Energy + chroma-similarity labeling ---
+        self._label_sections(sections, chroma, audio_data, sr, hop)
         return sections
 
     @staticmethod
-    def _generate_section_labels(count):
-        """Generate generic section labels.
+    def _label_sections(sections, chroma, audio_data, sr, hop):
+        """Label sections using RMS energy and chroma similarity.
 
-        Uses a repeating pattern that maps roughly to common song structures:
-        Intro, Verse, Chorus, Verse, Chorus, Bridge, Chorus, Outro.
-        Falls back to numbered sections if the song has an unusual structure.
+        High-energy sections → Chorus, lower-energy → Verse.
+        Sections with similar chroma profiles get the same label family.
+        Unique low-energy sections between choruses → Bridge.
+        First/last low-energy sections → Intro/Outro.
         """
-        if count <= 0:
-            return []
+        n = len(sections)
 
-        # Common song structures by section count
-        templates = {
-            1: ["Full Song"],
-            2: ["Verse", "Chorus"],
-            3: ["Intro", "Verse", "Chorus"],
-            4: ["Intro", "Verse 1", "Chorus 1", "Outro"],
-            5: ["Intro", "Verse 1", "Chorus 1", "Verse 2", "Chorus 2"],
-            6: ["Intro", "Verse 1", "Chorus 1", "Verse 2", "Chorus 2", "Outro"],
-            7: [
-                "Intro", "Verse 1", "Chorus 1", "Verse 2",
-                "Chorus 2", "Bridge", "Outro",
-            ],
-            8: [
-                "Intro", "Verse 1", "Chorus 1", "Verse 2",
-                "Chorus 2", "Bridge", "Chorus 3", "Outro",
-            ],
-            9: [
-                "Intro", "Verse 1", "Pre-Chorus", "Chorus 1",
-                "Verse 2", "Pre-Chorus", "Chorus 2", "Bridge", "Outro",
-            ],
-        }
+        # Per-section RMS energy
+        energies = []
+        for s in sections:
+            i0 = int(s["start"] * sr)
+            i1 = min(int(s["end"] * sr), len(audio_data))
+            seg = audio_data[i0:i1]
+            energies.append(float(np.sqrt(np.mean(seg ** 2))) if len(seg) > 0 else 0.0)
+        energies = np.array(energies)
+        median_e = float(np.median(energies))
 
-        if count in templates:
-            return templates[count]
+        # Per-section mean chroma (for finding repeating sections)
+        section_chromas = []
+        for s in sections:
+            f0 = int(s["start"] * sr / hop)
+            f1 = min(int(s["end"] * sr / hop), len(chroma))
+            if f0 < f1:
+                mc = np.mean(chroma[f0:f1], axis=0)
+                norm = np.linalg.norm(mc)
+                if norm > 0:
+                    mc = mc / norm
+                section_chromas.append(mc)
+            else:
+                section_chromas.append(np.zeros(12))
 
-        # Fallback: numbered sections
-        return [f"Section {i + 1}" for i in range(count)]
+        # Group similar sections (union-find by chroma cosine similarity)
+        groups = list(range(n))
+        sim_threshold = 0.85
+        for i in range(n):
+            for j in range(i + 1, n):
+                if np.dot(section_chromas[i], section_chromas[j]) >= sim_threshold:
+                    old_g, new_g = groups[j], groups[i]
+                    for k in range(n):
+                        if groups[k] == old_g:
+                            groups[k] = new_g
+
+        # Compute mean energy per group
+        unique_groups = sorted(set(groups))
+        group_energy = {}
+        for g in unique_groups:
+            members = [i for i in range(n) if groups[i] == g]
+            group_energy[g] = float(np.mean(energies[members]))
+
+        # Assign labels
+        duration_s = sections[-1]["end"]
+        chorus_num = 0
+        verse_num = 0
+        bridge_num = 0
+
+        for i in range(n):
+            s = sections[i]
+            is_high = energies[i] > median_e
+            is_first = (i == 0)
+            is_last = (i == n - 1)
+            near_start = s["end"] < duration_s * 0.15
+            near_end = s["start"] > duration_s * 0.85
+            group_size = sum(1 for g in groups if g == groups[i])
+
+            if is_first and not is_high and near_start:
+                s["label"] = "Intro"
+            elif is_last and not is_high and near_end:
+                s["label"] = "Outro"
+            elif is_high:
+                chorus_num += 1
+                s["label"] = f"Chorus {chorus_num}"
+            elif group_size == 1 and not is_first and not is_last:
+                # Unique section that doesn't repeat — likely a bridge
+                bridge_num += 1
+                s["label"] = "Bridge" if bridge_num == 1 else f"Bridge {bridge_num}"
+            else:
+                verse_num += 1
+                s["label"] = f"Verse {verse_num}"
 
     @staticmethod
     def _bandpass(audio, low_hz, high_hz, sr=44100, order=4):
