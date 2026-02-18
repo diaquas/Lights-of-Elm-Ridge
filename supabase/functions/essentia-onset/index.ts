@@ -9,7 +9,7 @@
 //   REPLICATE_API_TOKEN — Your Replicate API token
 //
 // Required env:
-//   ESSENTIA_MODEL — Replicate model name (e.g. "lightsofelmridge/essentia-onset")
+//   ESSENTIA_MODEL — Replicate model name (e.g. "diaquas/essentia-onset")
 
 /**
  * Validate request origin against allowlist.
@@ -34,9 +34,9 @@ function getCorsHeaders(req: Request): Record<string, string> {
 const REPLICATE_API = "https://api.replicate.com/v1";
 
 // Custom Essentia Cog model on Replicate.
-// Update this after deploying: cog push r8.im/lightsofelmridge/essentia-onset
+// Update this after deploying: cog push r8.im/diaquas/essentia-onset
 const ESSENTIA_MODEL =
-  Deno.env.get("ESSENTIA_MODEL") || "lightsofelmridge/essentia-onset";
+  Deno.env.get("ESSENTIA_MODEL") || "diaquas/essentia-onset";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);

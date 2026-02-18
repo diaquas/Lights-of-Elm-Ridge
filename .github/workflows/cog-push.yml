@@ -7,7 +7,7 @@ on:
       model_name:
         description: "Replicate model (e.g. your-username/essentia-onset)"
         required: true
-        default: "lightsofelmridge/essentia-onset"
+        default: "diaquas/essentia-onset"
 
   # Auto-push when cog model files change on dev or main
   push:
@@ -35,8 +35,8 @@ jobs:
       - name: Build and push to Replicate
         working-directory: cog/essentia-onset
         run: |
-          MODEL="${{ github.event.inputs.model_name || secrets.REPLICATE_MODEL_NAME || 'lightsofelmridge/essentia-onset' }}"
+          MODEL="${{ github.event.inputs.model_name || secrets.REPLICATE_MODEL_NAME || 'diaquas/essentia-onset' }}"
           echo "Pushing to r8.im/${MODEL}"
           cog push "r8.im/${MODEL}"
         env:
-          REPLICATE_API_TOKEN: ${{ secrets.COG_TOKEN }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
