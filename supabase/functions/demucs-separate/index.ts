@@ -112,22 +112,20 @@ async function handleStart(
     );
   }
 
-  // Create a Replicate prediction via model-based API (auto-resolves latest version)
-  const response = await fetch(
-    `${REPLICATE_API}/models/${DEMUCS_MODEL}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${replicateToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        input: {
-          audio: signedUrlData.signedUrl,
-        },
-      }),
+  // Create a Replicate prediction via unified predictions API
+  const response = await fetch(`${REPLICATE_API}/predictions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${replicateToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      model: DEMUCS_MODEL,
+      input: {
+        audio: signedUrlData.signedUrl,
+      },
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();

@@ -94,24 +94,22 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use the models endpoint (auto-resolves latest version)
-  const response = await fetch(
-    `${REPLICATE_API}/models/${FORCE_ALIGN_MODEL}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${replicateToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        input: {
-          audio_file: vocalsUrl,
-          transcript,
-          show_probabilities: true,
-        },
-      }),
+  // Use unified predictions API (model-based endpoint requires a default version)
+  const response = await fetch(`${REPLICATE_API}/predictions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${replicateToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      model: FORCE_ALIGN_MODEL,
+      input: {
+        audio_file: vocalsUrl,
+        transcript,
+        show_probabilities: true,
+      },
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();

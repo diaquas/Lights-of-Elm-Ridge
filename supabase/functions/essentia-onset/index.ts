@@ -103,23 +103,22 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  const response = await fetch(
-    `${REPLICATE_API}/models/${ESSENTIA_MODEL}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${replicateToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        input: {
-          audio: stemUrl,
-          stem_type: stemType,
-          onset_threshold: onsetThreshold,
-        },
-      }),
+  // Use unified predictions API (model-based endpoint requires a default version)
+  const response = await fetch(`${REPLICATE_API}/predictions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${replicateToken}`,
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      model: ESSENTIA_MODEL,
+      input: {
+        audio: stemUrl,
+        stem_type: stemType,
+        onset_threshold: onsetThreshold,
+      },
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
