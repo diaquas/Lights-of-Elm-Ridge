@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useRef,
-  useEffect,
-  useMemo,
-  useCallback,
-  memo,
-} from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import type { ParsedModel, Confidence, ModelMapping } from "@/lib/modiq";
 
@@ -44,15 +37,12 @@ export default memo(function PickMatchPopover({
     left: number;
     width: number;
   }>({ top: 0, left: 0, width: 380 });
-  const [mounted, setMounted] = useState(false);
+  const [ready, setReady] = useState(false);
 
+  // Position the popover to match left panel width (layout measurement)
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Position the popover to match left panel width
-  useEffect(() => {
-    if (!mounted || !anchorRef.current || !popoverRef.current) return;
+    if (ready) return;
+    if (!anchorRef.current || !popoverRef.current) return;
 
     const rect = anchorRef.current.getBoundingClientRect();
     const popoverHeight = popoverRef.current.offsetHeight;
@@ -88,8 +78,11 @@ export default memo(function PickMatchPopover({
     }
     if (left < 16) left = 16;
 
-    setPosition({ top, left, width });
-  }, [mounted, anchorRef]);
+    requestAnimationFrame(() => {
+      setPosition({ top, left, width });
+      setReady(true);
+    });
+  });
 
   // Close on click outside
   useEffect(() => {
@@ -143,12 +136,12 @@ export default memo(function PickMatchPopover({
     return () => document.removeEventListener("keydown", handler);
   }, []);
 
-  // Focus input on mount
+  // Focus input when ready
   useEffect(() => {
-    if (mounted) {
+    if (ready) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [mounted]);
+  }, [ready]);
 
   // Top 3 suggestions only
   const topSuggestions = useMemo(
@@ -215,9 +208,12 @@ export default memo(function PickMatchPopover({
     return items;
   }, [filteredSuggestions, filteredAvailable]);
 
-  useEffect(() => {
+  // Reset highlight index when search changes (derived state, not effect)
+  const [prevSearch, setPrevSearch] = useState(search);
+  if (prevSearch !== search) {
+    setPrevSearch(search);
     setHighlightIdx(0);
-  }, [search]);
+  }
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -251,7 +247,7 @@ export default memo(function PickMatchPopover({
     onClose();
   }, [onSkip, onClose]);
 
-  if (!mounted) return null;
+  if (!ready) return null;
 
   const popover = (
     <>
@@ -263,6 +259,7 @@ export default memo(function PickMatchPopover({
       />
       <div
         ref={popoverRef}
+        id="pick-match-listbox"
         role="listbox"
         className="fixed flex flex-col overflow-hidden rounded-[10px] border border-border bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03)]"
         style={{
@@ -293,6 +290,7 @@ export default memo(function PickMatchPopover({
               ref={inputRef}
               role="combobox"
               aria-expanded="true"
+              aria-controls="pick-match-listbox"
               aria-haspopup="listbox"
               type="text"
               placeholder="Search source models..."

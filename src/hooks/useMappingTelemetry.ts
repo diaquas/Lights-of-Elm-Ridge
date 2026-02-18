@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 export type MappingAction =
   | "drag_map"
@@ -56,7 +56,9 @@ export interface TelemetryAggregate {
 }
 
 export interface MappingTelemetry {
-  trackAction: (event: Omit<MappingEvent, "event" | "session" | "timestamp">) => void;
+  trackAction: (
+    event: Omit<MappingEvent, "event" | "session" | "timestamp">,
+  ) => void;
   getAggregate: () => TelemetryAggregate;
   getSessionId: () => string;
 }
@@ -74,14 +76,15 @@ export function useMappingTelemetry(sequenceSlug: string): MappingTelemetry {
     dragActions: 0,
     clickActions: 0,
     suggestionActions: 0,
-    startTime: Date.now(),
+    startTime: 0,
     exportTime: null,
   });
+  useEffect(() => {
+    aggregate.current.startTime = Date.now();
+  }, []);
 
   const trackAction = useCallback(
-    (
-      partial: Omit<MappingEvent, "event" | "session" | "timestamp">,
-    ) => {
+    (partial: Omit<MappingEvent, "event" | "session" | "timestamp">) => {
       const fullEvent: MappingEvent = {
         event: "mapping_action",
         session: sessionId.current,

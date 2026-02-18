@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { extractFamily } from "@/contexts/MappingPhaseContext";
 import type { SourceLayerMapping } from "@/hooks/useInteractiveMapping";
 
@@ -30,22 +30,27 @@ export function useItemFamilies(
         map.set(prefix, [item]);
       }
     }
-    return Array.from(map.entries())
-      .map(([prefix, familyItems]) => ({ prefix, items: familyItems }));
+    return Array.from(map.entries()).map(([prefix, familyItems]) => ({
+      prefix,
+      items: familyItems,
+    }));
   }, [items]);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Auto-expand family containing selected item
-  useEffect(() => {
-    if (!selectedId) return;
-    const family = families.find((f) =>
-      f.items.some((i) => i.sourceModel.name === selectedId),
-    );
-    if (family && family.items.length > 1 && !expanded.has(family.prefix)) {
-      setExpanded((prev) => new Set([...prev, family.prefix]));
+  // Auto-expand family containing selected item (derived state, not effect)
+  const [prevSelectedId, setPrevSelectedId] = useState(selectedId);
+  if (prevSelectedId !== selectedId) {
+    setPrevSelectedId(selectedId);
+    if (selectedId) {
+      const family = families.find((f) =>
+        f.items.some((i) => i.sourceModel.name === selectedId),
+      );
+      if (family && family.items.length > 1 && !expanded.has(family.prefix)) {
+        setExpanded((prev) => new Set([...prev, family.prefix]));
+      }
     }
-  }, [selectedId, families, expanded]);
+  }
 
   const toggle = (prefix: string) => {
     setExpanded((prev) => {
