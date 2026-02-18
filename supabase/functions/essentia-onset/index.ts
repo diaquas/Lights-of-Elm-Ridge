@@ -8,7 +8,7 @@
 // Required secrets:
 //   REPLICATE_API_TOKEN — Your Replicate API token
 //
-// Model: diaquas/essentia-onset (auto-resolves to latest version)
+// Model: diaquas/essentia-onset (pinned version hash)
 
 /**
  * Validate request origin against allowlist.
@@ -32,10 +32,11 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 
-// Custom Essentia Cog model on Replicate — auto-resolves to latest version.
-// Using model name (not pinned hash) so edge function always calls the latest
-// cog push without needing a version hash update.
+// Custom Essentia Cog model on Replicate — pinned version hash.
+// Update this after each cog push (get hash from Replicate model page).
 const ESSENTIA_MODEL = "diaquas/essentia-onset";
+const ESSENTIA_VERSION =
+  "dcc0f3b3d5be359c7f791ed53d232c0d743f6bd6c03a9359dd235065bff63511";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -51,7 +52,8 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "essentia-onset",
         model: ESSENTIA_MODEL,
-        v: 6,
+        version: ESSENTIA_VERSION.slice(0, 12),
+        v: 7,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -124,25 +126,23 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use models endpoint — auto-resolves to latest version after each cog push
-  const response = await fetch(
-    `${REPLICATE_API}/models/${ESSENTIA_MODEL}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${replicateToken}`,
-        "Content-Type": "application/json",
-        Prefer: "respond-async",
-      },
-      body: JSON.stringify({
-        input: {
-          audio: stemUrl,
-          stem_type: stemType,
-          onset_threshold: onsetThreshold,
-        },
-      }),
+  // Use /predictions with pinned version hash (same pattern as demucs)
+  const response = await fetch(`${REPLICATE_API}/predictions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${replicateToken}`,
+      "Content-Type": "application/json",
+      Prefer: "respond-async",
     },
-  );
+    body: JSON.stringify({
+      version: ESSENTIA_VERSION,
+      input: {
+        audio: stemUrl,
+        stem_type: stemType,
+        onset_threshold: onsetThreshold,
+      },
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();

@@ -33,8 +33,10 @@ function getCorsHeaders(req: Request): Record<string, string> {
 const REPLICATE_API = "https://api.replicate.com/v1";
 
 // diaquas/force-align — custom fork with refine crash fix
-// Uses model-name API until first version is pushed, then pin the hash here.
+// Pinned version hash — update after each cog push.
 const FORCE_ALIGN_MODEL = "diaquas/force-align";
+const FORCE_ALIGN_VERSION =
+  "88881aeb94551b6ff8d084091e0a41f50a85f649f86f07bf9c3d4077255be5c9";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -50,7 +52,8 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "force-align",
         model: FORCE_ALIGN_MODEL,
-        v: 6,
+        version: FORCE_ALIGN_VERSION.slice(0, 12),
+        v: 7,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -122,25 +125,23 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use models endpoint — auto-resolves to latest version after each cog push
-  const response = await fetch(
-    `${REPLICATE_API}/models/${FORCE_ALIGN_MODEL}/predictions`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${replicateToken}`,
-        "Content-Type": "application/json",
-        Prefer: "respond-async",
-      },
-      body: JSON.stringify({
-        input: {
-          audio_file: vocalsUrl,
-          transcript,
-          show_probabilities: true,
-        },
-      }),
+  // Use /predictions with pinned version hash (same pattern as demucs)
+  const response = await fetch(`${REPLICATE_API}/predictions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${replicateToken}`,
+      "Content-Type": "application/json",
+      Prefer: "respond-async",
     },
-  );
+    body: JSON.stringify({
+      version: FORCE_ALIGN_VERSION,
+      input: {
+        audio_file: vocalsUrl,
+        transcript,
+        show_probabilities: true,
+      },
+    }),
+  });
 
   if (!response.ok) {
     const errorText = await response.text();
