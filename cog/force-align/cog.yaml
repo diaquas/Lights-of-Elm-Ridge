@@ -1,13 +1,12 @@
 build:
   gpu: true
   python_version: "3.12"
-  pre_install:
-    - "pip install 'setuptools<82' wheel && pip install --no-build-isolation openai-whisper==20231117"
   python_packages:
-    - "stable-ts==2.16.0"
     - "torch==2.2.2"
     - "torchaudio==2.2.2"
     - "transformers==4.36.2"
+  run:
+    - "pip install 'setuptools<82' wheel && pip install --no-build-isolation openai-whisper==20231117 && pip install --no-build-isolation stable-ts==2.16.0"
   system_packages:
     - "ffmpeg"
 predict: "predict.py:Predictor"
