@@ -1,0 +1,62 @@
+name: Deploy Supabase Edge Functions
+
+on:
+  # Manual trigger — deploy one or all functions
+  workflow_dispatch:
+    inputs:
+      function_name:
+        description: "Function to deploy (or 'all' for everything)"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - essentia-onset
+          - force-align
+          - demucs-separate
+          - lrclib-proxy
+
+  # Auto-deploy when edge function code changes on main
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+
+concurrency:
+  group: deploy-edge-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link Supabase project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+
+      - name: Deploy functions
+        run: |
+          FUNCTION="${{ github.event.inputs.function_name || 'all' }}"
+
+          if [ "$FUNCTION" = "all" ]; then
+            echo "Deploying all edge functions..."
+            supabase functions deploy essentia-onset --no-verify-jwt
+            supabase functions deploy force-align --no-verify-jwt
+            supabase functions deploy demucs-separate --no-verify-jwt
+            supabase functions deploy lrclib-proxy --no-verify-jwt
+          else
+            echo "Deploying ${FUNCTION}..."
+            supabase functions deploy "$FUNCTION" --no-verify-jwt
+          fi
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
