@@ -151,9 +151,11 @@ export async function runPipeline(
   async function processBeats(stemsAvailable: boolean): Promise<BeatResult> {
     if (stemsAvailable && stems) {
       update("analyze", "active", "Running Essentia on stems...");
-      const essentiaResults = await analyzeStems(stems, (msg) =>
-        update("analyze", "active", msg),
-      );
+      let lastEssentiaMsg = "";
+      const essentiaResults = await analyzeStems(stems, (msg) => {
+        lastEssentiaMsg = msg;
+        update("analyze", "active", msg);
+      });
 
       if (essentiaResults.length > 0) {
         const { tracks, bpm } = buildTracksFromEssentia(
@@ -164,11 +166,12 @@ export async function runPipeline(
         return { tracks, bpm, essentia: true };
       }
 
-      // Essentia failed — fall back to local analysis
+      // Essentia returned no results — show the real error, fall back
+      const reason = lastEssentiaMsg || "no results";
       update(
         "analyze",
         "active",
-        "Essentia unavailable \u2014 analyzing audio locally...",
+        `Essentia failed (${reason}) \u2014 analyzing locally...`,
       );
     } else {
       update("analyze", "active", "Analyzing audio locally...");
@@ -177,7 +180,7 @@ export async function runPipeline(
     try {
       const fallback = await localBeatAnalysis(file, updatedMetadata, () => {});
       const detail = stemsAvailable
-        ? "Local beat analysis (Essentia unavailable)"
+        ? "Local beat analysis (Essentia failed)"
         : "Local beat analysis";
       update("analyze", "done", detail);
       return {
@@ -202,11 +205,17 @@ export async function runPipeline(
 
     // Try force-align if stems are available
     let alignedWords: AlignedWord[] | null = null;
+    let alignError = "";
     if (stemsAvailable && stems?.vocals) {
       update("lyrics", "active", "Running forced alignment on vocals...");
-      alignedWords = await runForceAlign(stems.vocals, lyrics!, (msg) =>
-        update("lyrics", "active", msg),
-      );
+      let lastAlignMsg = "";
+      alignedWords = await runForceAlign(stems.vocals, lyrics!, (msg) => {
+        lastAlignMsg = msg;
+        update("lyrics", "active", msg);
+      });
+      if (!alignedWords) {
+        alignError = lastAlignMsg;
+      }
     }
 
     if (alignedWords && alignedWords.length > 0) {
@@ -224,7 +233,7 @@ export async function runPipeline(
       const leadTrack = processAlignedWords(fallbackWords, "lead");
       const vTracks = [leadTrack];
       const detail = stemsAvailable
-        ? "Lyrics fallback (alignment unavailable)"
+        ? `Lyrics fallback (${alignError || "alignment unavailable"})`
         : undefined;
       update("lyrics", "done", detail);
       return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
@@ -322,8 +331,9 @@ async function runForceAlign(
     );
     const aligned = forceAlignToAlignedWords(wordstamps);
     return aligned.length > 0 ? aligned : null;
-  } catch {
-    onStatusUpdate("Alignment unavailable \u2014 using synced lyrics...");
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : "Unknown error";
+    onStatusUpdate(`Alignment failed: ${detail}`);
     return null;
   }
 }
