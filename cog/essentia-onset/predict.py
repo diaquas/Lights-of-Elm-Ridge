@@ -9,7 +9,7 @@ using bandpass filtering + HFC onset detection.
 
 Deploy:
   cog login
-  cog push r8.im/lightsofelmridge/essentia-onset
+  cog push r8.im/diaquas/essentia-onset
 """
 
 import json
