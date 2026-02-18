@@ -38,6 +38,11 @@ const REPLICATE_API = "https://api.replicate.com/v1";
 const ESSENTIA_MODEL =
   Deno.env.get("ESSENTIA_MODEL") || "diaquas/essentia-onset";
 
+// Pinned version hash — set ESSENTIA_VERSION env var after cog push.
+// When set, uses version-based API (same pattern as Demucs/Force-Align).
+// When unset, falls back to model-name-based API (requires default version).
+const ESSENTIA_VERSION = Deno.env.get("ESSENTIA_VERSION") || "";
+
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
 
@@ -52,7 +57,8 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "essentia-onset",
         model: ESSENTIA_MODEL,
-        v: 1,
+        version: ESSENTIA_VERSION ? ESSENTIA_VERSION.slice(0, 12) : "latest",
+        v: 2,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -103,21 +109,28 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use unified predictions API (model-based endpoint requires a default version)
+  // Use version hash when available (reliable, same as Demucs/Force-Align).
+  // Fall back to model-name-based API when no version is pinned.
+  const predictionBody: Record<string, unknown> = {
+    input: {
+      audio: stemUrl,
+      stem_type: stemType,
+      onset_threshold: onsetThreshold,
+    },
+  };
+  if (ESSENTIA_VERSION) {
+    predictionBody.version = ESSENTIA_VERSION;
+  } else {
+    predictionBody.model = ESSENTIA_MODEL;
+  }
+
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${replicateToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: ESSENTIA_MODEL,
-      input: {
-        audio: stemUrl,
-        stem_type: stemType,
-        onset_threshold: onsetThreshold,
-      },
-    }),
+    body: JSON.stringify(predictionBody),
   });
 
   if (!response.ok) {
