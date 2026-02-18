@@ -2,7 +2,8 @@
 Essentia Onset Detection — Cog model for Replicate.
 
 Accepts an audio stem file (.wav) and runs Essentia's onset detection,
-beat tracking, and BPM estimation. Tuned per stem type (drums, bass, other).
+beat tracking, and BPM estimation. Tuned per stem type (drums, bass, guitar,
+piano, other).
 
 For drums, also runs sub-band onset detection for kick, snare, and hi-hat
 using bandpass filtering + HFC onset detection.
@@ -39,7 +40,7 @@ class Predictor(BasePredictor):
         audio: Path = Input(description="Audio stem file (.wav or .mp3)"),
         stem_type: str = Input(
             description="Type of stem for algorithm tuning",
-            choices=["drums", "bass", "other"],
+            choices=["drums", "bass", "guitar", "piano", "other"],
             default="drums",
         ),
         onset_threshold: float = Input(
@@ -58,6 +59,8 @@ class Predictor(BasePredictor):
         method_map = {
             "drums": "hfc",  # High Frequency Content — best for percussive
             "bass": "complex",  # Complex domain — better for tonal onsets
+            "guitar": "complex",  # Complex domain — good for plucked/strummed tonal
+            "piano": "complex",  # Complex domain — good for struck tonal onsets
             "other": "melflux",  # Mel flux — general purpose melodic
         }
         method = method_map.get(stem_type, "complex")

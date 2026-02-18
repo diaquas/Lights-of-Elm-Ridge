@@ -13,8 +13,10 @@ export type {
   TimingMark,
   LabeledMark,
   TrackCategory,
+  TrackSource,
   FrequencyBand,
 } from "@/lib/beatiq/types";
+export type { VocalSource } from "@/lib/lyriq/types";
 
 /* -- Song Metadata ------------------------------------------------- */
 

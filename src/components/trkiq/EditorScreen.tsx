@@ -6,8 +6,9 @@ import type {
   TrkiqStats,
   BeatTrack,
   TrackCategory,
+  TrackSource,
 } from "@/lib/trkiq/types";
-import type { VocalTrack } from "@/lib/lyriq/types";
+import type { VocalTrack, VocalSource } from "@/lib/lyriq/types";
 import {
   generateCombinedXtiming,
   buildTrkiqFilename,
@@ -345,6 +346,11 @@ function BeatTrackRow({
       <span className="text-foreground text-sm font-medium truncate flex-1 min-w-0">
         {track.name}
       </span>
+      <SourceBadge
+        source={track.source}
+        confidenceRange={track.confidenceRange}
+        kind="beat"
+      />
       <span
         className={`text-xs ${categoryColor} opacity-70 flex-shrink-0 hidden sm:inline`}
       >
@@ -376,12 +382,101 @@ function VocalTrackRow({
       <span className="text-foreground text-sm font-medium truncate flex-1 min-w-0">
         {track.label}
       </span>
+      <SourceBadge
+        source={track.source}
+        confidenceRange={track.confidenceRange}
+        kind="vocal"
+      />
       <span className="text-xs text-purple-400 opacity-70 flex-shrink-0 hidden sm:inline">
         Singing Faces
       </span>
       <HitBadge count={wordCount} label="words" />
       <HitBadge count={phonemeCount} label="phonemes" />
     </div>
+  );
+}
+
+function formatConfidence(range?: [number, number]): string {
+  if (!range) return "";
+  const lo = Math.round(range[0] * 100);
+  const hi = Math.round(range[1] * 100);
+  return lo === hi ? `${lo}%` : `${lo}–${hi}%`;
+}
+
+function SourceBadge({
+  source,
+  confidenceRange,
+  kind,
+}: {
+  source?: TrackSource | VocalSource;
+  confidenceRange?: [number, number];
+  kind: "beat" | "vocal";
+}) {
+  if (!source) return null;
+
+  const confLabel = formatConfidence(confidenceRange);
+  const avg = confidenceRange
+    ? (confidenceRange[0] + confidenceRange[1]) / 2
+    : 0;
+
+  // Color based on source type and confidence level
+  let color: { text: string; bg: string; border: string; dot: string };
+  let label: string;
+
+  if (source === "ai") {
+    label = "AI";
+    if (avg >= 0.7) {
+      color = {
+        text: "text-green-400",
+        bg: "bg-green-500/10",
+        border: "border-green-500/20",
+        dot: "bg-green-400",
+      };
+    } else {
+      color = {
+        text: "text-amber-400",
+        bg: "bg-amber-500/10",
+        border: "border-amber-500/20",
+        dot: "bg-amber-400",
+      };
+    }
+  } else if (source === "local") {
+    label = "Local";
+    color = {
+      text: "text-foreground/50",
+      bg: "bg-foreground/5",
+      border: "border-foreground/10",
+      dot: "bg-foreground/40",
+    };
+  } else if (source === "synced") {
+    label = kind === "vocal" ? "Synced" : "Local";
+    color = {
+      text: "text-amber-400",
+      bg: "bg-amber-500/10",
+      border: "border-amber-500/20",
+      dot: "bg-amber-400",
+    };
+  } else {
+    label = "Est.";
+    color = {
+      text: "text-red-400/70",
+      bg: "bg-red-500/5",
+      border: "border-red-500/10",
+      dot: "bg-red-400/60",
+    };
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium border ${color.bg} ${color.border} ${color.text} flex-shrink-0`}
+      title={`Source: ${source}${confLabel ? ` | Confidence: ${confLabel}` : ""}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full ${color.dot}`} />
+      {label}
+      {confLabel && (
+        <span className="opacity-70 tabular-nums">{confLabel}</span>
+      )}
+    </span>
   );
 }
 
