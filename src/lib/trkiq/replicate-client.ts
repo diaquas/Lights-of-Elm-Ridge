@@ -75,15 +75,13 @@ async function callDemucsFunction(
   });
 
   if (error) {
-    // error.message contains the response body text from the function
-    let errMsg = error.message;
-    try {
-      const parsed = JSON.parse(errMsg);
-      errMsg = parsed.error || errMsg;
-    } catch {
-      // message is already a plain string
-    }
-    throw new Error(errMsg);
+    throw new Error(error.message);
+  }
+
+  // Edge functions return 200 with { error: "..." } for application errors
+  // so the SDK passes the body through instead of swallowing it.
+  if (data?.error) {
+    throw new Error(data.error);
   }
 
   return data as DemucsResponse;
