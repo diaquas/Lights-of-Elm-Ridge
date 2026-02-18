@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { PredictionStatus, StemSet } from "./types";
 
 const POLL_INTERVAL_MS = 2000;
-const MAX_POLL_ATTEMPTS = 90; // 3 minutes max
+const MAX_POLL_ATTEMPTS = 150; // 5 minutes — CPU models on Replicate have slow cold starts
 
 /** Result from the Essentia Cog model for a single stem */
 export interface EssentiaOnsetResult {

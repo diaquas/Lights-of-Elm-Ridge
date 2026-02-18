@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "demucs-separate",
         version: DEMUCS_VERSION.slice(0, 12),
-        v: 4,
+        v: 5,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

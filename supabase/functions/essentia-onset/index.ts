@@ -8,8 +8,7 @@
 // Required secrets:
 //   REPLICATE_API_TOKEN — Your Replicate API token
 //
-// Required env:
-//   ESSENTIA_MODEL — Replicate model name (e.g. "diaquas/essentia-onset")
+// Model: diaquas/essentia-onset (auto-resolves to latest version)
 
 /**
  * Validate request origin against allowlist.
@@ -33,10 +32,10 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 
-// Custom Essentia Cog model on Replicate — pinned version hash
-// Update after deploying: cog push r8.im/diaquas/essentia-onset
-const ESSENTIA_VERSION =
-  "1dd3847140cfdf9038e3e481d9c242d05373649c4db2f8c07f5fcdf907921ab8";
+// Custom Essentia Cog model on Replicate — auto-resolves to latest version.
+// Using model name (not pinned hash) so edge function always calls the latest
+// cog push without needing a version hash update.
+const ESSENTIA_MODEL = "diaquas/essentia-onset";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -51,8 +50,8 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         ok: true,
         function: "essentia-onset",
-        version: ESSENTIA_VERSION.slice(0, 12),
-        v: 3,
+        model: ESSENTIA_MODEL,
+        v: 4,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -103,7 +102,7 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use pinned version hash — same pattern as Demucs and Force-Align
+  // Use model name — auto-resolves to latest version after each cog push
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
@@ -111,7 +110,7 @@ async function handleStart(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      version: ESSENTIA_VERSION,
+      model: ESSENTIA_MODEL,
       input: {
         audio: stemUrl,
         stem_type: stemType,
