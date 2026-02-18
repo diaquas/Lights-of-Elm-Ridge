@@ -60,7 +60,6 @@ class Predictor(BasePredictor):
                 transcript,
                 language="en",
                 vad=True,
-                word_timestamps=True,
             )
         except Exception as e:
             # align() can crash on silent/empty audio segments.
