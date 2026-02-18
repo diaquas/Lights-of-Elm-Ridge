@@ -165,14 +165,20 @@ async function handleStatus(
     status: prediction.status,
   };
 
-  if (prediction.status === "succeeded" && prediction.output) {
-    // Output is the dict from predict.py: onsets, beats, bpm, etc.
-    // If the model returned a JSON string, parse it; otherwise use directly.
-    const output =
-      typeof prediction.output === "string"
-        ? JSON.parse(prediction.output)
-        : prediction.output;
-    result.output = output;
+  if (prediction.status === "succeeded") {
+    if (prediction.output) {
+      // Output from predict.py — JSON string (-> str) or object.
+      const output =
+        typeof prediction.output === "string"
+          ? JSON.parse(prediction.output)
+          : prediction.output;
+      result.output = output;
+    } else {
+      // Model succeeded but returned no output — surface as error
+      // so the client stops polling instead of spinning.
+      result.status = "failed";
+      result.error = "Model succeeded but returned no output";
+    }
   }
 
   if (prediction.status === "failed") {

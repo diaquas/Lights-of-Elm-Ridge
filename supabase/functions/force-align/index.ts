@@ -162,14 +162,21 @@ async function handleStatus(
     status: prediction.status,
   };
 
-  if (prediction.status === "succeeded" && prediction.output) {
-    // Output format varies: our model returns a JSON string,
-    // third-party models may return an object directly.
-    const output =
-      typeof prediction.output === "string"
-        ? JSON.parse(prediction.output)
-        : prediction.output;
-    result.wordstamps = output.wordstamps ?? output;
+  if (prediction.status === "succeeded") {
+    if (prediction.output) {
+      // Output format varies: our model returns a JSON string,
+      // third-party models may return an object directly.
+      const output =
+        typeof prediction.output === "string"
+          ? JSON.parse(prediction.output)
+          : prediction.output;
+      result.wordstamps = output.wordstamps ?? output;
+    } else {
+      // Model succeeded but returned no output — surface as error
+      // so the client stops polling instead of spinning.
+      result.status = "failed";
+      result.error = "Model succeeded but returned no output";
+    }
   }
 
   if (prediction.status === "failed") {

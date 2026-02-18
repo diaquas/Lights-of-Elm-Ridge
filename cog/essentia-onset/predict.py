@@ -39,7 +39,7 @@ class Predictor(BasePredictor):
             ge=0.0,
             le=1.0,
         ),
-    ) -> dict:
+    ) -> str:
         # Load audio at 44100 Hz mono
         audio_data = es.MonoLoader(filename=str(audio), sampleRate=44100)()
 
@@ -73,7 +73,7 @@ class Predictor(BasePredictor):
         results["beats"] = [round(float(t), 4) for t in rhythm[1]]
         results["beat_confidence"] = round(float(rhythm[2]), 3)
 
-        return results
+        return json.dumps(results)
 
     def _detect_onsets(self, audio_data, method, threshold):
         """Run frame-by-frame onset detection and return onset times (seconds)."""
