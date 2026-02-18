@@ -2,7 +2,7 @@ build:
   python_version: "3.10"
   python_packages:
     - "essentia==2.1b6.dev1034"
-    - "numpy"
+    - "numpy<2"
     - "scipy"
   system_packages:
     - "libfftw3-dev"
