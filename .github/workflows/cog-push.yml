@@ -153,8 +153,16 @@ jobs:
         run: |
           NEW_HASH="${{ needs.push-essentia.outputs.version }}"
           FILE="supabase/functions/essentia-onset/index.ts"
-          sed -i "/ESSENTIA_VERSION =$/{n;s/\"[a-f0-9]\{64\}\"/\"${NEW_HASH}\"/}" "$FILE"
-          echo "Updated ESSENTIA_VERSION to $NEW_HASH"
+          # Match line containing ESSENTIA_VERSION, then replace hash on the next line.
+          # No end-of-line anchor — avoids silent failure from trailing whitespace.
+          sed -i "/ESSENTIA_VERSION/{n;s/\"[a-f0-9]\{64\}\"/\"${NEW_HASH}\"/}" "$FILE"
+          # Verify the substitution actually happened
+          if grep -q "$NEW_HASH" "$FILE"; then
+            echo "Updated ESSENTIA_VERSION to $NEW_HASH"
+          else
+            echo "::error::sed substitution failed — ESSENTIA_VERSION not updated"
+            exit 1
+          fi
           grep -A1 "ESSENTIA_VERSION" "$FILE"
 
       - name: Update force-align version hash
@@ -162,8 +170,16 @@ jobs:
         run: |
           NEW_HASH="${{ needs.push-forcealign.outputs.version }}"
           FILE="supabase/functions/force-align/index.ts"
-          sed -i "/FORCE_ALIGN_VERSION =$/{n;s/\"[a-f0-9]\{64\}\"/\"${NEW_HASH}\"/}" "$FILE"
-          echo "Updated FORCE_ALIGN_VERSION to $NEW_HASH"
+          # Match line containing FORCE_ALIGN_VERSION, then replace hash on the next line.
+          # No end-of-line anchor — avoids silent failure from trailing whitespace.
+          sed -i "/FORCE_ALIGN_VERSION/{n;s/\"[a-f0-9]\{64\}\"/\"${NEW_HASH}\"/}" "$FILE"
+          # Verify the substitution actually happened
+          if grep -q "$NEW_HASH" "$FILE"; then
+            echo "Updated FORCE_ALIGN_VERSION to $NEW_HASH"
+          else
+            echo "::error::sed substitution failed — FORCE_ALIGN_VERSION not updated"
+            exit 1
+          fi
           grep -A1 "FORCE_ALIGN_VERSION" "$FILE"
 
       - name: Commit and push version updates

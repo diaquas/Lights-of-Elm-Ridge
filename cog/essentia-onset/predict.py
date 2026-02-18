@@ -13,11 +13,20 @@ Deploy:
 """
 
 import json
+import os
 
-import essentia.standard as es
-import numpy as np
-from cog import BasePredictor, Input, Path
-from scipy.signal import butter, sosfiltfilt
+# Prevent OpenMP / FFTW / BLAS thread-pool deadlocks in container environments.
+# Must be set BEFORE importing essentia (C++ backend initializes threads on import).
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("FFTW_NUM_THREADS", "1")
+os.environ.setdefault("NUMBA_NUM_THREADS", "1")
+
+import essentia.standard as es  # noqa: E402
+import numpy as np  # noqa: E402
+from cog import BasePredictor, Input, Path  # noqa: E402
+from scipy.signal import butter, sosfiltfilt  # noqa: E402
 
 
 class Predictor(BasePredictor):
