@@ -36,7 +36,7 @@ const REPLICATE_API = "https://api.replicate.com/v1";
 // Pinned version hash — update after each cog push.
 const FORCE_ALIGN_MODEL = "diaquas/force-align";
 const FORCE_ALIGN_VERSION =
-  "58a7e97837c4bb04b56e0d34fa97008663849d0fb50fe4f99817ddd7832a8ce7";
+  "219ae5e73c7d6d9dcd1d4b4f96660280afd59d54dbc20ed25a6c6b6b9ccfcc82";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
