@@ -16,9 +16,9 @@ on:
           - demucs-separate
           - lrclib-proxy
 
-  # Auto-deploy when edge function code changes on main
+  # Auto-deploy when edge function code changes on dev or main
   push:
-    branches: [main]
+    branches: [dev, main]
     paths:
       - "supabase/functions/**"
       - "supabase/config.toml"
