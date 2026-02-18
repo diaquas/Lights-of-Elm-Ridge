@@ -187,7 +187,7 @@ export async function runPipeline(
       const taggedTracks = fallback.tracks.map((t) => ({
         ...t,
         source: "local" as const,
-        confidenceRange: [0.3, 0.5] as [number, number],
+        confidenceRange: [0.35, 0.45] as [number, number],
       }));
       return {
         tracks: taggedTracks,
@@ -227,12 +227,13 @@ export async function runPipeline(
     if (alignedWords && alignedWords.length > 0) {
       update("lyrics", "active", "Generating singing face timing...");
       const leadTrack = processAlignedWords(alignedWords, "lead");
-      // Compute confidence range from per-word probabilities
-      const confs = alignedWords.map((w) => w.confidence);
+      // Compute confidence range from median of per-word probabilities ± 5%
+      const confs = alignedWords.map((w) => w.confidence).sort((a, b) => a - b);
+      const median = confs[Math.floor(confs.length / 2)];
       leadTrack.source = "ai";
       leadTrack.confidenceRange = [
-        Math.round(Math.min(...confs) * 100) / 100,
-        Math.round(Math.max(...confs) * 100) / 100,
+        Math.round(Math.max(0, median - 0.05) * 100) / 100,
+        Math.round(Math.min(1, median + 0.05) * 100) / 100,
       ];
       const vTracks = [leadTrack];
       update("lyrics", "done");
@@ -246,7 +247,7 @@ export async function runPipeline(
       const leadTrack = processAlignedWords(fallbackWords, "lead");
       const hasSyncedLines = !!(lyrics!.syncedLines && lyrics!.syncedLines.length > 0);
       leadTrack.source = hasSyncedLines ? "synced" : "estimated";
-      leadTrack.confidenceRange = hasSyncedLines ? [0.5, 0.7] : [0.2, 0.4];
+      leadTrack.confidenceRange = hasSyncedLines ? [0.55, 0.65] : [0.25, 0.35];
       const vTracks = [leadTrack];
       const detail = stemsAvailable
         ? `Lyrics fallback (${alignError || "alignment unavailable"})`
@@ -415,7 +416,7 @@ function buildTracksFromEssentia(
         category: result.stemType === "drums" ? "drums" : "melodic",
         enabled: true,
         source: "ai",
-        confidenceRange: [Math.max(0.5, conf - 0.15), Math.min(1, conf + 0.1)],
+        confidenceRange: [Math.max(0, conf - 0.025), Math.min(1, conf + 0.025)],
         marks: result.onsets.map((t) => ({
           timeMs: Math.round(t * 1000),
           strength: 1.0,
@@ -427,8 +428,8 @@ function buildTracksFromEssentia(
     if (result.stemType === "drums") {
       const drumConf = Math.max(0, Math.min(1, result.beatConfidence));
       const drumConfRange: [number, number] = [
-        Math.max(0.5, drumConf - 0.15),
-        Math.min(1, drumConf + 0.1),
+        Math.max(0, drumConf - 0.025),
+        Math.min(1, drumConf + 0.025),
       ];
       if (result.kickOnsets && result.kickOnsets.length > 0) {
         tracks.push({
@@ -489,14 +490,15 @@ function buildTracksFromEssentia(
             ),
     }));
 
-    const structConf = Math.max(0, Math.min(1, primaryResult.beatConfidence));
+    // Beat grid is essentia's core competency — boost confidence floor
+    const structConf = Math.max(0.85, Math.min(1, primaryResult.beatConfidence));
     tracks.push({
       id: "beats",
       name: "Beat Count",
       category: "structure",
       enabled: true,
       source: "ai",
-      confidenceRange: [Math.max(0.4, structConf - 0.1), Math.min(1, structConf + 0.1)],
+      confidenceRange: [Math.max(0, structConf - 0.025), Math.min(1, structConf + 0.025)],
       marks: [],
       labeledMarks: beats,
     });
@@ -510,7 +512,7 @@ function buildTracksFromEssentia(
         category: "structure",
         enabled: true,
         source: "ai",
-        confidenceRange: [Math.max(0.4, structConf - 0.1), Math.min(1, structConf + 0.1)],
+        confidenceRange: [Math.max(0, structConf - 0.025), Math.min(1, structConf + 0.025)],
         marks: [],
         labeledMarks: bars,
       });
