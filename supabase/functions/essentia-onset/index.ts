@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "essentia-onset",
         model: ESSENTIA_MODEL,
-        v: 4,
+        v: 5,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -102,22 +102,25 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use model name — auto-resolves to latest version after each cog push
-  const response = await fetch(`${REPLICATE_API}/predictions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${replicateToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: ESSENTIA_MODEL,
-      input: {
-        audio: stemUrl,
-        stem_type: stemType,
-        onset_threshold: onsetThreshold,
+  // Use models endpoint — auto-resolves to latest version after each cog push
+  const response = await fetch(
+    `${REPLICATE_API}/models/${ESSENTIA_MODEL}/predictions`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${replicateToken}`,
+        "Content-Type": "application/json",
+        Prefer: "respond-async",
       },
-    }),
-  });
+      body: JSON.stringify({
+        input: {
+          audio: stemUrl,
+          stem_type: stemType,
+          onset_threshold: onsetThreshold,
+        },
+      }),
+    },
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
