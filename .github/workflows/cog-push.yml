@@ -137,8 +137,9 @@ jobs:
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
 
-  # After pushes complete, update the edge function version hashes and commit.
-  # The commit to supabase/functions/ auto-triggers deploy-edge-functions.yml.
+  # After pushes complete, update the edge function version hashes, commit,
+  # and deploy edge functions directly (GITHUB_TOKEN commits don't trigger
+  # other workflows, so we deploy inline instead of relying on the chain).
   update-versions:
     needs: [push-essentia, push-forcealign]
     if: always() && (needs.push-essentia.result == 'success' || needs.push-forcealign.result == 'success')
@@ -192,7 +193,28 @@ jobs:
           else
             git commit -m "chore: auto-update Replicate model version hashes
 
-          Triggered by cog-push workflow after successful model push.
-          This commit auto-triggers edge function redeployment."
+          Triggered by cog-push workflow after successful model push."
             git push
           fi
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy edge functions
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          echo "Deploying edge functions with updated version hashes..."
+          if [ "${{ needs.push-essentia.result }}" = "success" ]; then
+            supabase functions deploy essentia-onset --no-verify-jwt
+            echo "Deployed essentia-onset"
+          fi
+          if [ "${{ needs.push-forcealign.result }}" = "success" ]; then
+            supabase functions deploy force-align --no-verify-jwt
+            echo "Deployed force-align"
+          fi
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
