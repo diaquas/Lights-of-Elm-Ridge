@@ -3,8 +3,8 @@ build:
   python_version: "3.12"
   python_packages:
     - "stable-ts==2.16.0"
-    - "torch==2.1.2"
-    - "torchaudio==2.1.2"
+    - "torch==2.2.2"
+    - "torchaudio==2.2.2"
     - "transformers==4.36.2"
     - "openai-whisper==20231117"
   system_packages:
