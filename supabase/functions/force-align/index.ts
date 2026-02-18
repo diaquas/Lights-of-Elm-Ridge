@@ -33,7 +33,9 @@ function getCorsHeaders(req: Request): Record<string, string> {
 const REPLICATE_API = "https://api.replicate.com/v1";
 
 // cureau/force-align-wordstamps — stable-ts forced alignment model
-const FORCE_ALIGN_MODEL = "cureau/force-align-wordstamps";
+// Pinned version hash for reliability (model field requires default version config)
+const FORCE_ALIGN_VERSION =
+  "a10e11107311b737455636660266c02cb3474009adc58d91ac366e74396b7a3d";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -45,7 +47,7 @@ Deno.serve(async (req: Request) => {
   // Health check
   if (req.method === "GET") {
     return new Response(
-      JSON.stringify({ ok: true, function: "force-align", v: 1 }),
+      JSON.stringify({ ok: true, function: "force-align", version: FORCE_ALIGN_VERSION.slice(0, 12), v: 2 }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -94,7 +96,7 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use unified predictions API (model-based endpoint requires a default version)
+  // Use pinned version hash — bypasses model name resolution entirely
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
@@ -102,7 +104,7 @@ async function handleStart(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: FORCE_ALIGN_MODEL,
+      version: FORCE_ALIGN_VERSION,
       input: {
         audio_file: vocalsUrl,
         transcript,

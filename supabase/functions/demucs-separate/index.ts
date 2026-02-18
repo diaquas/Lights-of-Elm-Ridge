@@ -32,8 +32,10 @@ function getCorsHeaders(req: Request): Record<string, string> {
 }
 
 const REPLICATE_API = "https://api.replicate.com/v1";
-const DEMUCS_MODEL =
-  Deno.env.get("DEMUCS_MODEL") || "ryan5453/demucs";
+
+// ryan5453/demucs — pinned version hash (proven stable in production)
+const DEMUCS_VERSION =
+  "5a7041cc9b82e5a558fea6b3d7b12dea89625e89da33f0447bd727c2d0ab9e77";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -45,7 +47,7 @@ Deno.serve(async (req: Request) => {
   // Health check — visit the URL in a browser to verify deployment
   if (req.method === "GET") {
     return new Response(
-      JSON.stringify({ ok: true, function: "demucs-separate", model: DEMUCS_MODEL, v: 3 }),
+      JSON.stringify({ ok: true, function: "demucs-separate", version: DEMUCS_VERSION.slice(0, 12), v: 4 }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -120,7 +122,7 @@ async function handleStart(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: DEMUCS_MODEL,
+      version: DEMUCS_VERSION,
       input: {
         audio: signedUrlData.signedUrl,
       },
