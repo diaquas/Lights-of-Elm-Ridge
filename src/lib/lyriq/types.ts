@@ -126,12 +126,19 @@ export interface Phrase {
 
 export type VocalTrackType = "lead" | "background" | "duet";
 
+/** How a vocal track's alignment was generated */
+export type VocalSource = "ai" | "synced" | "estimated";
+
 /** A complete timing track for one vocal part. */
 export interface VocalTrack {
   type: VocalTrackType;
   /** Display label, e.g. "Lyrics (Lead)". */
   label: string;
   phrases: Phrase[];
+  /** How the alignment was generated */
+  source?: VocalSource;
+  /** Confidence range [min, max] where 0-1 */
+  confidenceRange?: [number, number];
 }
 
 /* ── Song Metadata ──────────────────────────────────────────────── */

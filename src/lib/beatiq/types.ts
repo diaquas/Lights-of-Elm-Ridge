@@ -44,6 +44,9 @@ export interface LabeledMark {
   endMs: number;
 }
 
+/** How a track was generated */
+export type TrackSource = "ai" | "local";
+
 /** A single timing track (e.g., "Drums — Kick") */
 export interface BeatTrack {
   /** Unique track identifier */
@@ -58,6 +61,10 @@ export interface BeatTrack {
   marks: TimingMark[];
   /** Labeled marks (for structure tracks with labels) */
   labeledMarks?: LabeledMark[];
+  /** How this track was generated */
+  source?: TrackSource;
+  /** Confidence range [min, max] where 0-1 */
+  confidenceRange?: [number, number];
 }
 
 /* -- Analysis Configuration -- */

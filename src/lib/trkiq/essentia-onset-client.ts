@@ -135,7 +135,7 @@ async function analyzeSingleStem(
 /**
  * Run Essentia onset detection on all available stems in parallel.
  *
- * Processes drums, bass, and other stems simultaneously.
+ * Processes drums, bass, guitar, piano, and other stems simultaneously.
  * Each stem gets its own Replicate prediction.
  *
  * @param stems          - Demucs stem URLs
@@ -150,6 +150,8 @@ export async function analyzeStems(
   const stemJobs: { url: string; type: string }[] = [];
   if (stems.drums) stemJobs.push({ url: stems.drums, type: "drums" });
   if (stems.bass) stemJobs.push({ url: stems.bass, type: "bass" });
+  if (stems.guitar) stemJobs.push({ url: stems.guitar, type: "guitar" });
+  if (stems.piano) stemJobs.push({ url: stems.piano, type: "piano" });
   if (stems.other) stemJobs.push({ url: stems.other, type: "other" });
 
   if (stemJobs.length === 0) return [];
