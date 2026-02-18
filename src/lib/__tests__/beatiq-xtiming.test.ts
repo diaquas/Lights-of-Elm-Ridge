@@ -87,10 +87,10 @@ describe("xtiming-generator", () => {
       }
     });
 
-    it("generates effects with 50ms default duration for onset marks", () => {
+    it("generates zero-duration onset marks (point markers)", () => {
       const xml = generateXtiming(SAMPLE_TRACK);
-      expect(xml).toContain('starttime="500" endtime="550"');
-      expect(xml).toContain('starttime="1000" endtime="1050"');
+      expect(xml).toContain('starttime="500" endtime="500"');
+      expect(xml).toContain('starttime="1000" endtime="1000"');
     });
 
     it("generates labeled effects for labeled marks", () => {

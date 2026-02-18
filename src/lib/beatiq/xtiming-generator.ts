@@ -89,11 +89,11 @@ function appendTrackEffects(
     return;
   }
 
-  // Timing marks get empty labels with a short duration (onset markers)
-  const DEFAULT_MARK_DURATION_MS = 50;
+  // Timing marks are point-in-time onsets — zero duration so sequencers
+  // show a single marker, not a start+end region.
   for (const mark of track.marks) {
     lines.push(
-      `${indent}      <Effect label="" starttime="${Math.round(mark.timeMs)}" endtime="${Math.round(mark.timeMs + DEFAULT_MARK_DURATION_MS)}"/>`,
+      `${indent}      <Effect label="" starttime="${Math.round(mark.timeMs)}" endtime="${Math.round(mark.timeMs)}"/>`,
     );
   }
 }

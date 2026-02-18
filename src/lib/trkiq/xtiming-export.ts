@@ -98,8 +98,6 @@ export function generateCombinedXtiming(
  * Append Beat:IQ effect elements for a track.
  */
 function appendBeatEffects(track: BeatTrack, lines: string[]): void {
-  const DEFAULT_DURATION = 50;
-
   if (track.labeledMarks && track.labeledMarks.length > 0) {
     for (const mark of track.labeledMarks) {
       lines.push(
@@ -109,9 +107,11 @@ function appendBeatEffects(track: BeatTrack, lines: string[]): void {
     return;
   }
 
+  // Onset marks are point-in-time — zero duration so sequencers
+  // show a single marker, not a start+end region.
   for (const mark of track.marks) {
     lines.push(
-      `      <Effect label="" starttime="${Math.round(mark.timeMs)}" endtime="${Math.round(mark.timeMs + DEFAULT_DURATION)}"/>`,
+      `      <Effect label="" starttime="${Math.round(mark.timeMs)}" endtime="${Math.round(mark.timeMs)}"/>`,
     );
   }
 }
