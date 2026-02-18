@@ -135,121 +135,117 @@ export async function runPipeline(
   }
 
   // ── Steps 3 + 4: Analyze + Lyrics (parallel on Replicate) ────────
-  let beatTracks: BeatTrack[] = [];
-  let vocalTracks: VocalTrack[] = [];
-  let lyriqStats: LyriqStats | null = null;
-  let detectedBpm = 0;
-  let usedEssentia = false;
+  interface BeatResult {
+    tracks: BeatTrack[];
+    bpm: number;
+    essentia: boolean;
+  }
+  interface LyricsResult {
+    tracks: VocalTrack[];
+    stats: LyriqStats | null;
+  }
 
   const hasLyrics = !!(lyrics && lyrics.plainText.trim().length > 0);
 
-  if (stems) {
-    // Both paths run in parallel — they don't depend on each other:
-    //   Path A: Essentia Cog → instrument onset/beat detection
-    //   Path B: force-align-wordstamps → lyrics alignment
-
-    update("analyze", "active", "Running Essentia on stems...");
-    if (hasLyrics) {
-      update("lyrics", "active", "Running forced alignment on vocals...");
-    }
-
-    const essentiaPromise = analyzeStems(stems, (msg) =>
-      update("analyze", "active", msg),
-    );
-
-    const lyricsPromise =
-      hasLyrics && stems.vocals
-        ? runForceAlign(stems.vocals, lyrics!, (msg) =>
-            update("lyrics", "active", msg),
-          )
-        : Promise.resolve(null);
-
-    const [essentiaResults, alignedWords] = await Promise.all([
-      essentiaPromise,
-      lyricsPromise,
-    ]);
-
-    // ── Build instrument tracks from Essentia results ──────────────
-    if (essentiaResults.length > 0) {
-      usedEssentia = true;
-      const { tracks, bpm } = buildTracksFromEssentia(
-        essentiaResults,
-        durationMs,
+  /** Run beat analysis: Essentia on Replicate → local fallback */
+  async function processBeats(stemsAvailable: boolean): Promise<BeatResult> {
+    if (stemsAvailable && stems) {
+      update("analyze", "active", "Running Essentia on stems...");
+      const essentiaResults = await analyzeStems(stems, (msg) =>
+        update("analyze", "active", msg),
       );
-      beatTracks = tracks;
-      detectedBpm = bpm;
-      update("analyze", "done");
-    } else {
-      // Essentia failed or returned no results — fall back to local
-      // beatiq frequency-band analysis on the raw audio file
+
+      if (essentiaResults.length > 0) {
+        const { tracks, bpm } = buildTracksFromEssentia(
+          essentiaResults,
+          durationMs,
+        );
+        update("analyze", "done");
+        return { tracks, bpm, essentia: true };
+      }
+
+      // Essentia failed — fall back to local analysis
       update(
         "analyze",
         "active",
         "Essentia unavailable \u2014 analyzing audio locally...",
       );
-      try {
-        const fallback = await localBeatAnalysis(
-          file,
-          updatedMetadata,
-          () => {},
-        );
-        beatTracks = fallback.tracks;
-        detectedBpm = fallback.stats.bpm;
-        update("analyze", "done", "Local beat analysis (Essentia unavailable)");
-      } catch {
-        update("analyze", "error", "Beat analysis failed");
-      }
+    } else {
+      update("analyze", "active", "Analyzing audio locally...");
     }
 
-    // ── Build vocal tracks from force-align results ────────────────
+    try {
+      const fallback = await localBeatAnalysis(file, updatedMetadata, () => {});
+      const detail = stemsAvailable
+        ? "Local beat analysis (Essentia unavailable)"
+        : "Local beat analysis";
+      update("analyze", "done", detail);
+      return {
+        tracks: fallback.tracks,
+        bpm: fallback.stats.bpm,
+        essentia: false,
+      };
+    } catch {
+      update("analyze", "error", "Beat analysis failed");
+      return { tracks: [], bpm: 0, essentia: false };
+    }
+  }
+
+  /** Run lyrics alignment: Force-Align on Replicate → synced-line fallback */
+  async function processLyricsStep(
+    stemsAvailable: boolean,
+  ): Promise<LyricsResult> {
+    if (!hasLyrics) {
+      update("lyrics", "skipped", "No lyrics found");
+      return { tracks: [], stats: null };
+    }
+
+    // Try force-align if stems are available
+    let alignedWords: AlignedWord[] | null = null;
+    if (stemsAvailable && stems?.vocals) {
+      update("lyrics", "active", "Running forced alignment on vocals...");
+      alignedWords = await runForceAlign(stems.vocals, lyrics!, (msg) =>
+        update("lyrics", "active", msg),
+      );
+    }
+
     if (alignedWords && alignedWords.length > 0) {
       update("lyrics", "active", "Generating singing face timing...");
       const leadTrack = processAlignedWords(alignedWords, "lead");
-      vocalTracks = [leadTrack];
-      lyriqStats = computeLyriqStats(vocalTracks);
+      const vTracks = [leadTrack];
       update("lyrics", "done");
-    } else if (hasLyrics) {
-      // Force-align didn't return results — use fallback
-      const fallbackWords = buildLyricsFallback(lyrics!, durationMs);
-      if (fallbackWords.length > 0) {
-        update("lyrics", "active", "Generating singing face timing...");
-        const leadTrack = processAlignedWords(fallbackWords, "lead");
-        vocalTracks = [leadTrack];
-        lyriqStats = computeLyriqStats(vocalTracks);
-      }
-      update("lyrics", "done");
-    } else {
-      update("lyrics", "skipped", "No lyrics found");
-    }
-  } else {
-    // ── No stems — run local beat analysis + lyrics fallback ──────
-    update("analyze", "active", "Analyzing audio locally...");
-    try {
-      const fallback = await localBeatAnalysis(
-        file,
-        updatedMetadata,
-        () => {},
-      );
-      beatTracks = fallback.tracks;
-      detectedBpm = fallback.stats.bpm;
-      update("analyze", "done", "Local beat analysis");
-    } catch {
-      update("analyze", "error", "Beat analysis failed");
+      return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
     }
 
-    if (hasLyrics) {
-      update("lyrics", "active", "Processing lyrics...");
-      const fallbackWords = buildLyricsFallback(lyrics!, durationMs);
-      if (fallbackWords.length > 0) {
-        const leadTrack = processAlignedWords(fallbackWords, "lead");
-        vocalTracks = [leadTrack];
-        lyriqStats = computeLyriqStats(vocalTracks);
-      }
-      update("lyrics", "done");
-    } else {
-      update("lyrics", "skipped", "No lyrics found");
+    // Fallback: synced lines or even distribution
+    update("lyrics", "active", "Generating timing from synced lyrics...");
+    const fallbackWords = buildLyricsFallback(lyrics!, durationMs);
+    if (fallbackWords.length > 0) {
+      const leadTrack = processAlignedWords(fallbackWords, "lead");
+      const vTracks = [leadTrack];
+      const detail = stemsAvailable
+        ? "Lyrics fallback (alignment unavailable)"
+        : undefined;
+      update("lyrics", "done", detail);
+      return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
     }
+
+    update("lyrics", "done");
+    return { tracks: [], stats: null };
   }
+
+  // Run beat + lyrics processing in parallel — neither blocks the other
+  const hasStemsAvailable = stems !== null;
+  const [beatResult, lyricsResult] = await Promise.all([
+    processBeats(hasStemsAvailable),
+    processLyricsStep(hasStemsAvailable),
+  ]);
+
+  const beatTracks = beatResult.tracks;
+  const vocalTracks = lyricsResult.tracks;
+  const lyriqStats = lyricsResult.stats;
+  const detectedBpm = beatResult.bpm;
+  const usedEssentia = beatResult.essentia;
 
   updatedMetadata.bpm = detectedBpm || undefined;
 
@@ -327,6 +323,7 @@ async function runForceAlign(
     const aligned = forceAlignToAlignedWords(wordstamps);
     return aligned.length > 0 ? aligned : null;
   } catch {
+    onStatusUpdate("Alignment unavailable \u2014 using synced lyrics...");
     return null;
   }
 }
