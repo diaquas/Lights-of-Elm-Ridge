@@ -1,6 +1,6 @@
 // Supabase Edge Function: force-align
 // Proxies word-level forced alignment requests to Replicate
-// (cureau/force-align-wordstamps — stable-ts + wav2vec2).
+// (diaquas/force-align — stable-ts + wav2vec2, with refine crash fix).
 //
 // Actions:
 //   start  — Submit vocals URL + transcript, create prediction, return predictionId
@@ -32,10 +32,9 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 
-// cureau/force-align-wordstamps — stable-ts forced alignment model
-// Pinned version hash for reliability (model field requires default version config)
-const FORCE_ALIGN_VERSION =
-  "a10e11107311b737455636660266c02cb3474009adc58d91ac366e74396b7a3d";
+// diaquas/force-align — custom fork with refine crash fix
+// Uses model-name API until first version is pushed, then pin the hash here.
+const FORCE_ALIGN_MODEL = "diaquas/force-align";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -47,7 +46,12 @@ Deno.serve(async (req: Request) => {
   // Health check
   if (req.method === "GET") {
     return new Response(
-      JSON.stringify({ ok: true, function: "force-align", version: FORCE_ALIGN_VERSION.slice(0, 12), v: 2 }),
+      JSON.stringify({
+        ok: true,
+        function: "force-align",
+        model: FORCE_ALIGN_MODEL,
+        v: 3,
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
@@ -96,7 +100,6 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use pinned version hash — bypasses model name resolution entirely
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
@@ -104,7 +107,7 @@ async function handleStart(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      version: FORCE_ALIGN_VERSION,
+      model: FORCE_ALIGN_MODEL,
       input: {
         audio_file: vocalsUrl,
         transcript,
@@ -160,8 +163,13 @@ async function handleStatus(
   };
 
   if (prediction.status === "succeeded" && prediction.output) {
-    // Output is { wordstamps: [{ word, start, end, probability? }] }
-    result.wordstamps = prediction.output.wordstamps ?? prediction.output;
+    // Output format varies: our model returns a JSON string,
+    // third-party models may return an object directly.
+    const output =
+      typeof prediction.output === "string"
+        ? JSON.parse(prediction.output)
+        : prediction.output;
+    result.wordstamps = output.wordstamps ?? output;
   }
 
   if (prediction.status === "failed") {
