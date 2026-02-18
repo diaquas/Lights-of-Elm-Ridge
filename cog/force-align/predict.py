@@ -1,7 +1,7 @@
 """
 Force-Align Wordstamps — Cog model for Replicate.
 
-Word-level forced alignment using stable-ts + wav2vec2.
+Word-level forced alignment using Whisper small + stable-ts + wav2vec2-large-xlsr.
 Based on cureau/force-align-wordstamps with a fix for the refine crash
 on short/empty audio segments (RuntimeError: tensor [1, 2, 0]).
 
@@ -33,7 +33,7 @@ class Predictor(BasePredictor):
     def setup(self):
         """Load models on cold start — Whisper + Silero VAD."""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = stable_whisper.load_model("base", device=self.device)
+        self.model = stable_whisper.load_model("small", device=self.device)
 
         # Pre-load Silero VAD from the cached copy baked into the image.
         # Without this, the first predict() with vad=True triggers a
@@ -60,6 +60,7 @@ class Predictor(BasePredictor):
                 transcript,
                 language="en",
                 vad=True,
+                word_timestamps=True,
             )
         except Exception as e:
             # align() can crash on silent/empty audio segments.
@@ -72,7 +73,11 @@ class Predictor(BasePredictor):
         # with RuntimeError: tensor [1, 2, 0] (empty audio slice).
         # The alignment results are already usable without refinement.
         try:
-            result = self.model.refine(str(audio_file), result)
+            result = self.model.refine(
+                str(audio_file),
+                result,
+                model_name="jonatasgrosman/wav2vec2-large-xlsr-53-english",
+            )
         except (RuntimeError, Exception) as e:
             print(f"Refine step failed (using unrefined results): {e}", file=sys.stderr)
 
