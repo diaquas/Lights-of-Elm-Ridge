@@ -10,6 +10,13 @@ import type { PredictionStatus, StemSet } from "./types";
 const POLL_INTERVAL_MS = 2000;
 const MAX_POLL_ATTEMPTS = 150; // 5 minutes — CPU models on Replicate have slow cold starts
 
+/** A detected song section (from chroma novelty analysis) */
+export interface EssentiaSection {
+  label: string;
+  start: number;
+  end: number;
+}
+
 /** Result from the Essentia Cog model for a single stem */
 export interface EssentiaOnsetResult {
   /** Which stem this result is for */
@@ -28,6 +35,8 @@ export interface EssentiaOnsetResult {
   snareOnsets?: number[];
   /** Hi-hat onset times in seconds (drums only) */
   hihatOnsets?: number[];
+  /** Song structure sections (from chroma novelty analysis) */
+  sections?: EssentiaSection[];
 }
 
 /** Response from the essentia-onset Edge Function */
@@ -42,6 +51,7 @@ interface EssentiaResponse {
     kick_onsets?: number[];
     snare_onsets?: number[];
     hihat_onsets?: number[];
+    sections?: EssentiaSection[];
   };
   error?: string;
 }
@@ -117,6 +127,7 @@ async function analyzeSingleStem(
         kickOnsets: out.kick_onsets,
         snareOnsets: out.snare_onsets,
         hihatOnsets: out.hihat_onsets,
+        sections: out.sections,
       };
     }
 

@@ -519,6 +519,27 @@ function buildTracksFromEssentia(
     }
   }
 
+  // ── Song structure sections ──────────────────────────────────────
+  // Use sections from the primary (drums) result if available
+  if (primaryResult?.sections && primaryResult.sections.length > 0) {
+    const sectionMarks: LabeledMark[] = primaryResult.sections.map((s) => ({
+      label: s.label,
+      startMs: Math.round(s.start * 1000),
+      endMs: Math.round(s.end * 1000),
+    }));
+
+    tracks.push({
+      id: "sections",
+      name: "Song Structure",
+      category: "structure",
+      enabled: true,
+      source: "ai",
+      confidenceRange: [0.60, 0.70],
+      marks: [],
+      labeledMarks: sectionMarks,
+    });
+  }
+
   return { tracks, bpm };
 }
 
