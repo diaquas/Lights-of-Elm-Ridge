@@ -33,7 +33,7 @@ import type { AlignedWord } from "@/lib/lyriq/lyrics-processor";
 import { fetchLyrics, searchLyrics } from "./lrclib-client";
 import { separateStems, checkDemucsAvailable } from "./replicate-client";
 import { forceAlignLyrics } from "./force-align-client";
-import type { ForceAlignWord } from "./force-align-client";
+import type { ForceAlignWord, AlignSection } from "./force-align-client";
 import { analyzeStems } from "./essentia-onset-client";
 import type { EssentiaOnsetResult } from "./essentia-onset-client";
 
@@ -215,10 +215,15 @@ export async function runPipeline(
     if (stemsAvailable && stems?.vocals) {
       update("lyrics", "active", "Running forced alignment on vocals...");
       let lastAlignMsg = "";
-      alignedWords = await runForceAlign(stems.vocals, lyrics!, (msg) => {
-        lastAlignMsg = msg;
-        update("lyrics", "active", msg);
-      });
+      alignedWords = await runForceAlign(
+        stems.vocals,
+        lyrics!,
+        (msg) => {
+          lastAlignMsg = msg;
+          update("lyrics", "active", msg);
+        },
+        durationMs,
+      );
       if (!alignedWords) {
         alignError = lastAlignMsg;
       }
@@ -245,7 +250,9 @@ export async function runPipeline(
     const fallbackWords = buildLyricsFallback(lyrics!, durationMs);
     if (fallbackWords.length > 0) {
       const leadTrack = processAlignedWords(fallbackWords, "lead");
-      const hasSyncedLines = !!(lyrics!.syncedLines && lyrics!.syncedLines.length > 0);
+      const hasSyncedLines = !!(
+        lyrics!.syncedLines && lyrics!.syncedLines.length > 0
+      );
       leadTrack.source = hasSyncedLines ? "synced" : "estimated";
       leadTrack.confidenceRange = hasSyncedLines ? [0.55, 0.65] : [0.25, 0.35];
       const vTracks = [leadTrack];
@@ -332,19 +339,132 @@ function getAudioDuration(file: File): Promise<number> {
 }
 
 /**
+ * Normalize lyrics text for force-alignment.
+ *
+ * Force-align works best with clean, predictable input. This strips
+ * punctuation artifacts that cause tokenization mismatches (parenthetical
+ * asides becoming separate tokens, commas attaching to words, etc.) and
+ * normalizes contractions to their sung form.
+ */
+function normalizeTranscript(text: string): string {
+  return (
+    text
+      // Remove parenthetical stage directions: (Dead), (Is no surprise)
+      .replace(/\([^)]*\)/g, "")
+      // Strip remaining brackets
+      .replace(/[[\](){}]/g, "")
+      // Remove commas, semicolons, colons, exclamation/question marks
+      .replace(/[,;:!?]/g, "")
+      // Normalize curly/smart quotes to straight
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201C\u201D]/g, '"')
+      // Remove quotes
+      .replace(/["]/g, "")
+      // Expand common sung contractions to full words for dictionary matching
+      .replace(/\bdancin'\b/gi, "dancing")
+      .replace(/\bsingin'\b/gi, "singing")
+      .replace(/\brunin'\b/gi, "running")
+      .replace(/\bnothin'\b/gi, "nothing")
+      .replace(/\bsomthin'\b/gi, "something")
+      .replace(/\bcomin'\b/gi, "coming")
+      .replace(/\bgoin'\b/gi, "going")
+      // Collapse multiple spaces / blank lines
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
+}
+
+/**
+ * Build section boundaries for chunked alignment from LRCLIB synced lines.
+ *
+ * Groups consecutive synced lines into sections of ~8-15 seconds each,
+ * providing natural phrase boundaries that prevent cross-section confusion.
+ * Each section gets its own normalized transcript chunk.
+ */
+function buildAlignSections(
+  syncedLines: SyncedLine[],
+  durationMs: number,
+): AlignSection[] {
+  if (syncedLines.length === 0) return [];
+
+  const MIN_SECTION_S = 6; // Don't create sections shorter than 6s
+  const sections: AlignSection[] = [];
+
+  let groupLines: SyncedLine[] = [syncedLines[0]];
+  let groupStartMs = syncedLines[0].timeMs;
+
+  for (let i = 1; i < syncedLines.length; i++) {
+    const line = syncedLines[i];
+    const elapsed = (line.timeMs - groupStartMs) / 1000;
+
+    // Start a new section if we've accumulated enough time
+    // and this line starts a new phrase (silence gap or section break)
+    if (elapsed >= MIN_SECTION_S) {
+      const endMs = line.timeMs;
+      const text = groupLines.map((l) => l.text).join("\n");
+      const normalized = normalizeTranscript(text);
+      if (normalized.trim()) {
+        sections.push({
+          start: groupStartMs / 1000,
+          end: endMs / 1000,
+          text: normalized,
+        });
+      }
+      groupLines = [line];
+      groupStartMs = line.timeMs;
+    } else {
+      groupLines.push(line);
+    }
+  }
+
+  // Flush the last group
+  if (groupLines.length > 0) {
+    const text = groupLines.map((l) => l.text).join("\n");
+    const normalized = normalizeTranscript(text);
+    if (normalized.trim()) {
+      sections.push({
+        start: groupStartMs / 1000,
+        end: durationMs / 1000,
+        text: normalized,
+      });
+    }
+  }
+
+  return sections;
+}
+
+/**
  * Run force-align and convert results to AlignedWord[].
+ * When LRCLIB synced lines are available, uses section-chunked alignment
+ * to prevent cross-section confusion on repeated phrases.
  * Returns null if alignment fails.
  */
 async function runForceAlign(
   vocalsUrl: string,
   lyrics: LyricsData,
   onStatusUpdate: (msg: string) => void,
+  durationMs?: number,
 ): Promise<AlignedWord[] | null> {
   try {
+    const transcript = normalizeTranscript(lyrics.plainText);
+
+    // Build sections from synced lines when available
+    let sections: AlignSection[] | undefined;
+    if (lyrics.syncedLines && lyrics.syncedLines.length > 0 && durationMs) {
+      sections = buildAlignSections(lyrics.syncedLines, durationMs);
+      if (sections.length > 1) {
+        onStatusUpdate?.(
+          `Running chunked alignment (${sections.length} sections)...`,
+        );
+      }
+    }
+
     const wordstamps = await forceAlignLyrics(
       vocalsUrl,
-      lyrics.plainText,
+      transcript,
       onStatusUpdate,
+      sections,
     );
     const aligned = forceAlignToAlignedWords(wordstamps);
     return aligned.length > 0 ? aligned : null;
@@ -357,9 +477,14 @@ async function runForceAlign(
 
 /**
  * Convert force-align-wordstamps output to AlignedWord[].
+ * Applies post-processing corrections for known alignment issues:
+ *   1. Global offset correction (force-align tends to be ~150ms late)
+ *   2. Linear drift correction (~4ms/s cumulative lateness)
+ *   3. Monotonicity enforcement (prevents repeated-phrase jumps)
+ *   4. Low-confidence interpolation (re-derives timing for bad words)
  */
 function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
-  return wordstamps
+  const raw = wordstamps
     .filter((w) => w.word.trim().length > 0)
     .map((w) => ({
       text: w.word.trim(),
@@ -367,6 +492,86 @@ function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
       endMs: Math.round(w.end * 1000),
       confidence: w.probability ?? 0.9,
     }));
+
+  if (raw.length === 0) return raw;
+
+  // ── Step 1: Global offset + linear drift correction ──────────────
+  // Empirical: force-align on Demucs vocals stems runs ~150ms late at
+  // song start, drifting to ~4.3ms/s further behind over time.
+  const OFFSET_MS = -150;
+  const DRIFT_PER_MS = -0.0043; // negative = shift earlier to compensate
+
+  const songStartMs = raw[0].startMs;
+  for (const w of raw) {
+    const elapsed = w.startMs - songStartMs;
+    const correction = OFFSET_MS + elapsed * DRIFT_PER_MS;
+    w.startMs = Math.max(0, Math.round(w.startMs + correction));
+    w.endMs = Math.max(w.startMs + 1, Math.round(w.endMs + correction));
+  }
+
+  // ── Step 2: Monotonicity enforcement ─────────────────────────────
+  // Force-align on repeated lyrics can map words to the wrong repetition,
+  // causing timestamps to jump backwards. Walk the array and clamp any
+  // word whose start is before the previous word's end.
+  for (let i = 1; i < raw.length; i++) {
+    const prev = raw[i - 1];
+    if (raw[i].startMs < prev.endMs) {
+      // This word jumped backward — clamp it to follow the previous word
+      const wordDuration = Math.max(raw[i].endMs - raw[i].startMs, 50);
+      raw[i].startMs = prev.endMs;
+      raw[i].endMs = raw[i].startMs + wordDuration;
+      // Mark low confidence so downstream can flag it
+      raw[i].confidence = Math.min(raw[i].confidence, 0.3);
+    }
+  }
+
+  // ── Step 3: Low-confidence interpolation ─────────────────────────
+  // Words with very low confidence (< 0.2) likely landed on the wrong
+  // audio region. Re-derive their timing by interpolating between their
+  // confident neighbors.
+  const CONF_THRESHOLD = 0.2;
+  let i = 0;
+  while (i < raw.length) {
+    if (raw[i].confidence >= CONF_THRESHOLD) {
+      i++;
+      continue;
+    }
+
+    // Find the run of consecutive low-confidence words
+    const runStart = i;
+    while (i < raw.length && raw[i].confidence < CONF_THRESHOLD) {
+      i++;
+    }
+    const runEnd = i; // exclusive
+    const runLen = runEnd - runStart;
+
+    // Anchor times: use neighbors or song boundaries
+    const anchorStartMs =
+      runStart > 0 ? raw[runStart - 1].endMs : raw[runStart].startMs;
+    const anchorEndMs =
+      runEnd < raw.length ? raw[runEnd].startMs : raw[runEnd - 1].endMs;
+
+    // Only interpolate if the gap is reasonable (< 10s)
+    const gap = anchorEndMs - anchorStartMs;
+    if (gap > 0 && gap < 10000) {
+      // Distribute words proportionally by character length
+      const totalChars = raw
+        .slice(runStart, runEnd)
+        .reduce((sum, w) => sum + Math.max(w.text.length, 1), 0);
+      let cursor = anchorStartMs;
+      for (let j = runStart; j < runEnd; j++) {
+        const charFrac = Math.max(raw[j].text.length, 1) / totalChars;
+        const wordMs = gap * charFrac * 0.85;
+        const gapMs = (gap * 0.15) / runLen;
+        raw[j].startMs = Math.round(cursor);
+        raw[j].endMs = Math.round(cursor + wordMs);
+        raw[j].confidence = 0.3; // low but not flagged for re-interpolation
+        cursor = raw[j].endMs + gapMs;
+      }
+    }
+  }
+
+  return raw;
 }
 
 /**
@@ -491,14 +696,20 @@ function buildTracksFromEssentia(
     }));
 
     // Beat grid is essentia's core competency — boost confidence floor
-    const structConf = Math.max(0.85, Math.min(1, primaryResult.beatConfidence));
+    const structConf = Math.max(
+      0.85,
+      Math.min(1, primaryResult.beatConfidence),
+    );
     tracks.push({
       id: "beats",
       name: "Beat Count",
       category: "structure",
       enabled: true,
       source: "ai",
-      confidenceRange: [Math.max(0, structConf - 0.025), Math.min(1, structConf + 0.025)],
+      confidenceRange: [
+        Math.max(0, structConf - 0.025),
+        Math.min(1, structConf + 0.025),
+      ],
       marks: [],
       labeledMarks: beats,
     });
@@ -512,7 +723,10 @@ function buildTracksFromEssentia(
         category: "structure",
         enabled: true,
         source: "ai",
-        confidenceRange: [Math.max(0, structConf - 0.025), Math.min(1, structConf + 0.025)],
+        confidenceRange: [
+          Math.max(0, structConf - 0.025),
+          Math.min(1, structConf + 0.025),
+        ],
         marks: [],
         labeledMarks: bars,
       });
@@ -534,7 +748,7 @@ function buildTracksFromEssentia(
       category: "structure",
       enabled: true,
       source: "ai",
-      confidenceRange: [0.60, 0.70],
+      confidenceRange: [0.6, 0.7],
       marks: [],
       labeledMarks: sectionMarks,
     });

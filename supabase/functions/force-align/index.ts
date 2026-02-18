@@ -98,6 +98,7 @@ Deno.serve(async (req: Request) => {
         body.transcript,
         replicateToken,
         corsHeaders,
+        body.sections,
       );
     } else if (body.action === "status" && body.predictionId) {
       return await handleStatus(body.predictionId, replicateToken, corsHeaders);
@@ -124,7 +125,18 @@ async function handleStart(
   transcript: string,
   replicateToken: string,
   corsHeaders: Record<string, string>,
+  sections?: string,
 ): Promise<Response> {
+  // Build input payload — include sections for chunked alignment when available
+  const input: Record<string, unknown> = {
+    audio_file: vocalsUrl,
+    transcript,
+    show_probabilities: true,
+  };
+  if (sections) {
+    input.sections = sections;
+  }
+
   // Use /predictions with pinned version hash (same pattern as demucs)
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
@@ -135,11 +147,7 @@ async function handleStart(
     },
     body: JSON.stringify({
       version: FORCE_ALIGN_VERSION,
-      input: {
-        audio_file: vocalsUrl,
-        transcript,
-        show_probabilities: true,
-      },
+      input,
     }),
   });
 
