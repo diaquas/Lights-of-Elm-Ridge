@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "force-align",
         model: FORCE_ALIGN_MODEL,
-        v: 3,
+        v: 4,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
