@@ -33,12 +33,22 @@ class Predictor(BasePredictor):
         ),
     ) -> str:
         """Align transcript words to audio and return word-level timestamps."""
-        # Run forced alignment
-        result = self.model.align(
-            str(audio_file),
-            transcript,
-            language="en",
-        )
+        # Run forced alignment with VAD-based silence detection.
+        # vad=True uses Silero VAD to robustly detect speech vs silence,
+        # which prevents crashes and bad timestamps on isolated vocal stems
+        # that have long dead spaces between phrases.
+        try:
+            result = self.model.align(
+                str(audio_file),
+                transcript,
+                language="en",
+                vad=True,
+            )
+        except Exception as e:
+            # align() can crash on silent/empty audio segments.
+            # Return empty wordstamps so the client falls back gracefully.
+            print(f"Align failed: {e}", file=sys.stderr)
+            return json.dumps({"wordstamps": [], "error": str(e)})
 
         # Refine timestamps for better precision — wrap in try/except
         # because stable_whisper.refine() crashes on certain audio segments
