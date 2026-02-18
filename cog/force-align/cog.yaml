@@ -2,6 +2,7 @@ build:
   gpu: true
   python_version: "3.12"
   python_packages:
+    - "setuptools"
     - "stable-ts==2.16.0"
     - "torch==2.2.2"
     - "torchaudio==2.2.2"
