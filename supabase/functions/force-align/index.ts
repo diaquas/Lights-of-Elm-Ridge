@@ -75,9 +75,11 @@ Deno.serve(async (req: Request) => {
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal error";
+    // Return 200 with error field so supabase.functions.invoke() passes
+    // the body through — non-2xx responses get swallowed by the SDK.
     return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
+      status: 200,
     });
   }
 });

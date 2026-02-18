@@ -51,14 +51,12 @@ async function callForceAlignFunction(
   });
 
   if (error) {
-    let errMsg = error.message;
-    try {
-      const parsed = JSON.parse(errMsg);
-      errMsg = parsed.error || errMsg;
-    } catch {
-      // message is already a plain string
-    }
-    throw new Error(errMsg);
+    throw new Error(error.message);
+  }
+
+  // Edge functions return 200 with { error: "..." } for application errors
+  if (data?.error) {
+    throw new Error(data.error);
   }
 
   return data as ForceAlignResponse;
