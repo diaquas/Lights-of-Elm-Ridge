@@ -67,7 +67,10 @@ import PostExportScreen from "@/components/modiq/PostExportScreen";
 import CascadeToastContainer, {
   useCascadeToasts,
 } from "@/components/modiq/CascadeToast";
-import { MappingPhaseProvider, useMappingPhase } from "@/contexts/MappingPhaseContext";
+import {
+  MappingPhaseProvider,
+  useMappingPhase,
+} from "@/contexts/MappingPhaseContext";
 import { ProgressTrackerProvider } from "@/components/modiq/ProgressTrackerProvider";
 import { PhaseContainer } from "@/components/modiq/PhaseContainer";
 import ParsedModelPreview from "@/components/modiq/ParsedModelPreview";
@@ -517,7 +520,13 @@ export default function ModIQTool() {
   }, []);
 
   return (
-    <div className={step === "results" ? "px-4 sm:px-5 py-2" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"}>
+    <div
+      className={
+        step === "results"
+          ? "px-4 sm:px-5 py-2"
+          : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
+      }
+    >
       {/* ── Hero ───────────────────────────────────────── */}
       {(step === "input" || step === "processing") && (
         <div className="text-center mb-12">
@@ -1575,7 +1584,15 @@ export default function ModIQTool() {
               <div className="absolute inset-0 bg-accent/5" />
               <div className="relative">
                 <div className="flex justify-center mb-2">
-                  <svg className="w-5 h-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    className="w-5 h-5 text-accent"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M9 17H7A5 5 0 017 7h2" />
                     <path d="M15 7h2a5 5 0 010 10h-2" />
                     <line x1="8" y1="12" x2="16" y2="12" />
@@ -1584,7 +1601,10 @@ export default function ModIQTool() {
                 <div
                   className={`text-2xl font-bold text-accent font-display ${processingStats.matchesFound > 0 ? "proc-counter-bump" : ""}`}
                 >
-                  <AnimatedCounter value={processingStats.matchesFound} estimate={processingStats.matchEstimate} />
+                  <AnimatedCounter
+                    value={processingStats.matchesFound}
+                    estimate={processingStats.matchEstimate}
+                  />
                 </div>
                 <div className="text-[11px] text-foreground/40 mt-0.5">
                   Matches Found
@@ -1848,11 +1868,11 @@ function InteractiveResults({
   } = useSessionRestore(selectedSequence);
 
   // Apply restored session state (one-time replay of saved links)
-  const didRestore = useRef(false);
+  const [didRestore, setDidRestore] = useState(false);
   const applyRestore = useCallback(
     (session: PersistedSession) => {
-      if (didRestore.current) return;
-      didRestore.current = true;
+      if (didRestore) return;
+      setDidRestore(true);
       // Replay source→dest links
       for (const [sourceName, destNames] of Object.entries(
         session.state.sourceDestLinks,
@@ -1867,7 +1887,7 @@ function InteractiveResults({
       }
       dismissRestore();
     },
-    [interactive, dismissRestore],
+    [interactive, dismissRestore, didRestore],
   );
 
   const dnd = useDragAndDrop();
@@ -2434,17 +2454,39 @@ function InteractiveResults({
   }, [doExport]);
 
   return (
-    <MappingPhaseProvider interactive={interactive} focusMode={focusMode} toggleFocusMode={toggleFocusMode}>
-      <div className={focusMode ? "fixed inset-0 z-50 bg-background flex flex-col" : "space-y-0"}>
+    <MappingPhaseProvider
+      interactive={interactive}
+      focusMode={focusMode}
+      toggleFocusMode={toggleFocusMode}
+    >
+      <div
+        className={
+          focusMode
+            ? "fixed inset-0 z-50 bg-background flex flex-col"
+            : "space-y-0"
+        }
+      >
         {/* ── Session Restore Banner ── */}
-        {pendingRestore && !didRestore.current && (
+        {pendingRestore && !didRestore && (
           <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 mb-3 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <svg className="w-5 h-5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-5 h-5 text-accent flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
               <div className="text-sm">
-                <span className="font-medium text-foreground">Unfinished mapping found</span>
+                <span className="font-medium text-foreground">
+                  Unfinished mapping found
+                </span>
                 <span className="text-foreground/50 ml-1">
                   — saved {new Date(pendingRestore.savedAt).toLocaleString()}
                 </span>
@@ -2480,62 +2522,64 @@ function InteractiveResults({
         {/* ── V4 Phased Wizard Header (hidden in focus mode) ─────────────────────── */}
         {!focusMode && (
           <div className="sticky top-0 z-40 bg-background/95 mb-2">
-              {/* Title Bar */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-                <div className="flex items-center gap-3 min-w-0">
-                  <h2 className="text-[15px] font-display font-bold flex-shrink-0">
-                    Mod<span className="text-accent">:</span>
-                    <span className="text-accent">IQ</span>
-                  </h2>
-                  <span className="text-[13px] text-foreground/50 truncate">
-                    {seqTitle} &rarr; Your Layout
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {interactive.canUndo && (
-                    <button
-                      type="button"
-                      onClick={interactive.undo}
-                      className="hidden sm:block text-xs px-2.5 py-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
-                    >
-                      Undo
-                    </button>
-                  )}
-                  <button
-                    onClick={handleExport}
-                    className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${exportButtonStyle.className}`}
-                  >
-                    {exportButtonStyle.icon && (
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                    {exportButtonStyle.label}
-                  </button>
-                </div>
+            {/* Title Bar */}
+            <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+              <div className="flex items-center gap-3 min-w-0">
+                <h2 className="text-[15px] font-display font-bold flex-shrink-0">
+                  Mod<span className="text-accent">:</span>
+                  <span className="text-accent">IQ</span>
+                </h2>
+                <span className="text-[13px] text-foreground/50 truncate">
+                  {seqTitle} &rarr; Your Layout
+                </span>
               </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {interactive.canUndo && (
+                  <button
+                    type="button"
+                    onClick={interactive.undo}
+                    className="hidden sm:block text-xs px-2.5 py-1 rounded-lg text-foreground/40 hover:text-foreground hover:bg-surface-light border border-border transition-colors"
+                  >
+                    Undo
+                  </button>
+                )}
+                <button
+                  onClick={handleExport}
+                  className={`text-[13px] px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 ${exportButtonStyle.className}`}
+                >
+                  {exportButtonStyle.icon && (
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                  {exportButtonStyle.label}
+                </button>
+              </div>
+            </div>
 
-              {/* Phase Stepper + Progress Tracker */}
-              <ProgressTrackerProvider />
+            {/* Phase Stepper + Progress Tracker */}
+            <ProgressTrackerProvider />
           </div>
         )}
 
         {/* ── V4 Phase Content ─────────────────────────────── */}
-        <div className={
-          focusMode
-            ? "bg-surface overflow-hidden flex flex-col flex-1 min-h-0"
-            : "bg-surface rounded-lg border border-border overflow-hidden flex flex-col h-[calc(100vh-8rem)]"
-        }>
+        <div
+          className={
+            focusMode
+              ? "bg-surface overflow-hidden flex flex-col flex-1 min-h-0"
+              : "bg-surface rounded-lg border border-border overflow-hidden flex flex-col h-[calc(100vh-8rem)]"
+          }
+        >
           <div className="flex-1 min-h-0 overflow-hidden">
             <PhaseContainer
               reviewProps={{
@@ -2632,7 +2676,9 @@ function InteractiveResults({
                             }
                             onDragEnter={dnd.handleDragEnter}
                             onDragLeave={dnd.handleDragLeave}
-                            effectContext={interactive.getEffectContext(sl.sourceModel.name)}
+                            effectContext={interactive.getEffectContext(
+                              sl.sourceModel.name,
+                            )}
                           />
                         ))}
                       </div>
@@ -3331,37 +3377,54 @@ function GlobalFocusBar({
   const dispPct = interactive.displayCoverage.percent;
   const seqPct = interactive.effectsCoverage.percent;
   const phaseLabel =
-    currentPhase === "individuals" ? "Models" :
-    currentPhase === "spinners" ? "Spinners" :
-    currentPhase === "finalize" ? "Display Coverage" : "Review";
+    currentPhase === "individuals"
+      ? "Models"
+      : currentPhase === "spinners"
+        ? "Spinners"
+        : currentPhase === "finalize"
+          ? "Display Coverage"
+          : "Review";
 
   return (
     <div className="px-4 py-1.5 border-b border-border bg-surface flex-shrink-0 flex items-center gap-4">
       {/* Phase indicator */}
-      <span className="text-[11px] font-semibold text-accent/70 uppercase tracking-wider flex-shrink-0">{phaseLabel}</span>
+      <span className="text-[11px] font-semibold text-accent/70 uppercase tracking-wider flex-shrink-0">
+        {phaseLabel}
+      </span>
       <span className="text-foreground/10">|</span>
       {/* Phase progress */}
       <span className="text-[11px] text-foreground/50 tabular-nums flex-shrink-0">
         Phase: {phaseProgress.completed}/{phaseProgress.total}
       </span>
       <div className="w-20 h-1.5 bg-foreground/10 rounded-full overflow-hidden flex-shrink-0">
-        <div className="h-full bg-accent/60 rounded-full transition-all duration-300" style={{ width: `${phaseProgress.percentage}%` }} />
+        <div
+          className="h-full bg-accent/60 rounded-full transition-all duration-300"
+          style={{ width: `${phaseProgress.percentage}%` }}
+        />
       </div>
       <span className="text-foreground/10">|</span>
       {/* Display coverage */}
       <span className="text-[11px] text-foreground/50 tabular-nums flex-shrink-0">
-        Display: {dispPct}% ({interactive.displayCoverage.covered}/{interactive.displayCoverage.total})
+        Display: {dispPct}% ({interactive.displayCoverage.covered}/
+        {interactive.displayCoverage.total})
       </span>
       <div className="w-24 h-1.5 bg-foreground/10 rounded-full overflow-hidden flex-shrink-0">
-        <div className="h-full bg-green-400 rounded-full transition-all duration-300" style={{ width: `${dispPct}%` }} />
+        <div
+          className="h-full bg-green-400 rounded-full transition-all duration-300"
+          style={{ width: `${dispPct}%` }}
+        />
       </div>
       <span className="text-foreground/10">|</span>
       {/* Effects coverage */}
       <span className="text-[11px] text-foreground/50 tabular-nums flex-shrink-0">
-        Effects: {seqPct}% ({interactive.effectsCoverage.covered}/{interactive.effectsCoverage.total})
+        Effects: {seqPct}% ({interactive.effectsCoverage.covered}/
+        {interactive.effectsCoverage.total})
       </span>
       <div className="w-24 h-1.5 bg-foreground/10 rounded-full overflow-hidden flex-shrink-0">
-        <div className="h-full bg-accent rounded-full transition-all duration-300" style={{ width: `${seqPct}%` }} />
+        <div
+          className="h-full bg-accent rounded-full transition-all duration-300"
+          style={{ width: `${seqPct}%` }}
+        />
       </div>
       {/* Overall */}
       <span className="text-foreground/10">|</span>
@@ -3681,9 +3744,9 @@ function AnimatedCounter({
 
       rafRef.current = requestAnimationFrame(tick);
       return () => cancelAnimationFrame(rafRef.current);
-    } else if (estimate <= 0) {
+    } else if (estimate <= 0 && displayedRef.current !== 0) {
       displayedRef.current = 0;
-      setDisplayed(0);
+      requestAnimationFrame(() => setDisplayed(0));
     }
   }, [value, estimate]);
 
