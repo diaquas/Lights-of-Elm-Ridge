@@ -9,9 +9,9 @@ on:
         required: true
         default: "lightsofelmridge/essentia-onset"
 
-  # Auto-push when cog model files change on main
+  # Auto-push when cog model files change on dev or main
   push:
-    branches: [main]
+    branches: [dev, main]
     paths:
       - "cog/essentia-onset/**"
 
@@ -32,12 +32,11 @@ jobs:
           sudo chmod +x /usr/local/bin/cog
           cog --version
 
-      - name: Authenticate with Replicate
-        run: echo "${{ secrets.COG_TOKEN }}" | cog login --token-stdin
-
       - name: Build and push to Replicate
         working-directory: cog/essentia-onset
         run: |
           MODEL="${{ github.event.inputs.model_name || secrets.REPLICATE_MODEL_NAME || 'lightsofelmridge/essentia-onset' }}"
           echo "Pushing to r8.im/${MODEL}"
           cog push "r8.im/${MODEL}"
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.COG_TOKEN }}
