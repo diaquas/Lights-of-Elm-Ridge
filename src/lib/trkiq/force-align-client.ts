@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { PredictionStatus } from "./types";
 
 const POLL_INTERVAL_MS = 2000;
-const MAX_POLL_ATTEMPTS = 90; // 3 minutes max (alignment is fast)
+const MAX_POLL_ATTEMPTS = 150; // 5 minutes max (cold starts can be slow)
 
 /** A single word timestamp from force-align-wordstamps */
 export interface ForceAlignWord {
