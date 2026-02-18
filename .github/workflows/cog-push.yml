@@ -9,6 +9,7 @@ on:
         required: true
         type: choice
         options:
+          - all
           - essentia-onset
           - force-align
 
@@ -36,8 +37,9 @@ jobs:
       - id: changes
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "essentia=${{ github.event.inputs.model == 'essentia-onset' }}" >> "$GITHUB_OUTPUT"
-            echo "forcealign=${{ github.event.inputs.model == 'force-align' }}" >> "$GITHUB_OUTPUT"
+            MODEL="${{ github.event.inputs.model }}"
+            echo "essentia=$( [ "$MODEL" = 'essentia-onset' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+            echo "forcealign=$( [ "$MODEL" = 'force-align' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
           else
             echo "essentia=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/essentia-onset/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
             echo "forcealign=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/force-align/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
