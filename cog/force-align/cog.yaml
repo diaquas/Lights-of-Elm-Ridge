@@ -8,6 +8,10 @@ build:
     - "transformers==4.36.2"
   run:
     - "pip install 'setuptools<82' wheel && pip install --no-build-isolation openai-whisper==20231117 && pip install --no-build-isolation stable-ts==2.16.0"
+    # Pre-download Silero VAD into the Docker image so it never hits GitHub at runtime.
+    # stable_whisper's vad=True triggers torch.hub.load() which downloads ~30MB from
+    # github.com/snakers4/silero-vad — if that fails in the container, the worker crashes.
+    - "python -c \"import torch; torch.hub.load('snakers4/silero-vad', 'silero_vad', trust_repo=True)\""
   system_packages:
     - "ffmpeg"
 predict: "predict.py:Predictor"
