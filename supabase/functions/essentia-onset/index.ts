@@ -108,7 +108,6 @@ async function handleStart(
       headers: {
         Authorization: `Bearer ${replicateToken}`,
         "Content-Type": "application/json",
-        Prefer: "respond-async",
       },
       body: JSON.stringify({
         input: {
