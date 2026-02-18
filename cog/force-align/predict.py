@@ -11,11 +11,22 @@ Deploy:
 """
 
 import json
+import os
 import sys
 
-import stable_whisper
-import torch
-from cog import BasePredictor, Input, Path
+# Prevent OpenMP / TBB / BLAS thread-pool deadlocks in container environments.
+# Must be set BEFORE importing torch (C++ backend initializes threads on import).
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
+os.environ.setdefault("MKL_NUM_THREADS", "1")
+os.environ.setdefault("NUMBA_NUM_THREADS", "1")
+# Force numba to use workqueue backend — the bundled TBB (12050) is older than
+# the version numba requires (>= 12060), so TBB gets disabled at runtime.
+os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
+
+import stable_whisper  # noqa: E402
+import torch  # noqa: E402
+from cog import BasePredictor, Input, Path  # noqa: E402
 
 
 class Predictor(BasePredictor):
