@@ -31,8 +31,14 @@ from cog import BasePredictor, Input, Path  # noqa: E402
 
 class Predictor(BasePredictor):
     def setup(self):
-        """Load the Whisper model on cold start."""
-        self.model = stable_whisper.load_model("base", device="cuda" if torch.cuda.is_available() else "cpu")
+        """Load models on cold start — Whisper + Silero VAD."""
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.model = stable_whisper.load_model("base", device=self.device)
+
+        # Pre-load Silero VAD from the cached copy baked into the image.
+        # Without this, the first predict() with vad=True triggers a
+        # torch.hub.load() download from GitHub which can crash the worker.
+        torch.hub.load("snakers4/silero-vad", "silero_vad", trust_repo=True)
 
     def predict(
         self,
