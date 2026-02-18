@@ -33,15 +33,10 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 
-// Custom Essentia Cog model on Replicate.
-// Update this after deploying: cog push r8.im/diaquas/essentia-onset
-const ESSENTIA_MODEL =
-  Deno.env.get("ESSENTIA_MODEL") || "diaquas/essentia-onset";
-
-// Pinned version hash — set ESSENTIA_VERSION env var after cog push.
-// When set, uses version-based API (same pattern as Demucs/Force-Align).
-// When unset, falls back to model-name-based API (requires default version).
-const ESSENTIA_VERSION = Deno.env.get("ESSENTIA_VERSION") || "";
+// Custom Essentia Cog model on Replicate — pinned version hash
+// Update after deploying: cog push r8.im/diaquas/essentia-onset
+const ESSENTIA_VERSION =
+  "1dd3847140cfdf9038e3e481d9c242d05373649c4db2f8c07f5fcdf907921ab8";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -56,9 +51,8 @@ Deno.serve(async (req: Request) => {
       JSON.stringify({
         ok: true,
         function: "essentia-onset",
-        model: ESSENTIA_MODEL,
-        version: ESSENTIA_VERSION ? ESSENTIA_VERSION.slice(0, 12) : "latest",
-        v: 2,
+        version: ESSENTIA_VERSION.slice(0, 12),
+        v: 3,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -109,28 +103,21 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // Use version hash when available (reliable, same as Demucs/Force-Align).
-  // Fall back to model-name-based API when no version is pinned.
-  const predictionBody: Record<string, unknown> = {
-    input: {
-      audio: stemUrl,
-      stem_type: stemType,
-      onset_threshold: onsetThreshold,
-    },
-  };
-  if (ESSENTIA_VERSION) {
-    predictionBody.version = ESSENTIA_VERSION;
-  } else {
-    predictionBody.model = ESSENTIA_MODEL;
-  }
-
+  // Use pinned version hash — same pattern as Demucs and Force-Align
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${replicateToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(predictionBody),
+    body: JSON.stringify({
+      version: ESSENTIA_VERSION,
+      input: {
+        audio: stemUrl,
+        stem_type: stemType,
+        onset_threshold: onsetThreshold,
+      },
+    }),
   });
 
   if (!response.ok) {
