@@ -204,8 +204,10 @@ async function handleStatus(
 const STEM_NAMES = ["vocals", "drums", "bass", "other", "guitar", "piano"];
 
 /**
- * Extract a URL string from a value that may be a plain string or a
- * Replicate FileOutput object ({ url: "https://..." }).
+ * Extract a URL string from a value that may be:
+ *   - a plain URL string
+ *   - a Replicate FileOutput object: { url: "https://..." }
+ *   - a Demucs stem object: { audio: "https://...", name: "drums" }
  */
 function extractUrl(value: unknown): string | null {
   if (typeof value === "string" && value.startsWith("http")) {
@@ -213,11 +215,37 @@ function extractUrl(value: unknown): string | null {
   }
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
-    if (typeof obj.url === "string" && obj.url.startsWith("http")) {
-      return obj.url;
+    // Try common URL-carrying keys
+    for (const key of ["url", "audio", "href"]) {
+      if (
+        typeof obj[key] === "string" &&
+        (obj[key] as string).startsWith("http")
+      ) {
+        return obj[key] as string;
+      }
     }
   }
   return null;
+}
+
+/**
+ * Extract a stem name from an array element that may be:
+ *   - a plain URL string with the stem name in the filename
+ *   - an object with a `name` field: { audio: "...", name: "drums" }
+ */
+function extractStemName(item: unknown, url: string): string | null {
+  // Check for explicit name field: { name: "drums", audio: "..." }
+  if (item && typeof item === "object" && !Array.isArray(item)) {
+    const obj = item as Record<string, unknown>;
+    if (typeof obj.name === "string") {
+      const name = obj.name.toLowerCase();
+      const match = STEM_NAMES.find((s) => name.includes(s));
+      if (match) return match;
+    }
+  }
+  // Fall back to extracting stem name from the URL filename
+  const filename = url.split("/").pop()?.split(".")[0]?.toLowerCase() || "";
+  return STEM_NAMES.find((s) => filename.includes(s)) ?? null;
 }
 
 function normalizeStemOutput(output: unknown): Record<string, string> {
@@ -235,15 +263,14 @@ function normalizeStemOutput(output: unknown): Record<string, string> {
     if (Object.keys(stems).length > 0) return stems;
   }
 
-  // Case 2: Array of URLs or FileOutput objects
+  // Case 2: Array of URLs, FileOutput objects, or { audio, name } objects
+  // e.g. [{ audio: "https://...", name: "drums" }, ...]
   if (Array.isArray(output)) {
     const stems: Record<string, string> = {};
     for (const item of output) {
       const url = extractUrl(item);
       if (!url) continue;
-      // Extract filename: "https://replicate.delivery/.../vocals.wav" → "vocals"
-      const filename = url.split("/").pop()?.split(".")[0]?.toLowerCase() || "";
-      const stemName = STEM_NAMES.find((s) => filename.includes(s));
+      const stemName = extractStemName(item, url);
       if (stemName) {
         stems[stemName] = url;
       }
@@ -273,7 +300,7 @@ function normalizeStemOutput(output: unknown): Record<string, string> {
     }
   }
 
-  // Case 3: Single string URL (zip archive)
+  // Case 3: Single string or FileOutput URL (zip archive)
   const singleUrl = extractUrl(output);
   if (singleUrl) {
     return { archive: singleUrl };
