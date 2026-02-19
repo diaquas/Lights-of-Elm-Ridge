@@ -17,11 +17,6 @@ import { runPipeline } from "@/lib/trkiq/pipeline";
 import { checkDemucsAvailable } from "@/lib/trkiq/replicate-client";
 import { fetchLyrics, searchLyrics } from "@/lib/trkiq/lrclib-client";
 import { fetchAlbumArt } from "@/lib/trkiq/itunes-client";
-import {
-  generateCombinedXtiming,
-  buildTrkiqFilename,
-  downloadXtiming,
-} from "@/lib/trkiq/xtiming-export";
 import UploadScreen from "./UploadScreen";
 import ProcessingScreen from "./ProcessingScreen";
 import EditorScreen from "./EditorScreen";
@@ -205,22 +200,10 @@ export default function TrkIQTool() {
     [session.metadata, session.lyrics, setScreen, updatePipeline, setResults],
   );
 
-  /** Download .xtiming and transition to editor */
-  const handleDownload = useCallback(() => {
-    if (session.beatTracks.length === 0 && session.vocalTracks.length === 0)
-      return;
-    const xml = generateCombinedXtiming(
-      session.beatTracks,
-      session.vocalTracks,
-    );
-    const filename = buildTrkiqFilename(
-      session.metadata?.artist || "Unknown",
-      session.metadata?.title || "Track",
-    );
-    downloadXtiming(xml, filename);
-    // Transition to editor after download
+  /** Navigate to editor so the user can pick tracks and download */
+  const handleReviewDownload = useCallback(() => {
     setScreen("editor");
-  }, [session.beatTracks, session.vocalTracks, session.metadata, setScreen]);
+  }, [setScreen]);
 
   const handleReset = useCallback(() => {
     if (session.audioUrl) {
@@ -281,7 +264,7 @@ export default function TrkIQTool() {
             metadata={session.metadata}
             albumArtUrl={albumArtUrl}
             completionStats={completionStats}
-            onDownload={handleDownload}
+            onReviewDownload={handleReviewDownload}
             onNewSong={handleReset}
           />
         </div>
