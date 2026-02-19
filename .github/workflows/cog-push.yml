@@ -60,8 +60,21 @@ jobs:
 
       - name: Free disk space for CUDA base image
         run: |
-          docker system prune -af
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          echo "=== Before cleanup ==="
+          df -h /
+          docker system prune -af --volumes
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache \
+            /usr/local/.ghcup \
+            /usr/share/swift \
+            /usr/local/graalvm
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          echo "=== After cleanup ==="
+          df -h /
 
       - name: Install Cog
         run: |
@@ -111,8 +124,21 @@ jobs:
 
       - name: Free disk space for CUDA base image
         run: |
-          docker system prune -af
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          echo "=== Before cleanup ==="
+          df -h /
+          docker system prune -af --volumes
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache \
+            /usr/local/.ghcup \
+            /usr/share/swift \
+            /usr/local/graalvm
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          echo "=== After cleanup ==="
+          df -h /
 
       - name: Install Cog
         run: |
@@ -162,8 +188,21 @@ jobs:
 
       - name: Free disk space for CUDA base image
         run: |
-          docker system prune -af
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          echo "=== Before cleanup ==="
+          df -h /
+          docker system prune -af --volumes
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache \
+            /usr/local/.ghcup \
+            /usr/share/swift \
+            /usr/local/graalvm
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          echo "=== After cleanup ==="
+          df -h /
 
       - name: Install Cog
         run: |
