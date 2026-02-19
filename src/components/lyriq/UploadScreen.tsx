@@ -46,7 +46,7 @@ export default function UploadScreen({
       const parts = nameWithoutExt.split(/[-_]/);
       const hasId3 = !!(id3.artist || id3.title);
 
-      onMetadataLoad({
+      const meta: SongMetadata = {
         title:
           id3.title ||
           (parts.length > 1 ? parts.slice(1).join(" ").trim() : nameWithoutExt),
@@ -55,7 +55,19 @@ export default function UploadScreen({
         album: id3.album,
         durationSec: 0,
         source: hasId3 ? "id3" : "filename",
+      };
+
+      // Read actual audio duration
+      const audio = new Audio(url);
+      await new Promise<void>((resolve) => {
+        audio.addEventListener("loadedmetadata", () => {
+          meta.durationSec = Math.round(audio.duration);
+          resolve();
+        });
+        audio.addEventListener("error", () => resolve());
       });
+
+      onMetadataLoad(meta);
     },
     [onAudioLoad, onMetadataLoad],
   );
@@ -93,6 +105,21 @@ export default function UploadScreen({
   }, [lyricsText, onLyricsChange]);
 
   const canGenerate = audioFile && lyricsText.trim().length > 0;
+
+  const TRIM_THRESHOLD_SEC = 15;
+  const audioDurationSec = metadata?.durationSec ?? 0;
+  const originalDurationSec = lyrics?.originalDurationSec ?? 0;
+  const durationDiffSec =
+    audioDurationSec > 0 && originalDurationSec > 0
+      ? originalDurationSec - audioDurationSec
+      : 0;
+  const showTrimWarning = durationDiffSec > TRIM_THRESHOLD_SEC;
+
+  const formatDuration = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
 
   return (
     <div className="space-y-6">
@@ -208,6 +235,11 @@ export default function UploadScreen({
               <p className="text-foreground/50 text-sm mt-0.5">
                 {metadata.artist}
               </p>
+              {metadata.durationSec > 0 && (
+                <p className="text-foreground/40 text-xs mt-1 font-mono">
+                  Duration: {formatDuration(metadata.durationSec)}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -242,6 +274,37 @@ export default function UploadScreen({
             </div>
           ) : (
             <div className="space-y-3">
+              {showTrimWarning && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                  <div className="flex items-start gap-2.5">
+                    <svg
+                      className="w-4 h-4 text-amber-500 mt-0.5 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                      />
+                    </svg>
+                    <div>
+                      <p className="text-amber-500 text-sm font-medium">
+                        Edited track detected
+                      </p>
+                      <p className="text-foreground/50 text-xs mt-1 leading-relaxed">
+                        Your audio is {formatDuration(audioDurationSec)} but the
+                        original track is {formatDuration(originalDurationSec)}.
+                        If you cut sections from this song, remove the
+                        corresponding lyrics below so the timing aligns
+                        correctly.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <textarea
                 value={lyricsText}
                 onChange={(e) => {

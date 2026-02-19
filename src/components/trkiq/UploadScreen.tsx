@@ -35,8 +35,6 @@ export default function UploadScreen({
 
   const lrclibHasLyrics =
     lyrics?.source === "lrclib" && lyrics.plainText.trim().length > 0;
-  const showLyricsEditor =
-    userToggledLyrics ?? (lrclibHasLyrics || lyrics?.source === "user");
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -121,11 +119,32 @@ export default function UploadScreen({
 
   const canGenerate = audioFile !== null && metadata !== null;
 
+  const TRIM_THRESHOLD_SEC = 15;
+  const audioDurationSec = metadata?.durationMs
+    ? Math.round(metadata.durationMs / 1000)
+    : 0;
+  const originalDurationSec = lyrics?.originalDurationSec ?? 0;
+  const durationDiffSec =
+    audioDurationSec > 0 && originalDurationSec > 0
+      ? originalDurationSec - audioDurationSec
+      : 0;
+  const showTrimWarning = durationDiffSec > TRIM_THRESHOLD_SEC;
+
+  const showLyricsEditor =
+    userToggledLyrics ??
+    (lrclibHasLyrics || lyrics?.source === "user" || showTrimWarning);
+
   const formatDuration = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+  };
+
+  const formatDurationSec = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -366,6 +385,37 @@ export default function UploadScreen({
 
           {showLyricsEditor && (
             <div className="px-5 pb-4 border-t border-border pt-3">
+              {showTrimWarning && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 mb-3">
+                  <div className="flex items-start gap-2.5">
+                    <svg
+                      className="w-4 h-4 text-amber-500 mt-0.5 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                      />
+                    </svg>
+                    <div>
+                      <p className="text-amber-500 text-sm font-medium">
+                        Edited track detected
+                      </p>
+                      <p className="text-foreground/50 text-xs mt-1 leading-relaxed">
+                        Your audio is {formatDurationSec(audioDurationSec)} but
+                        the original track is{" "}
+                        {formatDurationSec(originalDurationSec)}. If you cut
+                        sections from this song, remove the corresponding lyrics
+                        below so the timing aligns correctly.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <textarea
                 rows={8}
                 placeholder="Paste lyrics here to include singing face timing tracks in your export, or wait for auto-fetch from LRCLIB."
