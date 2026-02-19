@@ -6,10 +6,11 @@ build:
     - "torch==2.2.2"
     - "torchaudio==2.2.2"
   run:
-    - "pip install 'setuptools<82' wheel && pip install --no-build-isolation openai-whisper==20231117 && pip install --no-build-isolation stable-ts==2.16.0"
+    - "pip install 'setuptools<82' wheel packaging && pip install --no-build-isolation openai-whisper==20231117 && pip install --no-build-isolation stable-ts==2.16.0"
     # Pre-download Silero VAD into the Docker image so it never hits GitHub at runtime.
     # stable_whisper's vad=True triggers torch.hub.load() which downloads ~30MB from
     # github.com/snakers4/silero-vad — if that fails in the container, the worker crashes.
+    # Silero VAD now imports `packaging` at load time, so it must be installed first.
     - "python -c \"import torch; torch.hub.load('snakers4/silero-vad', 'silero_vad', trust_repo=True)\""
     # Note: wav2vec2-large-xlsr pre-download removed — stable-ts refine()
     # uses the loaded Whisper model, not a separate wav2vec2 model.
