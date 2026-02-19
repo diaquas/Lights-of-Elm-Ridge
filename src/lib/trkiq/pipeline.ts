@@ -38,7 +38,7 @@ import type {
 import { fetchLyrics, searchLyrics } from "./lrclib-client";
 import { separateStems, checkDemucsAvailable } from "./replicate-client";
 import { forceAlignLyrics } from "./force-align-client";
-import type { ForceAlignWord, AlignSection } from "./force-align-client";
+import type { ForceAlignWord } from "./force-align-client";
 import { phonemeAlignLyrics } from "./phoneme-align-client";
 import type { PhonemeAlignWord } from "./phoneme-align-client";
 import { analyzeStems } from "./essentia-onset-client";
@@ -286,7 +286,6 @@ export async function runPipeline(
             appendLog("lyrics", "GPU active \u2014 running Whisper alignment");
           }
         },
-        durationMs,
       );
       if (!alignedWords) {
         alignError = lastAlignMsg;
@@ -475,87 +474,16 @@ function normalizeTranscript(text: string): string {
 }
 
 /**
- * Build section boundaries for chunked alignment from LRCLIB synced lines.
- *
- * Groups consecutive synced lines into sections of ~8-15 seconds each,
- * providing natural phrase boundaries that prevent cross-section confusion.
- * Each section gets its own normalized transcript chunk.
- */
-function buildAlignSections(
-  syncedLines: SyncedLine[],
-  durationMs: number,
-): AlignSection[] {
-  if (syncedLines.length === 0) return [];
-
-  const MIN_SECTION_S = 6; // Don't create sections shorter than 6s
-  const sections: AlignSection[] = [];
-
-  let groupLines: SyncedLine[] = [syncedLines[0]];
-  let groupStartMs = syncedLines[0].timeMs;
-
-  for (let i = 1; i < syncedLines.length; i++) {
-    const line = syncedLines[i];
-    const elapsed = (line.timeMs - groupStartMs) / 1000;
-
-    // Start a new section if we've accumulated enough time
-    // and this line starts a new phrase (silence gap or section break)
-    if (elapsed >= MIN_SECTION_S) {
-      const endMs = line.timeMs;
-      const text = groupLines.map((l) => l.text).join("\n");
-      const normalized = normalizeTranscript(text);
-      if (normalized.trim()) {
-        sections.push({
-          start: groupStartMs / 1000,
-          end: endMs / 1000,
-          text: normalized,
-        });
-      }
-      groupLines = [line];
-      groupStartMs = line.timeMs;
-    } else {
-      groupLines.push(line);
-    }
-  }
-
-  // Flush the last group
-  if (groupLines.length > 0) {
-    const text = groupLines.map((l) => l.text).join("\n");
-    const normalized = normalizeTranscript(text);
-    if (normalized.trim()) {
-      sections.push({
-        start: groupStartMs / 1000,
-        end: durationMs / 1000,
-        text: normalized,
-      });
-    }
-  }
-
-  return sections;
-}
-
-/**
  * Run force-align and convert results to AlignedWord[].
- * When LRCLIB synced lines are available, uses section-chunked alignment
- * to prevent cross-section confusion on repeated phrases.
  * Returns null if alignment fails.
  */
 async function runForceAlign(
   vocalsUrl: string,
   lyrics: LyricsData,
   onStatusUpdate: (msg: string, phase?: "queued" | "running") => void,
-  durationMs?: number,
 ): Promise<AlignedWord[] | null> {
   try {
     const transcript = normalizeTranscript(lyrics.plainText);
-
-    // Chunked alignment disabled — the 6-second section grouping was
-    // compressing words within a chunk, ignoring natural silence gaps
-    // (e.g. a 3s pause between "call" and "like" got eliminated because
-    // both words landed in the same section). Full-file alignment lets
-    // stable-ts see the complete audio with all silences intact.
-    //
-    // buildAlignSections() and the Cog _align_chunked() path are still
-    // available if we need to re-enable for repeated-phrase issues.
 
     const wordstamps = await forceAlignLyrics(
       vocalsUrl,
