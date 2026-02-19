@@ -449,22 +449,19 @@ async function runForceAlign(
   try {
     const transcript = normalizeTranscript(lyrics.plainText);
 
-    // Build sections from synced lines when available
-    let sections: AlignSection[] | undefined;
-    if (lyrics.syncedLines && lyrics.syncedLines.length > 0 && durationMs) {
-      sections = buildAlignSections(lyrics.syncedLines, durationMs);
-      if (sections.length > 1) {
-        onStatusUpdate?.(
-          `Running chunked alignment (${sections.length} sections)...`,
-        );
-      }
-    }
+    // Chunked alignment disabled — the 6-second section grouping was
+    // compressing words within a chunk, ignoring natural silence gaps
+    // (e.g. a 3s pause between "call" and "like" got eliminated because
+    // both words landed in the same section). Full-file alignment lets
+    // stable-ts see the complete audio with all silences intact.
+    //
+    // buildAlignSections() and the Cog _align_chunked() path are still
+    // available if we need to re-enable for repeated-phrase issues.
 
     const wordstamps = await forceAlignLyrics(
       vocalsUrl,
       transcript,
       onStatusUpdate,
-      sections,
     );
     const aligned = forceAlignToAlignedWords(wordstamps);
     return aligned.length > 0 ? aligned : null;
