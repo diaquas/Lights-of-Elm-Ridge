@@ -157,7 +157,16 @@ export default function UploadScreen({
             title="Drop Your MP3"
             description="We read ID3 tags and auto-fetch lyrics from LRCLIB. Every instrument gets its own timing track."
             icon={
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M9 18V5l12-2v13" />
                 <circle cx="6" cy="18" r="3" />
                 <circle cx="18" cy="16" r="3" />
@@ -169,7 +178,16 @@ export default function UploadScreen({
             title="AI Does the Work"
             description="Your audio is split into 6 isolated stems and analyzed for beats, onsets, and vocal timing."
             icon={
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M2 12h2l3-9 3 18 3-12 3 6 2-3h4" />
               </svg>
             }
@@ -179,7 +197,16 @@ export default function UploadScreen({
             title="Download &amp; Sequence"
             description="One .xtiming file with everything named and ready. Import into xLights and go."
             icon={
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
@@ -456,7 +483,6 @@ export default function UploadScreen({
           </button>
         </div>
       )}
-
     </div>
   );
 }
@@ -486,7 +512,9 @@ function StepCard({
       </div>
       <div className="flex items-start gap-3">
         <div className="text-foreground/20 flex-shrink-0 mt-0.5">{icon}</div>
-        <p className="text-sm text-foreground/50 leading-relaxed flex-1">{description}</p>
+        <p className="text-sm text-foreground/50 leading-relaxed flex-1">
+          {description}
+        </p>
       </div>
     </div>
   );

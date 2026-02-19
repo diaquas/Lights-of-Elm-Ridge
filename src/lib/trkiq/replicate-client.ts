@@ -201,10 +201,7 @@ export async function separateStems(
     if (result.status === "starting") {
       onStatusUpdate?.(`Waiting for GPU... (${elapsed}s)`, "queued");
     } else {
-      onStatusUpdate?.(
-        `Separating instruments... (${elapsed}s)`,
-        "running",
-      );
+      onStatusUpdate?.(`Separating instruments... (${elapsed}s)`, "running");
     }
   }
 

@@ -38,7 +38,7 @@ import type {
 import { fetchLyrics, searchLyrics } from "./lrclib-client";
 import { separateStems, checkDemucsAvailable } from "./replicate-client";
 import { forceAlignLyrics } from "./force-align-client";
-import type { ForceAlignWord } from "./force-align-client";
+import type { ForceAlignWord, AlignSection } from "./force-align-client";
 import { phonemeAlignLyrics } from "./phoneme-align-client";
 import type { PhonemeAlignWord } from "./phoneme-align-client";
 import { analyzeStems } from "./essentia-onset-client";
@@ -104,7 +104,15 @@ export async function runPipeline(
           : prev.startedAt;
       // Preserve existing logs when status hasn't changed
       const logs = prev.logs ?? [];
-      pipeline[idx] = { step, status, detail, startedAt, subPhase, subProgress, logs };
+      pipeline[idx] = {
+        step,
+        status,
+        detail,
+        startedAt,
+        subPhase,
+        subProgress,
+        logs,
+      };
       onProgress([...pipeline]);
     }
   };
@@ -146,7 +154,10 @@ export async function runPipeline(
         if (phase === "queued" && !stemsLoggedQueue) {
           stemsLoggedQueue = true;
           appendLog("stems", "Requesting a GPU from Replicate");
-          appendLog("stems", "In queue \u2014 AI models need dedicated hardware");
+          appendLog(
+            "stems",
+            "In queue \u2014 AI models need dedicated hardware",
+          );
         }
         if (phase === "running" && !stemsLoggedProcessing) {
           stemsLoggedProcessing = true;
@@ -217,7 +228,10 @@ export async function runPipeline(
         );
         const totalBeats = tracks.reduce((s, t) => s + t.marks.length, 0);
         appendLog("analyze", `Tempo locked: ${bpm} BPM`);
-        appendLog("analyze", `\u2713 Beat map complete \u2014 ${totalBeats} marks across ${tracks.length} tracks`);
+        appendLog(
+          "analyze",
+          `\u2713 Beat map complete \u2014 ${totalBeats} marks across ${tracks.length} tracks`,
+        );
         update("analyze", "done");
         return { tracks, bpm, essentia: true };
       }
@@ -286,17 +300,27 @@ export async function runPipeline(
             appendLog("lyrics", "GPU active \u2014 running Whisper alignment");
           }
         },
+        durationMs,
       );
       if (!alignedWords) {
         alignError = lastAlignMsg;
       } else {
-        appendLog("lyrics", `Placing ${alignedWords.length} words at timestamps`);
+        appendLog(
+          "lyrics",
+          `Placing ${alignedWords.length} words at timestamps`,
+        );
       }
     }
 
     if (alignedWords && alignedWords.length > 0) {
       // Try phoneme-level alignment for acoustic phoneme boundaries
-      update("lyrics", "active", "Running phoneme alignment\u2026", "running", 70);
+      update(
+        "lyrics",
+        "active",
+        "Running phoneme alignment\u2026",
+        "running",
+        70,
+      );
       appendLog("lyrics", "Fine-tuning word boundaries with phoneme model");
       const phonemeAlignedWords = await runPhonemeAlign(
         stems?.vocals ?? "",
@@ -332,7 +356,10 @@ export async function runPipeline(
       ];
       const vTracks = [leadTrack];
       const wordCount = alignedWords.length;
-      appendLog("lyrics", `\u2713 Lyric sync complete \u2014 ${wordCount} cue points`);
+      appendLog(
+        "lyrics",
+        `\u2713 Lyric sync complete \u2014 ${wordCount} cue points`,
+      );
       update("lyrics", "done");
       return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
     }
@@ -382,7 +409,10 @@ export async function runPipeline(
 
   const trackCount = beatTracks.length + vocalTracks.length;
   appendLog("generate", "Formatting for xLights");
-  appendLog("generate", `Writing ${trackCount} tracks, ${beatStats.totalMarks + (lyriqStats?.totalPhonemes || 0)} marks`);
+  appendLog(
+    "generate",
+    `Writing ${trackCount} tracks, ${beatStats.totalMarks + (lyriqStats?.totalPhonemes || 0)} marks`,
+  );
 
   const combined: TrkiqStats = {
     bpm: detectedBpm,
@@ -447,10 +477,16 @@ function getAudioDuration(file: File): Promise<number> {
 function normalizeTranscript(text: string): string {
   return (
     text
-      // Remove parenthetical stage directions: (Dead), (Is no surprise)
-      .replace(/\([^)]*\)/g, "")
+      // Remove only stage directions in parentheses (instrumental, intro, etc.)
+      // but KEEP sung parenthetical content like (Dead) or (Is no surprise)
+      .replace(
+        /\((?:instrumental|intro|outro|interlude|bridge|verse|chorus|solo|fade out|fade in|repeat)[^)]*\)/gi,
+        "",
+      )
+      // Unwrap remaining parenthetical content — keep the words, drop the parens
+      .replace(/[()]/g, "")
       // Strip remaining brackets
-      .replace(/[[\](){}]/g, "")
+      .replace(/[[\]{}]/g, "")
       // Remove commas, semicolons, colons, exclamation/question marks
       .replace(/[,;:!?]/g, "")
       // Normalize curly/smart quotes to straight
@@ -474,23 +510,106 @@ function normalizeTranscript(text: string): string {
 }
 
 /**
+ * Build section boundaries for chunked alignment from LRCLIB synced lines.
+ *
+ * Groups consecutive synced lines into sections of ~14+ seconds each,
+ * providing natural phrase boundaries that prevent cross-section confusion.
+ * Each section gets its own normalized transcript chunk.
+ */
+function buildAlignSections(
+  syncedLines: SyncedLine[],
+  durationMs: number,
+): AlignSection[] {
+  if (syncedLines.length === 0) return [];
+
+  const MIN_SECTION_S = 14; // Verse-length chunks — long enough to preserve natural silences
+  const PADDING_S = 0.75; // Pad each boundary so words at edges aren't clipped
+  const sections: AlignSection[] = [];
+
+  let groupLines: SyncedLine[] = [syncedLines[0]];
+  let groupStartMs = syncedLines[0].timeMs;
+
+  for (let i = 1; i < syncedLines.length; i++) {
+    const line = syncedLines[i];
+    const elapsed = (line.timeMs - groupStartMs) / 1000;
+
+    // Start a new section if we've accumulated enough time
+    // and this line starts a new phrase (silence gap or section break)
+    if (elapsed >= MIN_SECTION_S) {
+      const endMs = line.timeMs;
+      const text = groupLines.map((l) => l.text).join("\n");
+      const normalized = normalizeTranscript(text);
+      if (normalized.trim()) {
+        sections.push({
+          start: Math.max(0, groupStartMs / 1000 - PADDING_S),
+          end: endMs / 1000 + PADDING_S,
+          text: normalized,
+        });
+      }
+      groupLines = [line];
+      groupStartMs = line.timeMs;
+    } else {
+      groupLines.push(line);
+    }
+  }
+
+  // Flush the last group
+  if (groupLines.length > 0) {
+    const text = groupLines.map((l) => l.text).join("\n");
+    const normalized = normalizeTranscript(text);
+    if (normalized.trim()) {
+      sections.push({
+        start: Math.max(0, groupStartMs / 1000 - PADDING_S),
+        end: durationMs / 1000,
+        text: normalized,
+      });
+    }
+  }
+
+  return sections;
+}
+
+/**
  * Run force-align and convert results to AlignedWord[].
+ * When LRCLIB synced lines are available, uses section-chunked alignment
+ * to prevent cross-section confusion on repeated phrases.
  * Returns null if alignment fails.
  */
 async function runForceAlign(
   vocalsUrl: string,
   lyrics: LyricsData,
   onStatusUpdate: (msg: string, phase?: "queued" | "running") => void,
+  durationMs?: number,
 ): Promise<AlignedWord[] | null> {
   try {
     const transcript = normalizeTranscript(lyrics.plainText);
+
+    // Use section-chunked alignment when LRCLIB synced lines are available.
+    // Each section is aligned independently so the model can't confuse
+    // repeated phrases across chorus/verse repetitions. 14s minimum sections
+    // with 750ms padding preserve natural silences within each chunk.
+    let sections: AlignSection[] | undefined;
+    if (lyrics.syncedLines && lyrics.syncedLines.length > 0 && durationMs) {
+      sections = buildAlignSections(lyrics.syncedLines, durationMs);
+      if (sections.length > 0) {
+        onStatusUpdate?.(
+          `Chunked alignment: ${sections.length} sections detected`,
+        );
+      } else {
+        sections = undefined;
+      }
+    }
 
     const wordstamps = await forceAlignLyrics(
       vocalsUrl,
       transcript,
       onStatusUpdate,
+      sections,
     );
-    const aligned = forceAlignToAlignedWords(wordstamps);
+    const aligned = forceAlignToAlignedWords(
+      wordstamps,
+      lyrics.syncedLines ?? undefined,
+    );
     return aligned.length > 0 ? aligned : null;
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : "Unknown error";
@@ -566,16 +685,15 @@ async function runPhonemeAlign(
 
 /**
  * Convert force-align-wordstamps output to AlignedWord[].
- * Passes through raw timestamps from force-align with minimal
- * post-processing:
+ * Post-processing pipeline:
  *   1. Monotonicity enforcement (prevents repeated-phrase jumps)
- *   2. Low-confidence interpolation (re-derives timing for bad words)
- *
- * No global offset or drift correction is applied — raw force-align
- * timestamps tested closer to human-corrected timing without them.
- * Drift may be revisited once wav2vec2 refinement is working.
+ *   2. LRCLIB-anchored drift correction (rubber-bands words to known-good line starts)
+ *   3. Low-confidence interpolation (re-derives timing for bad words)
  */
-function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
+function forceAlignToAlignedWords(
+  wordstamps: ForceAlignWord[],
+  syncedLines?: SyncedLine[],
+): AlignedWord[] {
   const raw = wordstamps
     .filter((w) => w.word.trim().length > 0)
     .map((w) => ({
@@ -603,11 +721,20 @@ function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
     }
   }
 
+  // ── Step 2: LRCLIB-anchored drift correction ─────────────────────
+  // When synced lines are available, use their line-start timestamps as
+  // soft anchors. For each line, find the closest matching first word in
+  // the alignment. If the deviation exceeds 500ms, shift all words in
+  // that line proportionally to pull them toward the anchor.
+  if (syncedLines && syncedLines.length > 0) {
+    applyLrcAnchorCorrection(raw, syncedLines);
+  }
+
   // ── Step 3: Low-confidence interpolation ─────────────────────────
-  // Words with very low confidence (< 0.2) likely landed on the wrong
-  // audio region. Re-derive their timing by interpolating between their
+  // Words with very low confidence likely landed on the wrong audio
+  // region. Re-derive their timing by interpolating between their
   // confident neighbors.
-  const CONF_THRESHOLD = 0.2;
+  const CONF_THRESHOLD = 0.35;
   let i = 0;
   while (i < raw.length) {
     if (raw[i].confidence >= CONF_THRESHOLD) {
@@ -643,13 +770,109 @@ function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
         const gapMs = (gap * 0.15) / runLen;
         raw[j].startMs = Math.round(cursor);
         raw[j].endMs = Math.round(cursor + wordMs);
-        raw[j].confidence = 0.3; // low but not flagged for re-interpolation
+        raw[j].confidence = 0.35; // above threshold to avoid re-interpolation
         cursor = raw[j].endMs + gapMs;
       }
     }
   }
 
   return raw;
+}
+
+/**
+ * Apply LRCLIB line-start anchors to correct drift in force-aligned words.
+ *
+ * For each synced line, finds the best-matching word in the alignment
+ * (by text match on the first word of the line within a ±5s window).
+ * If the force-align time deviates from the LRCLIB time by more than
+ * MAX_DRIFT_MS, shifts all words between this anchor and the next one
+ * proportionally to close the gap.
+ */
+function applyLrcAnchorCorrection(
+  words: AlignedWord[],
+  syncedLines: SyncedLine[],
+): void {
+  const MAX_DRIFT_MS = 500;
+  const SEARCH_WINDOW_MS = 5000;
+
+  // Build anchor points: for each synced line, find the matching word index
+  interface Anchor {
+    wordIdx: number;
+    lrcMs: number;
+    alignMs: number;
+  }
+  const anchors: Anchor[] = [];
+
+  for (const line of syncedLines) {
+    const lineFirstWord = line.text.trim().split(/\s+/)[0]?.toLowerCase();
+    if (!lineFirstWord) continue;
+
+    // Search for the closest word matching the line's first word
+    let bestIdx = -1;
+    let bestDist = Infinity;
+    for (let w = 0; w < words.length; w++) {
+      const wordText = words[w].text.toLowerCase().replace(/[^\w']/g, "");
+      if (wordText !== lineFirstWord) continue;
+      const dist = Math.abs(words[w].startMs - line.timeMs);
+      if (dist < SEARCH_WINDOW_MS && dist < bestDist) {
+        bestDist = dist;
+        bestIdx = w;
+      }
+    }
+
+    if (bestIdx >= 0) {
+      anchors.push({
+        wordIdx: bestIdx,
+        lrcMs: line.timeMs,
+        alignMs: words[bestIdx].startMs,
+      });
+    }
+  }
+
+  if (anchors.length === 0) return;
+
+  // Deduplicate: if multiple anchors point to the same word, keep closest
+  const seen = new Set<number>();
+  const uniqueAnchors = anchors.filter((a) => {
+    if (seen.has(a.wordIdx)) return false;
+    seen.add(a.wordIdx);
+    return true;
+  });
+
+  // Apply corrections between consecutive anchor pairs
+  for (let a = 0; a < uniqueAnchors.length; a++) {
+    const anchor = uniqueAnchors[a];
+    const drift = anchor.lrcMs - anchor.alignMs;
+
+    if (Math.abs(drift) <= MAX_DRIFT_MS) continue;
+
+    // Determine the range of words to shift: from this anchor to the next
+    const rangeStart = anchor.wordIdx;
+    const rangeEnd =
+      a + 1 < uniqueAnchors.length
+        ? uniqueAnchors[a + 1].wordIdx
+        : words.length;
+
+    // Apply a decaying correction: full shift at the anchor, tapering to 0
+    // at the next anchor so we don't create a discontinuity
+    const rangeLen = rangeEnd - rangeStart;
+    for (let w = rangeStart; w < rangeEnd; w++) {
+      const progress = rangeLen > 1 ? (w - rangeStart) / (rangeLen - 1) : 0;
+      const correction = Math.round(drift * (1 - progress * 0.8));
+      words[w].startMs += correction;
+      words[w].endMs += correction;
+    }
+  }
+
+  // Re-enforce monotonicity after shifting
+  for (let i = 1; i < words.length; i++) {
+    if (words[i].startMs < words[i - 1].endMs) {
+      words[i].startMs = words[i - 1].endMs;
+      if (words[i].endMs < words[i].startMs + 20) {
+        words[i].endMs = words[i].startMs + 20;
+      }
+    }
+  }
 }
 
 /**

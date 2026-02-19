@@ -181,7 +181,10 @@ export async function analyzeStems(
 
   if (stemJobs.length === 0) return [];
 
-  onStatusUpdate?.(`Analyzing ${stemJobs.length} stems with Essentia...`, "queued");
+  onStatusUpdate?.(
+    `Analyzing ${stemJobs.length} stems with Essentia...`,
+    "queued",
+  );
 
   // Run all stems in parallel
   const settled = await Promise.allSettled(

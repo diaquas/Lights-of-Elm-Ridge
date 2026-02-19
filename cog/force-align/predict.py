@@ -34,7 +34,7 @@ class Predictor(BasePredictor):
     def setup(self):
         """Load models on cold start — Whisper + Silero VAD."""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = stable_whisper.load_model("medium", device=self.device)
+        self.model = stable_whisper.load_model("large-v3", device=self.device)
 
         # Pre-load Silero VAD from the cached copy baked into the image.
         # Without this, the first predict() with vad=True triggers a

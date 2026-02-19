@@ -237,7 +237,13 @@ export default function TrkIQTool() {
   }, [session.audioUrl]);
 
   return (
-    <div className={session.screen === "processing" ? "" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"}>
+    <div
+      className={
+        session.screen === "processing"
+          ? ""
+          : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
+      }
+    >
       {/* ── Hero (upload + editor only) ───────────────── */}
       {session.screen === "upload" && (
         <div className="text-center mb-12">

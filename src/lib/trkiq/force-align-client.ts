@@ -62,32 +62,48 @@ async function callForceAlignFunction(
   return data as ForceAlignResponse;
 }
 
-/**
- * Run forced alignment on a vocals stem + lyrics transcript.
- *
- * @param vocalsUrl      - URL to the Demucs vocals stem (NOT the original MP3)
- * @param transcript     - Plain lyrics text to align against the audio
- * @param onStatusUpdate - Called with status messages during processing
- * @returns Array of word-level timestamps
- */
+/** Section boundary for chunked alignment */
+export interface AlignSection {
+  /** Section start time in seconds */
+  start: number;
+  /** Section end time in seconds */
+  end: number;
+  /** Lyrics text for this section */
+  text: string;
+}
+
 /** Status callback includes the Replicate prediction phase */
 export type ForceAlignStatusCallback = (
   message: string,
   phase?: "queued" | "running",
 ) => void;
 
+/**
+ * Run forced alignment on a vocals stem + lyrics transcript.
+ *
+ * @param vocalsUrl      - URL to the Demucs vocals stem (NOT the original MP3)
+ * @param transcript     - Plain lyrics text to align against the audio
+ * @param onStatusUpdate - Called with status messages during processing
+ * @param sections       - Optional section boundaries for chunked alignment
+ * @returns Array of word-level timestamps
+ */
 export async function forceAlignLyrics(
   vocalsUrl: string,
   transcript: string,
   onStatusUpdate?: ForceAlignStatusCallback,
+  sections?: AlignSection[],
 ): Promise<ForceAlignWord[]> {
   // Step 1: Start the alignment job
   onStatusUpdate?.("Starting forced alignment...", "queued");
-  const startResult = await callForceAlignFunction({
+  const body: Record<string, unknown> = {
     action: "start",
     vocalsUrl,
     transcript,
-  });
+  };
+  if (sections && sections.length > 0) {
+    body.sections = JSON.stringify(sections);
+  }
+  const startResult = await callForceAlignFunction(body);
   const predictionId = startResult.predictionId;
 
   // Step 2: Poll for completion
