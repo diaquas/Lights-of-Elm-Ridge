@@ -171,8 +171,8 @@ class Predictor(BasePredictor):
         """Load models on cold start — wav2vec2 + CMU dictionary."""
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        # Load wav2vec2 for CTC forced alignment
-        bundle = torchaudio.pipelines.WAV2VEC2_ASR_BASE_960H
+        # Load wav2vec2-large for CTC forced alignment (better phoneme boundaries)
+        bundle = torchaudio.pipelines.WAV2VEC2_ASR_LARGE_960H
         self.model = bundle.get_model().to(self.device)
         self.labels = bundle.get_labels()
         self.sample_rate = bundle.sample_rate  # 16000
