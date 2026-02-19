@@ -204,33 +204,43 @@ async function handleStatus(
 const STEM_NAMES = ["vocals", "drums", "bass", "other", "guitar", "piano"];
 
 /**
- * Normalize Demucs output into a StemSet object.
- *
- * Replicate models return outputs in different shapes depending on the
- * Cog version and model config:
- *
- *   1. Object with stem keys: { vocals: "url", drums: "url", ... }  ← ideal
- *   2. Array of URLs: ["url/vocals.wav", "url/drums.wav", ...]       ← parse filenames
- *   3. Single string URL (zip archive): "url/stems.zip"              ← pass as archive
+ * Extract a URL string from a value that may be a plain string or a
+ * Replicate FileOutput object ({ url: "https://..." }).
  */
+function extractUrl(value: unknown): string | null {
+  if (typeof value === "string" && value.startsWith("http")) {
+    return value;
+  }
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.url === "string" && obj.url.startsWith("http")) {
+      return obj.url;
+    }
+  }
+  return null;
+}
+
 function normalizeStemOutput(output: unknown): Record<string, string> {
-  // Case 1: Object with stem keys — pass through (most common)
+  // Case 1: Object with stem keys — values may be URL strings or
+  // FileOutput objects ({ url: "https://..." })
   if (output && typeof output === "object" && !Array.isArray(output)) {
     const obj = output as Record<string, unknown>;
     const stems: Record<string, string> = {};
     for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === "string" && value.startsWith("http")) {
-        stems[key] = value;
+      const url = extractUrl(value);
+      if (url) {
+        stems[key] = url;
       }
     }
     if (Object.keys(stems).length > 0) return stems;
   }
 
-  // Case 2: Array of URLs — extract stem names from filenames
+  // Case 2: Array of URLs or FileOutput objects
   if (Array.isArray(output)) {
     const stems: Record<string, string> = {};
-    for (const url of output) {
-      if (typeof url !== "string") continue;
+    for (const item of output) {
+      const url = extractUrl(item);
+      if (!url) continue;
       // Extract filename: "https://replicate.delivery/.../vocals.wav" → "vocals"
       const filename = url.split("/").pop()?.split(".")[0]?.toLowerCase() || "";
       const stemName = STEM_NAMES.find((s) => filename.includes(s));
@@ -241,30 +251,32 @@ function normalizeStemOutput(output: unknown): Record<string, string> {
     if (Object.keys(stems).length > 0) return stems;
     // If no recognized stems, try positional mapping.
     // htdemucs_6s outputs: drums, bass, other, vocals, guitar, piano
-    if (output.length >= 6) {
+    const urls = output.map(extractUrl).filter((u): u is string => u !== null);
+    if (urls.length >= 6) {
       return {
-        drums: output[0] as string,
-        bass: output[1] as string,
-        other: output[2] as string,
-        vocals: output[3] as string,
-        guitar: output[4] as string,
-        piano: output[5] as string,
+        drums: urls[0],
+        bass: urls[1],
+        other: urls[2],
+        vocals: urls[3],
+        guitar: urls[4],
+        piano: urls[5],
       };
     }
     // htdemucs (4-stem) fallback
-    if (output.length >= 4) {
+    if (urls.length >= 4) {
       return {
-        drums: output[0] as string,
-        bass: output[1] as string,
-        other: output[2] as string,
-        vocals: output[3] as string,
+        drums: urls[0],
+        bass: urls[1],
+        other: urls[2],
+        vocals: urls[3],
       };
     }
   }
 
   // Case 3: Single string URL (zip archive)
-  if (typeof output === "string") {
-    return { archive: output };
+  const singleUrl = extractUrl(output);
+  if (singleUrl) {
+    return { archive: singleUrl };
   }
 
   return {};
