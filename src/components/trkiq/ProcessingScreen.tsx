@@ -107,7 +107,8 @@ const STEP_CONFIG: Record<TrkiqPipelineStep, StepConfig> = {
       >
         <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
         <path d="M19 10v2a7 7 0 01-14 0v-2" />
-        <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+        <line x1="12" y1="19" x2="12" y2="23" />
+        <line x1="8" y1="23" x2="16" y2="23" />
       </svg>
     ),
   },
@@ -209,7 +210,8 @@ export default function ProcessingScreen({
   }, []);
 
   const allDone = pipeline.every(
-    (p) => p.status === "done" || p.status === "skipped" || p.status === "error",
+    (p) =>
+      p.status === "done" || p.status === "skipped" || p.status === "error",
   );
   const showCompletion = allDone && completionStats !== null;
   const overallPct = showCompletion ? 100 : calcOverallProgress(pipeline);
@@ -265,8 +267,14 @@ export default function ProcessingScreen({
       {/* ── Layer 0: Ambient Glow (fallback) ───────────────── */}
       {!albumArtUrl && (
         <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/3 w-[500px] h-[500px] rounded-full bg-accent/[0.06] blur-[120px] animate-pulse" style={{ animationDuration: "8s" }} />
-          <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-accent/[0.04] blur-[100px] animate-pulse" style={{ animationDuration: "12s" }} />
+          <div
+            className="absolute top-1/4 left-1/3 w-[500px] h-[500px] rounded-full bg-accent/[0.06] blur-[120px] animate-pulse"
+            style={{ animationDuration: "8s" }}
+          />
+          <div
+            className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-accent/[0.04] blur-[100px] animate-pulse"
+            style={{ animationDuration: "12s" }}
+          />
         </div>
       )}
 
@@ -274,7 +282,12 @@ export default function ProcessingScreen({
       <div className="fixed inset-0 z-[1] pointer-events-none opacity-[0.035]">
         <svg width="100%" height="100%">
           <filter id="trkiq-noise">
-            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+            <feTurbulence
+              type="fractalNoise"
+              baseFrequency="0.65"
+              numOctaves="3"
+              stitchTiles="stitch"
+            />
           </filter>
           <rect width="100%" height="100%" filter="url(#trkiq-noise)" />
         </svg>
@@ -282,7 +295,6 @@ export default function ProcessingScreen({
 
       {/* ── Layer 2: Content ───────────────────────────────── */}
       <div className="relative z-[2] max-w-[640px] mx-auto space-y-6">
-
         {/* ── Track Card ─────────────────────────────────── */}
         {metadata && (
           <div className="relative rounded-xl bg-[#111114] border border-[#222] overflow-hidden">
@@ -341,17 +353,22 @@ export default function ProcessingScreen({
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2 h-2 rounded-full bg-accent animate-[trkiq-dot-pulse_2s_infinite]" />
                 <span className="text-foreground/40">
-                  {activeStep ? STEP_CONFIG[activeStep.step].title : "Initializing\u2026"}
+                  {activeStep
+                    ? STEP_CONFIG[activeStep.step].title
+                    : "Initializing\u2026"}
                 </span>
               </div>
-              <span className="text-foreground/30 font-mono tabular-nums">{overallPct}%</span>
+              <span className="text-foreground/30 font-mono tabular-nums">
+                {overallPct}%
+              </span>
             </div>
             <div className="h-1 rounded-full bg-[#18181c] overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-600 ease-out relative"
                 style={{
                   width: `${overallPct}%`,
-                  background: "linear-gradient(90deg, #991f1f, var(--accent-primary), #ff4444)",
+                  background:
+                    "linear-gradient(90deg, #991f1f, var(--accent-primary), #ff4444)",
                 }}
               >
                 {/* Scrubber dot */}
@@ -402,7 +419,11 @@ export default function ProcessingScreen({
 
                   {/* Icon */}
                   <div className="relative z-10 flex-shrink-0 mt-0.5">
-                    <StepIcon status={entry.status} subPhase={entry.subPhase} icon={config.icon} />
+                    <StepIcon
+                      status={entry.status}
+                      subPhase={entry.subPhase}
+                      icon={config.icon}
+                    />
                   </div>
 
                   {/* Content */}
@@ -411,11 +432,15 @@ export default function ProcessingScreen({
                     <div className="flex items-center gap-2 min-h-[32px] flex-wrap">
                       <span
                         className={`text-[15px] font-display font-semibold transition-colors duration-300 ${
-                          isDone ? "text-foreground/50"
-                            : isActive ? "text-foreground"
-                            : isSkipped ? "text-foreground/25"
-                            : entry.status === "error" ? "text-red-400"
-                            : "text-foreground/20"
+                          isDone
+                            ? "text-foreground/50"
+                            : isActive
+                              ? "text-foreground"
+                              : isSkipped
+                                ? "text-foreground/25"
+                                : entry.status === "error"
+                                  ? "text-red-400"
+                                  : "text-foreground/20"
                         }`}
                       >
                         {config.title}
@@ -452,10 +477,14 @@ export default function ProcessingScreen({
 
                     {/* Skipped / error detail */}
                     {isSkipped && entry.detail && (
-                      <p className="text-xs text-amber-400/60 mt-0.5">{entry.detail}</p>
+                      <p className="text-xs text-amber-400/60 mt-0.5">
+                        {entry.detail}
+                      </p>
                     )}
                     {entry.status === "error" && entry.detail && (
-                      <p className="text-xs text-red-400/70 mt-0.5">{entry.detail}</p>
+                      <p className="text-xs text-red-400/70 mt-0.5">
+                        {entry.detail}
+                      </p>
                     )}
 
                     {/* Detail area (active only) */}
@@ -472,7 +501,9 @@ export default function ProcessingScreen({
                                 className="h-full rounded-full transition-all duration-500"
                                 style={{
                                   width: `${entry.subProgress}%`,
-                                  backgroundColor: isQueue ? "#d4a24e" : "var(--accent-primary)",
+                                  backgroundColor: isQueue
+                                    ? "#d4a24e"
+                                    : "var(--accent-primary)",
                                 }}
                               />
                             </div>
@@ -492,13 +523,30 @@ export default function ProcessingScreen({
                                 <div
                                   key={li}
                                   className="animate-[trkiq-log-in_0.3s_ease-out]"
-                                  style={{ color: isCheck ? "#22c55e" : "rgba(138,134,144,0.7)" }}
+                                  style={{
+                                    color: isCheck
+                                      ? "#22c55e"
+                                      : "rgba(138,134,144,0.7)",
+                                  }}
                                 >
-                                  <span className="mr-1.5" style={{ color: isCheck ? "#22c55e" : "rgba(138,134,144,0.35)" }}>
+                                  <span
+                                    className="mr-1.5"
+                                    style={{
+                                      color: isCheck
+                                        ? "#22c55e"
+                                        : "rgba(138,134,144,0.35)",
+                                    }}
+                                  >
                                     {isCheck ? "\u2713" : "\u203A"}
                                   </span>
                                   {isCheck ? line.slice(2) : line}
-                                  {isLast && <div ref={(el: HTMLDivElement | null) => { logEndRefs.current[entry.step] = el; }} />}
+                                  {isLast && (
+                                    <div
+                                      ref={(el: HTMLDivElement | null) => {
+                                        logEndRefs.current[entry.step] = el;
+                                      }}
+                                    />
+                                  )}
                                 </div>
                               );
                             })}
@@ -526,14 +574,18 @@ export default function ProcessingScreen({
         {!showCompletion && (
           <div className="rounded-xl bg-[#111114] border border-[#222] px-5 py-4 border-l-2 border-l-accent/40">
             <div className="flex items-start gap-3">
-              <span className="text-sm flex-shrink-0 mt-0.5" aria-hidden>&#9889;</span>
+              <span className="text-sm flex-shrink-0 mt-0.5" aria-hidden>
+                &#9889;
+              </span>
               <div>
                 <p className="text-[10px] uppercase tracking-[2px] text-foreground/20 mb-1.5 font-semibold">
                   UNDER THE HOOD
                 </p>
                 <p
                   className={`text-sm text-foreground/40 leading-relaxed transition-all duration-400 ${
-                    insightFading ? "opacity-0 translate-y-1" : "opacity-100 translate-y-0"
+                    insightFading
+                      ? "opacity-0 translate-y-1"
+                      : "opacity-100 translate-y-0"
                   }`}
                 >
                   <InsightText insight={INSIGHTS[insightIndex]} />
@@ -564,8 +616,18 @@ export default function ProcessingScreen({
             {/* Check icon */}
             <div className="flex justify-center">
               <div className="w-[72px] h-[72px] rounded-full bg-gradient-to-br from-green-500/20 to-green-600/10 border border-green-500/30 flex items-center justify-center animate-[popIn_0.6s_ease-out]">
-                <svg className="w-9 h-9 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                <svg
+                  className="w-9 h-9 text-green-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
               </div>
             </div>
@@ -576,15 +638,25 @@ export default function ProcessingScreen({
                 Timing tracks ready
               </h2>
               <p className="text-sm text-foreground/40 mt-1">
-                {completionStats.trackCount} timing tracks generated with {completionStats.totalMarks.toLocaleString()} marks
+                {completionStats.trackCount} timing tracks generated with{" "}
+                {completionStats.totalMarks.toLocaleString()} marks
               </p>
             </div>
 
             {/* Stats row */}
             <div className="flex justify-center gap-10">
-              <CompletionStat label="Total time" value={formatElapsed(completionStats.totalTimeS)} />
-              <CompletionStat label="Timing marks" value={completionStats.totalMarks.toLocaleString()} />
-              <CompletionStat label="Tracks" value={String(completionStats.trackCount)} />
+              <CompletionStat
+                label="Total time"
+                value={formatElapsed(completionStats.totalTimeS)}
+              />
+              <CompletionStat
+                label="Timing marks"
+                value={completionStats.totalMarks.toLocaleString()}
+              />
+              <CompletionStat
+                label="Tracks"
+                value={String(completionStats.trackCount)}
+              />
             </div>
 
             {/* Review & Download button */}
@@ -594,7 +666,8 @@ export default function ProcessingScreen({
                   onClick={onReviewDownload}
                   className="group flex items-center gap-2.5 px-8 py-3.5 rounded-xl font-display font-semibold text-[15px] text-white transition-all duration-300 hover:-translate-y-0.5"
                   style={{
-                    background: "linear-gradient(135deg, var(--accent-primary), #ff4444)",
+                    background:
+                      "linear-gradient(135deg, var(--accent-primary), #ff4444)",
                     boxShadow: "0 4px 20px rgba(230, 51, 51, 0.3)",
                   }}
                 >
@@ -641,9 +714,21 @@ function StepIcon({
 
   if (status === "done") {
     return (
-      <div className={`${size} rounded-full border border-green-500/30 flex items-center justify-center animate-[popIn_0.3s_ease-out]`}>
-        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+      <div
+        className={`${size} rounded-full border border-green-500/30 flex items-center justify-center animate-[popIn_0.3s_ease-out]`}
+      >
+        <svg
+          className="w-4 h-4 text-green-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M5 13l4 4L19 7"
+          />
         </svg>
       </div>
     );
@@ -677,7 +762,9 @@ function StepIcon({
           }}
         />
         {/* Icon */}
-        <div className={`absolute inset-0 flex items-center justify-center ${isQueue ? "text-amber-400" : "text-accent"}`}>
+        <div
+          className={`absolute inset-0 flex items-center justify-center ${isQueue ? "text-amber-400" : "text-accent"}`}
+        >
           {icon}
         </div>
       </div>
@@ -686,9 +773,21 @@ function StepIcon({
 
   if (status === "skipped") {
     return (
-      <div className={`${size} rounded-full bg-[#18181c] flex items-center justify-center`}>
-        <svg className="w-3.5 h-3.5 text-foreground/15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+      <div
+        className={`${size} rounded-full bg-[#18181c] flex items-center justify-center`}
+      >
+        <svg
+          className="w-3.5 h-3.5 text-foreground/15"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 5l7 7-7 7M5 5l7 7-7 7"
+          />
         </svg>
       </div>
     );
@@ -696,9 +795,21 @@ function StepIcon({
 
   if (status === "error") {
     return (
-      <div className={`${size} rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center`}>
-        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+      <div
+        className={`${size} rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center`}
+      >
+        <svg
+          className="w-4 h-4 text-red-500"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2.5}
+            d="M6 18L18 6M6 6l12 12"
+          />
         </svg>
       </div>
     );
@@ -706,7 +817,9 @@ function StepIcon({
 
   // Pending
   return (
-    <div className={`${size} rounded-full bg-[#18181c] border border-[#2a2a2a] flex items-center justify-center text-foreground/15`}>
+    <div
+      className={`${size} rounded-full bg-[#18181c] border border-[#2a2a2a] flex items-center justify-center text-foreground/15`}
+    >
       {icon}
     </div>
   );
@@ -731,8 +844,12 @@ function InsightText({ insight }: { insight: { text: string; bold: string } }) {
 function CompletionStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-center">
-      <p className="text-[28px] font-display font-extrabold text-foreground tabular-nums">{value}</p>
-      <p className="text-[11px] uppercase tracking-[1.5px] text-foreground/25 mt-0.5">{label}</p>
+      <p className="text-[28px] font-display font-extrabold text-foreground tabular-nums">
+        {value}
+      </p>
+      <p className="text-[11px] uppercase tracking-[1.5px] text-foreground/25 mt-0.5">
+        {label}
+      </p>
     </div>
   );
 }

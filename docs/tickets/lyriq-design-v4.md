@@ -1,4 +1,5 @@
 # Lyr:IQ — Design Document v4
+
 ## Lights of Elm Ridge · Singing Face Timing Generator for xLights
 
 **Tool family:** FirstLight → xWire → Beat:IQ / **Lyr:IQ** → Mod:IQ
@@ -19,6 +20,7 @@ For a typical holiday song, Lyr:IQ produces:
 ```
 
 Each timing track is xLights-ready with all three layers pre-built:
+
 - **Phrases** — lyric lines with correct start/end times
 - **Words** — individual words aligned to the vocal audio
 - **Phonemes** — Preston Blair mouth positions with linguistically-weighted durations
@@ -38,27 +40,27 @@ Each timing track is xLights-ready with all three layers pre-built:
 5. Manually drag every phoneme to align with the audio
 6. Repeat for chorus sections, backing vocals, etc.
 
-Community posts confirm the agony: *"This process is taking forever, just for a few seconds of singing, at a time. Is there an easier method?"*
+Community posts confirm the agony: _"This process is taking forever, just for a few seconds of singing, at a time. Is there an easier method?"_
 
 ### AutoLyrics (lightingfanatics.com) — The Existing Tool
 
-| Problem | Severity | Lyr:IQ Fix |
-|---|---|---|
-| **Must manually paste lyrics** — user has to go find and copy them | Annoyance | Auto-fetch via web search; only ask if not found |
-| **Phoneme duration is naive** — consonants like L get equal time as vowels like O, when vowels should be 2-3x longer | Major — faces look robotic | Linguistically-weighted phoneme duration model |
-| **Words flat-out miss** — timestamps off by multiple seconds, not just milliseconds | Critical — defeats the purpose | Modern forced alignment (wav2vec2) on isolated vocal stem |
-| **Missing dictionary words** — xLights' CMU dictionary doesn't have every word | Moderate — leaves gaps | Extended dictionary + G2P fallback |
-| **No editing before export** — black box, can't fix problems until xLights | Major — wasted round-trips | In-browser phoneme editor with drag-to-adjust |
-| **Queue-based, slow** — can wait 30+ minutes | Annoyance | ~60 second processing |
-| **No background vocal support** | Major gap | Moises lead/BG stem separation + independent alignment |
+| Problem                                                                                                              | Severity                       | Lyr:IQ Fix                                                |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------------------------------------------- |
+| **Must manually paste lyrics** — user has to go find and copy them                                                   | Annoyance                      | Auto-fetch via web search; only ask if not found          |
+| **Phoneme duration is naive** — consonants like L get equal time as vowels like O, when vowels should be 2-3x longer | Major — faces look robotic     | Linguistically-weighted phoneme duration model            |
+| **Words flat-out miss** — timestamps off by multiple seconds, not just milliseconds                                  | Critical — defeats the purpose | Modern forced alignment (wav2vec2) on isolated vocal stem |
+| **Missing dictionary words** — xLights' CMU dictionary doesn't have every word                                       | Moderate — leaves gaps         | Extended dictionary + G2P fallback                        |
+| **No editing before export** — black box, can't fix problems until xLights                                           | Major — wasted round-trips     | In-browser phoneme editor with drag-to-adjust             |
+| **Queue-based, slow** — can wait 30+ minutes                                                                         | Annoyance                      | ~60 second processing                                     |
+| **No background vocal support**                                                                                      | Major gap                      | Moises lead/BG stem separation + independent alignment    |
 
 ### Papagayo (Legacy)
 
-Before AutoLyrics, the community used Papagayo — a standalone lip-sync app from ~2006. The xLights manual notes: *"Due to a performance limitation in the Papagayo software, a sequence often had to be broken up into segments."* xLights eventually built native singing face support to replace it, but the native word breakdown is still just dictionary lookup with equal-duration phonemes — the same core problem Lyr:IQ solves.
+Before AutoLyrics, the community used Papagayo — a standalone lip-sync app from ~2006. The xLights manual notes: _"Due to a performance limitation in the Papagayo software, a sequence often had to be broken up into segments."_ xLights eventually built native singing face support to replace it, but the native word breakdown is still just dictionary lookup with equal-duration phonemes — the same core problem Lyr:IQ solves.
 
 ### Our Target: 90-95% Accuracy
 
-The gap between 70-80% and 90-95% is the difference between *"saves time but still hours of cleanup"* and *"tweak a few words and you're done in 20 minutes."*
+The gap between 70-80% and 90-95% is the difference between _"saves time but still hours of cleanup"_ and _"tweak a few words and you're done in 20 minutes."_
 
 ---
 
@@ -74,11 +76,12 @@ The gap between 70-80% and 90-95% is the difference between *"saves time but sti
 2. Auto-search for lyrics via web search
 3. Moises lyrics transcription API provides AI-transcribed lyrics with word-level timestamps
 4. Compare sources — use official lyrics text + Moises timestamps (best of both worlds)
-5. Present for confirmation: *"We found lyrics for 'Jingle Bell Rock' by Bobby Helms. Look right?"*
+5. Present for confirmation: _"We found lyrics for 'Jingle Bell Rock' by Bobby Helms. Look right?"_
 6. User confirms or edits
 7. If no results → ask user to paste lyrics
 
 **Edge cases handled:**
+
 - Edited/trimmed songs → detect during alignment, flag mismatches
 - Live vs studio versions → alignment catches timing differences
 - Instrumental sections → gap detection, no phantom phonemes
@@ -111,16 +114,17 @@ Stops (etc: K,T,D) | 30-60ms fixed  | Very quick
 
 **Example: "close" at 400ms total**
 
-| Phoneme | Lyr:IQ | xLights Default |
-|---|---|---|
-| K (etc) | 50ms | 100ms |
-| L | 70ms | 100ms |
-| OW (O) | **220ms** | 100ms |
-| Z (etc) | 60ms | 100ms |
+| Phoneme | Lyr:IQ    | xLights Default |
+| ------- | --------- | --------------- |
+| K (etc) | 50ms      | 100ms           |
+| L       | 70ms      | 100ms           |
+| OW (O)  | **220ms** | 100ms           |
+| Z (etc) | 60ms      | 100ms           |
 
 The vowel — the part you actually hear and see the mouth hold open for — gets 55% of the word instead of 25%. Night and day difference on the face.
 
 **Additional refinements:**
+
 - **Sustained notes:** When audio energy stays high (singer holding a note), extend the vowel further
 - **Word-final consonants:** Often barely pronounced in singing — shortened
 - **Diphthongs** (AY, OW): Split into two shorter phonemes for more natural mouth movement
@@ -168,6 +172,7 @@ Clean separated vocal stems — instruments completely removed. This alone elimi
 
 **Layer 2: Modern Forced Alignment**
 wav2vec2-based CTC forced alignment:
+
 - Word-level accuracy: 20-50ms (vs AutoLyrics' 200ms+)
 - Character-level alignment for sub-word precision
 - Robust to remaining background artifacts
@@ -175,6 +180,7 @@ wav2vec2-based CTC forced alignment:
 
 **Layer 3: Structural Anchoring**
 Rather than aligning the entire song as one stream (where errors cascade):
+
 1. Detect silence gaps and instrumental breaks
 2. Split song into independent sections
 3. Align each section separately
@@ -182,12 +188,14 @@ Rather than aligning the entire song as one stream (where errors cascade):
 
 **Layer 4: Confidence-Based Flagging**
 The alignment model produces per-word confidence scores:
+
 - Green: high confidence, likely correct
 - Yellow: medium confidence, worth reviewing
 - Red: low confidence, needs attention
 
 **Layer 5: Chorus Repetition Intelligence**
 If the same lyrics appear multiple times:
+
 1. Align all instances independently
 2. Use the highest-confidence instance as the "template"
 3. Offer to apply template timing to lower-confidence instances
@@ -200,6 +208,7 @@ If the same lyrics appear multiple times:
 ### Why This Matters
 
 Most holiday songs have:
+
 - Lead vocal (main singer)
 - Background/harmony vocals ("oohs," "aahs," chorus harmonies)
 - Sometimes a duet (e.g., "Baby It's Cold Outside")
@@ -210,17 +219,18 @@ Moises Pro separation gives us **lead vocals and background vocals as separate s
 
 ### BG Vocal Challenges & Solutions
 
-| Challenge | Solution |
-|---|---|
-| No "official" lyrics for BG parts | AI transcription of the BG stem (Moises) + manual edit |
-| "Oohs," "aahs," wordless harmonies | Detect as sustained vowel phonemes (O, AI, E) |
-| BG vocals overlap with lead | Moises separation handles this — clean isolated stems |
-| Timing offset from lead (harmonies) | Align BG independently from its own stem |
-| Less distinct pronunciation | Lower confidence thresholds, more review flagging |
+| Challenge                           | Solution                                               |
+| ----------------------------------- | ------------------------------------------------------ |
+| No "official" lyrics for BG parts   | AI transcription of the BG stem (Moises) + manual edit |
+| "Oohs," "aahs," wordless harmonies  | Detect as sustained vowel phonemes (O, AI, E)          |
+| BG vocals overlap with lead         | Moises separation handles this — clean isolated stems  |
+| Timing offset from lead (harmonies) | Align BG independently from its own stem               |
+| Less distinct pronunciation         | Lower confidence thresholds, more review flagging      |
 
 ### xLights Integration
 
 In the sequencer, the user assigns each timing track to a different singing face model:
+
 - **Main singing face** → Lead Lyrics track
 - **Second face / backing props** → Background Lyrics track
 - **Third face** → Duet voice (if detected)
@@ -303,6 +313,7 @@ MP3 Upload (shared with Beat:IQ)
 ```
 
 ### Key Rules
+
 - Times in **milliseconds** (integers)
 - Labels **lowercase** for phrases and words
 - Phonemes use **Preston Blair codes** (case-sensitive)
@@ -312,18 +323,18 @@ MP3 Upload (shared with Beat:IQ)
 
 ### Preston Blair Phoneme Set (xLights Standard)
 
-| Code | Mouth Shape | Maps From (CMU) | Duration Behavior |
-|---|---|---|---|
-| **AI** | Wide open jaw | AA, AE, AH, AY | Vowel — stretches to fill |
-| **O** | Round open | AO, AW, OW, OY, UH | Vowel — stretches to fill |
-| **E** | Smile/teeth shown | EH, ER, EY, IH, IY | Vowel — stretches to fill |
-| **U** | Small round pucker | UW | Vowel — stretches to fill |
-| **etc** | Teeth/tongue catch-all | CH, D, DH, G, HH, JH, K, N, NG, R, S, SH, T, TH, Y, Z, ZH | 30-90ms fixed |
-| **L** | Tongue tip visible | L | 60-100ms fixed |
-| **WQ** | Pucker/kiss | W, WH | 50-90ms fixed |
-| **MBP** | Lips pressed closed | M, B, P | 40-80ms fixed |
-| **FV** | Lower lip bite | F, V | 60-100ms fixed |
-| **rest** | Mouth closed/neutral | (silence) | Fills gaps between phrases |
+| Code     | Mouth Shape            | Maps From (CMU)                                           | Duration Behavior          |
+| -------- | ---------------------- | --------------------------------------------------------- | -------------------------- |
+| **AI**   | Wide open jaw          | AA, AE, AH, AY                                            | Vowel — stretches to fill  |
+| **O**    | Round open             | AO, AW, OW, OY, UH                                        | Vowel — stretches to fill  |
+| **E**    | Smile/teeth shown      | EH, ER, EY, IH, IY                                        | Vowel — stretches to fill  |
+| **U**    | Small round pucker     | UW                                                        | Vowel — stretches to fill  |
+| **etc**  | Teeth/tongue catch-all | CH, D, DH, G, HH, JH, K, N, NG, R, S, SH, T, TH, Y, Z, ZH | 30-90ms fixed              |
+| **L**    | Tongue tip visible     | L                                                         | 60-100ms fixed             |
+| **WQ**   | Pucker/kiss            | W, WH                                                     | 50-90ms fixed              |
+| **MBP**  | Lips pressed closed    | M, B, P                                                   | 40-80ms fixed              |
+| **FV**   | Lower lip bite         | F, V                                                      | 60-100ms fixed             |
+| **rest** | Mouth closed/neutral   | (silence)                                                 | Fills gaps between phrases |
 
 ---
 
@@ -368,6 +379,7 @@ MP3 Upload (shared with Beat:IQ)
 **Top: Audio Waveform** — vocal stem waveform with playback/scrub/zoom
 
 **Middle: Timing Tracks** — three horizontal lanes:
+
 ```
 Phrases: |  jingle bells jingle bells  |  jingle all the way  |
 Words:   | jingle | bells | jingle | bells | jingle | all | the | way |
@@ -380,11 +392,13 @@ Phonemes:|etc|AI|etc|etc|L|MBP|E|L|etc|etc|AI|etc|etc|L|...
 - Double-click word to re-run phoneme breakdown
 
 **Bottom: Sidebar**
+
 - Animated face preview (current phoneme mouth shape)
 - Stats: "237 words · 14 flagged · 823 phonemes"
 - Export button
 
 **Key interaction: Phoneme editing**
+
 - Drag phoneme boundary left/right to change duration
 - Adjacent phoneme auto-adjusts to compensate
 - Vowels highlighted as "stretchable," consonants as "fixed"
@@ -397,28 +411,28 @@ Phonemes:|etc|AI|etc|etc|L|MBP|E|L|etc|etc|AI|etc|etc|L|...
 
 ### Lyr:IQ vs AutoLyrics
 
-| | AutoLyrics | Lyr:IQ |
-|---|---|---|
-| Background vocals | ❌ | ✅ First in category |
-| Auto lyrics fetch | ❌ (manual paste) | ✅ Web search + Moises transcription |
-| Vocal isolation | ❌ (full mix) | ✅ Moises stem separation |
-| Phoneme generation | ❌ (relies on xLights post-import) | ✅ Pre-computed with weighted durations |
-| Missing words | Gaps | Extended dictionary + G2P fallback |
-| Alignment accuracy | ~200ms | ~20-50ms |
-| Interactive editor | ❌ | ✅ Drag-to-adjust waveform view |
-| Processing time | 30+ min queue | ~60 seconds |
-| Non-English support | ❌ | Future: Moises transcription is language-agnostic |
+|                     | AutoLyrics                         | Lyr:IQ                                            |
+| ------------------- | ---------------------------------- | ------------------------------------------------- |
+| Background vocals   | ❌                                 | ✅ First in category                              |
+| Auto lyrics fetch   | ❌ (manual paste)                  | ✅ Web search + Moises transcription              |
+| Vocal isolation     | ❌ (full mix)                      | ✅ Moises stem separation                         |
+| Phoneme generation  | ❌ (relies on xLights post-import) | ✅ Pre-computed with weighted durations           |
+| Missing words       | Gaps                               | Extended dictionary + G2P fallback                |
+| Alignment accuracy  | ~200ms                             | ~20-50ms                                          |
+| Interactive editor  | ❌                                 | ✅ Drag-to-adjust waveform view                   |
+| Processing time     | 30+ min queue                      | ~60 seconds                                       |
+| Non-English support | ❌                                 | Future: Moises transcription is language-agnostic |
 
 ### Lyr:IQ vs Manual xLights Workflow
 
-| | Manual in xLights | Lyr:IQ |
-|---|---|---|
-| Lyrics entry | Type each phrase manually | Auto-fetched |
-| Word alignment | Listen & adjust each word | Forced alignment on isolated vocals |
-| Phoneme breakdown | CMU dictionary (equal duration) | Weighted duration model |
-| Missing words | Blank gaps, manual fix | Extended dictionary, G2P fallback |
-| Background vocals | Repeat entire process on BG audio | Automated from separated stem |
-| Time per song | 10+ hours | 20 minutes (including review) |
+|                   | Manual in xLights                 | Lyr:IQ                              |
+| ----------------- | --------------------------------- | ----------------------------------- |
+| Lyrics entry      | Type each phrase manually         | Auto-fetched                        |
+| Word alignment    | Listen & adjust each word         | Forced alignment on isolated vocals |
+| Phoneme breakdown | CMU dictionary (equal duration)   | Weighted duration model             |
+| Missing words     | Blank gaps, manual fix            | Extended dictionary, G2P fallback   |
+| Background vocals | Repeat entire process on BG audio | Automated from separated stem       |
+| Time per song     | 10+ hours                         | 20 minutes (including review)       |
 
 ---
 
@@ -443,6 +457,7 @@ Lyr:IQ shares the Moises API pipeline with Beat:IQ. When both are processed from
 ## Implementation Phases
 
 ### Phase 1: Lead Vocal Core (MVP)
+
 - Moises vocal stem separation + lyrics transcription
 - Web search for official lyrics
 - Forced alignment (wav2vec2 CTC) on isolated lead vocal
@@ -451,18 +466,21 @@ Lyr:IQ shares the Moises API pipeline with Beat:IQ. When both are processed from
 - .xtiming export (3-layer: phrases/words/phonemes)
 
 ### Phase 2: Background Vocals
+
 - BG vocal stem → Moises transcription → alignment → phonemes
 - Multi-track lyrics export (lead + BG as separate timing tracks)
 - Sustained vowel detection for wordless harmonies ("oohs," "aahs")
 - Confidence-based review flagging
 
 ### Phase 3: Interactive Editor
+
 - Waveform display (vocal stem)
 - Drag-to-adjust timing marks and phoneme boundaries
 - Animated face preview synced to playback
 - Chorus copy/paste intelligence
 
 ### Phase 4: Polish + Integration
+
 - Extended dictionary management UI
 - Batch processing (multiple songs)
 - Non-English language support
@@ -487,6 +505,7 @@ Lyr:IQ shares the Moises API pipeline with Beat:IQ. When both are processed from
 10. Original/indie songs (varying recording quality)
 
 **Per-song evaluation:**
+
 - Words >100ms off target? (goal: <5%)
 - Phoneme proportions needing manual adjustment? (goal: <10%)
 - Missing dictionary words? (track and add to extended dictionary)
@@ -499,10 +518,10 @@ Lyr:IQ shares the Moises API pipeline with Beat:IQ. When both are processed from
 
 **To the xLights community:**
 
-*"Drop your MP3. Get complete singing face timing tracks — phrases, words, and phonemes — for lead AND background vocals. Phonemes are linguistically weighted so your faces actually look like they're singing, not randomly opening and closing. All in 60 seconds."*
+_"Drop your MP3. Get complete singing face timing tracks — phrases, words, and phonemes — for lead AND background vocals. Phonemes are linguistically weighted so your faces actually look like they're singing, not randomly opening and closing. All in 60 seconds."_
 
-*"AutoLyrics gets you 70%. Lyr:IQ gets you 95%. The last 5% is your ears — and we give you the editor to nail it."*
+_"AutoLyrics gets you 70%. Lyr:IQ gets you 95%. The last 5% is your ears — and we give you the editor to nail it."_
 
 **On background vocals:**
 
-*"For the first time ever, get automated timing tracks for background vocals. Assign your main face to lead, your backing faces to background harmonies, and watch your display sing in parts. Nobody else does this."*
+_"For the first time ever, get automated timing tracks for background vocals. Assign your main face to lead, your backing faces to background harmonies, and watch your display sing in parts. Nobody else does this."_

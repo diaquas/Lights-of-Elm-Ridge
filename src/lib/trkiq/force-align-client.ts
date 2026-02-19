@@ -72,6 +72,12 @@ export interface AlignSection {
   text: string;
 }
 
+/** Status callback includes the Replicate prediction phase */
+export type ForceAlignStatusCallback = (
+  message: string,
+  phase?: "queued" | "running",
+) => void;
+
 /**
  * Run forced alignment on a vocals stem + lyrics transcript.
  *
@@ -81,12 +87,6 @@ export interface AlignSection {
  * @param sections       - Optional section boundaries for chunked alignment
  * @returns Array of word-level timestamps
  */
-/** Status callback includes the Replicate prediction phase */
-export type ForceAlignStatusCallback = (
-  message: string,
-  phase?: "queued" | "running",
-) => void;
-
 export async function forceAlignLyrics(
   vocalsUrl: string,
   transcript: string,
@@ -135,10 +135,7 @@ export async function forceAlignLyrics(
     if (result.status === "starting") {
       onStatusUpdate?.(`Waiting for GPU... (${elapsed}s)`, "queued");
     } else {
-      onStatusUpdate?.(
-        `Aligning lyrics to audio... (${elapsed}s)`,
-        "running",
-      );
+      onStatusUpdate?.(`Aligning lyrics to audio... (${elapsed}s)`, "running");
     }
   }
 

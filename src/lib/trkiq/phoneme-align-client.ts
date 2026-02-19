@@ -146,10 +146,7 @@ export async function phonemeAlignLyrics(
     if (result.status === "starting") {
       onStatusUpdate?.(`Waiting for GPU... (${elapsed}s)`, "queued");
     } else {
-      onStatusUpdate?.(
-        `Mapping phonemes to audio... (${elapsed}s)`,
-        "running",
-      );
+      onStatusUpdate?.(`Mapping phonemes to audio... (${elapsed}s)`, "running");
     }
   }
 

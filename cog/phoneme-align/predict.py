@@ -42,7 +42,7 @@ from cog import BasePredictor, Input, Path  # noqa: E402
 # This is loaded once at setup time. For words not in the dictionary,
 # we fall back to a simple grapheme-to-phoneme mapping.
 CMU_DICT_URL = (
-    "https://raw.githubusercontent.com/cmusphinx/cmudict/master/cmudict-0.7b"
+    "https://raw.githubusercontent.com/cmusphinx/cmudict/master/cmudict.dict"
 )
 
 
@@ -50,7 +50,7 @@ def _load_cmu_dict():
     """Load CMU dictionary from bundled file or download."""
     import urllib.request
 
-    cmu_path = "/tmp/cmudict-0.7b"  # noqa: S108 — temp path in container
+    cmu_path = "/tmp/cmudict.dict"  # noqa: S108 — temp path in container
     if not os.path.exists(cmu_path):
         urllib.request.urlretrieve(CMU_DICT_URL, cmu_path)
 
@@ -59,7 +59,7 @@ def _load_cmu_dict():
         for line in f:
             if line.startswith(";;;"):
                 continue
-            parts = line.strip().split("  ", 1)
+            parts = line.strip().split(None, 1)
             if len(parts) == 2:
                 word = parts[0].lower()
                 # Skip variant pronunciations (e.g., "CLOSE(2)")
