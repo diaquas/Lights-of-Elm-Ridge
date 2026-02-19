@@ -8,6 +8,7 @@ import type {
   LyricsData,
   StemSet,
   PipelineProgress,
+  PipelineSubPhase,
   TrkiqPipelineStep,
   TrkiqStats,
   SyncedLine,
@@ -91,10 +92,16 @@ export async function runPipeline(
     step: TrkiqPipelineStep,
     status: PipelineProgress["status"],
     detail?: string,
+    subPhase?: PipelineSubPhase,
   ) => {
     const idx = pipeline.findIndex((p) => p.step === step);
     if (idx >= 0) {
-      pipeline[idx] = { step, status, detail };
+      const prev = pipeline[idx];
+      const startedAt =
+        status === "active" && prev.status !== "active"
+          ? Date.now()
+          : prev.startedAt;
+      pipeline[idx] = { step, status, detail, startedAt, subPhase };
       onProgress([...pipeline]);
     }
   };
@@ -110,10 +117,10 @@ export async function runPipeline(
   const demucsAvailable = await checkDemucsAvailable();
 
   if (demucsAvailable) {
-    update("stems", "active", "Uploading audio...");
+    update("stems", "active", "Uploading audio...", "running");
     try {
-      stems = await separateStems(file, (msg) =>
-        update("stems", "active", msg),
+      stems = await separateStems(file, (msg, phase) =>
+        update("stems", "active", msg, phase),
       );
       update("stems", "done");
     } catch (err: unknown) {
@@ -156,11 +163,11 @@ export async function runPipeline(
   /** Run beat analysis: Essentia on Replicate → local fallback */
   async function processBeats(stemsAvailable: boolean): Promise<BeatResult> {
     if (stemsAvailable && stems) {
-      update("analyze", "active", "Running Essentia on stems...");
+      update("analyze", "active", "Running Essentia on stems...", "queued");
       let lastEssentiaMsg = "";
-      const essentiaResults = await analyzeStems(stems, (msg) => {
+      const essentiaResults = await analyzeStems(stems, (msg, phase) => {
         lastEssentiaMsg = msg;
-        update("analyze", "active", msg);
+        update("analyze", "active", msg, phase);
       });
 
       if (essentiaResults.length > 0) {
@@ -219,14 +226,14 @@ export async function runPipeline(
     let alignedWords: AlignedWord[] | null = null;
     let alignError = "";
     if (stemsAvailable && stems?.vocals) {
-      update("lyrics", "active", "Running forced alignment on vocals...");
+      update("lyrics", "active", "Running forced alignment on vocals...", "queued");
       let lastAlignMsg = "";
       alignedWords = await runForceAlign(
         stems.vocals,
         lyrics!,
-        (msg) => {
+        (msg, phase) => {
           lastAlignMsg = msg;
-          update("lyrics", "active", msg);
+          update("lyrics", "active", msg, phase);
         },
         durationMs,
       );
@@ -241,7 +248,7 @@ export async function runPipeline(
         stems?.vocals ?? "",
         lyrics!,
         alignedWords,
-        (msg) => update("lyrics", "active", msg),
+        (msg, phase) => update("lyrics", "active", msg, phase),
       );
 
       let leadTrack: VocalTrack;
@@ -472,7 +479,7 @@ function buildAlignSections(
 async function runForceAlign(
   vocalsUrl: string,
   lyrics: LyricsData,
-  onStatusUpdate: (msg: string) => void,
+  onStatusUpdate: (msg: string, phase?: "queued" | "running") => void,
   durationMs?: number,
 ): Promise<AlignedWord[] | null> {
   try {
@@ -511,7 +518,7 @@ async function runPhonemeAlign(
   vocalsUrl: string,
   lyrics: LyricsData,
   alignedWords: AlignedWord[],
-  onStatusUpdate: (msg: string) => void,
+  onStatusUpdate: (msg: string, phase?: "queued" | "running") => void,
 ): Promise<PhonemeAlignedWord[] | null> {
   if (!vocalsUrl) return null;
 

@@ -86,14 +86,20 @@ async function callPhonemeAlignFunction(
  * @param wordTimestamps  - Word-level timestamps from force-align (for precision)
  * @returns Array of words with per-phoneme timestamps
  */
+/** Status callback includes the Replicate prediction phase */
+export type PhonemeAlignStatusCallback = (
+  message: string,
+  phase?: "queued" | "running",
+) => void;
+
 export async function phonemeAlignLyrics(
   vocalsUrl: string,
   transcript: string,
-  onStatusUpdate?: (message: string) => void,
+  onStatusUpdate?: PhonemeAlignStatusCallback,
   wordTimestamps?: ForceAlignWord[],
 ): Promise<PhonemeAlignWord[]> {
   // Step 1: Start the alignment job
-  onStatusUpdate?.("Starting phoneme-level alignment...");
+  onStatusUpdate?.("Starting phoneme-level alignment...", "queued");
   const body: Record<string, unknown> = {
     action: "start",
     vocalsUrl,
@@ -112,7 +118,7 @@ export async function phonemeAlignLyrics(
   const predictionId = startResult.predictionId;
 
   // Step 2: Poll for completion
-  onStatusUpdate?.("Aligning phonemes to audio (this takes 15-45 seconds)...");
+  onStatusUpdate?.("Waiting for GPU...", "queued");
   let attempts = 0;
 
   while (attempts < MAX_POLL_ATTEMPTS) {
@@ -136,9 +142,15 @@ export async function phonemeAlignLyrics(
       throw new Error("Phoneme alignment was canceled");
     }
 
-    onStatusUpdate?.(
-      `Aligning phonemes to audio... (${Math.round((attempts * POLL_INTERVAL_MS) / 1000)}s)`,
-    );
+    const elapsed = Math.round((attempts * POLL_INTERVAL_MS) / 1000);
+    if (result.status === "starting") {
+      onStatusUpdate?.(`Waiting for GPU... (${elapsed}s)`, "queued");
+    } else {
+      onStatusUpdate?.(
+        `Mapping phonemes to audio... (${elapsed}s)`,
+        "running",
+      );
+    }
   }
 
   throw new Error("Phoneme alignment timed out");

@@ -110,12 +110,19 @@ export type PipelineStepStatus =
   | "skipped"
   | "error";
 
+/** Sub-phase within an active pipeline step */
+export type PipelineSubPhase = "queued" | "running";
+
 /** Pipeline progress entry */
 export interface PipelineProgress {
   step: TrkiqPipelineStep;
   status: PipelineStepStatus;
   /** Optional detail message (e.g., "Uploading to Replicate...") */
   detail?: string;
+  /** When this step first became active (epoch ms) */
+  startedAt?: number;
+  /** Sub-phase for active steps: queued (cold boot) vs running (GPU active) */
+  subPhase?: PipelineSubPhase;
 }
 
 /* -- Session ------------------------------------------------------- */
