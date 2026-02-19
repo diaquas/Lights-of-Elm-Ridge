@@ -25,15 +25,21 @@ import {
 // Lyr:IQ — phoneme engine (local, no API needed)
 import {
   processAlignedWords,
+  processPhonemeAlignedWords,
   computeStats as computeLyriqStats,
 } from "@/lib/lyriq/lyrics-processor";
-import type { AlignedWord } from "@/lib/lyriq/lyrics-processor";
+import type {
+  AlignedWord,
+  PhonemeAlignedWord,
+} from "@/lib/lyriq/lyrics-processor";
 
 // API clients — all Replicate processing goes through Edge Functions
 import { fetchLyrics, searchLyrics } from "./lrclib-client";
 import { separateStems, checkDemucsAvailable } from "./replicate-client";
 import { forceAlignLyrics } from "./force-align-client";
 import type { ForceAlignWord, AlignSection } from "./force-align-client";
+import { phonemeAlignLyrics } from "./phoneme-align-client";
+import type { PhonemeAlignWord } from "./phoneme-align-client";
 import { analyzeStems } from "./essentia-onset-client";
 import type { EssentiaOnsetResult } from "./essentia-onset-client";
 
@@ -230,8 +236,31 @@ export async function runPipeline(
     }
 
     if (alignedWords && alignedWords.length > 0) {
-      update("lyrics", "active", "Generating singing face timing...");
-      const leadTrack = processAlignedWords(alignedWords, "lead");
+      // Try phoneme-level alignment for acoustic phoneme boundaries
+      const phonemeAlignedWords = await runPhonemeAlign(
+        stems?.vocals ?? "",
+        lyrics!,
+        alignedWords,
+        (msg) => update("lyrics", "active", msg),
+      );
+
+      let leadTrack: VocalTrack;
+      if (phonemeAlignedWords && phonemeAlignedWords.length > 0) {
+        update(
+          "lyrics",
+          "active",
+          "Building singing face timing (phoneme-aligned)...",
+        );
+        leadTrack = processPhonemeAlignedWords(phonemeAlignedWords, "lead");
+      } else {
+        update(
+          "lyrics",
+          "active",
+          "Building singing face timing (word-aligned)...",
+        );
+        leadTrack = processAlignedWords(alignedWords, "lead");
+      }
+
       // Compute confidence range from median of per-word probabilities ± 5%
       const confs = alignedWords.map((w) => w.confidence).sort((a, b) => a - b);
       const median = confs[Math.floor(confs.length / 2)];
@@ -468,6 +497,71 @@ async function runForceAlign(
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : "Unknown error";
     onStatusUpdate(`Alignment failed: ${detail}`);
+    return null;
+  }
+}
+
+/**
+ * Run phoneme-level alignment on the vocals stem.
+ * Uses word-level timestamps from force-align to constrain
+ * wav2vec2 CTC alignment within each word's audio window.
+ * Returns null if phoneme alignment fails (word-level fallback is fine).
+ */
+async function runPhonemeAlign(
+  vocalsUrl: string,
+  lyrics: LyricsData,
+  alignedWords: AlignedWord[],
+  onStatusUpdate: (msg: string) => void,
+): Promise<PhonemeAlignedWord[] | null> {
+  if (!vocalsUrl) return null;
+
+  try {
+    const transcript = normalizeTranscript(lyrics.plainText);
+
+    // Convert AlignedWord[] to ForceAlignWord[] format for the phoneme client
+    const wordTimestamps: ForceAlignWord[] = alignedWords.map((w) => ({
+      word: w.text,
+      start: w.startMs / 1000,
+      end: w.endMs / 1000,
+      probability: w.confidence,
+    }));
+
+    onStatusUpdate("Running phoneme-level alignment on vocals...");
+    const phonemeWords = await phonemeAlignLyrics(
+      vocalsUrl,
+      transcript,
+      onStatusUpdate,
+      wordTimestamps,
+    );
+
+    if (!phonemeWords || phonemeWords.length === 0) return null;
+
+    // Convert to PhonemeAlignedWord[] for the lyrics processor
+    const result: PhonemeAlignedWord[] = phonemeWords.map((pw) => {
+      // Find the matching word from force-align for confidence
+      const match = alignedWords.find(
+        (aw) =>
+          aw.text.toLowerCase() === pw.word.toLowerCase() &&
+          Math.abs(aw.startMs - pw.start * 1000) < 100,
+      );
+
+      return {
+        text: pw.word,
+        startMs: Math.round(pw.start * 1000),
+        endMs: Math.round(pw.end * 1000),
+        confidence: match?.confidence ?? 0.8,
+        phonemes: pw.phonemes.map((p) => ({
+          phoneme: p.phoneme,
+          startMs: Math.round(p.start * 1000),
+          endMs: Math.round(p.end * 1000),
+        })),
+      };
+    });
+
+    return result.length > 0 ? result : null;
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : "Unknown error";
+    onStatusUpdate(`Phoneme alignment failed (using word-level): ${detail}`);
     return null;
   }
 }
