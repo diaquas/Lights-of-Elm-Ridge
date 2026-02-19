@@ -90,8 +90,11 @@ class Predictor(BasePredictor):
             print(f"Align failed: {e}", file=sys.stderr)
             return json.dumps({"wordstamps": [], "error": str(e)})
 
-        result = self._refine(audio_path, result)
-        return json.dumps({"wordstamps": self._extract_words(result, show_probs)})
+        result, refined = self._refine(audio_path, result)
+        return json.dumps({
+            "wordstamps": self._extract_words(result, show_probs),
+            "refined": refined,
+        })
 
     def _align_chunked(self, audio_path, sections, show_probs):
         """Align each section independently against its audio window.
@@ -139,7 +142,7 @@ class Predictor(BasePredictor):
                     language="en",
                     vad=True,
                 )
-                result = self._refine(chunk_path, result)
+                result, _ = self._refine(chunk_path, result)
                 words = self._extract_words(result, show_probs)
 
                 # Offset all timestamps by the section start time
@@ -172,15 +175,18 @@ class Predictor(BasePredictor):
         stable-ts refine() iteratively mutes audio portions and re-computes
         token probabilities to find the most precise start/end boundaries.
         Uses the same Whisper model loaded in setup().
+
+        Returns (result, refined: bool) so callers can surface whether
+        refinement actually ran or silently fell back.
         """
         try:
-            return self.model.refine(audio_path, result)
+            return self.model.refine(audio_path, result), True
         except (RuntimeError, Exception) as e:
             print(
                 f"Refine step failed (using unrefined results): {e}",
                 file=sys.stderr,
             )
-            return result
+            return result, False
 
     @staticmethod
     def _extract_words(result, show_probs):

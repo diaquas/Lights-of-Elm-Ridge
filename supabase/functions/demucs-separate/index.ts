@@ -119,12 +119,17 @@ async function handleStart(
     );
   }
 
-  // Create a Replicate prediction via unified predictions API
+  // Create a Replicate prediction via unified predictions API.
+  // Prefer: respond-async ensures the API returns immediately with a
+  // prediction ID instead of holding the connection open while the model
+  // runs. Critical for htdemucs_6s (~3 min) — without it the edge
+  // function can stall or timeout waiting for Replicate's sync window.
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${replicateToken}`,
       "Content-Type": "application/json",
+      Prefer: "respond-async",
     },
     body: JSON.stringify({
       version: DEMUCS_VERSION,
@@ -266,10 +271,11 @@ function extractStemName(item: unknown, url: string): string | null {
 }
 
 function normalizeStemOutput(output: unknown): Record<string, string> {
-  // Unwrap { stems: [...] } wrapper returned by some Demucs versions
+  // Unwrap { stems: ... } wrapper returned by some Demucs versions.
+  // The wrapper value can be an array OR an object of stem key→URL pairs.
   if (output && typeof output === "object" && !Array.isArray(output)) {
     const obj = output as Record<string, unknown>;
-    if (Array.isArray(obj.stems)) {
+    if (obj.stems != null && typeof obj.stems === "object") {
       output = obj.stems;
     }
   }
