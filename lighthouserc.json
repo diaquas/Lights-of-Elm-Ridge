@@ -4,10 +4,10 @@
       "staticDistDir": "./out",
       "url": [
         "http://localhost/index.html",
-        "http://localhost/sequences/index.html",
-        "http://localhost/playlist/index.html",
-        "http://localhost/gear/index.html",
-        "http://localhost/display/index.html"
+        "http://localhost/sequences.html",
+        "http://localhost/playlist.html",
+        "http://localhost/gear.html",
+        "http://localhost/display.html"
       ]
     },
     "assert": {
