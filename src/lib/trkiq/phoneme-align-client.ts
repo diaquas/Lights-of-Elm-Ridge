@@ -1,11 +1,14 @@
 /* ------------------------------------------------------------------ */
 /*  TRK:IQ — Phoneme-Align Client (browser-side)                     */
 /*  Calls diaquas/phoneme-align on Replicate via Edge Function        */
-/*  to get phoneme-level timestamps from wav2vec2 CTC alignment.      */
+/*  to get word + phoneme timestamps from wav2vec2 CTC alignment.     */
 /*                                                                    */
-/*  This complements the word-level force-align client:               */
-/*    force-align-client  → word boundaries (Whisper + stable-ts)     */
-/*    phoneme-align-client → phoneme boundaries (wav2vec2 CTC)        */
+/*  Preferred mode (line_timestamps):                                 */
+/*    LRCLIB synced lines → per-line CTC word + phoneme alignment     */
+/*    No Whisper needed. Zero hallucination.                          */
+/*                                                                    */
+/*  Legacy mode (word_timestamps):                                    */
+/*    Pre-established word boundaries → phoneme-only CTC alignment    */
 /* ------------------------------------------------------------------ */
 
 import { createClient } from "@/lib/supabase/client";
@@ -35,6 +38,14 @@ export interface PhonemeAlignWord {
   end: number;
   /** Per-phoneme timestamps within this word */
   phonemes: PhonemeTimestamp[];
+}
+
+/** A line timestamp from LRCLIB synced lyrics for per-line alignment */
+export interface LineTimestamp {
+  /** Normalized line text */
+  text: string;
+  /** Line start time in milliseconds */
+  startMs: number;
 }
 
 /** Response from the phoneme-align Edge Function */
@@ -97,15 +108,23 @@ export async function phonemeAlignLyrics(
   transcript: string,
   onStatusUpdate?: PhonemeAlignStatusCallback,
   wordTimestamps?: ForceAlignWord[],
+  lineTimestamps?: LineTimestamp[],
 ): Promise<PhonemeAlignWord[]> {
   // Step 1: Start the alignment job
-  onStatusUpdate?.("Starting phoneme-level alignment...", "queued");
+  const mode = lineTimestamps?.length
+    ? "per-line CTC"
+    : wordTimestamps?.length
+      ? "word-boundary"
+      : "full-file CTC";
+  onStatusUpdate?.(`Starting ${mode} alignment...`, "queued");
   const body: Record<string, unknown> = {
     action: "start",
     vocalsUrl,
     transcript,
   };
-  if (wordTimestamps && wordTimestamps.length > 0) {
+  if (lineTimestamps && lineTimestamps.length > 0) {
+    body.lineTimestamps = JSON.stringify(lineTimestamps);
+  } else if (wordTimestamps && wordTimestamps.length > 0) {
     body.wordTimestamps = JSON.stringify(
       wordTimestamps.map((w) => ({
         word: w.word,
