@@ -111,7 +111,15 @@ export default function EditorScreen({ session, onReset }: EditorScreenProps) {
         <div className="rounded-xl bg-surface border border-border p-5">
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             <div>
-              <p className="text-foreground font-medium">{metadata.title}</p>
+              <div className="flex items-center gap-2.5 mb-0.5">
+                <span className="text-[15px] font-display font-bold tracking-tight leading-none">
+                  <span className="text-foreground">TRK</span>
+                  <span className="text-accent">:</span>
+                  <span className="text-accent">IQ</span>
+                </span>
+                <span className="w-px h-4 bg-border" />
+                <p className="text-foreground font-medium">{metadata.title}</p>
+              </div>
               <p className="text-foreground/50 text-sm">{metadata.artist}</p>
             </div>
             <div className="flex gap-4 ml-auto text-sm">
