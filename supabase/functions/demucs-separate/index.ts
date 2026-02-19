@@ -130,7 +130,7 @@ async function handleStart(
       version: DEMUCS_VERSION,
       input: {
         audio: signedUrlData.signedUrl,
-        model_name: "htdemucs_6s", // 6-stem: vocals, drums, bass, guitar, piano, other
+        model: "htdemucs_6s", // 6-stem: vocals, drums, bass, guitar, piano, other
       },
     }),
   });
