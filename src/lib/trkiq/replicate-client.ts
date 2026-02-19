@@ -139,18 +139,30 @@ export async function separateStems(
     const result = await pollStatus(predictionId);
 
     if (result.status === "succeeded" && result.stems) {
-      // Validate that we have at least one usable stem URL
-      const { archive: _archive, ...usableStems } = result.stems;
-      const stemCount = Object.values(usableStems).filter(
-        (v) => typeof v === "string" && v.startsWith("http"),
+      // Validate that we have at least one *recognized* stem URL.
+      // Previous check only counted any URL — a mis-parsed output like
+      // { stems: "oneUrl" } would pass (1 URL) but downstream steps
+      // need actual stem names (vocals, drums, bass, etc.) to work.
+      const RECOGNIZED_STEMS = [
+        "vocals",
+        "drums",
+        "bass",
+        "guitar",
+        "piano",
+        "other",
+      ];
+      const recognizedCount = RECOGNIZED_STEMS.filter(
+        (name) =>
+          typeof (result.stems as Record<string, unknown>)[name] === "string" &&
+          (result.stems as Record<string, string>)[name].startsWith("http"),
       ).length;
 
-      if (stemCount === 0) {
+      if (recognizedCount === 0) {
         // Debug: dump what we received so we can diagnose the format mismatch
         const debugInfo = {
           stemsType: typeof result.stems,
           stemsKeys: Object.keys(result.stems),
-          usableStemsEntries: Object.entries(usableStems).map(([k, v]) => ({
+          stemsEntries: Object.entries(result.stems).map(([k, v]) => ({
             key: k,
             valueType: typeof v,
             value: String(v).slice(0, 80),
@@ -160,7 +172,7 @@ export async function separateStems(
         };
         cleanupUpload(storagePath).catch(() => {});
         throw new Error(
-          `Demucs returned no usable stem URLs — debug: ${JSON.stringify(debugInfo)}`,
+          `Demucs returned no recognized stem URLs — debug: ${JSON.stringify(debugInfo)}`,
         );
       }
 
