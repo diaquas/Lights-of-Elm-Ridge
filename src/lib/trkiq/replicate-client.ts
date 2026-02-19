@@ -146,9 +146,21 @@ export async function separateStems(
       ).length;
 
       if (stemCount === 0) {
+        // Debug: dump what we received so we can diagnose the format mismatch
+        const debugInfo = {
+          stemsType: typeof result.stems,
+          stemsKeys: Object.keys(result.stems),
+          usableStemsEntries: Object.entries(usableStems).map(([k, v]) => ({
+            key: k,
+            valueType: typeof v,
+            value: String(v).slice(0, 80),
+          })),
+          rawResult: JSON.stringify(result).slice(0, 500),
+          _debug: (result as Record<string, unknown>)._debug,
+        };
         cleanupUpload(storagePath).catch(() => {});
         throw new Error(
-          "Demucs returned no usable stem URLs — check edge function logs",
+          `Demucs returned no usable stem URLs — debug: ${JSON.stringify(debugInfo)}`,
         );
       }
 
