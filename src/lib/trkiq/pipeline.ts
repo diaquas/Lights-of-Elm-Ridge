@@ -474,11 +474,14 @@ async function runForceAlign(
 
 /**
  * Convert force-align-wordstamps output to AlignedWord[].
- * Applies post-processing corrections for known alignment issues:
- *   1. Global offset correction (force-align tends to be ~150ms late)
- *   2. Linear drift correction (~4ms/s cumulative lateness)
- *   3. Monotonicity enforcement (prevents repeated-phrase jumps)
- *   4. Low-confidence interpolation (re-derives timing for bad words)
+ * Passes through raw timestamps from force-align with minimal
+ * post-processing:
+ *   1. Monotonicity enforcement (prevents repeated-phrase jumps)
+ *   2. Low-confidence interpolation (re-derives timing for bad words)
+ *
+ * No global offset or drift correction is applied — raw force-align
+ * timestamps tested closer to human-corrected timing without them.
+ * Drift may be revisited once wav2vec2 refinement is working.
  */
 function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
   const raw = wordstamps
@@ -492,21 +495,7 @@ function forceAlignToAlignedWords(wordstamps: ForceAlignWord[]): AlignedWord[] {
 
   if (raw.length === 0) return raw;
 
-  // ── Step 1: Global offset + linear drift correction ──────────────
-  // Empirical: force-align on Demucs vocals stems runs ~150ms late at
-  // song start, drifting to ~4.3ms/s further behind over time.
-  const OFFSET_MS = -150;
-  const DRIFT_PER_MS = -0.0043; // negative = shift earlier to compensate
-
-  const songStartMs = raw[0].startMs;
-  for (const w of raw) {
-    const elapsed = w.startMs - songStartMs;
-    const correction = OFFSET_MS + elapsed * DRIFT_PER_MS;
-    w.startMs = Math.max(0, Math.round(w.startMs + correction));
-    w.endMs = Math.max(w.startMs + 1, Math.round(w.endMs + correction));
-  }
-
-  // ── Step 2: Monotonicity enforcement ─────────────────────────────
+  // ── Step 1: Monotonicity enforcement ─────────────────────────────
   // Force-align on repeated lyrics can map words to the wrong repetition,
   // causing timestamps to jump backwards. Walk the array and clamp any
   // word whose start is before the previous word's end.

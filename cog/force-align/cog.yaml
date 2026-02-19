@@ -5,16 +5,14 @@ build:
     - "numpy<2"
     - "torch==2.2.2"
     - "torchaudio==2.2.2"
-    - "transformers==4.36.2"
   run:
     - "pip install 'setuptools<82' wheel && pip install --no-build-isolation openai-whisper==20231117 && pip install --no-build-isolation stable-ts==2.16.0"
     # Pre-download Silero VAD into the Docker image so it never hits GitHub at runtime.
     # stable_whisper's vad=True triggers torch.hub.load() which downloads ~30MB from
     # github.com/snakers4/silero-vad — if that fails in the container, the worker crashes.
     - "python -c \"import torch; torch.hub.load('snakers4/silero-vad', 'silero_vad', trust_repo=True)\""
-    # Pre-download the wav2vec2-large-xlsr model used by stable_whisper.refine().
-    # ~1.2GB — must be baked in or the first prediction will timeout downloading it.
-    - "python -c \"from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor; Wav2Vec2ForCTC.from_pretrained('jonatasgrosman/wav2vec2-large-xlsr-53-english'); Wav2Vec2Processor.from_pretrained('jonatasgrosman/wav2vec2-large-xlsr-53-english')\""
+    # Note: wav2vec2-large-xlsr pre-download removed — stable-ts refine()
+    # uses the loaded Whisper model, not a separate wav2vec2 model.
   system_packages:
     - "ffmpeg"
 predict: "predict.py:Predictor"
