@@ -33,9 +33,9 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 
-// ryan5453/demucs — pinned version hash (proven stable in production)
+// ryan5453/demucs — pinned version hash (supports htdemucs_6s for 6-stem output)
 const DEMUCS_VERSION =
-  "5a7041cc9b82e5a558fea6b3d7b12dea89625e89da33f0447bd727c2d0ab9e77";
+  "b26a4313b4d75983d60657f80dfa93b9beb354f6e4fa29ecd27ffe14d60117f6";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "demucs-separate",
         version: DEMUCS_VERSION.slice(0, 12),
-        v: 5,
+        v: 6,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
