@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "demucs-separate",
         version: DEMUCS_VERSION.slice(0, 12),
-        v: 6,
+        v: 7,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -266,6 +266,14 @@ function extractStemName(item: unknown, url: string): string | null {
 }
 
 function normalizeStemOutput(output: unknown): Record<string, string> {
+  // Unwrap { stems: [...] } wrapper returned by some Demucs versions
+  if (output && typeof output === "object" && !Array.isArray(output)) {
+    const obj = output as Record<string, unknown>;
+    if (Array.isArray(obj.stems)) {
+      output = obj.stems;
+    }
+  }
+
   // Case 1: Object with stem keys — values may be URL strings or
   // FileOutput objects ({ url: "https://..." })
   if (output && typeof output === "object" && !Array.isArray(output)) {
