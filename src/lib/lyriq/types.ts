@@ -163,6 +163,8 @@ export interface LyricsData {
   source: LyricsSource;
   /** Whether the user has confirmed/edited the lyrics. */
   confirmed: boolean;
+  /** Original track duration in seconds (from LRCLIB), used to detect edited songs */
+  originalDurationSec?: number;
 }
 
 /* ── Processing Pipeline ────────────────────────────────────────── */

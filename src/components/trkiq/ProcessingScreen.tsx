@@ -34,7 +34,16 @@ const STEP_CONFIG: Record<TrkiqPipelineStep, StepConfig> = {
     title: "Reading your track",
     description: "Learning everything about your audio file before we begin",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M2 12h2l3-9 3 18 3-12 3 6 2-3h4" />
       </svg>
     ),
@@ -43,9 +52,22 @@ const STEP_CONFIG: Record<TrkiqPipelineStep, StepConfig> = {
     title: "Separating instruments",
     description: "AI isolates vocals, drums, bass, and melody into separate layers",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-        <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <line x1="3" y1="6" x2="3.01" y2="6" />
+        <line x1="3" y1="12" x2="3.01" y2="12" />
+        <line x1="3" y1="18" x2="3.01" y2="18" />
       </svg>
     ),
   },
@@ -53,8 +75,19 @@ const STEP_CONFIG: Record<TrkiqPipelineStep, StepConfig> = {
     title: "Finding every beat",
     description: "Mapping the tempo, rhythm, and energy of the entire track",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="12" width="4" height="9" rx="1" /><rect x="10" y="8" width="4" height="13" rx="1" /><rect x="17" y="3" width="4" height="18" rx="1" />
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="12" width="4" height="9" rx="1" />
+        <rect x="10" y="8" width="4" height="13" rx="1" />
+        <rect x="17" y="3" width="4" height="18" rx="1" />
       </svg>
     ),
   },
@@ -62,7 +95,16 @@ const STEP_CONFIG: Record<TrkiqPipelineStep, StepConfig> = {
     title: "Syncing the lyrics",
     description: "Matching each word to the exact moment it\u2019s sung",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
         <path d="M19 10v2a7 7 0 01-14 0v-2" />
         <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
@@ -73,8 +115,19 @@ const STEP_CONFIG: Record<TrkiqPipelineStep, StepConfig> = {
     title: "Building your timing file",
     description: "Packaging everything into a ready-to-use xLights file",
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 2L2 7l10 5 10-5-10-5z" />
+        <path d="M2 17l10 5 10-5" />
+        <path d="M2 12l10 5 10-5" />
       </svg>
     ),
   },
@@ -128,7 +181,7 @@ export default function ProcessingScreen({
   onDownload,
   onNewSong,
 }: ProcessingScreenProps) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(() => Date.now());
   const [insightIndex, setInsightIndex] = useState(0);
   const [insightFading, setInsightFading] = useState(false);
   const insightTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -164,7 +217,9 @@ export default function ProcessingScreen({
 
   // Find first step that started (for total elapsed)
   const firstStarted = pipeline.find((p) => p.startedAt)?.startedAt;
-  const totalElapsed = firstStarted ? Math.floor((now - firstStarted) / 1000) : 0;
+  const totalElapsed = firstStarted
+    ? Math.floor((now - firstStarted) / 1000)
+    : 0;
 
   // Auto-scroll log containers
   const scrollLog = useCallback((step: string) => {

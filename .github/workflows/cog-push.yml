@@ -58,6 +58,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free disk space for CUDA base image
+        run: |
+          echo "=== Before cleanup ==="
+          df -h /
+          docker system prune -af --volumes
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache \
+            /usr/local/.ghcup \
+            /usr/share/swift \
+            /usr/local/graalvm
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          echo "=== After cleanup ==="
+          df -h /
+
       - name: Install Cog
         run: |
           sudo curl -o /usr/local/bin/cog -L \
@@ -104,6 +122,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free disk space for CUDA base image
+        run: |
+          echo "=== Before cleanup ==="
+          df -h /
+          docker system prune -af --volumes
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache \
+            /usr/local/.ghcup \
+            /usr/share/swift \
+            /usr/local/graalvm
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          echo "=== After cleanup ==="
+          df -h /
+
       - name: Install Cog
         run: |
           sudo curl -o /usr/local/bin/cog -L \
@@ -149,6 +185,24 @@ jobs:
       version: ${{ steps.version.outputs.hash }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Free disk space for CUDA base image
+        run: |
+          echo "=== Before cleanup ==="
+          df -h /
+          docker system prune -af --volumes
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache \
+            /usr/local/.ghcup \
+            /usr/share/swift \
+            /usr/local/graalvm
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          echo "=== After cleanup ==="
+          df -h /
 
       - name: Install Cog
         run: |

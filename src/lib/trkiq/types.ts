@@ -90,6 +90,8 @@ export interface LyricsData {
   syncedLines: SyncedLine[] | null;
   /** Data source */
   source: LyricsSource;
+  /** Original track duration in seconds (from LRCLIB), used to detect edited songs */
+  originalDurationSec?: number;
 }
 
 /* -- Pipeline ------------------------------------------------------ */
