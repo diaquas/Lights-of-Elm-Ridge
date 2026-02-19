@@ -123,6 +123,17 @@ export interface PipelineProgress {
   startedAt?: number;
   /** Sub-phase for active steps: queued (cold boot) vs running (GPU active) */
   subPhase?: PipelineSubPhase;
+  /** Sub-progress percentage (0-100) for the active step */
+  subProgress?: number;
+  /** Append-only log lines shown in the detail area */
+  logs?: string[];
+}
+
+/** Completion stats for the final banner */
+export interface CompletionStats {
+  totalTimeS: number;
+  totalMarks: number;
+  trackCount: number;
 }
 
 /* -- Session ------------------------------------------------------- */
