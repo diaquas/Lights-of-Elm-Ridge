@@ -1,9 +1,10 @@
 """
 Force-Align Wordstamps — Cog model for Replicate.
 
-Word-level forced alignment using Whisper medium + stable-ts + wav2vec2-large-xlsr.
+Word-level forced alignment using Whisper medium + stable-ts.
 Based on cureau/force-align-wordstamps with a fix for the refine crash
 on short/empty audio segments (RuntimeError: tensor [1, 2, 0]).
+Refinement uses Whisper's own token probability re-computation.
 
 Supports section-chunked alignment: when the caller provides section
 boundaries (from Essentia's song-structure detection), each section is
@@ -166,13 +167,14 @@ class Predictor(BasePredictor):
         return json.dumps(result)
 
     def _refine(self, audio_path, result):
-        """Refine timestamps with wav2vec2 — safe wrapper."""
+        """Refine timestamps using Whisper's own token probabilities.
+
+        stable-ts refine() iteratively mutes audio portions and re-computes
+        token probabilities to find the most precise start/end boundaries.
+        Uses the same Whisper model loaded in setup().
+        """
         try:
-            return self.model.refine(
-                audio_path,
-                result,
-                model_name="jonatasgrosman/wav2vec2-large-xlsr-53-english",
-            )
+            return self.model.refine(audio_path, result)
         except (RuntimeError, Exception) as e:
             print(
                 f"Refine step failed (using unrefined results): {e}",
