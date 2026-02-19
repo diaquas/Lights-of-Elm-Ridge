@@ -313,10 +313,12 @@ class Predictor(BasePredictor):
         Uses wav2vec2 emission probabilities + Viterbi-style forced alignment
         to find where each phoneme starts and ends in the audio.
         """
+        duration_s = waveform.shape[1] / self.sample_rate
+        word_end_s = offset_s + duration_s
+
         if not phonemes_arpabet or waveform.shape[1] < 400:
             # Too short for CTC — distribute evenly
-            return self._distribute_evenly(phonemes_arpabet, offset_s,
-                                           offset_s + waveform.shape[1] / self.sample_rate)
+            return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
 
         # Get emission probabilities from wav2vec2
         with torch.inference_mode():
@@ -327,8 +329,7 @@ class Predictor(BasePredictor):
         num_frames = emission.shape[0]
 
         if num_frames < len(phonemes_arpabet):
-            return self._distribute_evenly(phonemes_arpabet, offset_s,
-                                           offset_s + waveform.shape[1] / self.sample_rate)
+            return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
 
         # Build the target token sequence from phonemes.
         # wav2vec2 uses character-level labels, so we map each phoneme
@@ -336,8 +337,7 @@ class Predictor(BasePredictor):
         tokens, token_to_phoneme = self._phonemes_to_ctc_tokens(phonemes_arpabet)
 
         if not tokens:
-            return self._distribute_evenly(phonemes_arpabet, offset_s,
-                                           offset_s + waveform.shape[1] / self.sample_rate)
+            return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
 
         # Run CTC forced alignment via torchaudio
         try:
@@ -349,13 +349,12 @@ class Predictor(BasePredictor):
             scores = scores[0]
 
             # Convert frame-level alignment to phoneme boundaries
-            duration_s = waveform.shape[1] / self.sample_rate
             frame_duration_s = duration_s / num_frames
 
             # Group frames by token, then by phoneme
             phoneme_boundaries = self._frames_to_phoneme_boundaries(
                 aligned_tokens, token_to_phoneme, len(phonemes_arpabet),
-                frame_duration_s, offset_s
+                frame_duration_s, offset_s, word_end_s
             )
 
             results = []
@@ -366,7 +365,7 @@ class Predictor(BasePredictor):
                 else:
                     # Shouldn't happen, but fallback
                     start_s = offset_s
-                    end_s = offset_s + duration_s
+                    end_s = word_end_s
                 results.append({
                     "phoneme": clean,
                     "start": round(start_s, 4),
@@ -377,8 +376,7 @@ class Predictor(BasePredictor):
 
         except Exception as e:
             print(f"CTC alignment failed: {e}", file=sys.stderr)
-            return self._distribute_evenly(phonemes_arpabet, offset_s,
-                                           offset_s + waveform.shape[1] / self.sample_rate)
+            return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
 
     def _phonemes_to_ctc_tokens(self, phonemes_arpabet):
         """Map ARPAbet phonemes to CTC label indices.
@@ -414,42 +412,61 @@ class Predictor(BasePredictor):
 
     def _frames_to_phoneme_boundaries(
         self, aligned_tokens, token_to_phoneme, num_phonemes,
-        frame_duration_s, offset_s
+        frame_duration_s, offset_s, word_end_s
     ):
-        """Convert frame-level CTC alignment to phoneme start/end times.
+        """Convert frame-level CTC alignment to contiguous phoneme boundaries.
 
-        aligned_tokens has one entry per frame: 0 = blank, or the token index.
-        We group consecutive non-blank frames by their phoneme index.
+        Phonemes fill the entire word duration with no gaps — each phoneme
+        extends from its detected start to the next phoneme's start, and
+        the last phoneme extends to the word end. This matches how singing
+        works: sound is continuous, vowels sustain until the next consonant.
+
+        aligned_tokens has one entry per frame: 0 = blank, or the CTC label.
         """
-        # Find the first and last frame for each phoneme
         phoneme_frames = [[] for _ in range(num_phonemes)]
 
+        # Standard CTC decode: only advance the token cursor on transitions.
+        # In CTC output, the same token repeats across consecutive frames for
+        # sustained sounds. The previous code incremented token_cursor on every
+        # non-blank frame, which consumed the entire token sequence in ~3 frames
+        # and left all later phonemes empty (~50ms each).
+        prev_token = 0
         token_cursor = -1
         for frame_idx, token_val in enumerate(aligned_tokens):
-            if token_val.item() != 0:  # non-blank
-                token_cursor += 1
-                if token_cursor < len(token_to_phoneme):
+            tv = token_val.item()
+            if tv != 0:
+                # Advance cursor only on (blank→non-blank) or (different token)
+                if prev_token == 0 or tv != prev_token:
+                    token_cursor += 1
+                if 0 <= token_cursor < len(token_to_phoneme):
                     phoneme_idx = token_to_phoneme[token_cursor]
-                    phoneme_frames[phoneme_idx].append(frame_idx)
+                    if phoneme_idx < num_phonemes:
+                        phoneme_frames[phoneme_idx].append(frame_idx)
+            prev_token = tv
 
-        # Convert frame indices to time boundaries
-        boundaries = []
-        last_end_s = offset_s
-
+        # Compute each phoneme's start from its first detected CTC frame.
+        # Phonemes with no frames inherit the previous phoneme's start.
+        starts = []
         for i in range(num_phonemes):
-            frames = phoneme_frames[i]
-            if frames:
-                start_s = offset_s + frames[0] * frame_duration_s
-                end_s = offset_s + (frames[-1] + 1) * frame_duration_s
-                # Ensure monotonicity
-                start_s = max(start_s, last_end_s)
-                end_s = max(end_s, start_s + 0.005)
-                boundaries.append((start_s, end_s))
-                last_end_s = end_s
+            if phoneme_frames[i]:
+                starts.append(offset_s + phoneme_frames[i][0] * frame_duration_s)
+            elif starts:
+                starts.append(starts[-1])
             else:
-                # No frames found for this phoneme — give it a minimal slice
-                boundaries.append((last_end_s, last_end_s + 0.01))
-                last_end_s += 0.01
+                starts.append(offset_s)
+
+        # Make contiguous: each phoneme ends where the next one begins,
+        # and the last phoneme extends to the word end.
+        boundaries = []
+        for i in range(num_phonemes):
+            start_s = starts[i]
+            end_s = starts[i + 1] if i + 1 < num_phonemes else word_end_s
+            # Ensure minimum duration and monotonicity
+            end_s = max(end_s, start_s + 0.005)
+            if boundaries:
+                start_s = max(start_s, boundaries[-1][1])
+                end_s = max(end_s, start_s + 0.005)
+            boundaries.append((start_s, end_s))
 
         return boundaries
 
