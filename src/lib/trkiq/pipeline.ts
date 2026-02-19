@@ -313,6 +313,22 @@ export async function runPipeline(
     }
 
     if (alignedWords && alignedWords.length > 0) {
+      // Compute phrase word counts from LRCLIB synced lines so we can
+      // group words into phrases using exact line boundaries instead of
+      // gap detection (which misplaces words when timing is tight).
+      let phraseLengths: number[] | undefined;
+      if (lyrics!.syncedLines && lyrics!.syncedLines.length > 0) {
+        phraseLengths = lyrics!.syncedLines
+          .map(
+            (l) =>
+              normalizeTranscript(l.text)
+                .trim()
+                .split(/\s+/)
+                .filter((w) => w.length > 0).length,
+          )
+          .filter((n) => n > 0);
+      }
+
       // Try phoneme-level alignment for acoustic phoneme boundaries
       update(
         "lyrics",
@@ -336,14 +352,18 @@ export async function runPipeline(
           "active",
           "Building singing face timing (phoneme-aligned)...",
         );
-        leadTrack = processPhonemeAlignedWords(phonemeAlignedWords, "lead");
+        leadTrack = processPhonemeAlignedWords(
+          phonemeAlignedWords,
+          "lead",
+          phraseLengths,
+        );
       } else {
         update(
           "lyrics",
           "active",
           "Building singing face timing (word-aligned)...",
         );
-        leadTrack = processAlignedWords(alignedWords, "lead");
+        leadTrack = processAlignedWords(alignedWords, "lead", phraseLengths);
       }
 
       // Compute confidence range from median of per-word probabilities ± 5%

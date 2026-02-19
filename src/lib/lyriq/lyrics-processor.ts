@@ -101,6 +101,42 @@ function buildAlignedPhrase(words: AlignedWord[]): AlignedPhrase {
   };
 }
 
+/**
+ * Group words into phrases using pre-computed word counts per phrase.
+ * Used when LRCLIB synced lines provide exact phrase boundaries —
+ * much more reliable than silence gap detection, which misplaces
+ * words when force-align timing is slightly off.
+ */
+function buildPhrasesFromWordCounts(
+  words: AlignedWord[],
+  phraseLengths: number[],
+): AlignedPhrase[] {
+  const phrases: AlignedPhrase[] = [];
+  let wordIdx = 0;
+
+  for (const count of phraseLengths) {
+    if (count <= 0) continue;
+    const phraseWords: AlignedWord[] = [];
+    for (let i = 0; i < count && wordIdx < words.length; i++) {
+      phraseWords.push(words[wordIdx]);
+      wordIdx++;
+    }
+    if (phraseWords.length > 0) {
+      phrases.push(buildAlignedPhrase(phraseWords));
+    }
+  }
+
+  // Remaining words go into a final phrase
+  if (wordIdx < words.length) {
+    const remaining = words.slice(wordIdx);
+    if (remaining.length > 0) {
+      phrases.push(buildAlignedPhrase(remaining));
+    }
+  }
+
+  return phrases;
+}
+
 /* ── Word → Phoneme Processing ──────────────────────────────────── */
 
 /**
@@ -130,9 +166,15 @@ function processWord(aligned: AlignedWord): Word {
  * Process a word that already has phoneme-level timestamps from
  * the phoneme-align model. Bypasses dictionary lookup and duration
  * model entirely — uses the acoustic phoneme boundaries as-is.
+ *
+ * Post-processes phoneme timestamps to be contiguous: each phoneme
+ * extends from its detected start to the next phoneme's start, and
+ * the last phoneme extends to the word end. CTC alignment can produce
+ * gaps (blank frames between phonemes), but in singing, sound is
+ * continuous — vowels sustain until the next consonant.
  */
 function processPhonemeAlignedWord(aligned: PhonemeAlignedWord): Word {
-  const phonemes: Phoneme[] = aligned.phonemes.map((p) => {
+  const raw = aligned.phonemes.map((p) => {
     const clean = stripStress(p.phoneme);
     return {
       code: toPrestonBlair(clean),
@@ -143,11 +185,22 @@ function processPhonemeAlignedWord(aligned: PhonemeAlignedWord): Word {
     };
   });
 
+  // Make phonemes contiguous: each extends to the next phoneme's start,
+  // and the last phoneme fills to the word end. First phoneme starts at
+  // word start. This fills gaps left by CTC blank frames.
+  if (raw.length > 0) {
+    raw[0].startMs = aligned.startMs;
+    for (let i = 0; i < raw.length - 1; i++) {
+      raw[i].endMs = raw[i + 1].startMs;
+    }
+    raw[raw.length - 1].endMs = aligned.endMs;
+  }
+
   return {
     text: aligned.text.toLowerCase(),
     startMs: aligned.startMs,
     endMs: aligned.endMs,
-    phonemes,
+    phonemes: raw,
     confidence: aligned.confidence,
     inDictionary: isInDictionary(aligned.text),
   };
@@ -161,13 +214,17 @@ function processPhonemeAlignedWord(aligned: PhonemeAlignedWord): Word {
  * distribution. Each phoneme's start/end reflects what the model
  * actually heard in the audio.
  *
- * @param words     - Words with per-phoneme timestamps from phoneme-align
- * @param trackType - "lead", "background", or "duet"
+ * @param words         - Words with per-phoneme timestamps from phoneme-align
+ * @param trackType     - "lead", "background", or "duet"
+ * @param phraseLengths - Optional word counts per phrase from LRCLIB synced lines.
+ *                        When provided, uses exact line boundaries instead of
+ *                        silence gap detection (much more accurate).
  * @returns A VocalTrack ready for .xtiming export
  */
 export function processPhonemeAlignedWords(
   words: PhonemeAlignedWord[],
   trackType: VocalTrackType = "lead",
+  phraseLengths?: number[],
 ): VocalTrack {
   // Reuse phrase detection by converting to AlignedWord interface
   const asAligned: AlignedWord[] = words.map((w) => ({
@@ -177,7 +234,10 @@ export function processPhonemeAlignedWords(
     confidence: w.confidence,
   }));
 
-  const alignedPhrases = detectPhrases(asAligned);
+  const alignedPhrases =
+    phraseLengths && phraseLengths.length > 0
+      ? buildPhrasesFromWordCounts(asAligned, phraseLengths)
+      : detectPhrases(asAligned);
 
   // Build a lookup so we can find the phoneme-aligned word for each phrase word
   const wordsByKey = new Map<string, PhonemeAlignedWord>();
@@ -219,15 +279,20 @@ export function processPhonemeAlignedWords(
  * Process aligned words into a complete VocalTrack.
  * Uses dictionary lookup + duration model heuristic for phoneme timing.
  *
- * @param words     - Word-level timestamps from alignment
- * @param trackType - "lead", "background", or "duet"
+ * @param words         - Word-level timestamps from alignment
+ * @param trackType     - "lead", "background", or "duet"
+ * @param phraseLengths - Optional word counts per phrase from LRCLIB synced lines.
  * @returns A VocalTrack ready for .xtiming export
  */
 export function processAlignedWords(
   words: AlignedWord[],
   trackType: VocalTrackType = "lead",
+  phraseLengths?: number[],
 ): VocalTrack {
-  const alignedPhrases = detectPhrases(words);
+  const alignedPhrases =
+    phraseLengths && phraseLengths.length > 0
+      ? buildPhrasesFromWordCounts(words, phraseLengths)
+      : detectPhrases(words);
 
   const phrases: Phrase[] = alignedPhrases.map((ap) => ({
     text: ap.text.toLowerCase(),
