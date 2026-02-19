@@ -209,9 +209,10 @@ const STEM_NAMES = ["vocals", "drums", "bass", "other", "guitar", "piano"];
  * Replicate models return outputs in different shapes depending on the
  * Cog version and model config:
  *
- *   1. Object with stem keys: { vocals: "url", drums: "url", ... }  ← ideal
- *   2. Array of URLs: ["url/vocals.wav", "url/drums.wav", ...]       ← parse filenames
- *   3. Single string URL (zip archive): "url/stems.zip"              ← pass as archive
+ *   1. Object with stem keys: { vocals: "url", drums: "url", ... }
+ *   2. Array of objects: [{ name: "vocals", audio: "url" }, ...]     ← current version
+ *   3. Array of URLs: ["url/vocals.wav", "url/drums.wav", ...]       ← legacy
+ *   4. Single string URL (zip archive): "url/stems.zip"              ← archive fallback
  */
 function normalizeStemOutput(output: unknown): Record<string, string> {
   // Case 1: Object with stem keys — pass through (most common)
@@ -226,7 +227,32 @@ function normalizeStemOutput(output: unknown): Record<string, string> {
     if (Object.keys(stems).length > 0) return stems;
   }
 
-  // Case 2: Array of URLs — extract stem names from filenames
+  // Case 2: Array of { name, audio } objects (new Cog output format)
+  //   e.g. [{ "name": "vocals", "audio": "https://..." }, ...]
+  if (
+    Array.isArray(output) &&
+    output.length > 0 &&
+    typeof output[0] === "object"
+  ) {
+    const stems: Record<string, string> = {};
+    for (const item of output) {
+      if (
+        item &&
+        typeof item === "object" &&
+        typeof (item as Record<string, unknown>).name === "string" &&
+        typeof (item as Record<string, unknown>).audio === "string"
+      ) {
+        const name = (item as Record<string, string>).name.toLowerCase();
+        const audio = (item as Record<string, string>).audio;
+        if (STEM_NAMES.includes(name) && audio.startsWith("http")) {
+          stems[name] = audio;
+        }
+      }
+    }
+    if (Object.keys(stems).length > 0) return stems;
+  }
+
+  // Case 3: Array of plain URLs — extract stem names from filenames
   if (Array.isArray(output)) {
     const stems: Record<string, string> = {};
     for (const url of output) {
@@ -239,30 +265,9 @@ function normalizeStemOutput(output: unknown): Record<string, string> {
       }
     }
     if (Object.keys(stems).length > 0) return stems;
-    // If no recognized stems, try positional mapping.
-    // htdemucs_6s outputs: drums, bass, other, vocals, guitar, piano
-    if (output.length >= 6) {
-      return {
-        drums: output[0] as string,
-        bass: output[1] as string,
-        other: output[2] as string,
-        vocals: output[3] as string,
-        guitar: output[4] as string,
-        piano: output[5] as string,
-      };
-    }
-    // htdemucs (4-stem) fallback
-    if (output.length >= 4) {
-      return {
-        drums: output[0] as string,
-        bass: output[1] as string,
-        other: output[2] as string,
-        vocals: output[3] as string,
-      };
-    }
   }
 
-  // Case 3: Single string URL (zip archive)
+  // Case 4: Single string URL (zip archive)
   if (typeof output === "string") {
     return { archive: output };
   }
