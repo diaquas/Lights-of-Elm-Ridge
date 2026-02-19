@@ -46,3 +46,6 @@ next-env.d.ts
 packages/*/dist/
 packages/*/build/
 packages/*/.turbo/
+
+# supabase
+supabase/.temp/
