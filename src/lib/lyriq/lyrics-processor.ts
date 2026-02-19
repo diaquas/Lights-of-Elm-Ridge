@@ -10,6 +10,7 @@
 
 import type {
   LyriqStats,
+  Phoneme,
   Phrase,
   VocalTrack,
   VocalTrackType,
@@ -17,6 +18,7 @@ import type {
 } from "./types";
 import { lookupWord, isInDictionary } from "./dictionary";
 import { distributePhonemes } from "./duration-model";
+import { stripStress, toPrestonBlair, getPhonemeCategory } from "./phoneme-map";
 
 /* ── Types for alignment input ──────────────────────────────────── */
 
@@ -34,6 +36,26 @@ export interface AlignedPhrase {
   words: AlignedWord[];
   startMs: number;
   endMs: number;
+}
+
+/** Phoneme-level timestamp from the phoneme-align model. */
+export interface AlignedPhoneme {
+  /** ARPAbet phoneme code (no stress digit), e.g. "K", "L", "OW" */
+  phoneme: string;
+  /** Start time in milliseconds */
+  startMs: number;
+  /** End time in milliseconds */
+  endMs: number;
+}
+
+/** Word with phoneme-level alignment from the phoneme-align model. */
+export interface PhonemeAlignedWord {
+  text: string;
+  startMs: number;
+  endMs: number;
+  confidence: number;
+  /** Per-phoneme timestamps derived from audio (not heuristic). */
+  phonemes: AlignedPhoneme[];
 }
 
 /* ── Phrase Detection ───────────────────────────────────────────── */
@@ -102,10 +124,100 @@ function processWord(aligned: AlignedWord): Word {
   };
 }
 
+/* ── Phoneme-Aligned Word Processing ───────────────────────────── */
+
+/**
+ * Process a word that already has phoneme-level timestamps from
+ * the phoneme-align model. Bypasses dictionary lookup and duration
+ * model entirely — uses the acoustic phoneme boundaries as-is.
+ */
+function processPhonemeAlignedWord(aligned: PhonemeAlignedWord): Word {
+  const phonemes: Phoneme[] = aligned.phonemes.map((p) => {
+    const clean = stripStress(p.phoneme);
+    return {
+      code: toPrestonBlair(clean),
+      arpabet: clean,
+      startMs: p.startMs,
+      endMs: p.endMs,
+      category: getPhonemeCategory(clean),
+    };
+  });
+
+  return {
+    text: aligned.text.toLowerCase(),
+    startMs: aligned.startMs,
+    endMs: aligned.endMs,
+    phonemes,
+    confidence: aligned.confidence,
+    inDictionary: isInDictionary(aligned.text),
+  };
+}
+
+/**
+ * Process phoneme-aligned words into a complete VocalTrack.
+ *
+ * This is the precision path: phoneme timestamps come directly from
+ * wav2vec2 CTC alignment against the audio, not from heuristic
+ * distribution. Each phoneme's start/end reflects what the model
+ * actually heard in the audio.
+ *
+ * @param words     - Words with per-phoneme timestamps from phoneme-align
+ * @param trackType - "lead", "background", or "duet"
+ * @returns A VocalTrack ready for .xtiming export
+ */
+export function processPhonemeAlignedWords(
+  words: PhonemeAlignedWord[],
+  trackType: VocalTrackType = "lead",
+): VocalTrack {
+  // Reuse phrase detection by converting to AlignedWord interface
+  const asAligned: AlignedWord[] = words.map((w) => ({
+    text: w.text,
+    startMs: w.startMs,
+    endMs: w.endMs,
+    confidence: w.confidence,
+  }));
+
+  const alignedPhrases = detectPhrases(asAligned);
+
+  // Build a lookup so we can find the phoneme-aligned word for each phrase word
+  const wordsByKey = new Map<string, PhonemeAlignedWord>();
+  for (const w of words) {
+    wordsByKey.set(`${w.text}|${w.startMs}|${w.endMs}`, w);
+  }
+
+  const phrases: Phrase[] = alignedPhrases.map((ap) => ({
+    text: ap.text.toLowerCase(),
+    startMs: ap.startMs,
+    endMs: ap.endMs,
+    words: ap.words.map((aw) => {
+      const key = `${aw.text}|${aw.startMs}|${aw.endMs}`;
+      const phonemeWord = wordsByKey.get(key);
+      if (phonemeWord) {
+        return processPhonemeAlignedWord(phonemeWord);
+      }
+      // Fallback to heuristic if somehow missing
+      return processWord(aw);
+    }),
+  }));
+
+  const labelMap: Record<VocalTrackType, string> = {
+    lead: "Lyrics (Lead)",
+    background: "Lyrics (Background)",
+    duet: "Lyrics (Duet/Alt)",
+  };
+
+  return {
+    type: trackType,
+    label: labelMap[trackType],
+    phrases,
+  };
+}
+
 /* ── Full Pipeline ──────────────────────────────────────────────── */
 
 /**
  * Process aligned words into a complete VocalTrack.
+ * Uses dictionary lookup + duration model heuristic for phoneme timing.
  *
  * @param words     - Word-level timestamps from alignment
  * @param trackType - "lead", "background", or "duet"
