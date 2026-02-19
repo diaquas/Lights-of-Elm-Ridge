@@ -64,20 +64,28 @@ class Predictor(BasePredictor):
             description="Include per-word confidence scores",
             default=True,
         ),
+        refine: bool = Input(
+            description=(
+                "Run stable-ts refine() after alignment to tighten word boundaries. "
+                "Adds thousands of Whisper forward passes — significantly slower on T4. "
+                "Leave off unless you need sub-100ms precision."
+            ),
+            default=False,
+        ),
     ) -> str:
         """Align transcript words to audio and return word-level timestamps."""
         parsed_sections = self._parse_sections(sections)
 
         if parsed_sections:
             return self._align_chunked(
-                str(audio_file), parsed_sections, show_probabilities
+                str(audio_file), parsed_sections, show_probabilities, refine
             )
         else:
             return self._align_full(
-                str(audio_file), transcript, show_probabilities
+                str(audio_file), transcript, show_probabilities, refine
             )
 
-    def _align_full(self, audio_path, transcript, show_probs):
+    def _align_full(self, audio_path, transcript, show_probs, do_refine):
         """Original full-file alignment (fallback when no sections provided)."""
         try:
             result = self.model.align(
@@ -90,13 +98,15 @@ class Predictor(BasePredictor):
             print(f"Align failed: {e}", file=sys.stderr)
             return json.dumps({"wordstamps": [], "error": str(e)})
 
-        result, refined = self._refine(audio_path, result)
+        refined = False
+        if do_refine:
+            result, refined = self._refine(audio_path, result)
         return json.dumps({
             "wordstamps": self._extract_words(result, show_probs),
             "refined": refined,
         })
 
-    def _align_chunked(self, audio_path, sections, show_probs):
+    def _align_chunked(self, audio_path, sections, show_probs, do_refine):
         """Align each section independently against its audio window.
 
         This is the key fix for repeated-phrase confusion: by slicing the
@@ -142,7 +152,8 @@ class Predictor(BasePredictor):
                     language="en",
                     vad=True,
                 )
-                result, _ = self._refine(chunk_path, result)
+                if do_refine:
+                    result, _ = self._refine(chunk_path, result)
                 words = self._extract_words(result, show_probs)
 
                 # Offset all timestamps by the section start time
