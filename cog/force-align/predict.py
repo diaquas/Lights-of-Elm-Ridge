@@ -208,7 +208,10 @@ class Predictor(BasePredictor):
         detected by the VAD. Returns (result, adjusted: bool).
         """
         try:
-            result.adjust_by_silence(audio_path, vad=True)
+            # vad=False uses quantization-based silence detection — no Silero
+            # inference, no GPU memory. The align() call already used vad=True
+            # for speech detection; this post-pass just needs silence edges.
+            result.adjust_by_silence(audio_path, vad=False)
             return result, True
         except Exception as e:
             print(
