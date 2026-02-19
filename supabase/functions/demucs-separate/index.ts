@@ -184,6 +184,27 @@ async function handleStatus(
   if (prediction.status === "succeeded") {
     if (prediction.output) {
       result.stems = normalizeStemOutput(prediction.output);
+      // Temporary debug: include raw output shape so we can diagnose
+      // "no usable stem URLs" errors on the client side.
+      result._debug = {
+        rawOutputType: Array.isArray(prediction.output)
+          ? "array"
+          : typeof prediction.output,
+        rawOutputLength: Array.isArray(prediction.output)
+          ? prediction.output.length
+          : null,
+        firstElement: Array.isArray(prediction.output)
+          ? prediction.output[0]
+          : null,
+        normalizedKeys: Object.keys(result.stems as Record<string, string>),
+        normalizedSample: Object.entries(result.stems as Record<string, string>)
+          .slice(0, 1)
+          .map(([k, v]) => ({
+            key: k,
+            valueType: typeof v,
+            valuePrefix: typeof v === "string" ? v.slice(0, 60) : String(v),
+          })),
+      };
     } else {
       result.status = "failed";
       result.error = "Model succeeded but returned no output";
