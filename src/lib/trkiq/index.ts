@@ -13,6 +13,7 @@ export type {
   SyncedLine,
   TrkiqPipelineStep,
   PipelineStepStatus,
+  PipelineSubPhase,
   PipelineProgress,
   TrkiqScreen,
   TrkiqSession,

@@ -1,10 +1,10 @@
-// Supabase Edge Function: force-align
-// Proxies word-level forced alignment requests to Replicate
-// (diaquas/force-align — stable-ts + wav2vec2, with refine crash fix).
+// Supabase Edge Function: phoneme-align
+// Proxies phoneme-level forced alignment requests to Replicate
+// (diaquas/phoneme-align — wav2vec2 CTC, per-phoneme timestamps).
 //
 // Actions:
-//   start  — Submit vocals URL + transcript, create prediction, return predictionId
-//   status — Poll prediction status, return word timestamps when complete
+//   start  — Submit vocals URL + transcript + word timestamps, create prediction
+//   status — Poll prediction status, return phoneme timestamps when complete
 //
 // Required secrets:
 //   REPLICATE_API_TOKEN — Your Replicate API token
@@ -32,11 +32,11 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 
-// diaquas/force-align — custom fork with refine crash fix
+// diaquas/phoneme-align — wav2vec2 CTC phoneme-level alignment
 // Pinned version hash — update after each cog push.
-const FORCE_ALIGN_MODEL = "diaquas/force-align";
-const FORCE_ALIGN_VERSION =
-  "317680bb9407f39fa4bd488cb485d47a840d3700f7acfe0f75b60f7b8b09b475";
+const PHONEME_ALIGN_MODEL = "diaquas/phoneme-align";
+const PHONEME_ALIGN_VERSION =
+  "fb9d6c3be3c1be3d16d7d94285a86ffccf395b45a92588b54cf6596e3f355497";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -50,10 +50,10 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         ok: true,
-        function: "force-align",
-        model: FORCE_ALIGN_MODEL,
-        version: FORCE_ALIGN_VERSION.slice(0, 12),
-        v: 7,
+        function: "phoneme-align",
+        model: PHONEME_ALIGN_MODEL,
+        version: PHONEME_ALIGN_VERSION.slice(0, 12),
+        v: 1,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -70,35 +70,13 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json();
 
-    // Debug action — hits the Replicate model endpoint to verify visibility
-    if (body.action === "test") {
-      const modelRes = await fetch(
-        `${REPLICATE_API}/models/${FORCE_ALIGN_MODEL}`,
-        {
-          headers: { Authorization: `Bearer ${replicateToken}` },
-        },
-      );
-      const modelBody = await modelRes.text();
-      return new Response(
-        JSON.stringify({
-          replicateStatus: modelRes.status,
-          replicateUrl: `${REPLICATE_API}/models/${FORCE_ALIGN_MODEL}`,
-          replicateResponse: modelBody.slice(0, 2000),
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        },
-      );
-    }
-
     if (body.action === "start" && body.vocalsUrl && body.transcript) {
       return await handleStart(
         body.vocalsUrl,
         body.transcript,
         replicateToken,
         corsHeaders,
-        body.sections,
+        body.wordTimestamps,
       );
     } else if (body.action === "status" && body.predictionId) {
       return await handleStatus(body.predictionId, replicateToken, corsHeaders);
@@ -107,8 +85,6 @@ Deno.serve(async (req: Request) => {
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal error";
-    // Return 200 with error field so supabase.functions.invoke() passes
-    // the body through — non-2xx responses get swallowed by the SDK.
     return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
@@ -117,27 +93,24 @@ Deno.serve(async (req: Request) => {
 });
 
 /**
- * Start a forced alignment job.
- * Sends the Demucs vocals stem URL + lyrics transcript to Replicate.
+ * Start a phoneme-level alignment job.
+ * Sends vocals URL + transcript + optional word timestamps to Replicate.
  */
 async function handleStart(
   vocalsUrl: string,
   transcript: string,
   replicateToken: string,
   corsHeaders: Record<string, string>,
-  sections?: string,
+  wordTimestamps?: string,
 ): Promise<Response> {
-  // Build input payload — include sections for chunked alignment when available
   const input: Record<string, unknown> = {
     audio_file: vocalsUrl,
     transcript,
-    show_probabilities: true,
   };
-  if (sections) {
-    input.sections = sections;
+  if (wordTimestamps) {
+    input.word_timestamps = wordTimestamps;
   }
 
-  // Use /predictions with pinned version hash (same pattern as demucs)
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
@@ -146,7 +119,7 @@ async function handleStart(
       Prefer: "respond-async",
     },
     body: JSON.stringify({
-      version: FORCE_ALIGN_VERSION,
+      version: PHONEME_ALIGN_VERSION,
       input,
     }),
   });
@@ -171,8 +144,8 @@ async function handleStart(
 }
 
 /**
- * Check the status of a forced alignment prediction.
- * Returns word timestamps when the prediction has succeeded.
+ * Check the status of a phoneme alignment prediction.
+ * Returns phoneme timestamps when the prediction has succeeded.
  */
 async function handleStatus(
   predictionId: string,
@@ -199,23 +172,19 @@ async function handleStatus(
 
   if (prediction.status === "succeeded") {
     if (prediction.output) {
-      // Output format varies: our model returns a JSON string,
-      // third-party models may return an object directly.
       const output =
         typeof prediction.output === "string"
           ? JSON.parse(prediction.output)
           : prediction.output;
-      result.wordstamps = output.wordstamps ?? output;
+      result.words = output.words ?? output;
     } else {
-      // Model succeeded but returned no output — surface as error
-      // so the client stops polling instead of spinning.
       result.status = "failed";
       result.error = "Model succeeded but returned no output";
     }
   }
 
   if (prediction.status === "failed") {
-    result.error = prediction.error || "Forced alignment failed";
+    result.error = prediction.error || "Phoneme alignment failed";
   }
 
   return new Response(JSON.stringify(result), {

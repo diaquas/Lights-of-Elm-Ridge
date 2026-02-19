@@ -186,7 +186,7 @@ export default function TrkIQTool() {
       {session.screen !== "editor" && (
         <div className="text-center mb-12">
           <div className="mb-3">
-            <span className="text-[56px] sm:text-[64px] font-display font-black tracking-tight leading-none">
+            <span className="text-[56px] sm:text-[64px] font-display font-bold tracking-tight leading-none">
               <span className="text-foreground">TRK</span>
               <span className="text-accent">:</span>
               <span className="text-accent">IQ</span>

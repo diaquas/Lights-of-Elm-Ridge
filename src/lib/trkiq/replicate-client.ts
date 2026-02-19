@@ -105,6 +105,12 @@ async function pollStatus(predictionId: string): Promise<DemucsResponse> {
   return callDemucsFunction({ action: "status", predictionId });
 }
 
+/** Status callback includes the Replicate prediction phase */
+export type StemStatusCallback = (
+  message: string,
+  phase?: "queued" | "running",
+) => void;
+
 /**
  * Run the full Demucs stem separation pipeline:
  * 1. Upload audio to Supabase Storage
@@ -118,18 +124,18 @@ async function pollStatus(predictionId: string): Promise<DemucsResponse> {
  */
 export async function separateStems(
   file: File,
-  onStatusUpdate?: (message: string) => void,
+  onStatusUpdate?: StemStatusCallback,
 ): Promise<StemSet> {
   // Step 1: Upload
-  onStatusUpdate?.("Uploading audio...");
+  onStatusUpdate?.("Uploading audio...", "running");
   const storagePath = await uploadAudio(file);
 
   // Step 2: Start
-  onStatusUpdate?.("Starting stem separation...");
+  onStatusUpdate?.("Starting stem separation...", "queued");
   const predictionId = await startSeparation(storagePath);
 
   // Step 3: Poll
-  onStatusUpdate?.("Separating instruments (this takes 30-60 seconds)...");
+  onStatusUpdate?.("Waiting for GPU...", "queued");
   let attempts = 0;
 
   while (attempts < MAX_POLL_ATTEMPTS) {
@@ -190,10 +196,16 @@ export async function separateStems(
       throw new Error("Stem separation was canceled");
     }
 
-    // Still processing — update status
-    onStatusUpdate?.(
-      `Separating instruments... (${Math.round((attempts * POLL_INTERVAL_MS) / 1000)}s)`,
-    );
+    // Surface the starting vs processing distinction
+    const elapsed = Math.round((attempts * POLL_INTERVAL_MS) / 1000);
+    if (result.status === "starting") {
+      onStatusUpdate?.(`Waiting for GPU... (${elapsed}s)`, "queued");
+    } else {
+      onStatusUpdate?.(
+        `Separating instruments... (${elapsed}s)`,
+        "running",
+      );
+    }
   }
 
   cleanupUpload(storagePath).catch(() => {});
