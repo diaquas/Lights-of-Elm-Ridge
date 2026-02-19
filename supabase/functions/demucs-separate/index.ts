@@ -187,23 +187,8 @@ async function handleStatus(
       // Temporary debug: include raw output shape so we can diagnose
       // "no usable stem URLs" errors on the client side.
       result._debug = {
-        rawOutputType: Array.isArray(prediction.output)
-          ? "array"
-          : typeof prediction.output,
-        rawOutputLength: Array.isArray(prediction.output)
-          ? prediction.output.length
-          : null,
-        firstElement: Array.isArray(prediction.output)
-          ? prediction.output[0]
-          : null,
+        rawOutputSnapshot: JSON.stringify(prediction.output).slice(0, 800),
         normalizedKeys: Object.keys(result.stems as Record<string, string>),
-        normalizedSample: Object.entries(result.stems as Record<string, string>)
-          .slice(0, 1)
-          .map(([k, v]) => ({
-            key: k,
-            valueType: typeof v,
-            valuePrefix: typeof v === "string" ? v.slice(0, 60) : String(v),
-          })),
       };
     } else {
       result.status = "failed";
@@ -236,13 +221,24 @@ function extractUrl(value: unknown): string | null {
   }
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
-    // Try common URL-carrying keys
-    for (const key of ["url", "audio", "href"]) {
+    // Try common URL-carrying keys first
+    for (const key of ["url", "audio", "href", "src"]) {
       if (
         typeof obj[key] === "string" &&
         (obj[key] as string).startsWith("http")
       ) {
         return obj[key] as string;
+      }
+    }
+    // Replicate FileOutput: may toString() to a URL
+    if (typeof obj.toString === "function") {
+      const s = obj.toString();
+      if (s.startsWith("http")) return s;
+    }
+    // Last resort: scan all string values for a URL
+    for (const v of Object.values(obj)) {
+      if (typeof v === "string" && v.startsWith("http")) {
+        return v;
       }
     }
   }
