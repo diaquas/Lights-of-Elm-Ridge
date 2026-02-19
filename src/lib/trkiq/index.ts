@@ -15,6 +15,7 @@ export type {
   PipelineStepStatus,
   PipelineSubPhase,
   PipelineProgress,
+  CompletionStats,
   TrkiqScreen,
   TrkiqSession,
   TrkiqStats,
