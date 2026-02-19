@@ -35,8 +35,6 @@ export default function UploadScreen({
 
   const lrclibHasLyrics =
     lyrics?.source === "lrclib" && lyrics.plainText.trim().length > 0;
-  const showLyricsEditor =
-    userToggledLyrics ?? (lrclibHasLyrics || lyrics?.source === "user");
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -121,6 +119,21 @@ export default function UploadScreen({
 
   const canGenerate = audioFile !== null && metadata !== null;
 
+  const TRIM_THRESHOLD_SEC = 15;
+  const audioDurationSec = metadata?.durationMs
+    ? Math.round(metadata.durationMs / 1000)
+    : 0;
+  const originalDurationSec = lyrics?.originalDurationSec ?? 0;
+  const durationDiffSec =
+    audioDurationSec > 0 && originalDurationSec > 0
+      ? originalDurationSec - audioDurationSec
+      : 0;
+  const showTrimWarning = durationDiffSec > TRIM_THRESHOLD_SEC;
+
+  const showLyricsEditor =
+    userToggledLyrics ??
+    (lrclibHasLyrics || lyrics?.source === "user" || showTrimWarning);
+
   const formatDuration = (ms: number) => {
     const totalSeconds = Math.floor(ms / 1000);
     const minutes = Math.floor(totalSeconds / 60);
@@ -128,54 +141,78 @@ export default function UploadScreen({
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const formatDurationSec = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
   return (
     <div className="max-w-[860px] mx-auto space-y-12">
-      {/* ── How It Works ──────────────────────────────── */}
+      {/* ── How It Works (unified 3-card grid) ────────── */}
       {!audioFile && (
-        <div className="space-y-6">
-          <h2 className="text-2xl font-display font-bold text-center">
-            How It Works
-          </h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <HowItWorksCard
-              number="1"
-              title="Drop Your MP3"
-              description="Upload any song. We read the ID3 tags and auto-fetch lyrics so you don't have to."
-              icon={
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 18V5l12-2v13" />
-                  <circle cx="6" cy="18" r="3" />
-                  <circle cx="18" cy="16" r="3" />
-                </svg>
-              }
-            />
-            <HowItWorksCard
-              number="2"
-              title="AI Stem Separation"
-              description="Your audio is split into isolated instruments and vocals using AI — drums, bass, guitar, keys, and more."
-              icon={
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2 12h2l3-9 3 18 3-12 3 6 2-3h4" />
-                </svg>
-              }
-            />
-            <HowItWorksCard
-              number="3"
-              title="Download &amp; Import"
-              description="Get a single .xtiming file with every track named and ready. Import once into xLights and go."
-              icon={
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-              }
-            />
-          </div>
-          <div className="text-center text-xs text-foreground/30 pt-4 border-t border-border">
-            Audio is processed via secure AI services. Your files are never
-            stored or shared.
-          </div>
+        <div className="grid md:grid-cols-3 gap-5">
+          <StepCard
+            number="1"
+            title="Drop Your MP3"
+            description="We read ID3 tags and auto-fetch lyrics from LRCLIB. Every instrument gets its own timing track."
+            icon={
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+            }
+          />
+          <StepCard
+            number="2"
+            title="AI Does the Work"
+            description="Your audio is split into 6 isolated stems and analyzed for beats, onsets, and vocal timing."
+            icon={
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M2 12h2l3-9 3 18 3-12 3 6 2-3h4" />
+              </svg>
+            }
+          />
+          <StepCard
+            number="3"
+            title="Download &amp; Sequence"
+            description="One .xtiming file with everything named and ready. Import into xLights and go."
+            icon={
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            }
+          />
         </div>
       )}
 
@@ -208,13 +245,6 @@ export default function UploadScreen({
 
             {!audioFile ? (
               <>
-                <div className="mb-5">
-                  <span className="text-[28px] font-display font-black tracking-tight leading-none">
-                    <span className="text-foreground">TRK</span>
-                    <span className="text-accent">:</span>
-                    <span className="text-accent">IQ</span>
-                  </span>
-                </div>
                 <div className="flex justify-center mb-4">
                   <svg
                     width="48"
@@ -382,6 +412,37 @@ export default function UploadScreen({
 
           {showLyricsEditor && (
             <div className="px-5 pb-4 border-t border-border pt-3">
+              {showTrimWarning && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 mb-3">
+                  <div className="flex items-start gap-2.5">
+                    <svg
+                      className="w-4 h-4 text-amber-500 mt-0.5 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+                      />
+                    </svg>
+                    <div>
+                      <p className="text-amber-500 text-sm font-medium">
+                        Edited track detected
+                      </p>
+                      <p className="text-foreground/50 text-xs mt-1 leading-relaxed">
+                        Your audio is {formatDurationSec(audioDurationSec)} but
+                        the original track is{" "}
+                        {formatDurationSec(originalDurationSec)}. If you cut
+                        sections from this song, remove the corresponding lyrics
+                        below so the timing aligns correctly.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <textarea
                 rows={8}
                 placeholder="Paste lyrics here to include singing face timing tracks in your export, or wait for auto-fetch from LRCLIB."
@@ -422,31 +483,13 @@ export default function UploadScreen({
           </button>
         </div>
       )}
-
-      {/* ── Feature Cards ─────────────────────────────── */}
-      {!audioFile && (
-        <div className="grid md:grid-cols-3 gap-6">
-          <FeatureCard
-            title="Instrument Timing"
-            description="Kick, snare, hi-hat, bass, and melodic onsets detected from isolated stems. Way beyond what VAMP plugins can do."
-          />
-          <FeatureCard
-            title="Singing Faces"
-            description="Lyrics auto-fetched, processed through our phoneme engine for Preston Blair mouth positions. Lead AND background vocals."
-          />
-          <FeatureCard
-            title="One File, Everything"
-            description="Download a single .xtiming with all tracks named and ready — import once into xLights and go."
-          />
-        </div>
-      )}
     </div>
   );
 }
 
 // ─── Subcomponents ───────────────────────────────────────
 
-function HowItWorksCard({
+function StepCard({
   number,
   title,
   description,
@@ -458,30 +501,21 @@ function HowItWorksCard({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="bg-surface rounded-xl border border-border p-6 text-center flex flex-col">
-      <div className="w-10 h-10 rounded-full bg-accent/20 text-accent flex items-center justify-center text-lg font-bold mx-auto mb-3">
-        {number}
+    <div className="bg-surface rounded-xl border border-border p-5 flex flex-col">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-8 h-8 rounded-full bg-accent/15 text-accent flex items-center justify-center text-sm font-bold flex-shrink-0">
+          {number}
+        </div>
+        <h3 className="font-display font-bold text-sm leading-tight">
+          {title}
+        </h3>
       </div>
-      <h3 className="font-display font-bold mb-2 h-[3.5rem] flex items-end justify-center leading-tight">
-        {title}
-      </h3>
-      <div className="flex justify-center mb-3 text-foreground/25">{icon}</div>
-      <p className="text-sm text-foreground/60 flex-1">{description}</p>
-    </div>
-  );
-}
-
-function FeatureCard({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="bg-surface rounded-xl border border-border p-6 text-center flex flex-col">
-      <h3 className="font-display font-bold mb-2">{title}</h3>
-      <p className="text-sm text-foreground/60 flex-1">{description}</p>
+      <div className="flex items-start gap-3">
+        <div className="text-foreground/20 flex-shrink-0 mt-0.5">{icon}</div>
+        <p className="text-sm text-foreground/50 leading-relaxed flex-1">
+          {description}
+        </p>
+      </div>
     </div>
   );
 }

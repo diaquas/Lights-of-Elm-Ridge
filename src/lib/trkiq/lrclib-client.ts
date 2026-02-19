@@ -106,6 +106,7 @@ function responseToLyricsData(data: LrclibResponse): LyricsData | null {
     plainText: data.plainLyrics || extractPlainFromSynced(syncedLines) || "",
     syncedLines,
     source: "lrclib",
+    originalDurationSec: data.duration > 0 ? data.duration : undefined,
   };
 }
 

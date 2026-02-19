@@ -72,6 +72,12 @@ export interface AlignSection {
   text: string;
 }
 
+/** Status callback includes the Replicate prediction phase */
+export type ForceAlignStatusCallback = (
+  message: string,
+  phase?: "queued" | "running",
+) => void;
+
 /**
  * Run forced alignment on a vocals stem + lyrics transcript.
  *
@@ -84,11 +90,11 @@ export interface AlignSection {
 export async function forceAlignLyrics(
   vocalsUrl: string,
   transcript: string,
-  onStatusUpdate?: (message: string) => void,
+  onStatusUpdate?: ForceAlignStatusCallback,
   sections?: AlignSection[],
 ): Promise<ForceAlignWord[]> {
   // Step 1: Start the alignment job
-  onStatusUpdate?.("Starting forced alignment...");
+  onStatusUpdate?.("Starting forced alignment...", "queued");
   const body: Record<string, unknown> = {
     action: "start",
     vocalsUrl,
@@ -101,7 +107,7 @@ export async function forceAlignLyrics(
   const predictionId = startResult.predictionId;
 
   // Step 2: Poll for completion
-  onStatusUpdate?.("Aligning lyrics to audio (this takes 10-30 seconds)...");
+  onStatusUpdate?.("Waiting for GPU...", "queued");
   let attempts = 0;
 
   while (attempts < MAX_POLL_ATTEMPTS) {
@@ -125,9 +131,12 @@ export async function forceAlignLyrics(
       throw new Error("Forced alignment was canceled");
     }
 
-    onStatusUpdate?.(
-      `Aligning lyrics to audio... (${Math.round((attempts * POLL_INTERVAL_MS) / 1000)}s)`,
-    );
+    const elapsed = Math.round((attempts * POLL_INTERVAL_MS) / 1000);
+    if (result.status === "starting") {
+      onStatusUpdate?.(`Waiting for GPU... (${elapsed}s)`, "queued");
+    } else {
+      onStatusUpdate?.(`Aligning lyrics to audio... (${elapsed}s)`, "running");
+    }
   }
 
   throw new Error("Forced alignment timed out");

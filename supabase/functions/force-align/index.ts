@@ -36,7 +36,7 @@ const REPLICATE_API = "https://api.replicate.com/v1";
 // Pinned version hash — update after each cog push.
 const FORCE_ALIGN_MODEL = "diaquas/force-align";
 const FORCE_ALIGN_VERSION =
-  "f7888dda6788036995fca03ea8c83b5ef86219a601c1598dd700615b28302f5d";
+  "6b72877e274e83547ebca34378aac6ad5f727104b4898c643b8bd7fcc8ec49e3";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -98,7 +98,6 @@ Deno.serve(async (req: Request) => {
         body.transcript,
         replicateToken,
         corsHeaders,
-        body.sections,
       );
     } else if (body.action === "status" && body.predictionId) {
       return await handleStatus(body.predictionId, replicateToken, corsHeaders);
@@ -125,17 +124,12 @@ async function handleStart(
   transcript: string,
   replicateToken: string,
   corsHeaders: Record<string, string>,
-  sections?: string,
 ): Promise<Response> {
-  // Build input payload — include sections for chunked alignment when available
   const input: Record<string, unknown> = {
     audio_file: vocalsUrl,
     transcript,
     show_probabilities: true,
   };
-  if (sections) {
-    input.sections = sections;
-  }
 
   // Use /predictions with pinned version hash (same pattern as demucs)
   const response = await fetch(`${REPLICATE_API}/predictions`, {

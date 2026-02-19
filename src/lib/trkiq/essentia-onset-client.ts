@@ -89,12 +89,19 @@ async function callEssentiaFunction(
   return data as EssentiaResponse;
 }
 
+/** Status callback includes the Replicate prediction phase */
+export type EssentiaStatusCallback = (
+  message: string,
+  phase?: "queued" | "running",
+) => void;
+
 /**
  * Run Essentia onset detection on a single stem.
  */
 async function analyzeSingleStem(
   stemUrl: string,
   stemType: string,
+  onStatusUpdate?: EssentiaStatusCallback,
 ): Promise<EssentiaOnsetResult> {
   // Start the prediction
   const startResult = await callEssentiaFunction({
@@ -138,6 +145,13 @@ async function analyzeSingleStem(
     if (result.status === "canceled") {
       throw new Error(`Essentia canceled on ${stemType} stem`);
     }
+
+    // Surface starting vs processing
+    if (result.status === "starting") {
+      onStatusUpdate?.(`Waiting for GPU (${stemType})...`, "queued");
+    } else {
+      onStatusUpdate?.(`Analyzing ${stemType}...`, "running");
+    }
   }
 
   throw new Error(`Essentia timed out on ${stemType} stem`);
@@ -155,7 +169,7 @@ async function analyzeSingleStem(
  */
 export async function analyzeStems(
   stems: StemSet,
-  onStatusUpdate?: (message: string) => void,
+  onStatusUpdate?: EssentiaStatusCallback,
 ): Promise<EssentiaOnsetResult[]> {
   // Build the list of stems to analyze (skip vocals — handled by force-align)
   const stemJobs: { url: string; type: string }[] = [];
@@ -167,11 +181,14 @@ export async function analyzeStems(
 
   if (stemJobs.length === 0) return [];
 
-  onStatusUpdate?.(`Analyzing ${stemJobs.length} stems with Essentia...`);
+  onStatusUpdate?.(
+    `Analyzing ${stemJobs.length} stems with Essentia...`,
+    "queued",
+  );
 
   // Run all stems in parallel
   const settled = await Promise.allSettled(
-    stemJobs.map((job) => analyzeSingleStem(job.url, job.type)),
+    stemJobs.map((job) => analyzeSingleStem(job.url, job.type, onStatusUpdate)),
   );
 
   const results: EssentiaOnsetResult[] = [];

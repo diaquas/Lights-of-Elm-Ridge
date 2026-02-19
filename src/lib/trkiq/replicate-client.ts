@@ -105,6 +105,12 @@ async function pollStatus(predictionId: string): Promise<DemucsResponse> {
   return callDemucsFunction({ action: "status", predictionId });
 }
 
+/** Status callback includes the Replicate prediction phase */
+export type StemStatusCallback = (
+  message: string,
+  phase?: "queued" | "running",
+) => void;
+
 /**
  * Run the full Demucs stem separation pipeline:
  * 1. Upload audio to Supabase Storage
@@ -118,18 +124,18 @@ async function pollStatus(predictionId: string): Promise<DemucsResponse> {
  */
 export async function separateStems(
   file: File,
-  onStatusUpdate?: (message: string) => void,
+  onStatusUpdate?: StemStatusCallback,
 ): Promise<StemSet> {
   // Step 1: Upload
-  onStatusUpdate?.("Uploading audio...");
+  onStatusUpdate?.("Uploading audio...", "running");
   const storagePath = await uploadAudio(file);
 
   // Step 2: Start
-  onStatusUpdate?.("Starting stem separation...");
+  onStatusUpdate?.("Starting stem separation...", "queued");
   const predictionId = await startSeparation(storagePath);
 
   // Step 3: Poll
-  onStatusUpdate?.("Separating instruments (this takes 30-60 seconds)...");
+  onStatusUpdate?.("Waiting for GPU...", "queued");
   let attempts = 0;
 
   while (attempts < MAX_POLL_ATTEMPTS) {
@@ -139,16 +145,40 @@ export async function separateStems(
     const result = await pollStatus(predictionId);
 
     if (result.status === "succeeded" && result.stems) {
-      // Validate that we have at least one usable stem URL
-      const { archive: _archive, ...usableStems } = result.stems;
-      const stemCount = Object.values(usableStems).filter(
-        (v) => typeof v === "string" && v.startsWith("http"),
+      // Validate that we have at least one *recognized* stem URL.
+      // Previous check only counted any URL — a mis-parsed output like
+      // { stems: "oneUrl" } would pass (1 URL) but downstream steps
+      // need actual stem names (vocals, drums, bass, etc.) to work.
+      const RECOGNIZED_STEMS = [
+        "vocals",
+        "drums",
+        "bass",
+        "guitar",
+        "piano",
+        "other",
+      ];
+      const recognizedCount = RECOGNIZED_STEMS.filter(
+        (name) =>
+          typeof (result.stems as Record<string, unknown>)[name] === "string" &&
+          (result.stems as Record<string, string>)[name].startsWith("http"),
       ).length;
 
-      if (stemCount === 0) {
+      if (recognizedCount === 0) {
+        // Debug: dump what we received so we can diagnose the format mismatch
+        const debugInfo = {
+          stemsType: typeof result.stems,
+          stemsKeys: Object.keys(result.stems),
+          stemsEntries: Object.entries(result.stems).map(([k, v]) => ({
+            key: k,
+            valueType: typeof v,
+            value: String(v).slice(0, 80),
+          })),
+          rawResult: JSON.stringify(result).slice(0, 500),
+          _debug: (result as unknown as Record<string, unknown>)._debug,
+        };
         cleanupUpload(storagePath).catch(() => {});
         throw new Error(
-          "Demucs returned no usable stem URLs — check edge function logs",
+          `Demucs returned no recognized stem URLs — debug: ${JSON.stringify(debugInfo)}`,
         );
       }
 
@@ -166,10 +196,13 @@ export async function separateStems(
       throw new Error("Stem separation was canceled");
     }
 
-    // Still processing — update status
-    onStatusUpdate?.(
-      `Separating instruments... (${Math.round((attempts * POLL_INTERVAL_MS) / 1000)}s)`,
-    );
+    // Surface the starting vs processing distinction
+    const elapsed = Math.round((attempts * POLL_INTERVAL_MS) / 1000);
+    if (result.status === "starting") {
+      onStatusUpdate?.(`Waiting for GPU... (${elapsed}s)`, "queued");
+    } else {
+      onStatusUpdate?.(`Separating instruments... (${elapsed}s)`, "running");
+    }
   }
 
   cleanupUpload(storagePath).catch(() => {});

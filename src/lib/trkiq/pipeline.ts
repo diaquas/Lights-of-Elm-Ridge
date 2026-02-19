@@ -8,6 +8,7 @@ import type {
   LyricsData,
   StemSet,
   PipelineProgress,
+  PipelineSubPhase,
   TrkiqPipelineStep,
   TrkiqStats,
   SyncedLine,
@@ -91,18 +92,50 @@ export async function runPipeline(
     step: TrkiqPipelineStep,
     status: PipelineProgress["status"],
     detail?: string,
+    subPhase?: PipelineSubPhase,
+    subProgress?: number,
   ) => {
     const idx = pipeline.findIndex((p) => p.step === step);
     if (idx >= 0) {
-      pipeline[idx] = { step, status, detail };
+      const prev = pipeline[idx];
+      const startedAt =
+        status === "active" && prev.status !== "active"
+          ? Date.now()
+          : prev.startedAt;
+      // Preserve existing logs when status hasn't changed
+      const logs = prev.logs ?? [];
+      pipeline[idx] = {
+        step,
+        status,
+        detail,
+        startedAt,
+        subPhase,
+        subProgress,
+        logs,
+      };
+      onProgress([...pipeline]);
+    }
+  };
+
+  /** Append a log line to a step (append-only, never re-renders existing) */
+  const appendLog = (step: TrkiqPipelineStep, text: string) => {
+    const idx = pipeline.findIndex((p) => p.step === step);
+    if (idx >= 0) {
+      const prev = pipeline[idx];
+      const logs = [...(prev.logs ?? []), text];
+      pipeline[idx] = { ...prev, logs };
       onProgress([...pipeline]);
     }
   };
 
   // ── Step 1: Decode audio (duration metadata only) ─────────────────
-  update("decode", "active", "Reading audio metadata...");
+  update("decode", "active", "Analyzing audio\u2026", "running", 10);
+  appendLog("decode", "MP3 detected \u2014 reading metadata");
   const durationMs = await getAudioDuration(file);
   const updatedMetadata = { ...metadata, durationMs };
+  const durStr = `${Math.floor(durationMs / 60000)}:${String(Math.floor((durationMs % 60000) / 1000)).padStart(2, "0")}`;
+  appendLog("decode", `Track length: ${durStr}`);
+  appendLog("decode", "\u2713 Audio loaded and ready");
   update("decode", "done");
 
   // ── Step 2: Stem separation via Demucs (Replicate) ────────────────
@@ -110,11 +143,29 @@ export async function runPipeline(
   const demucsAvailable = await checkDemucsAvailable();
 
   if (demucsAvailable) {
-    update("stems", "active", "Uploading audio...");
+    update("stems", "active", "Uploading audio\u2026", "running", 5);
+    appendLog("stems", "Uploading audio to processing server");
     try {
-      stems = await separateStems(file, (msg) =>
-        update("stems", "active", msg),
-      );
+      let stemsLoggedQueue = false;
+      let stemsLoggedProcessing = false;
+      stems = await separateStems(file, (msg, phase) => {
+        const sp = phase === "queued" ? 15 : 50;
+        update("stems", "active", msg, phase, sp);
+        if (phase === "queued" && !stemsLoggedQueue) {
+          stemsLoggedQueue = true;
+          appendLog("stems", "Requesting a GPU from Replicate");
+          appendLog(
+            "stems",
+            "In queue \u2014 AI models need dedicated hardware",
+          );
+        }
+        if (phase === "running" && !stemsLoggedProcessing) {
+          stemsLoggedProcessing = true;
+          appendLog("stems", "We're up \u2014 loading Demucs AI model");
+          appendLog("stems", "Isolating vocals, drums, bass, melody");
+        }
+      });
+      appendLog("stems", "\u2713 6 clean instrument layers ready");
       update("stems", "done");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -156,17 +207,30 @@ export async function runPipeline(
   /** Run beat analysis: Essentia on Replicate → local fallback */
   async function processBeats(stemsAvailable: boolean): Promise<BeatResult> {
     if (stemsAvailable && stems) {
-      update("analyze", "active", "Running Essentia on stems...");
+      update("analyze", "active", "Detecting rhythm\u2026", "queued", 10);
+      appendLog("analyze", "Listening for beats using Essentia AI");
       let lastEssentiaMsg = "";
-      const essentiaResults = await analyzeStems(stems, (msg) => {
+      let loggedRunning = false;
+      const essentiaResults = await analyzeStems(stems, (msg, phase) => {
         lastEssentiaMsg = msg;
-        update("analyze", "active", msg);
+        const sp = phase === "queued" ? 20 : 60;
+        update("analyze", "active", msg, phase, sp);
+        if (phase === "running" && !loggedRunning) {
+          loggedRunning = true;
+          appendLog("analyze", "GPU active \u2014 analyzing frequency bands");
+        }
       });
 
       if (essentiaResults.length > 0) {
         const { tracks, bpm } = buildTracksFromEssentia(
           essentiaResults,
           durationMs,
+        );
+        const totalBeats = tracks.reduce((s, t) => s + t.marks.length, 0);
+        appendLog("analyze", `Tempo locked: ${bpm} BPM`);
+        appendLog(
+          "analyze",
+          `\u2713 Beat map complete \u2014 ${totalBeats} marks across ${tracks.length} tracks`,
         );
         update("analyze", "done");
         return { tracks, bpm, essentia: true };
@@ -219,29 +283,50 @@ export async function runPipeline(
     let alignedWords: AlignedWord[] | null = null;
     let alignError = "";
     if (stemsAvailable && stems?.vocals) {
-      update("lyrics", "active", "Running forced alignment on vocals...");
+      update("lyrics", "active", "Aligning words to audio\u2026", "queued", 10);
+      appendLog("lyrics", "Pulling lyrics");
+      appendLog("lyrics", "Matching words to vocal layer");
       let lastAlignMsg = "";
+      let loggedRunning = false;
       alignedWords = await runForceAlign(
         stems.vocals,
         lyrics!,
-        (msg) => {
+        (msg, phase) => {
           lastAlignMsg = msg;
-          update("lyrics", "active", msg);
+          const sp = phase === "queued" ? 15 : 50;
+          update("lyrics", "active", msg, phase, sp);
+          if (phase === "running" && !loggedRunning) {
+            loggedRunning = true;
+            appendLog("lyrics", "GPU active \u2014 running Whisper alignment");
+          }
         },
         durationMs,
       );
       if (!alignedWords) {
         alignError = lastAlignMsg;
+      } else {
+        appendLog(
+          "lyrics",
+          `Placing ${alignedWords.length} words at timestamps`,
+        );
       }
     }
 
     if (alignedWords && alignedWords.length > 0) {
       // Try phoneme-level alignment for acoustic phoneme boundaries
+      update(
+        "lyrics",
+        "active",
+        "Running phoneme alignment\u2026",
+        "running",
+        70,
+      );
+      appendLog("lyrics", "Fine-tuning word boundaries with phoneme model");
       const phonemeAlignedWords = await runPhonemeAlign(
         stems?.vocals ?? "",
         lyrics!,
         alignedWords,
-        (msg) => update("lyrics", "active", msg),
+        (msg, phase) => update("lyrics", "active", msg, phase, 80),
       );
 
       let leadTrack: VocalTrack;
@@ -270,6 +355,11 @@ export async function runPipeline(
         Math.round(Math.min(1, median + 0.05) * 100) / 100,
       ];
       const vTracks = [leadTrack];
+      const wordCount = alignedWords.length;
+      appendLog(
+        "lyrics",
+        `\u2713 Lyric sync complete \u2014 ${wordCount} cue points`,
+      );
       update("lyrics", "done");
       return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
     }
@@ -312,9 +402,17 @@ export async function runPipeline(
   updatedMetadata.bpm = detectedBpm || undefined;
 
   // ── Step 5: Assemble ──────────────────────────────────────────────
-  update("generate", "active", "Assembling timing tracks...");
+  update("generate", "active", "Assembling .xtiming\u2026", "running", 20);
+  appendLog("generate", "Combining beats, lyrics, phrase tracks");
 
   const beatStats = computeBeatStats(beatTracks, detectedBpm, durationMs);
+
+  const trackCount = beatTracks.length + vocalTracks.length;
+  appendLog("generate", "Formatting for xLights");
+  appendLog(
+    "generate",
+    `Writing ${trackCount} tracks, ${beatStats.totalMarks + (lyriqStats?.totalPhonemes || 0)} marks`,
+  );
 
   const combined: TrkiqStats = {
     bpm: detectedBpm,
@@ -328,6 +426,7 @@ export async function runPipeline(
     usedEssentia,
   };
 
+  appendLog("generate", "\u2713 Your .xtiming file is ready");
   update("generate", "done");
 
   return {
@@ -413,7 +512,7 @@ function normalizeTranscript(text: string): string {
 /**
  * Build section boundaries for chunked alignment from LRCLIB synced lines.
  *
- * Groups consecutive synced lines into sections of ~8-15 seconds each,
+ * Groups consecutive synced lines into sections of ~14+ seconds each,
  * providing natural phrase boundaries that prevent cross-section confusion.
  * Each section gets its own normalized transcript chunk.
  */
@@ -479,7 +578,7 @@ function buildAlignSections(
 async function runForceAlign(
   vocalsUrl: string,
   lyrics: LyricsData,
-  onStatusUpdate: (msg: string) => void,
+  onStatusUpdate: (msg: string, phase?: "queued" | "running") => void,
   durationMs?: number,
 ): Promise<AlignedWord[] | null> {
   try {
@@ -529,7 +628,7 @@ async function runPhonemeAlign(
   vocalsUrl: string,
   lyrics: LyricsData,
   alignedWords: AlignedWord[],
-  onStatusUpdate: (msg: string) => void,
+  onStatusUpdate: (msg: string, phase?: "queued" | "running") => void,
 ): Promise<PhonemeAlignedWord[] | null> {
   if (!vocalsUrl) return null;
 

@@ -7,6 +7,7 @@ import type {
   SongMetadata,
   LyricsData,
   PipelineProgress,
+  CompletionStats,
   BeatTrack,
   BeatiqStats,
   VocalTrack,
@@ -15,6 +16,12 @@ import type {
 import { runPipeline } from "@/lib/trkiq/pipeline";
 import { checkDemucsAvailable } from "@/lib/trkiq/replicate-client";
 import { fetchLyrics, searchLyrics } from "@/lib/trkiq/lrclib-client";
+import { fetchAlbumArt } from "@/lib/trkiq/itunes-client";
+import {
+  generateCombinedXtiming,
+  buildTrkiqFilename,
+  downloadXtiming,
+} from "@/lib/trkiq/xtiming-export";
 import UploadScreen from "./UploadScreen";
 import ProcessingScreen from "./ProcessingScreen";
 import EditorScreen from "./EditorScreen";
@@ -54,6 +61,12 @@ function createInitialSession(): TrkiqSession {
  */
 export default function TrkIQTool() {
   const [session, setSession] = useState<TrkiqSession>(createInitialSession);
+  const [albumArtUrl, setAlbumArtUrl] = useState<string | null>(null);
+  const [completionStats, setCompletionStats] =
+    useState<CompletionStats | null>(null);
+  const [pipelineStartedAt, setPipelineStartedAt] = useState<number | null>(
+    null,
+  );
 
   // Check if Demucs is available (user is authenticated)
   useEffect(() => {
@@ -69,10 +82,18 @@ export default function TrkIQTool() {
   const setMetadata = useCallback((metadata: SongMetadata) => {
     setSession((prev) => ({ ...prev, metadata, lyricsFetching: true }));
 
+    const { artist, title } = metadata;
+
+    // Fetch album art from iTunes (fire and forget)
+    if (artist && title) {
+      fetchAlbumArt(artist, title).then((url) => {
+        if (url) setAlbumArtUrl(url);
+      });
+    }
+
     // Auto-fetch lyrics from LRCLIB using the extracted metadata.
     // Chain: exact match → artist+title search → title-only search
     // (title-only catches covers where the artist doesn't match LRCLIB)
-    const { artist, title } = metadata;
     if (artist && title) {
       (async () => {
         const result =
@@ -137,6 +158,9 @@ export default function TrkIQTool() {
   const startProcessing = useCallback(
     async (file: File) => {
       setScreen("processing");
+      setCompletionStats(null);
+      const startTime = Date.now();
+      setPipelineStartedAt(startTime);
 
       try {
         const result = await runPipeline(
@@ -160,7 +184,19 @@ export default function TrkIQTool() {
           result.combined.usedStems,
           result.combined.usedEssentia,
         );
-        setScreen("editor");
+
+        // Build completion stats for the banner
+        const totalTimeS = Math.round((Date.now() - startTime) / 1000);
+        setCompletionStats({
+          totalTimeS,
+          totalMarks:
+            result.combined.totalMarks + result.combined.totalPhonemes,
+          trackCount:
+            result.combined.instrumentTracks + result.combined.vocalTracks,
+        });
+
+        // Stay on processing screen — completion banner handles download
+        // User clicks "Download" or "Process another song" to navigate
       } catch {
         // Error is reflected in the pipeline progress (step marked as "error")
         // Stay on processing screen so the user can see what failed
@@ -169,11 +205,31 @@ export default function TrkIQTool() {
     [session.metadata, session.lyrics, setScreen, updatePipeline, setResults],
   );
 
+  /** Download .xtiming and transition to editor */
+  const handleDownload = useCallback(() => {
+    if (session.beatTracks.length === 0 && session.vocalTracks.length === 0)
+      return;
+    const xml = generateCombinedXtiming(
+      session.beatTracks,
+      session.vocalTracks,
+    );
+    const filename = buildTrkiqFilename(
+      session.metadata?.artist || "Unknown",
+      session.metadata?.title || "Track",
+    );
+    downloadXtiming(xml, filename);
+    // Transition to editor after download
+    setScreen("editor");
+  }, [session.beatTracks, session.vocalTracks, session.metadata, setScreen]);
+
   const handleReset = useCallback(() => {
     if (session.audioUrl) {
       URL.revokeObjectURL(session.audioUrl);
     }
     setSession(createInitialSession());
+    setAlbumArtUrl(null);
+    setCompletionStats(null);
+    setPipelineStartedAt(null);
     // Re-check stems availability
     checkDemucsAvailable().then((available) => {
       setSession((prev) => ({ ...prev, stemsAvailable: available }));
@@ -181,19 +237,25 @@ export default function TrkIQTool() {
   }, [session.audioUrl]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* ── Hero ───────────────────────────────────────── */}
-      {session.screen !== "editor" && (
+    <div
+      className={
+        session.screen === "processing"
+          ? ""
+          : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12"
+      }
+    >
+      {/* ── Hero (upload + editor only) ───────────────── */}
+      {session.screen === "upload" && (
         <div className="text-center mb-12">
           <div className="mb-3">
-            <span className="text-[56px] sm:text-[64px] font-display font-black tracking-tight leading-none">
+            <span className="text-[42px] font-display font-extrabold tracking-tight leading-none">
               <span className="text-foreground">TRK</span>
-              <span className="text-accent">:</span>
+              <span className="text-foreground/30">:</span>
               <span className="text-accent">IQ</span>
             </span>
           </div>
-          <p className="text-xl text-gray-200 tracking-[0.015em] max-w-2xl mx-auto">
-            Complete timing tracks for xLights — in seconds.
+          <p className="text-[15px] text-foreground/40 tracking-[0.015em] max-w-2xl mx-auto">
+            Complete timing tracks for xLights &mdash; in seconds.
           </p>
         </div>
       )}
@@ -213,10 +275,16 @@ export default function TrkIQTool() {
       )}
 
       {session.screen === "processing" && (
-        <ProcessingScreen
-          pipeline={session.pipeline}
-          metadata={session.metadata}
-        />
+        <div className="px-4 sm:px-6 lg:px-8 py-8">
+          <ProcessingScreen
+            pipeline={session.pipeline}
+            metadata={session.metadata}
+            albumArtUrl={albumArtUrl}
+            completionStats={completionStats}
+            onDownload={handleDownload}
+            onNewSong={handleReset}
+          />
+        </div>
       )}
 
       {session.screen === "editor" && (

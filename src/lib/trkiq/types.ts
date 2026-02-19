@@ -90,6 +90,8 @@ export interface LyricsData {
   syncedLines: SyncedLine[] | null;
   /** Data source */
   source: LyricsSource;
+  /** Original track duration in seconds (from LRCLIB), used to detect edited songs */
+  originalDurationSec?: number;
 }
 
 /* -- Pipeline ------------------------------------------------------ */
@@ -110,12 +112,30 @@ export type PipelineStepStatus =
   | "skipped"
   | "error";
 
+/** Sub-phase within an active pipeline step */
+export type PipelineSubPhase = "queued" | "running";
+
 /** Pipeline progress entry */
 export interface PipelineProgress {
   step: TrkiqPipelineStep;
   status: PipelineStepStatus;
   /** Optional detail message (e.g., "Uploading to Replicate...") */
   detail?: string;
+  /** When this step first became active (epoch ms) */
+  startedAt?: number;
+  /** Sub-phase for active steps: queued (cold boot) vs running (GPU active) */
+  subPhase?: PipelineSubPhase;
+  /** Sub-progress percentage (0-100) for the active step */
+  subProgress?: number;
+  /** Append-only log lines shown in the detail area */
+  logs?: string[];
+}
+
+/** Completion stats for the final banner */
+export interface CompletionStats {
+  totalTimeS: number;
+  totalMarks: number;
+  trackCount: number;
 }
 
 /* -- Session ------------------------------------------------------- */

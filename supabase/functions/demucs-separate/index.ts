@@ -33,9 +33,9 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 
-// ryan5453/demucs — pinned version hash (proven stable in production)
+// ryan5453/demucs — pinned version hash (supports htdemucs_6s for 6-stem output)
 const DEMUCS_VERSION =
-  "5a7041cc9b82e5a558fea6b3d7b12dea89625e89da33f0447bd727c2d0ab9e77";
+  "b26a4313b4d75983d60657f80dfa93b9beb354f6e4fa29ecd27ffe14d60117f6";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
         ok: true,
         function: "demucs-separate",
         version: DEMUCS_VERSION.slice(0, 12),
-        v: 5,
+        v: 7,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -119,12 +119,17 @@ async function handleStart(
     );
   }
 
-  // Create a Replicate prediction via unified predictions API
+  // Create a Replicate prediction via unified predictions API.
+  // Prefer: respond-async ensures the API returns immediately with a
+  // prediction ID instead of holding the connection open while the model
+  // runs. Critical for htdemucs_6s (~3 min) — without it the edge
+  // function can stall or timeout waiting for Replicate's sync window.
   const response = await fetch(`${REPLICATE_API}/predictions`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${replicateToken}`,
       "Content-Type": "application/json",
+      Prefer: "respond-async",
     },
     body: JSON.stringify({
       version: DEMUCS_VERSION,
@@ -184,6 +189,12 @@ async function handleStatus(
   if (prediction.status === "succeeded") {
     if (prediction.output) {
       result.stems = normalizeStemOutput(prediction.output);
+      // Temporary debug: include raw output shape so we can diagnose
+      // "no usable stem URLs" errors on the client side.
+      result._debug = {
+        rawOutputSnapshot: JSON.stringify(prediction.output).slice(0, 800),
+        normalizedKeys: Object.keys(result.stems as Record<string, string>),
+      };
     } else {
       result.status = "failed";
       result.error = "Model succeeded but returned no output";
@@ -215,13 +226,24 @@ function extractUrl(value: unknown): string | null {
   }
   if (value && typeof value === "object" && !Array.isArray(value)) {
     const obj = value as Record<string, unknown>;
-    // Try common URL-carrying keys
-    for (const key of ["url", "audio", "href"]) {
+    // Try common URL-carrying keys first
+    for (const key of ["url", "audio", "href", "src"]) {
       if (
         typeof obj[key] === "string" &&
         (obj[key] as string).startsWith("http")
       ) {
         return obj[key] as string;
+      }
+    }
+    // Replicate FileOutput: may toString() to a URL
+    if (typeof obj.toString === "function") {
+      const s = obj.toString();
+      if (s.startsWith("http")) return s;
+    }
+    // Last resort: scan all string values for a URL
+    for (const v of Object.values(obj)) {
+      if (typeof v === "string" && v.startsWith("http")) {
+        return v;
       }
     }
   }
@@ -249,6 +271,15 @@ function extractStemName(item: unknown, url: string): string | null {
 }
 
 function normalizeStemOutput(output: unknown): Record<string, string> {
+  // Unwrap { stems: ... } wrapper returned by some Demucs versions.
+  // The wrapper value can be an array OR an object of stem key→URL pairs.
+  if (output && typeof output === "object" && !Array.isArray(output)) {
+    const obj = output as Record<string, unknown>;
+    if (obj.stems != null && typeof obj.stems === "object") {
+      output = obj.stems;
+    }
+  }
+
   // Case 1: Object with stem keys — values may be URL strings or
   // FileOutput objects ({ url: "https://..." })
   if (output && typeof output === "object" && !Array.isArray(output)) {
