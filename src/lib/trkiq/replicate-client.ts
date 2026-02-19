@@ -156,7 +156,7 @@ export async function separateStems(
             value: String(v).slice(0, 80),
           })),
           rawResult: JSON.stringify(result).slice(0, 500),
-          _debug: (result as Record<string, unknown>)._debug,
+          _debug: (result as unknown as Record<string, unknown>)._debug,
         };
         cleanupUpload(storagePath).catch(() => {});
         throw new Error(
