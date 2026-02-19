@@ -58,6 +58,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free disk space for CUDA base image
+        run: |
+          docker system prune -af
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+
       - name: Install Cog
         run: |
           sudo curl -o /usr/local/bin/cog -L \
@@ -104,6 +109,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Free disk space for CUDA base image
+        run: |
+          docker system prune -af
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
+
       - name: Install Cog
         run: |
           sudo curl -o /usr/local/bin/cog -L \
@@ -149,6 +159,11 @@ jobs:
       version: ${{ steps.version.outputs.hash }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Free disk space for CUDA base image
+        run: |
+          docker system prune -af
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
 
       - name: Install Cog
         run: |
