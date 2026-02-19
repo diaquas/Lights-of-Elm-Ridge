@@ -151,7 +151,7 @@ export async function runPipeline(
         if (phase === "running" && !stemsLoggedProcessing) {
           stemsLoggedProcessing = true;
           appendLog("stems", "We're up \u2014 loading Demucs AI model");
-          appendLog("stems", "Isolating vocals, drums, bass, melody");
+          appendLog("stems", "Isolating vocals, drums, bass, guitar, piano");
         }
       });
       appendLog("stems", "\u2713 6 clean instrument layers ready");
@@ -377,7 +377,7 @@ export async function runPipeline(
 
   // ── Step 5: Assemble ──────────────────────────────────────────────
   update("generate", "active", "Assembling .xtiming\u2026", "running", 20);
-  appendLog("generate", "Combining beats, lyrics, phrase tracks");
+  appendLog("generate", "Combining instrument, vocal, and segment tracks");
 
   const beatStats = computeBeatStats(beatTracks, detectedBpm, durationMs);
 
