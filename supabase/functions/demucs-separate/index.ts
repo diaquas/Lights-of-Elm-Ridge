@@ -130,7 +130,7 @@ async function handleStart(
       version: DEMUCS_VERSION,
       input: {
         audio: signedUrlData.signedUrl,
-        model_name: "htdemucs_6s",  // 6-stem: vocals, drums, bass, guitar, piano, other
+        model_name: "htdemucs_6s", // 6-stem: vocals, drums, bass, guitar, piano, other
       },
     }),
   });
@@ -239,7 +239,19 @@ function normalizeStemOutput(output: unknown): Record<string, string> {
       }
     }
     if (Object.keys(stems).length > 0) return stems;
-    // If no recognized stems, try positional mapping (htdemucs default order)
+    // If no recognized stems, try positional mapping.
+    // htdemucs_6s outputs: drums, bass, other, vocals, guitar, piano
+    if (output.length >= 6) {
+      return {
+        drums: output[0] as string,
+        bass: output[1] as string,
+        other: output[2] as string,
+        vocals: output[3] as string,
+        guitar: output[4] as string,
+        piano: output[5] as string,
+      };
+    }
+    // htdemucs (4-stem) fallback
     if (output.length >= 4) {
       return {
         drums: output[0] as string,
