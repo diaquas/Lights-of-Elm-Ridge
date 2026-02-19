@@ -64,6 +64,14 @@ class Predictor(BasePredictor):
             description="Include per-word confidence scores",
             default=True,
         ),
+        adjust_by_silence: bool = Input(
+            description=(
+                "Trim word boundaries to silence edges using Silero VAD. "
+                "Lightweight post-pass — no extra Whisper inference. "
+                "Recommended for tighter boundaries without the cost of refine()."
+            ),
+            default=True,
+        ),
         refine: bool = Input(
             description=(
                 "Run stable-ts refine() after alignment to tighten word boundaries. "
@@ -78,14 +86,17 @@ class Predictor(BasePredictor):
 
         if parsed_sections:
             return self._align_chunked(
-                str(audio_file), parsed_sections, show_probabilities, refine
+                str(audio_file), parsed_sections, show_probabilities,
+                adjust_by_silence, refine,
             )
         else:
             return self._align_full(
-                str(audio_file), transcript, show_probabilities, refine
+                str(audio_file), transcript, show_probabilities,
+                adjust_by_silence, refine,
             )
 
-    def _align_full(self, audio_path, transcript, show_probs, do_refine):
+    def _align_full(self, audio_path, transcript, show_probs,
+                     do_silence_adjust, do_refine):
         """Original full-file alignment (fallback when no sections provided)."""
         try:
             result = self.model.align(
@@ -98,15 +109,22 @@ class Predictor(BasePredictor):
             print(f"Align failed: {e}", file=sys.stderr)
             return json.dumps({"wordstamps": [], "error": str(e)})
 
+        silence_adjusted = False
+        if do_silence_adjust:
+            result, silence_adjusted = self._adjust_by_silence(audio_path, result)
+
         refined = False
         if do_refine:
             result, refined = self._refine(audio_path, result)
+
         return json.dumps({
             "wordstamps": self._extract_words(result, show_probs),
+            "silence_adjusted": silence_adjusted,
             "refined": refined,
         })
 
-    def _align_chunked(self, audio_path, sections, show_probs, do_refine):
+    def _align_chunked(self, audio_path, sections, show_probs,
+                        do_silence_adjust, do_refine):
         """Align each section independently against its audio window.
 
         This is the key fix for repeated-phrase confusion: by slicing the
@@ -152,6 +170,8 @@ class Predictor(BasePredictor):
                     language="en",
                     vad=True,
                 )
+                if do_silence_adjust:
+                    result, _ = self._adjust_by_silence(chunk_path, result)
                 if do_refine:
                     result, _ = self._refine(chunk_path, result)
                 words = self._extract_words(result, show_probs)
@@ -179,6 +199,23 @@ class Predictor(BasePredictor):
         if errors:
             result["section_errors"] = errors
         return json.dumps(result)
+
+    def _adjust_by_silence(self, audio_path, result):
+        """Trim word boundaries to silence edges using Silero VAD.
+
+        Much cheaper than refine() — no Whisper forward passes. Walks each
+        word boundary and snaps it to the nearest silence/speech transition
+        detected by the VAD. Returns (result, adjusted: bool).
+        """
+        try:
+            result.adjust_by_silence(audio_path, vad=True)
+            return result, True
+        except Exception as e:
+            print(
+                f"adjust_by_silence failed (using raw boundaries): {e}",
+                file=sys.stderr,
+            )
+            return result, False
 
     def _refine(self, audio_path, result):
         """Refine timestamps using Whisper's own token probabilities.
