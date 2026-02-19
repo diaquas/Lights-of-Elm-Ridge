@@ -10,5 +10,8 @@ verify_jwt = false
 [functions.force-align]
 verify_jwt = false
 
+[functions.phoneme-align]
+verify_jwt = false
+
 [functions.essentia-onset]
 verify_jwt = false

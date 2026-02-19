@@ -13,6 +13,7 @@ on:
           - all
           - essentia-onset
           - force-align
+          - phoneme-align
           - demucs-separate
           - lrclib-proxy
 
@@ -58,6 +59,7 @@ jobs:
             echo "Deploying all edge functions..."
             supabase functions deploy essentia-onset --no-verify-jwt
             supabase functions deploy force-align --no-verify-jwt
+            supabase functions deploy phoneme-align --no-verify-jwt
             supabase functions deploy demucs-separate --no-verify-jwt
             supabase functions deploy lrclib-proxy --no-verify-jwt
           else

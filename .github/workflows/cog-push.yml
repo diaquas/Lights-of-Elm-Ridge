@@ -12,6 +12,7 @@ on:
           - all
           - essentia-onset
           - force-align
+          - phoneme-align
 
   # Auto-push when cog model files change on dev or main
   push:
@@ -30,6 +31,7 @@ jobs:
     outputs:
       essentia: ${{ steps.changes.outputs.essentia }}
       forcealign: ${{ steps.changes.outputs.forcealign }}
+      phonemealign: ${{ steps.changes.outputs.phonemealign }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,9 +42,11 @@ jobs:
             MODEL="${{ github.event.inputs.model }}"
             echo "essentia=$( [ "$MODEL" = 'essentia-onset' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
             echo "forcealign=$( [ "$MODEL" = 'force-align' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
+            echo "phonemealign=$( [ "$MODEL" = 'phoneme-align' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
           else
             echo "essentia=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/essentia-onset/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
             echo "forcealign=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/force-align/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+            echo "phonemealign=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/phoneme-align/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           fi
 
   push-essentia:
@@ -137,12 +141,58 @@ jobs:
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
 
+  push-phonemealign:
+    needs: detect
+    if: needs.detect.outputs.phonemealign == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.hash }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Cog
+        run: |
+          sudo curl -o /usr/local/bin/cog -L \
+            https://github.com/replicate/cog/releases/latest/download/cog_Linux_x86_64
+          sudo chmod +x /usr/local/bin/cog
+          cog --version
+
+      - name: Authenticate with Replicate registry
+        uses: docker/login-action@v3
+        with:
+          registry: r8.im
+          username: diaquas
+          password: ${{ secrets.REPLICATE_API_TOKEN }}
+
+      - name: Build and push phoneme-align
+        working-directory: cog/phoneme-align
+        run: |
+          echo "Pushing to r8.im/diaquas/phoneme-align"
+          cog push "r8.im/diaquas/phoneme-align"
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
+      - name: Get latest version hash from Replicate
+        id: version
+        run: |
+          HASH=$(curl -sf -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+            "https://api.replicate.com/v1/models/diaquas/phoneme-align/versions" \
+            | jq -r '.results[0].id')
+          if [ -z "$HASH" ] || [ "$HASH" = "null" ]; then
+            echo "::error::Failed to fetch phoneme-align version hash"
+            exit 1
+          fi
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "New phoneme-align version: $HASH"
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
   # After pushes complete, update the edge function version hashes, commit,
   # and deploy edge functions directly (GITHUB_TOKEN commits don't trigger
   # other workflows, so we deploy inline instead of relying on the chain).
   update-versions:
-    needs: [push-essentia, push-forcealign]
-    if: always() && (needs.push-essentia.result == 'success' || needs.push-forcealign.result == 'success')
+    needs: [push-essentia, push-forcealign, push-phonemealign]
+    if: always() && (needs.push-essentia.result == 'success' || needs.push-forcealign.result == 'success' || needs.push-phonemealign.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -183,11 +233,28 @@ jobs:
           fi
           grep -A1 "FORCE_ALIGN_VERSION" "$FILE"
 
+      - name: Update phoneme-align version hash
+        if: needs.push-phonemealign.result == 'success'
+        run: |
+          NEW_HASH="${{ needs.push-phonemealign.outputs.version }}"
+          FILE="supabase/functions/phoneme-align/index.ts"
+          # Match line containing PHONEME_ALIGN_VERSION, then replace hash on the next line.
+          # No end-of-line anchor — avoids silent failure from trailing whitespace.
+          sed -i "/PHONEME_ALIGN_VERSION/{n;s/\"[A-Za-z0-9_]\{1,\}\"/\"${NEW_HASH}\"/}" "$FILE"
+          # Verify the substitution actually happened
+          if grep -q "$NEW_HASH" "$FILE"; then
+            echo "Updated PHONEME_ALIGN_VERSION to $NEW_HASH"
+          else
+            echo "::error::sed substitution failed — PHONEME_ALIGN_VERSION not updated"
+            exit 1
+          fi
+          grep -A1 "PHONEME_ALIGN_VERSION" "$FILE"
+
       - name: Commit and push version updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add supabase/functions/essentia-onset/index.ts supabase/functions/force-align/index.ts
+          git add supabase/functions/essentia-onset/index.ts supabase/functions/force-align/index.ts supabase/functions/phoneme-align/index.ts
           if git diff --cached --quiet; then
             echo "No version changes to commit"
           else
@@ -214,6 +281,10 @@ jobs:
           if [ "${{ needs.push-forcealign.result }}" = "success" ]; then
             supabase functions deploy force-align --no-verify-jwt
             echo "Deployed force-align"
+          fi
+          if [ "${{ needs.push-phonemealign.result }}" = "success" ]; then
+            supabase functions deploy phoneme-align --no-verify-jwt
+            echo "Deployed phoneme-align"
           fi
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
