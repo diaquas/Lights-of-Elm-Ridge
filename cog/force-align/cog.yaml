@@ -11,8 +11,8 @@ build:
     # stable_whisper's vad=True triggers torch.hub.load() which downloads ~30MB from
     # github.com/snakers4/silero-vad — if that fails in the container, the worker crashes.
     - "python -c \"import torch; torch.hub.load('snakers4/silero-vad', 'silero_vad', trust_repo=True)\""
-    # Note: wav2vec2-large-xlsr pre-download removed — stable-ts refine()
-    # uses the loaded Whisper model, not a separate wav2vec2 model.
+    # Pre-download Whisper large-v3 weights (~3GB) into the image.
+    - "python -c \"import stable_whisper; stable_whisper.load_model('large-v3')\""
   system_packages:
     - "ffmpeg"
 predict: "predict.py:Predictor"
