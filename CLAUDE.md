@@ -39,3 +39,7 @@ This is an npm workspaces monorepo:
 - Import alias: `@/` resolves to `src/`
 - No `console.log` in committed code — use proper error handling
 - Components use `"use client"` directive when they need browser APIs
+
+## Troubleshooting Principles
+
+- **Always validate raw vs. final output.** When the user provides raw or intermediate data (e.g., timestamps from an internal pipeline stage), do NOT assume it matches the final processed export. Compare it against the actual final output before drawing conclusions. Flag discrepancies immediately — "wait, let me compare this to the final export" is the right instinct. This applies broadly: any time data passes through processing stages, verify what you're looking at before building on it.
