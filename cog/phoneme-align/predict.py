@@ -357,11 +357,23 @@ class Predictor(BasePredictor):
             line_frames = line_emission.shape[0]
             line_frame_dur = (win_end_s - win_start_s) / line_frames
 
-            # Trim leading/trailing non-speech frames using CTC blank
-            # probability.  LRCLIB line timestamps can lead actual singing
-            # onset by 1-3s (karaoke cue-ahead).  Without trimming,
-            # forced_align maps lyrics into instrumental gaps.
-            speech_start, speech_end = self._detect_speech_region(line_emission)
+            # Trim leading/trailing non-speech frames.  LRCLIB line
+            # timestamps can lead actual singing onset by 1-3s (karaoke
+            # cue-ahead).  Without trimming, forced_align maps lyrics
+            # into instrumental gaps.
+            #
+            # Pass the raw waveform segment so the detector can use RMS
+            # energy — much more reliable on Demucs vocal stems than CTC
+            # blank probability alone (bleed artifacts fool CTC thresholds).
+            win_start_sample = int(win_start_s * self.sample_rate)
+            win_end_sample = min(
+                int(win_end_s * self.sample_rate), waveform.shape[1]
+            )
+            line_waveform = waveform[:, win_start_sample:win_end_sample]
+
+            speech_start, speech_end = self._detect_speech_region(
+                line_emission, waveform_segment=line_waveform
+            )
             if speech_start > 0 or speech_end < line_frames:
                 lead_ms = speech_start * line_frame_dur * 1000
                 trail_frames = line_frames - speech_end
@@ -1048,8 +1060,8 @@ class Predictor(BasePredictor):
     # ── Speech region detection ─────────────────────────────────────
 
     @staticmethod
-    def _detect_speech_region(emission, min_run=3):
-        """Detect speech onset/offset using dual CTC emission signals.
+    def _detect_speech_region(emission, waveform_segment=None, min_run=3):
+        """Detect speech onset/offset in a line's audio window.
 
         LRCLIB line timestamps can lead actual singing onset by 1-3 seconds
         (karaoke cue-ahead timing).  During instrumental gaps, forced_align
@@ -1057,22 +1069,24 @@ class Predictor(BasePredictor):
         frame.  This method trims non-speech frames so forced_align only
         sees frames containing vocals.
 
-        Uses two complementary signals from the emission matrix:
-          1. P(blank) — high during silence, moderate during instrumental
-          2. max P(char) — low when no character is actually being spoken
+        Two detection strategies (best available is used):
 
-        A frame is classified as non-speech only when BOTH:
-          - P(blank) > 0.55  (model leans toward "nothing here")
-          - max P(non-blank) < 0.10  (no character token is plausible)
+          1. **Waveform energy** (preferred, when waveform_segment is given):
+             Computes per-frame RMS energy and classifies frames below a
+             dynamic threshold (4× the noise floor) as non-speech.  Much
+             more reliable on Demucs vocal stems where bleed artifacts
+             have enough spectral structure to fool CTC-only detection.
 
-        This correctly handles:
-          - Silence: high blank + very low chars → non-speech
-          - Instrumental music: moderate blank + low chars → non-speech
-          - Singing vowels: moderate blank + high dominant char → speech
-          - Quiet consonants: moderate blank + moderate char → speech
+          2. **CTC blank probability** (fallback):
+             Uses P(blank) and max P(non-blank) from the emission matrix.
+             Works well on mixed audio but too conservative for processed
+             vocals — residual Demucs bleed keeps P(blank) low enough to
+             classify silence as speech.
 
         Args:
             emission: (T, C) log-softmax emission matrix for a line window.
+            waveform_segment: optional (1, S) waveform tensor for the same
+                window.  When provided, energy-based detection is used.
             min_run: require this many consecutive speech frames to confirm
                      onset (avoids triggering on single-frame noise).
 
@@ -1084,15 +1098,48 @@ class Predictor(BasePredictor):
         if num_frames < min_run * 2:
             return 0, num_frames
 
-        # Two signals from the emission distribution
-        probs = emission.exp()  # (T, C) probabilities
-        blank_prob = probs[:, 0].numpy()  # P(blank) per frame
-        max_nonblank = probs[:, 1:].max(dim=1).values.numpy()  # max P(char)
+        # ── Strategy 1: Waveform RMS energy (Demucs-friendly) ─────────
+        if waveform_segment is not None and waveform_segment.shape[-1] > 0:
+            mono = waveform_segment.squeeze(0)  # (samples,)
+            total_samples = mono.shape[0]
+            samples_per_frame = total_samples / num_frames
+            frame_len = int(samples_per_frame)
 
-        # Dual threshold: non-speech requires BOTH conditions
-        BLANK_FLOOR = 0.55  # P(blank) above this = model unsure
-        CHAR_CEIL = 0.10    # max P(char) below this = no character plausible
-        is_speech = ~((blank_prob > BLANK_FLOOR) & (max_nonblank < CHAR_CEIL))
+            if frame_len > 0 and frame_len * num_frames <= total_samples:
+                usable = frame_len * num_frames
+                frames = mono[:usable].reshape(num_frames, frame_len)
+                rms = frames.pow(2).mean(dim=1).sqrt().numpy()
+            else:
+                # Fallback: compute per-frame manually
+                rms = np.zeros(num_frames)
+                for f in range(num_frames):
+                    s = int(f * samples_per_frame)
+                    e = min(int((f + 1) * samples_per_frame), total_samples)
+                    seg = mono[s:e]
+                    if seg.numel() > 0:
+                        rms[f] = seg.pow(2).mean().sqrt().item()
+
+            # Adaptive threshold: 4× the noise floor (10th percentile)
+            sorted_rms = np.sort(rms)
+            noise_idx = max(1, num_frames // 10)
+            noise_floor = float(sorted_rms[noise_idx])
+            threshold = max(noise_floor * 4.0, 0.002)
+
+            is_speech = rms > threshold
+
+        # ── Strategy 2: CTC blank probability (mixed-audio fallback) ──
+        else:
+            probs = emission.exp()  # (T, C) probabilities
+            blank_prob = probs[:, 0].numpy()
+            max_nonblank = probs[:, 1:].max(dim=1).values.numpy()
+
+            BLANK_FLOOR = 0.55
+            CHAR_CEIL = 0.10
+            is_speech = ~(
+                (blank_prob > BLANK_FLOOR) & (max_nonblank < CHAR_CEIL)
+            )
+
+        # ── Find speech boundaries (shared logic) ─────────────────────
 
         # Find first run of min_run consecutive speech frames
         start = 0
