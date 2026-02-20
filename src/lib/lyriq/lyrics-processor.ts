@@ -234,10 +234,14 @@ export function processPhonemeAlignedWords(
     confidence: w.confidence,
   }));
 
+  // Default: all words in a single phrase (matches human-correct xtiming).
+  // Only split into multiple phrases when explicit phraseLengths are provided.
   const alignedPhrases =
     phraseLengths && phraseLengths.length > 0
       ? buildPhrasesFromWordCounts(asAligned, phraseLengths)
-      : detectPhrases(asAligned);
+      : asAligned.length > 0
+        ? [buildAlignedPhrase(asAligned)]
+        : [];
 
   // Build a lookup so we can find the phoneme-aligned word for each phrase word
   const wordsByKey = new Map<string, PhonemeAlignedWord>();

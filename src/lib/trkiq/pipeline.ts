@@ -340,11 +340,9 @@ export async function runPipeline(
         "active",
         "Building singing face timing (CTC-aligned)...",
       );
-      const leadTrack = processPhonemeAlignedWords(
-        phonemeAlignedWords,
-        "lead",
-        phraseLengths,
-      );
+      // All words go into a single phrase — matches human-correct xtiming
+      // structure and avoids LRCLIB line-based fragmentation.
+      const leadTrack = processPhonemeAlignedWords(phonemeAlignedWords, "lead");
 
       leadTrack.source = "ai";
       leadTrack.confidenceRange = [0.8, 0.9];
