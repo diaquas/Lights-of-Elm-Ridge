@@ -363,10 +363,14 @@ class Predictor(BasePredictor):
             # forced_align maps lyrics into instrumental gaps.
             speech_start, speech_end = self._detect_speech_region(line_emission)
             if speech_start > 0 or speech_end < line_frames:
-                trimmed_ms = speech_start * line_frame_dur * 1000
+                lead_ms = speech_start * line_frame_dur * 1000
+                trail_frames = line_frames - speech_end
+                trail_ms = trail_frames * line_frame_dur * 1000
                 print(
-                    f"  Line {i}: trimmed {speech_start} non-speech frames "
-                    f"({trimmed_ms:.0f}ms) from start",
+                    f"  Line {i}: trimmed {speech_start} lead frames "
+                    f"({lead_ms:.0f}ms) + {trail_frames} trail frames "
+                    f"({trail_ms:.0f}ms) | "
+                    f"'{text[:40]}' window {win_start_s:.2f}-{win_end_s:.2f}s",
                     file=sys.stderr,
                 )
                 trimmed_start_s = win_start_s + speech_start * line_frame_dur
@@ -1044,18 +1048,31 @@ class Predictor(BasePredictor):
     # ── Speech region detection ─────────────────────────────────────
 
     @staticmethod
-    def _detect_speech_region(emission, blank_threshold=0.85, min_run=3):
-        """Detect speech onset/offset in emission frames via CTC blank probability.
+    def _detect_speech_region(emission, min_run=3):
+        """Detect speech onset/offset using dual CTC emission signals.
 
         LRCLIB line timestamps can lead actual singing onset by 1-3 seconds
-        (karaoke cue-ahead timing).  During instrumental gaps the CTC blank
-        token dominates the emission distribution.  This method trims those
-        non-speech frames so forced_align only sees frames containing vocals,
-        preventing the aligner from mapping lyrics into instrumental breaks.
+        (karaoke cue-ahead timing).  During instrumental gaps, forced_align
+        maps lyrics into the gap because it MUST assign every token to some
+        frame.  This method trims non-speech frames so forced_align only
+        sees frames containing vocals.
+
+        Uses two complementary signals from the emission matrix:
+          1. P(blank) — high during silence, moderate during instrumental
+          2. max P(char) — low when no character is actually being spoken
+
+        A frame is classified as non-speech only when BOTH:
+          - P(blank) > 0.55  (model leans toward "nothing here")
+          - max P(non-blank) < 0.10  (no character token is plausible)
+
+        This correctly handles:
+          - Silence: high blank + very low chars → non-speech
+          - Instrumental music: moderate blank + low chars → non-speech
+          - Singing vowels: moderate blank + high dominant char → speech
+          - Quiet consonants: moderate blank + moderate char → speech
 
         Args:
             emission: (T, C) log-softmax emission matrix for a line window.
-            blank_threshold: P(blank) above this → non-speech frame.
             min_run: require this many consecutive speech frames to confirm
                      onset (avoids triggering on single-frame noise).
 
@@ -1067,10 +1084,15 @@ class Predictor(BasePredictor):
         if num_frames < min_run * 2:
             return 0, num_frames
 
-        # CTC blank is token 0; emission is log_softmax → exp for probability
-        blank_prob = emission[:, 0].exp().numpy()
+        # Two signals from the emission distribution
+        probs = emission.exp()  # (T, C) probabilities
+        blank_prob = probs[:, 0].numpy()  # P(blank) per frame
+        max_nonblank = probs[:, 1:].max(dim=1).values.numpy()  # max P(char)
 
-        is_speech = blank_prob < blank_threshold
+        # Dual threshold: non-speech requires BOTH conditions
+        BLANK_FLOOR = 0.55  # P(blank) above this = model unsure
+        CHAR_CEIL = 0.10    # max P(char) below this = no character plausible
+        is_speech = ~((blank_prob > BLANK_FLOOR) & (max_nonblank < CHAR_CEIL))
 
         # Find first run of min_run consecutive speech frames
         start = 0
@@ -1104,6 +1126,12 @@ class Predictor(BasePredictor):
         ONSET_PAD = 2
         start = max(0, start - ONSET_PAD)
         end = min(num_frames, end + ONSET_PAD)
+
+        # Safety: don't trim more than 70% of the window — if we would,
+        # the line timestamps are probably just wrong and trimming will
+        # make things worse.
+        if (end - start) < num_frames * 0.3:
+            return 0, num_frames
 
         # If detection failed (no speech found), return full range
         if not found_start or not found_end or start >= end:
