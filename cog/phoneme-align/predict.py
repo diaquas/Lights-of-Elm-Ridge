@@ -156,15 +156,47 @@ def _strip_stress(phoneme):
 
 
 # ARPAbet → CTC character mapping (class-level constant, built once at import).
+#
+# wav2vec2 ASR_LARGE_960H predicts English text characters, not phonemes.
+# Multi-character mappings give CTC more tokens to align, which improves
+# boundary accuracy — especially for diphthongs and vowels that were
+# previously collapsed into single ambiguous characters.
+#
+# Principles:
+#   - Diphthongs → 2 characters matching common English spellings
+#     (AY→"AY" matches "bye/my", AW→"OW" matches "cow/how")
+#   - Disambiguate collapsed vowels (AA/AE/AH were all "A")
+#   - Consonants with good 1:1 character match stay single-char
 ARPABET_TO_CHARS = {
-    "AA": "A", "AE": "A", "AH": "A", "AO": "O", "AW": "A",
-    "AY": "I", "B": "B", "CH": "C", "D": "D", "DH": "D",
-    "EH": "E", "ER": "R", "EY": "A", "F": "F", "G": "G",
-    "HH": "H", "IH": "I", "IY": "E", "JH": "J", "K": "K",
-    "L": "L", "M": "M", "N": "N", "NG": "N", "OW": "O",
-    "OY": "O", "P": "P", "R": "R", "S": "S", "SH": "S",
-    "T": "T", "TH": "T", "UH": "U", "UW": "U", "V": "V",
-    "W": "W", "WH": "W", "Y": "Y", "Z": "Z", "ZH": "Z",
+    # Vowels — disambiguated and diphthongs expanded
+    "AA": "O",      # /ɑ/ "father" — open back, closer to O acoustically
+    "AE": "A",      # /æ/ "cat" — best 1:1 match for CTC "A"
+    "AH": "U",      # /ʌ/ "but" — centralized vowel, U-like
+    "AO": "O",      # /ɔ/ "caught" — round, O is correct
+    "AW": "OW",     # /aʊ/ "cow" — diphthong needs 2 chars
+    "AY": "AY",     # /aɪ/ "my/bye" — diphthong, 2 chars
+    "EH": "E",      # /ɛ/ "bed" — correct 1:1
+    "ER": "ER",     # /ɝ/ "bird" — 2 chars, matches spelling
+    "EY": "AY",     # /eɪ/ "day" — diphthong similar to AY
+    "IH": "I",      # /ɪ/ "bit" — correct 1:1
+    "IY": "EE",     # /i/ "beat" — 2 chars, matches "ee" spelling
+    "OW": "OE",     # /oʊ/ "go" — 2 chars, diphthong
+    "OY": "OY",     # /ɔɪ/ "boy" — diphthong, 2 chars
+    "UH": "U",      # /ʊ/ "could" — correct 1:1
+    "UW": "OO",     # /u/ "boot" — 2 chars, matches "oo" spelling
+    # Consonants — mostly 1:1 (already good matches)
+    "B": "B", "CH": "CH", "D": "D", "DH": "TH",
+    "F": "F", "G": "G", "HH": "H", "JH": "J", "K": "K",
+    "L": "L", "M": "M", "N": "N", "NG": "NG",
+    "P": "P", "R": "R", "S": "S", "SH": "SH",
+    "T": "T", "TH": "TH", "V": "V",
+    "W": "W", "WH": "WH", "Y": "Y", "Z": "Z", "ZH": "SH",
+}
+
+# Set of vowel phonemes for duration sanity checks.
+_VOWELS = {
+    "AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY",
+    "IH", "IY", "OW", "OY", "UH", "UW",
 }
 
 
@@ -365,6 +397,8 @@ class Predictor(BasePredictor):
 
         print(f"Aligned {len(results)} words across {len(line_times)} lines", file=sys.stderr)
 
+        if results:
+            results = self._enforce_vowel_duration(results)
         if refine_onsets and results:
             results = self._refine_with_onsets(waveform, results)
 
@@ -469,11 +503,13 @@ class Predictor(BasePredictor):
         """
         num_frames = emission.shape[0]
 
-        if not phonemes_arpabet or num_frames < len(phonemes_arpabet):
+        if not phonemes_arpabet:
             return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
 
         tokens, token_to_phoneme = self._phonemes_to_ctc_tokens(phonemes_arpabet)
-        if not tokens:
+        if not tokens or num_frames < len(tokens):
+            # Need at least as many frames as CTC tokens (multi-char mappings
+            # can produce more tokens than phonemes)
             return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
 
         try:
@@ -565,6 +601,8 @@ class Predictor(BasePredictor):
 
         print(f"Full-file aligned {len(results)} words", file=sys.stderr)
 
+        if results:
+            results = self._enforce_vowel_duration(results)
         if refine_onsets and results:
             results = self._refine_with_onsets(waveform, results)
 
@@ -607,6 +645,8 @@ class Predictor(BasePredictor):
                 "phonemes": phoneme_timings,
             })
 
+        if results:
+            results = self._enforce_vowel_duration(results)
         if refine_onsets and results:
             results = self._refine_with_onsets(waveform, results)
 
@@ -627,11 +667,8 @@ class Predictor(BasePredictor):
         emission = emissions[0].cpu()
         num_frames = emission.shape[0]
 
-        if num_frames < len(phonemes_arpabet):
-            return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
-
         tokens, token_to_phoneme = self._phonemes_to_ctc_tokens(phonemes_arpabet)
-        if not tokens:
+        if not tokens or num_frames < len(tokens):
             return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
 
         try:
@@ -665,6 +702,137 @@ class Predictor(BasePredictor):
         except Exception as e:
             print(f"CTC alignment failed: {e}", file=sys.stderr)
             return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
+
+    # ── Duration sanity check ────────────────────────────────────────
+
+    def _enforce_vowel_duration(self, results):
+        """Post-CTC sanity check: ensure vowels get proportional duration.
+
+        CTC character alignment systematically compresses vowels (especially
+        diphthongs) because the surrogate character mappings don't produce
+        strong emission probabilities during vowel sounds. This method
+        detects words where consonants dominate and redistributes time
+        using linguistic priors: vowels should get at least 40% of a word's
+        duration in singing (they carry the pitch/melody).
+
+        Operates in-place on results.
+        """
+        MIN_VOWEL_SHARE = 0.35  # Vowels must get >= 35% of word
+        fixed_count = 0
+
+        for word in results:
+            phonemes = word.get("phonemes", [])
+            if len(phonemes) < 2:
+                continue
+
+            word_dur = word["end"] - word["start"]
+            if word_dur <= 0.01:
+                continue
+
+            # Classify phonemes and compute current vowel share
+            vowel_idxs = []
+            consonant_idxs = []
+            for i, p in enumerate(phonemes):
+                clean = _strip_stress(p["phoneme"])
+                if clean in _VOWELS:
+                    vowel_idxs.append(i)
+                else:
+                    consonant_idxs.append(i)
+
+            if not vowel_idxs or not consonant_idxs:
+                continue
+
+            vowel_time = sum(
+                phonemes[i]["end"] - phonemes[i]["start"] for i in vowel_idxs
+            )
+            vowel_share = vowel_time / word_dur
+
+            if vowel_share >= MIN_VOWEL_SHARE:
+                continue  # CTC got it right, skip
+
+            # CTC compressed vowels — redistribute using duration model priors.
+            # Consonant base durations (seconds):
+            CONS_BASE = {
+                "plosive": 0.055,   # B, P: quick pop
+                "fricative": 0.070, # F, V, S, Z, SH, etc.
+                "liquid": 0.065,    # L, R
+                "glide": 0.060,     # W, Y
+                "nasal": 0.060,     # M, N, NG
+                "stop": 0.045,      # CH, D, G, K, T, etc.
+            }
+            PLOSIVES = {"B", "P"}
+            FRICATIVES = {"F", "V", "S", "Z", "SH", "ZH", "TH", "DH", "HH"}
+            LIQUIDS = {"L", "R"}
+            GLIDES = {"W", "WH", "Y"}
+            NASALS = {"M", "N", "NG"}
+
+            def _cons_category(ph):
+                if ph in PLOSIVES:
+                    return "plosive"
+                if ph in FRICATIVES:
+                    return "fricative"
+                if ph in LIQUIDS:
+                    return "liquid"
+                if ph in GLIDES:
+                    return "glide"
+                if ph in NASALS:
+                    return "nasal"
+                return "stop"
+
+            # Assign base durations to consonants
+            cons_durations = {}
+            total_cons = 0.0
+            for i in consonant_idxs:
+                clean = _strip_stress(phonemes[i]["phoneme"])
+                base = CONS_BASE[_cons_category(clean)]
+                cons_durations[i] = base
+                total_cons += base
+
+            # If consonants alone exceed word, scale them down
+            if total_cons >= word_dur * 0.65:
+                scale = (word_dur * 0.55) / total_cons
+                for i in consonant_idxs:
+                    cons_durations[i] *= scale
+                total_cons = sum(cons_durations[i] for i in consonant_idxs)
+
+            # Remaining time goes to vowels
+            vowel_total = word_dur - total_cons
+
+            # First vowel (nucleus) gets 1.5x weight
+            weights = []
+            for j, i in enumerate(vowel_idxs):
+                weights.append(1.5 if j == 0 else 1.0)
+            total_weight = sum(weights)
+
+            vowel_durations = {}
+            for j, i in enumerate(vowel_idxs):
+                vowel_durations[i] = vowel_total * weights[j] / total_weight
+
+            # Rebuild contiguous phoneme timestamps
+            cursor = word["start"]
+            for i in range(len(phonemes)):
+                if i in cons_durations:
+                    dur = cons_durations[i]
+                elif i in vowel_durations:
+                    dur = vowel_durations[i]
+                else:
+                    dur = phonemes[i]["end"] - phonemes[i]["start"]
+                phonemes[i]["start"] = round(cursor, 4)
+                phonemes[i]["end"] = round(cursor + dur, 4)
+                cursor += dur
+
+            # Clamp last phoneme to word end
+            phonemes[-1]["end"] = word["end"]
+            fixed_count += 1
+
+        if fixed_count:
+            print(
+                f"Duration sanity: redistributed {fixed_count} words "
+                f"where CTC compressed vowels",
+                file=sys.stderr,
+            )
+
+        return results
 
     # ── Onset refinement ─────────────────────────────────────────────
 
@@ -739,8 +907,8 @@ class Predictor(BasePredictor):
         def frame_to_time(f):
             return f * HOP / sr
 
-        WORD_RADIUS_S = 0.035  # ±35ms search for word boundaries
-        PHONEME_RADIUS_S = 0.018  # ±18ms search for phoneme boundaries
+        WORD_RADIUS_S = 0.055  # ±55ms search for word boundaries (singing has rubato)
+        PHONEME_RADIUS_S = 0.025  # ±25ms search for phoneme boundaries
 
         # ── Phase 1: Refine word START boundaries ──
         total_delta_ms = 0.0
