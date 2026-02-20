@@ -1,16 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
-
-const WireIQTool = dynamic(() => import("@/components/wireiq/WireIQTool"), {
-  ssr: false,
-  loading: () => (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <div className="w-10 h-10 border-2 border-foreground/20 border-t-accent rounded-full animate-spin" />
-      <p className="text-foreground/50 text-sm">Loading Wire:IQ...</p>
-    </div>
-  ),
-});
+import WireIQLoader from "@/components/wireiq/WireIQLoader";
 
 export const metadata: Metadata = {
   title: "Wire:IQ — Wiring Diagram Generator",
@@ -45,7 +35,7 @@ export default function WireIQPage() {
           </div>
         }
       >
-        <WireIQTool />
+        <WireIQLoader />
       </Suspense>
     </div>
   );
