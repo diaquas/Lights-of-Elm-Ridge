@@ -375,7 +375,7 @@ class Predictor(BasePredictor):
 
         Uses torchaudio.functional.forced_align with | as word boundary
         tokens. Returns list of (word_text, start_s, end_s) tuples.
-        Words are made contiguous: each extends to the next word's start.
+        Natural gaps between words are preserved; only overlaps are clipped.
         """
         num_frames = emission.shape[0]
         duration_s = num_frames * frame_duration_s
@@ -444,20 +444,14 @@ class Predictor(BasePredictor):
                     we = offset_s + (word_last_frame + 1) * frame_duration_s
                     word_spans.append((word, ws, we))
 
-            # Make contiguous: each word extends to the next word's start,
-            # last word extends to the end of the audio window
-            if len(word_spans) > 1:
-                contiguous = []
-                for j in range(len(word_spans) - 1):
-                    w, ws, _ = word_spans[j]
-                    _, nws, _ = word_spans[j + 1]
-                    contiguous.append((w, ws, nws))
-                w, ws, _ = word_spans[-1]
-                contiguous.append((w, ws, offset_s + duration_s))
-                word_spans = contiguous
-            elif len(word_spans) == 1:
-                w, ws, _ = word_spans[0]
-                word_spans = [(w, ws, offset_s + duration_s)]
+            # Prevent overlaps but preserve natural gaps (silence between words).
+            # CTC end times already mark where each word's tokens stop —
+            # extending to the next word's start erases inter-word silence.
+            for j in range(len(word_spans) - 1):
+                w_cur, ws_cur, we_cur = word_spans[j]
+                _, ws_next, _ = word_spans[j + 1]
+                if we_cur > ws_next:
+                    word_spans[j] = (w_cur, ws_cur, ws_next)
 
             return word_spans
 
@@ -771,12 +765,12 @@ class Predictor(BasePredictor):
                 total_delta_ms += abs(refined_start - original_start) * 1000
                 refined_count += 1
 
-        # ── Phase 2: Re-enforce word contiguity ──
-        # Sort by start time (refinement shouldn't reorder, but safety)
+        # ── Phase 2: Prevent overlaps but preserve natural gaps ──
         results.sort(key=lambda w: w["start"])
 
         for i in range(len(results) - 1):
-            results[i]["end"] = results[i + 1]["start"]
+            if results[i]["end"] > results[i + 1]["start"]:
+                results[i]["end"] = results[i + 1]["start"]
 
         # Ensure positive duration for every word
         for word in results:
