@@ -36,20 +36,20 @@ DRUM_BANDS = {
     "kick": {
         "low_hz": 50,
         "high_hz": 80,       # Tight kick fundamental only (50-80 Hz)
-        "threshold": 0.6,    # Higher — kick is typically loudest
-        "min_interval_ms": 180,  # Kicks rarely < 180ms apart
+        "threshold": 0.8,    # Conservative — only strong kicks
+        "min_interval_ms": 250,  # Quarter notes at 120 BPM = 500ms
     },
     "snare": {
         "low_hz": 1000,
         "high_hz": 3000,     # Snare crack/attack lives 1-3 kHz
-        "threshold": 0.45,   # Medium — snare varies more in level
-        "min_interval_ms": 140,  # Snares rarely < 140ms apart
+        "threshold": 0.7,    # Conservative — clear snare hits only
+        "min_interval_ms": 200,  # Snares rarely < 200ms apart
     },
     "hihat": {
         "low_hz": 6000,
         "high_hz": 16000,    # Hi-hat shimmer lives above 6kHz
-        "threshold": 0.4,    # Lower — hi-hats are quieter
-        "min_interval_ms": 80,  # Hi-hats can be fast (16th notes)
+        "threshold": 0.65,   # Conservative — prominent hi-hats only
+        "min_interval_ms": 120,  # 8th notes at 120 BPM = 250ms
     },
 }
 
@@ -69,7 +69,7 @@ class Predictor(BasePredictor):
         ),
         onset_threshold: float = Input(
             description="Onset detection sensitivity (0.0=more onsets, 1.0=fewer)",
-            default=0.5,
+            default=0.8,
             ge=0.0,
             le=1.0,
         ),
