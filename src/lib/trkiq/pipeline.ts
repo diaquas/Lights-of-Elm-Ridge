@@ -688,7 +688,7 @@ async function runUnifiedAlign(
       text: pw.word,
       startMs: Math.round(pw.start * 1000),
       endMs: Math.round(pw.end * 1000),
-      confidence: 0.85, // CTC alignment is more reliable than Whisper
+      confidence: 1.0, // Model doesn't return per-word confidence yet
       phonemes: pw.phonemes.map((p) => ({
         phoneme: p.phoneme,
         startMs: Math.round(p.start * 1000),
