@@ -31,10 +31,6 @@ import torch  # noqa: E402
 import torchaudio  # noqa: E402
 from cog import BasePredictor, Input, Path  # noqa: E402
 
-# Lazy-import librosa only when onset refinement is needed.
-# Importing at module level pulls in numba + scipy + llvmlite at startup,
-# adding ~200MB RSS before setup() even runs — risks OOM on constrained workers.
-librosa = None  # noqa: E402
 
 # CMU Pronouncing Dictionary — maps lowercase words to ARPAbet.
 CMU_DICT_URL = (
@@ -707,25 +703,33 @@ class Predictor(BasePredictor):
             return results
 
     def _refine_with_onsets_impl(self, waveform, results):
-        """Inner implementation of onset refinement (wrapped by try/except)."""
-        global librosa  # noqa: PLW0603
-        if librosa is None:
-            import librosa as _librosa
-            librosa = _librosa
+        """Inner implementation of onset refinement (wrapped by try/except).
 
-        waveform_np = waveform.squeeze(0).numpy()
+        Uses torch STFT for spectral flux onset detection — no librosa/numba
+        dependency, float32 by default, and can run on GPU if available.
+        """
         sr = self.sample_rate
 
-        # ── Compute spectral features at ~8ms resolution ──
+        # ── Compute spectral onset envelope via torch STFT ──
         # At 16kHz, hop_length=128 → 8ms per frame (2.5× finer than CTC)
-        # n_fft=1024 keeps STFT memory under ~120MB for a 4-min song
         HOP = 128
         N_FFT = 1024
 
-        onset_env = librosa.onset.onset_strength(
-            y=waveform_np, sr=sr, hop_length=HOP, n_fft=N_FFT,
-            aggregate=np.median,
+        mono = waveform.squeeze(0)  # (samples,)
+        window = torch.hann_window(N_FFT, device=mono.device)
+        stft = torch.stft(
+            mono, n_fft=N_FFT, hop_length=HOP, window=window,
+            return_complex=True,
         )
+        # Magnitude spectrogram: (freq_bins, frames)
+        mag = stft.abs()
+        # Spectral flux: positive first-order differences across time
+        flux = torch.diff(mag, dim=-1)
+        flux = torch.clamp(flux, min=0)
+        # Median across frequency bins (robust to broadband noise)
+        onset_env = flux.median(dim=0).values.cpu().numpy()
+        # Free STFT intermediates immediately
+        del stft, mag, flux
         total_onset_frames = len(onset_env)
         if total_onset_frames < 10:
             return results
