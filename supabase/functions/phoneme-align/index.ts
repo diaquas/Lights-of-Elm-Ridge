@@ -36,7 +36,7 @@ const REPLICATE_API = "https://api.replicate.com/v1";
 // Pinned version hash — update after each cog push.
 const PHONEME_ALIGN_MODEL = "diaquas/phoneme-align";
 const PHONEME_ALIGN_VERSION =
-  "cbfb0835ceb033d4447e15f72e0341d78c66b40fe17d786ef845809d47d5bc79";
+  "58de9e795301406884dbb8e5737d0661157ca21e74be0adb74bcbd76ca0d800a";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
