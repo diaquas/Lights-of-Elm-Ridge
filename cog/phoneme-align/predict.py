@@ -14,7 +14,7 @@ Alignment modes:
   1. Full-file CTC alignment (DEFAULT, best for singing)
      Aligns the entire transcript against the full audio in one pass.
      Lets CTC place word boundaries naturally without per-line
-     compression artifacts.  Duration caps prevent held-note drift.
+     compression artifacts.
   2. Per-line CTC alignment (opt-in via per_line_mode=True)
      Constrains CTC to LRCLIB line windows.  Can cause timing
      compression when a held note absorbs an entire window.
@@ -635,8 +635,7 @@ class Predictor(BasePredictor):
         Runs one forward pass, aligns the entire transcript to the audio,
         then does per-word phoneme alignment using the same emissions.
         Lets CTC place word boundaries naturally across the full audio
-        without per-line compression artifacts.  Duration caps prevent
-        held-note drift where a single vowel absorbs seconds of audio.
+        without per-line compression artifacts.
         """
         audio_duration_s = waveform.shape[1] / self.sample_rate
 
@@ -653,7 +652,7 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
 
-        # Phase 1: CTC-align the full transcript to get word boundaries
+        # CTC-align the full transcript to get word boundaries
         word_spans = self._ctc_align_words(
             full_emission, transcript, 0.0, frame_duration_s
         )
@@ -661,10 +660,7 @@ class Predictor(BasePredictor):
         if not word_spans:
             return json.dumps({"words": [], "error": "CTC alignment failed"})
 
-        # Phase 2: Cap extreme word durations before phoneme alignment
-        word_spans = self._cap_word_spans(word_spans)
-
-        # Phase 3: For each word, do phoneme-level CTC alignment
+        # For each word, do phoneme-level CTC alignment
         results = []
         for word_text, word_start_s, word_end_s in word_spans:
             ws_frame = max(0, int(word_start_s / frame_duration_s))
@@ -1315,52 +1311,6 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
         return start, end
-
-    # ── Duration safety caps ─────────────────────────────────────────
-
-    @staticmethod
-    def _cap_word_spans(word_spans, max_word_s=2.0, min_word_s=0.04):
-        """Safety caps on word durations to prevent CTC drift artifacts.
-
-        In singing, held notes cause CTC to assign excessive duration to
-        one word (especially vowels sustaining over reverb tails) while
-        crushing its neighbors.  This caps extreme durations and enforces
-        a minimum floor BEFORE phoneme alignment, so phonemes are
-        distributed within reasonable word windows.
-
-        Strategy:
-          - Cap from end: onset timing is more accurate than offset, so
-            we trust word_start and trim word_end to start + max_word_s.
-          - Floor by extending end: don't overlap the next word.
-        """
-        capped_count = 0
-        floored_count = 0
-        result = []
-
-        for i, (word, start, end) in enumerate(word_spans):
-            dur = end - start
-
-            if dur > max_word_s:
-                end = start + max_word_s
-                capped_count += 1
-            elif dur < min_word_s:
-                desired_end = start + min_word_s
-                # Don't overlap next word
-                if i + 1 < len(word_spans):
-                    desired_end = min(desired_end, word_spans[i + 1][1])
-                end = max(end, desired_end)
-                floored_count += 1
-
-            result.append((word, round(start, 4), round(end, 4)))
-
-        if capped_count or floored_count:
-            print(
-                f"Duration caps: {capped_count} words capped at {max_word_s}s, "
-                f"{floored_count} words floored at {min_word_s*1000:.0f}ms",
-                file=sys.stderr,
-            )
-
-        return result
 
     # ── Shared helpers ────────────────────────────────────────────────
 
