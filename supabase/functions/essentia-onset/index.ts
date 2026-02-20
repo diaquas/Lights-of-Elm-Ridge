@@ -36,7 +36,7 @@ const REPLICATE_API = "https://api.replicate.com/v1";
 // Update this after each cog push (get hash from Replicate model page).
 const ESSENTIA_MODEL = "diaquas/essentia-onset";
 const ESSENTIA_VERSION =
-  "6fc6acb12430bff2c0fcd76d33e309e91f0913d022e0a5f491385630ff9bbd08";
+  "e01e1e2a1b8a41b143748b39a07b2b044bbb2941c530f6b5d2f471f879d4cd1a";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
