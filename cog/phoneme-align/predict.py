@@ -203,7 +203,7 @@ class Predictor(BasePredictor):
                 "Post-process CTC boundaries with spectral onset detection. "
                 "Searches ±35ms around each word boundary and ±18ms around "
                 "each phoneme boundary, snapping to the nearest spectral "
-                "onset at ~4ms resolution. Typically improves word boundary "
+                "onset at ~8ms resolution. Typically improves word boundary "
                 "MAE from ~50ms to ~20-30ms on singing voice."
             ),
             default=True,
@@ -656,7 +656,7 @@ class Predictor(BasePredictor):
         CTC forced alignment quantizes boundaries to ~20ms frames.
         This method searches a small window around each boundary and
         snaps to the nearest spectral onset (consonant attack, energy
-        transition) using librosa at ~4ms resolution.
+        transition) using librosa at ~8ms resolution.
 
         Three-phase approach:
           1. Refine word START boundaries → snap to spectral onsets
@@ -669,15 +669,29 @@ class Predictor(BasePredictor):
         if not results:
             return results
 
+        try:
+            return self._refine_with_onsets_impl(waveform, results)
+        except Exception as e:
+            print(
+                f"Onset refinement failed, returning CTC-only results: {e}",
+                file=sys.stderr,
+            )
+            return results
+
+    def _refine_with_onsets_impl(self, waveform, results):
+        """Inner implementation of onset refinement (wrapped by try/except)."""
         waveform_np = waveform.squeeze(0).numpy()
         sr = self.sample_rate
 
-        # ── Compute spectral features at ~4ms resolution ──
-        # At 16kHz, hop_length=64 → 4ms per frame (5× finer than CTC)
-        HOP = 64
+        # ── Compute spectral features at ~8ms resolution ──
+        # At 16kHz, hop_length=128 → 8ms per frame (2.5× finer than CTC)
+        # n_fft=1024 keeps STFT memory under ~120MB for a 4-min song
+        HOP = 128
+        N_FFT = 1024
 
         onset_env = librosa.onset.onset_strength(
-            y=waveform_np, sr=sr, hop_length=HOP, aggregate=np.median
+            y=waveform_np, sr=sr, hop_length=HOP, n_fft=N_FFT,
+            aggregate=np.median,
         )
         total_onset_frames = len(onset_env)
         if total_onset_frames < 10:
