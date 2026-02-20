@@ -357,6 +357,29 @@ class Predictor(BasePredictor):
             line_frames = line_emission.shape[0]
             line_frame_dur = (win_end_s - win_start_s) / line_frames
 
+            # Trim leading/trailing non-speech frames using CTC blank
+            # probability.  LRCLIB line timestamps can lead actual singing
+            # onset by 1-3s (karaoke cue-ahead).  Without trimming,
+            # forced_align maps lyrics into instrumental gaps.
+            speech_start, speech_end = self._detect_speech_region(line_emission)
+            if speech_start > 0 or speech_end < line_frames:
+                trimmed_ms = speech_start * line_frame_dur * 1000
+                print(
+                    f"  Line {i}: trimmed {speech_start} non-speech frames "
+                    f"({trimmed_ms:.0f}ms) from start",
+                    file=sys.stderr,
+                )
+                trimmed_start_s = win_start_s + speech_start * line_frame_dur
+                trimmed_end_s = win_start_s + speech_end * line_frame_dur
+                line_emission = line_emission[speech_start:speech_end]
+                line_frames = line_emission.shape[0]
+                win_start_s = trimmed_start_s
+                win_end_s = trimmed_end_s
+                start_frame = start_frame + speech_start
+                end_frame = start_frame + line_frames
+                if line_frames < 2:
+                    continue
+
             # CTC-align the line text to get word boundaries
             words_text = text.split()
             if not words_text:
@@ -1017,6 +1040,76 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
         return results
+
+    # ── Speech region detection ─────────────────────────────────────
+
+    @staticmethod
+    def _detect_speech_region(emission, blank_threshold=0.85, min_run=3):
+        """Detect speech onset/offset in emission frames via CTC blank probability.
+
+        LRCLIB line timestamps can lead actual singing onset by 1-3 seconds
+        (karaoke cue-ahead timing).  During instrumental gaps the CTC blank
+        token dominates the emission distribution.  This method trims those
+        non-speech frames so forced_align only sees frames containing vocals,
+        preventing the aligner from mapping lyrics into instrumental breaks.
+
+        Args:
+            emission: (T, C) log-softmax emission matrix for a line window.
+            blank_threshold: P(blank) above this → non-speech frame.
+            min_run: require this many consecutive speech frames to confirm
+                     onset (avoids triggering on single-frame noise).
+
+        Returns:
+            (start_frame, end_frame) tuple bounding the speech region.
+            Falls back to (0, T) if no clear speech region is found.
+        """
+        num_frames = emission.shape[0]
+        if num_frames < min_run * 2:
+            return 0, num_frames
+
+        # CTC blank is token 0; emission is log_softmax → exp for probability
+        blank_prob = emission[:, 0].exp().numpy()
+
+        is_speech = blank_prob < blank_threshold
+
+        # Find first run of min_run consecutive speech frames
+        start = 0
+        run_len = 0
+        found_start = False
+        for i in range(num_frames):
+            if is_speech[i]:
+                run_len += 1
+                if run_len >= min_run:
+                    start = i - min_run + 1
+                    found_start = True
+                    break
+            else:
+                run_len = 0
+
+        # Find last run of min_run consecutive speech frames
+        end = num_frames
+        run_len = 0
+        found_end = False
+        for i in range(num_frames - 1, -1, -1):
+            if is_speech[i]:
+                run_len += 1
+                if run_len >= min_run:
+                    end = i + min_run
+                    found_end = True
+                    break
+            else:
+                run_len = 0
+
+        # Pad by 2 frames (~40ms) to avoid clipping consonant onsets/releases
+        ONSET_PAD = 2
+        start = max(0, start - ONSET_PAD)
+        end = min(num_frames, end + ONSET_PAD)
+
+        # If detection failed (no speech found), return full range
+        if not found_start or not found_end or start >= end:
+            return 0, num_frames
+
+        return start, end
 
     # ── Shared helpers ────────────────────────────────────────────────
 
