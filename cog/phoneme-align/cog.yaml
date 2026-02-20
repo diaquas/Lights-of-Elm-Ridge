@@ -5,6 +5,7 @@ build:
     - "numpy<2"
     - "torch==2.2.2"
     - "torchaudio==2.2.2"
+    - "librosa>=0.10.2"
   run:
     # Pre-download wav2vec2-large model into the Docker image so cold starts skip the download.
     - "python -c \"import torchaudio; torchaudio.pipelines.WAV2VEC2_ASR_LARGE_960H.get_model()\""

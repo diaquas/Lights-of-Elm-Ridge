@@ -77,6 +77,7 @@ Deno.serve(async (req: Request) => {
         replicateToken,
         corsHeaders,
         body.wordTimestamps,
+        body.lineTimestamps,
       );
     } else if (body.action === "status" && body.predictionId) {
       return await handleStatus(body.predictionId, replicateToken, corsHeaders);
@@ -102,12 +103,15 @@ async function handleStart(
   replicateToken: string,
   corsHeaders: Record<string, string>,
   wordTimestamps?: string,
+  lineTimestamps?: string,
 ): Promise<Response> {
   const input: Record<string, unknown> = {
     audio_file: vocalsUrl,
     transcript,
   };
-  if (wordTimestamps) {
+  if (lineTimestamps) {
+    input.line_timestamps = lineTimestamps;
+  } else if (wordTimestamps) {
     input.word_timestamps = wordTimestamps;
   }
 

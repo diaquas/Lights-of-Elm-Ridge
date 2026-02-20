@@ -40,7 +40,7 @@ import { separateStems, checkDemucsAvailable } from "./replicate-client";
 import { forceAlignLyrics } from "./force-align-client";
 import type { ForceAlignWord, AlignSection } from "./force-align-client";
 import { phonemeAlignLyrics } from "./phoneme-align-client";
-import type { PhonemeAlignWord } from "./phoneme-align-client";
+import type { PhonemeAlignWord, LineTimestamp } from "./phoneme-align-client";
 import { analyzeStems } from "./essentia-onset-client";
 import type { EssentiaOnsetResult } from "./essentia-onset-client";
 
@@ -270,7 +270,7 @@ export async function runPipeline(
     }
   }
 
-  /** Run lyrics alignment: Force-Align on Replicate → synced-line fallback */
+  /** Run lyrics alignment: CTC forced alignment on Replicate → fallback */
   async function processLyricsStep(
     stemsAvailable: boolean,
   ): Promise<LyricsResult> {
@@ -279,119 +279,138 @@ export async function runPipeline(
       return { tracks: [], stats: null };
     }
 
-    // Try force-align if stems are available
-    let alignedWords: AlignedWord[] | null = null;
+    // Build line timestamps from LRCLIB synced lines for per-line CTC alignment.
+    // Each line's text is normalized and passed to the model, which uses CTC
+    // forced alignment within each line's audio window. This prevents
+    // cross-section confusion and can't hallucinate extra words.
+    const hasSyncedLines = !!(
+      lyrics!.syncedLines && lyrics!.syncedLines.length > 0
+    );
+    let lineTimestamps: LineTimestamp[] | undefined;
+    let phraseLengths: number[] | undefined;
+
+    if (hasSyncedLines) {
+      lineTimestamps = lyrics!
+        .syncedLines!.map((l) => ({
+          text: normalizeTranscript(l.text).trim(),
+          startMs: l.timeMs,
+        }))
+        .filter((l) => l.text.length > 0);
+
+      phraseLengths = lineTimestamps.map(
+        (l) => l.text.split(/\s+/).filter((w) => w.length > 0).length,
+      );
+    }
+
+    // Try CTC alignment if stems are available
+    let phonemeAlignedWords: PhonemeAlignedWord[] | null = null;
     let alignError = "";
     if (stemsAvailable && stems?.vocals) {
       update("lyrics", "active", "Aligning words to audio\u2026", "queued", 10);
       appendLog("lyrics", "Pulling lyrics");
-      appendLog("lyrics", "Matching words to vocal layer");
-      let lastAlignMsg = "";
-      let loggedRunning = false;
-      alignedWords = await runForceAlign(
+      appendLog(
+        "lyrics",
+        hasSyncedLines
+          ? `Matching ${lineTimestamps!.length} lyric lines to vocal layer`
+          : "Matching words to vocal layer",
+      );
+
+      phonemeAlignedWords = await runUnifiedAlign(
         stems.vocals,
         lyrics!,
+        lineTimestamps,
         (msg, phase) => {
-          lastAlignMsg = msg;
-          const sp = phase === "queued" ? 15 : 50;
+          alignError = msg;
+          const sp = phase === "queued" ? 15 : 60;
           update("lyrics", "active", msg, phase, sp);
-          if (phase === "running" && !loggedRunning) {
-            loggedRunning = true;
-            appendLog("lyrics", "GPU active \u2014 running Whisper alignment");
-          }
         },
-        durationMs,
       );
-      if (!alignedWords) {
-        alignError = lastAlignMsg;
-      } else {
+
+      if (phonemeAlignedWords) {
         appendLog(
           "lyrics",
-          `Placing ${alignedWords.length} words at timestamps`,
+          `Placing ${phonemeAlignedWords.length} words at timestamps`,
         );
       }
     }
 
-    if (alignedWords && alignedWords.length > 0) {
-      // Compute phrase word counts from LRCLIB synced lines so we can
-      // group words into phrases using exact line boundaries instead of
-      // gap detection (which misplaces words when timing is tight).
-      let phraseLengths: number[] | undefined;
-      if (lyrics!.syncedLines && lyrics!.syncedLines.length > 0) {
-        phraseLengths = lyrics!.syncedLines
-          .map(
-            (l) =>
-              normalizeTranscript(l.text)
-                .trim()
-                .split(/\s+/)
-                .filter((w) => w.length > 0).length,
-          )
-          .filter((n) => n > 0);
-      }
-
-      // Try phoneme-level alignment for acoustic phoneme boundaries
+    if (phonemeAlignedWords && phonemeAlignedWords.length > 0) {
       update(
         "lyrics",
         "active",
-        "Running phoneme alignment\u2026",
-        "running",
-        70,
+        "Building singing face timing (CTC-aligned)...",
       );
-      appendLog("lyrics", "Fine-tuning word boundaries with phoneme model");
-      const phonemeAlignedWords = await runPhonemeAlign(
-        stems?.vocals ?? "",
-        lyrics!,
-        alignedWords,
-        (msg, phase) => update("lyrics", "active", msg, phase, 80),
+      const leadTrack = processPhonemeAlignedWords(
+        phonemeAlignedWords,
+        "lead",
+        phraseLengths,
       );
 
-      let leadTrack: VocalTrack;
-      if (phonemeAlignedWords && phonemeAlignedWords.length > 0) {
-        update(
-          "lyrics",
-          "active",
-          "Building singing face timing (phoneme-aligned)...",
-        );
-        leadTrack = processPhonemeAlignedWords(
-          phonemeAlignedWords,
-          "lead",
-          phraseLengths,
-        );
-      } else {
-        update(
-          "lyrics",
-          "active",
-          "Building singing face timing (word-aligned)...",
-        );
-        leadTrack = processAlignedWords(alignedWords, "lead", phraseLengths);
-      }
-
-      // Compute confidence range from median of per-word probabilities ± 5%
-      const confs = alignedWords.map((w) => w.confidence).sort((a, b) => a - b);
-      const median = confs[Math.floor(confs.length / 2)];
       leadTrack.source = "ai";
-      leadTrack.confidenceRange = [
-        Math.round(Math.max(0, median - 0.05) * 100) / 100,
-        Math.round(Math.min(1, median + 0.05) * 100) / 100,
-      ];
+      leadTrack.confidenceRange = [0.8, 0.9];
       const vTracks = [leadTrack];
-      const wordCount = alignedWords.length;
       appendLog(
         "lyrics",
-        `\u2713 Lyric sync complete \u2014 ${wordCount} cue points`,
+        `\u2713 Lyric sync complete \u2014 ${phonemeAlignedWords.length} cue points`,
       );
       update("lyrics", "done");
       return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
     }
 
-    // Fallback: synced lines or even distribution
+    // Fallback path: try legacy force-align → phoneme-align pipeline
+    if (stemsAvailable && stems?.vocals) {
+      let alignedWords: AlignedWord[] | null = null;
+      let loggedRunning = false;
+      alignedWords = await runForceAlign(
+        stems.vocals,
+        lyrics!,
+        (msg, phase) => {
+          alignError = msg;
+          const sp = phase === "queued" ? 15 : 50;
+          update("lyrics", "active", msg, phase, sp);
+          if (phase === "running" && !loggedRunning) {
+            loggedRunning = true;
+            appendLog("lyrics", "Falling back to Whisper alignment");
+          }
+        },
+        durationMs,
+      );
+
+      if (alignedWords && alignedWords.length > 0) {
+        update(
+          "lyrics",
+          "active",
+          "Building singing face timing (word-aligned)...",
+        );
+        const leadTrack = processAlignedWords(
+          alignedWords,
+          "lead",
+          phraseLengths,
+        );
+        const confs = alignedWords
+          .map((w) => w.confidence)
+          .sort((a, b) => a - b);
+        const median = confs[Math.floor(confs.length / 2)];
+        leadTrack.source = "ai";
+        leadTrack.confidenceRange = [
+          Math.round(Math.max(0, median - 0.05) * 100) / 100,
+          Math.round(Math.min(1, median + 0.05) * 100) / 100,
+        ];
+        const vTracks = [leadTrack];
+        appendLog(
+          "lyrics",
+          `\u2713 Lyric sync complete \u2014 ${alignedWords.length} cue points`,
+        );
+        update("lyrics", "done");
+        return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
+      }
+    }
+
+    // Last resort: synced lines or even distribution
     update("lyrics", "active", "Generating timing from synced lyrics...");
     const fallbackWords = buildLyricsFallback(lyrics!, durationMs);
     if (fallbackWords.length > 0) {
       const leadTrack = processAlignedWords(fallbackWords, "lead");
-      const hasSyncedLines = !!(
-        lyrics!.syncedLines && lyrics!.syncedLines.length > 0
-      );
       leadTrack.source = hasSyncedLines ? "synced" : "estimated";
       leadTrack.confidenceRange = hasSyncedLines ? [0.55, 0.65] : [0.25, 0.35];
       const vTracks = [leadTrack];
@@ -634,6 +653,55 @@ async function runForceAlign(
   } catch (err: unknown) {
     const detail = err instanceof Error ? err.message : "Unknown error";
     onStatusUpdate(`Alignment failed: ${detail}`);
+    return null;
+  }
+}
+
+/**
+ * Run unified CTC alignment: word + phoneme boundaries in one call.
+ * When line timestamps are available, uses per-line CTC alignment
+ * (no Whisper, no hallucination). Falls back to full-file CTC.
+ * Returns null if alignment fails.
+ */
+async function runUnifiedAlign(
+  vocalsUrl: string,
+  lyrics: LyricsData,
+  lineTimestamps: LineTimestamp[] | undefined,
+  onStatusUpdate: (msg: string, phase?: "queued" | "running") => void,
+): Promise<PhonemeAlignedWord[] | null> {
+  if (!vocalsUrl) return null;
+
+  try {
+    const transcript = normalizeTranscript(lyrics.plainText);
+
+    onStatusUpdate("Running CTC forced alignment on vocals...");
+    const phonemeWords = await phonemeAlignLyrics(
+      vocalsUrl,
+      transcript,
+      onStatusUpdate,
+      undefined, // no word timestamps — CTC does word alignment itself
+      lineTimestamps,
+    );
+
+    if (!phonemeWords || phonemeWords.length === 0) return null;
+
+    // Convert to PhonemeAlignedWord[] for the lyrics processor
+    const result: PhonemeAlignedWord[] = phonemeWords.map((pw) => ({
+      text: pw.word,
+      startMs: Math.round(pw.start * 1000),
+      endMs: Math.round(pw.end * 1000),
+      confidence: 0.85, // CTC alignment is more reliable than Whisper
+      phonemes: pw.phonemes.map((p) => ({
+        phoneme: p.phoneme,
+        startMs: Math.round(p.start * 1000),
+        endMs: Math.round(p.end * 1000),
+      })),
+    }));
+
+    return result.length > 0 ? result : null;
+  } catch (err: unknown) {
+    const detail = err instanceof Error ? err.message : "Unknown error";
+    onStatusUpdate(`CTC alignment failed: ${detail}`);
     return null;
   }
 }
