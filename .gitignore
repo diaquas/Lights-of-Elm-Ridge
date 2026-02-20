@@ -49,3 +49,7 @@ packages/*/.turbo/
 
 # supabase
 supabase/.temp/
+
+# python
+__pycache__/
+*.pyc
