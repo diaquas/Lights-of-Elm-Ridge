@@ -157,6 +157,19 @@ def _strip_stress(phoneme):
     return phoneme
 
 
+# ARPAbet → CTC character mapping (class-level constant, built once at import).
+ARPABET_TO_CHARS = {
+    "AA": "A", "AE": "A", "AH": "A", "AO": "O", "AW": "A",
+    "AY": "I", "B": "B", "CH": "C", "D": "D", "DH": "D",
+    "EH": "E", "ER": "R", "EY": "A", "F": "F", "G": "G",
+    "HH": "H", "IH": "I", "IY": "E", "JH": "J", "K": "K",
+    "L": "L", "M": "M", "N": "N", "NG": "N", "OW": "O",
+    "OY": "O", "P": "P", "R": "R", "S": "S", "SH": "S",
+    "T": "T", "TH": "T", "UH": "U", "UW": "U", "V": "V",
+    "W": "W", "WH": "W", "Y": "Y", "Z": "Z", "ZH": "Z",
+}
+
+
 class Predictor(BasePredictor):
     def setup(self):
         """Load models on cold start — wav2vec2 + CMU dictionary."""
@@ -811,23 +824,12 @@ class Predictor(BasePredictor):
 
     def _phonemes_to_ctc_tokens(self, phonemes_arpabet):
         """Map ARPAbet phonemes to CTC label indices."""
-        arpabet_to_chars = {
-            "AA": "A", "AE": "A", "AH": "A", "AO": "O", "AW": "A",
-            "AY": "I", "B": "B", "CH": "C", "D": "D", "DH": "D",
-            "EH": "E", "ER": "R", "EY": "A", "F": "F", "G": "G",
-            "HH": "H", "IH": "I", "IY": "E", "JH": "J", "K": "K",
-            "L": "L", "M": "M", "N": "N", "NG": "N", "OW": "O",
-            "OY": "O", "P": "P", "R": "R", "S": "S", "SH": "S",
-            "T": "T", "TH": "T", "UH": "U", "UW": "U", "V": "V",
-            "W": "W", "WH": "W", "Y": "Y", "Z": "Z", "ZH": "Z",
-        }
-
         tokens = []
         token_to_phoneme = []
 
         for i, phoneme in enumerate(phonemes_arpabet):
             clean = _strip_stress(phoneme)
-            chars = arpabet_to_chars.get(clean, clean[0] if clean else "A")
+            chars = ARPABET_TO_CHARS.get(clean, clean[0] if clean else "A")
             for ch in chars:
                 if ch.upper() in self.label_to_idx:
                     tokens.append(self.label_to_idx[ch.upper()])
