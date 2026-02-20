@@ -10,6 +10,9 @@ export {
   parseXsqModels,
   parseXsqEffectCounts,
   parseXsqEffectTypeCounts,
+  parseNetworksXml,
+  parseStartChannel,
+  resolvePortBindings,
 } from "./parsers";
 
 // Future: export { parseRgbEffectsXml } from './parsers';
@@ -20,10 +23,7 @@ export {
   generateNetworks,
   generatePackage,
 } from "./generators";
-export type {
-  PackageGeneratorOptions,
-  GeneratedPackage,
-} from "./generators";
+export type { PackageGeneratorOptions, GeneratedPackage } from "./generators";
 
 // ── Data ──
 export { PROP_TEMPLATES } from "./models/prop-templates";
@@ -50,6 +50,14 @@ export type {
   PortAssignment,
   NetworkEntry,
 } from "./types/controllers";
+export type {
+  ParsedController,
+  ParsedNetworkConfig,
+  PortBinding,
+  PortModel,
+  StartChannelRef,
+  ControllerType,
+} from "./types/networks";
 export type {
   PackageTier,
   DisplayPackage,
