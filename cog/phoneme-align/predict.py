@@ -1072,10 +1072,14 @@ class Predictor(BasePredictor):
         Two detection strategies (best available is used):
 
           1. **Waveform energy** (preferred, when waveform_segment is given):
-             Computes per-frame RMS energy and classifies frames below a
-             dynamic threshold (4× the noise floor) as non-speech.  Much
-             more reliable on Demucs vocal stems where bleed artifacts
-             have enough spectral structure to fool CTC-only detection.
+             Computes per-frame RMS energy with adaptive thresholding.
+             Uses noise-floor-relative (4× p10) when the window has clear
+             silence, or peak-relative (15% of peak) when the window is
+             all singing.  Includes gap-aware onset detection to skip
+             vocal tails from the previous line that bleed into the window
+             start.  Much more reliable on Demucs vocal stems where bleed
+             artifacts have enough spectral structure to fool CTC-only
+             detection.
 
           2. **CTC blank probability** (fallback):
              Uses P(blank) and max P(non-blank) from the emission matrix.
@@ -1119,11 +1123,53 @@ class Predictor(BasePredictor):
                     if seg.numel() > 0:
                         rms[f] = seg.pow(2).mean().sqrt().item()
 
-            # Adaptive threshold: 4× the noise floor (10th percentile)
+            # ── Adaptive threshold ──────────────────────────────────
+            # We need a threshold that works for two very different cases:
+            #   A) Window has clear silence + singing → noise floor is low,
+            #      4× noise floor works well.
+            #   B) Window is ALL singing (no silence) → noise floor is high
+            #      (e.g. p10=0.097), and 4× noise floor (0.39) can exceed
+            #      the actual peak RMS (0.31).  Must use peak-relative.
+            #
+            # Strategy: compute both, pick the one that actually classifies
+            # a meaningful portion of frames as speech.
+
             sorted_rms = np.sort(rms)
-            noise_idx = max(1, num_frames // 10)
-            noise_floor = float(sorted_rms[noise_idx])
-            threshold = max(noise_floor * 4.0, 0.002)
+            p10_idx = max(1, num_frames // 10)
+            p90_idx = min(num_frames - 1, num_frames * 9 // 10)
+            noise_floor = float(sorted_rms[p10_idx])
+            p90 = float(sorted_rms[p90_idx])
+            peak_rms = float(sorted_rms[-1])
+
+            # Candidate A: noise-floor-relative (good for windows with silence)
+            thresh_noise = max(noise_floor * 4.0, 0.002)
+
+            # Candidate B: peak-relative (good for all-singing windows)
+            # 15% of peak — below the quietest consonant but above bleed
+            thresh_peak = peak_rms * 0.15
+
+            # Guard: threshold must never exceed 50% of p90 — if it does,
+            # the threshold is higher than typical singing energy, which
+            # means we'd classify most singing as non-speech.
+            p90_cap = p90 * 0.5
+
+            # Pick: use noise-floor threshold if it's sane (below p90 cap),
+            # otherwise fall back to peak-relative threshold.
+            if thresh_noise <= p90_cap:
+                threshold = thresh_noise
+            else:
+                threshold = min(thresh_peak, p90_cap) if p90_cap > 0.002 else thresh_peak
+
+            # Absolute minimum — don't threshold on pure digital silence
+            threshold = max(threshold, 0.002)
+
+            print(
+                f"  RMS detection: noise_floor={noise_floor:.4f} p90={p90:.4f} "
+                f"peak={peak_rms:.4f} | thresh_noise={thresh_noise:.4f} "
+                f"thresh_peak={thresh_peak:.4f} p90_cap={p90_cap:.4f} "
+                f"→ threshold={threshold:.4f}",
+                file=sys.stderr,
+            )
 
             is_speech = rms > threshold
 
@@ -1140,34 +1186,65 @@ class Predictor(BasePredictor):
             )
 
         # ── Find speech boundaries (shared logic) ─────────────────────
+        #
+        # Gap-aware onset: LRCLIB windows often start with the tail of the
+        # PREVIOUS line's singing (vocal bleed).  Instead of naively picking
+        # the first speech run, look for the LAST non-speech gap in the
+        # first half of the window — if we find one, the real onset is
+        # after that gap, not at the very start.
 
-        # Find first run of min_run consecutive speech frames
-        start = 0
-        run_len = 0
-        found_start = False
+        # Build list of speech runs: [(start_frame, length), ...]
+        speech_runs = []
+        run_start = None
         for i in range(num_frames):
             if is_speech[i]:
-                run_len += 1
-                if run_len >= min_run:
-                    start = i - min_run + 1
-                    found_start = True
-                    break
+                if run_start is None:
+                    run_start = i
             else:
-                run_len = 0
+                if run_start is not None:
+                    speech_runs.append((run_start, i - run_start))
+                    run_start = None
+        if run_start is not None:
+            speech_runs.append((run_start, num_frames - run_start))
 
-        # Find last run of min_run consecutive speech frames
-        end = num_frames
-        run_len = 0
-        found_end = False
-        for i in range(num_frames - 1, -1, -1):
-            if is_speech[i]:
-                run_len += 1
-                if run_len >= min_run:
-                    end = i + min_run
-                    found_end = True
+        if not speech_runs:
+            return 0, num_frames
+
+        # Filter to runs of at least min_run frames
+        valid_runs = [(s, l) for s, l in speech_runs if l >= min_run]
+        if not valid_runs:
+            return 0, num_frames
+
+        # ── Lead trimming (gap-aware) ──────────────────────────────
+        # Look for a silence gap in the first 40% of the window.
+        # If found, the real onset is the first valid speech run AFTER
+        # that gap — the frames before it are the previous line's tail.
+        midpoint = int(num_frames * 0.4)
+        start_run_idx = 0  # default: first valid run
+
+        # Find gaps (non-speech regions) in the first 40%
+        last_gap_end = None
+        for i in range(1, len(speech_runs)):
+            gap_start = speech_runs[i - 1][0] + speech_runs[i - 1][1]
+            gap_end = speech_runs[i][0]
+            if gap_start < midpoint and gap_end > gap_start:
+                gap_len = gap_end - gap_start
+                # A gap of at least 2 frames (~40ms) is significant
+                if gap_len >= 2:
+                    last_gap_end = gap_end
+
+        if last_gap_end is not None:
+            # Find the first valid run that starts at or after the gap
+            for idx, (rs, rl) in enumerate(valid_runs):
+                if rs >= last_gap_end:
+                    start_run_idx = idx
                     break
-            else:
-                run_len = 0
+
+        start = valid_runs[start_run_idx][0]
+
+        # ── Trail trimming ─────────────────────────────────────────
+        last_run = valid_runs[-1]
+        end = last_run[0] + last_run[1]
 
         # Pad by 2 frames (~40ms) to avoid clipping consonant onsets/releases
         ONSET_PAD = 2
@@ -1178,12 +1255,22 @@ class Predictor(BasePredictor):
         # the line timestamps are probably just wrong and trimming will
         # make things worse.
         if (end - start) < num_frames * 0.3:
+            print(
+                f"  RMS detection: would trim to {end - start}/{num_frames} "
+                f"frames (<30%) — keeping full window",
+                file=sys.stderr,
+            )
             return 0, num_frames
 
-        # If detection failed (no speech found), return full range
-        if not found_start or not found_end or start >= end:
+        if start >= end:
             return 0, num_frames
 
+        speech_pct = np.sum(is_speech) / num_frames * 100
+        print(
+            f"  RMS detection: trim [{start}:{end}] of {num_frames} frames "
+            f"(speech {speech_pct:.0f}%)",
+            file=sys.stderr,
+        )
         return start, end
 
     # ── Shared helpers ────────────────────────────────────────────────
