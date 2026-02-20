@@ -110,21 +110,17 @@ export async function phonemeAlignLyrics(
   wordTimestamps?: ForceAlignWord[],
   lineTimestamps?: LineTimestamp[],
 ): Promise<PhonemeAlignWord[]> {
-  // Step 1: Start the alignment job
-  const mode = lineTimestamps?.length
-    ? "per-line CTC"
-    : wordTimestamps?.length
-      ? "word-boundary"
-      : "full-file CTC";
+  // Step 1: Start the alignment job — always use full-file CTC.
+  // Pass transcript only; line timestamps are not needed (full-file CTC
+  // aligns the entire transcript against the full audio in one pass).
+  const mode = wordTimestamps?.length ? "word-boundary" : "full-file CTC";
   onStatusUpdate?.(`Starting ${mode} alignment...`, "queued");
   const body: Record<string, unknown> = {
     action: "start",
     vocalsUrl,
     transcript,
   };
-  if (lineTimestamps && lineTimestamps.length > 0) {
-    body.lineTimestamps = JSON.stringify(lineTimestamps);
-  } else if (wordTimestamps && wordTimestamps.length > 0) {
+  if (wordTimestamps && wordTimestamps.length > 0) {
     body.wordTimestamps = JSON.stringify(
       wordTimestamps.map((w) => ({
         word: w.word,

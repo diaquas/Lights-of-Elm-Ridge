@@ -340,11 +340,9 @@ export async function runPipeline(
         "active",
         "Building singing face timing (CTC-aligned)...",
       );
-      const leadTrack = processPhonemeAlignedWords(
-        phonemeAlignedWords,
-        "lead",
-        phraseLengths,
-      );
+      // All words go into a single phrase — matches human-correct xtiming
+      // structure and avoids LRCLIB line-based fragmentation.
+      const leadTrack = processPhonemeAlignedWords(phonemeAlignedWords, "lead");
 
       leadTrack.source = "ai";
       leadTrack.confidenceRange = [0.8, 0.9];
@@ -690,7 +688,7 @@ async function runUnifiedAlign(
       text: pw.word,
       startMs: Math.round(pw.start * 1000),
       endMs: Math.round(pw.end * 1000),
-      confidence: 0.85, // CTC alignment is more reliable than Whisper
+      confidence: 1.0, // Model doesn't return per-word confidence yet
       phonemes: pw.phonemes.map((p) => ({
         phoneme: p.phoneme,
         startMs: Math.round(p.start * 1000),

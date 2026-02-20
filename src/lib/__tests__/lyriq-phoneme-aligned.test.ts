@@ -128,9 +128,9 @@ describe("processPhonemeAlignedWords", () => {
     ];
 
     const track = processPhonemeAlignedWords(words, "lead");
-    expect(track.phrases).toHaveLength(2);
-    expect(track.phrases[0].words).toHaveLength(2);
-    expect(track.phrases[1].words).toHaveLength(1);
+    // Without explicit phraseLengths, all words go into a single phrase
+    expect(track.phrases).toHaveLength(1);
+    expect(track.phrases[0].words).toHaveLength(3);
   });
 
   it("preserves non-uniform phoneme durations from audio", () => {

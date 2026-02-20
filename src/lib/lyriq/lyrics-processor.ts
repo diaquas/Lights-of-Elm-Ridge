@@ -167,14 +167,12 @@ function processWord(aligned: AlignedWord): Word {
  * the phoneme-align model. Bypasses dictionary lookup and duration
  * model entirely — uses the acoustic phoneme boundaries as-is.
  *
- * Post-processes phoneme timestamps to be contiguous: each phoneme
- * extends from its detected start to the next phoneme's start, and
- * the last phoneme extends to the word end. CTC alignment can produce
- * gaps (blank frames between phonemes), but in singing, sound is
- * continuous — vowels sustain until the next consonant.
+ * Only does the necessary conversions: ARPAbet → Preston Blair code
+ * and phoneme category classification. Timestamps are passed through
+ * unmodified from the model.
  */
 function processPhonemeAlignedWord(aligned: PhonemeAlignedWord): Word {
-  const raw = aligned.phonemes.map((p) => {
+  const phonemes = aligned.phonemes.map((p) => {
     const clean = stripStress(p.phoneme);
     return {
       code: toPrestonBlair(clean),
@@ -185,22 +183,11 @@ function processPhonemeAlignedWord(aligned: PhonemeAlignedWord): Word {
     };
   });
 
-  // Make phonemes contiguous: each extends to the next phoneme's start,
-  // and the last phoneme fills to the word end. First phoneme starts at
-  // word start. This fills gaps left by CTC blank frames.
-  if (raw.length > 0) {
-    raw[0].startMs = aligned.startMs;
-    for (let i = 0; i < raw.length - 1; i++) {
-      raw[i].endMs = raw[i + 1].startMs;
-    }
-    raw[raw.length - 1].endMs = aligned.endMs;
-  }
-
   return {
     text: aligned.text.toLowerCase(),
     startMs: aligned.startMs,
     endMs: aligned.endMs,
-    phonemes: raw,
+    phonemes,
     confidence: aligned.confidence,
     inDictionary: isInDictionary(aligned.text),
   };
@@ -234,10 +221,14 @@ export function processPhonemeAlignedWords(
     confidence: w.confidence,
   }));
 
+  // Default: all words in a single phrase (matches human-correct xtiming).
+  // Only split into multiple phrases when explicit phraseLengths are provided.
   const alignedPhrases =
     phraseLengths && phraseLengths.length > 0
       ? buildPhrasesFromWordCounts(asAligned, phraseLengths)
-      : detectPhrases(asAligned);
+      : asAligned.length > 0
+        ? [buildAlignedPhrase(asAligned)]
+        : [];
 
   // Build a lookup so we can find the phoneme-aligned word for each phrase word
   const wordsByKey = new Map<string, PhonemeAlignedWord>();
@@ -252,11 +243,7 @@ export function processPhonemeAlignedWords(
     words: ap.words.map((aw) => {
       const key = `${aw.text}|${aw.startMs}|${aw.endMs}`;
       const phonemeWord = wordsByKey.get(key);
-      if (phonemeWord) {
-        return processPhonemeAlignedWord(phonemeWord);
-      }
-      // Fallback to heuristic if somehow missing
-      return processWord(aw);
+      return processPhonemeAlignedWord(phonemeWord ?? { ...aw, phonemes: [] });
     }),
   }));
 
