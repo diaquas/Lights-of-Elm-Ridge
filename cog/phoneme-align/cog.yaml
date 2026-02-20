@@ -3,11 +3,11 @@ build:
   python_version: "3.12"
   python_packages:
     - "numpy<2"
-    - "torch==2.2.2"
-    - "torchaudio==2.2.2"
+    - "torch==2.5.1"
+    - "torchaudio==2.5.1"
   run:
-    # Pre-download wav2vec2-large model into the Docker image so cold starts skip the download.
-    - "python -c \"import torchaudio; torchaudio.pipelines.WAV2VEC2_ASR_LARGE_960H.get_model()\""
+    # Pre-download MMS forced-alignment model into the Docker image so cold starts skip the download.
+    - "python -c \"import torchaudio; torchaudio.pipelines.MMS_FA.get_model()\""
     # Pre-download CMU Pronouncing Dictionary so setup doesn't depend on GitHub availability.
     # Use /opt (not /tmp) — some runtimes mount a fresh tmpfs on /tmp, losing build artifacts.
     - "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/cmusphinx/cmudict/master/cmudict.dict', '/opt/cmudict.dict')\""
