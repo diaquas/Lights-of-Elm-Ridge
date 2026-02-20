@@ -10,12 +10,15 @@ multilingual training data.
 Returns word-level AND phoneme-level timestamps derived directly
 from the audio signal — no Whisper, no heuristic distribution.
 
-Three alignment modes (selected automatically by input):
-  1. line_timestamps provided → per-line CTC alignment (BEST for singing)
-     Constrains alignment to short audio windows from LRCLIB synced lines.
-     Prevents cross-section confusion on repetitive lyrics.
-  2. word_timestamps provided → phoneme-only within word boundaries (legacy)
-  3. Neither → full-file CTC alignment (fallback)
+Alignment modes:
+  1. Full-file CTC alignment (DEFAULT, best for singing)
+     Aligns the entire transcript against the full audio in one pass.
+     Lets CTC place word boundaries naturally without per-line
+     compression artifacts.  Duration caps prevent held-note drift.
+  2. Per-line CTC alignment (opt-in via per_line_mode=True)
+     Constrains CTC to LRCLIB line windows.  Can cause timing
+     compression when a held note absorbs an entire window.
+  3. word_timestamps provided → phoneme-only within word boundaries (legacy)
 
 Deploy:
   cog login
@@ -240,7 +243,12 @@ class Predictor(BasePredictor):
         self,
         audio_file: Path = Input(description="Audio file (.wav, .mp3, etc.)"),
         transcript: str = Input(
-            description="Plain text lyrics/transcript to align"
+            description=(
+                "Plain text lyrics/transcript to align. Optional when "
+                "line_timestamps are provided — transcript is built from "
+                "line texts automatically."
+            ),
+            default="",
         ),
         word_timestamps: str = Input(
             description=(
@@ -257,8 +265,9 @@ class Predictor(BasePredictor):
                 "Optional JSON array of line-level timestamps from LRCLIB "
                 "synced lyrics. Each entry: "
                 '{"text": "like the words of a song", "startMs": 8450}. '
-                "When provided, uses per-line CTC forced alignment for both "
-                "word AND phoneme boundaries — no Whisper needed."
+                "Line texts are concatenated to build the transcript for "
+                "full-file CTC alignment. Set per_line_mode=True to use "
+                "per-line windowed alignment instead."
             ),
             default="",
         ),
@@ -272,6 +281,16 @@ class Predictor(BasePredictor):
             ),
             default=True,
         ),
+        per_line_mode: bool = Input(
+            description=(
+                "When True and line_timestamps are provided, uses per-line "
+                "CTC alignment (constrains alignment to LRCLIB line windows). "
+                "Default False: full-file CTC alignment produces more natural "
+                "word durations and avoids compression artifacts from tight "
+                "line windows."
+            ),
+            default=False,
+        ),
     ) -> str:
         """Align transcript to audio, returning word + phoneme timestamps."""
         # Load and resample audio
@@ -284,18 +303,32 @@ class Predictor(BasePredictor):
         line_times = self._parse_line_timestamps(line_timestamps)
         word_times = self._parse_word_timestamps(word_timestamps)
 
-        if line_times:
-            # Preferred: per-line CTC → word + phoneme alignment
+        # Build transcript from line timestamps if not provided directly
+        if not transcript.strip() and line_times:
+            transcript = " ".join(lt["text"].strip() for lt in line_times)
+            print(
+                f"Built transcript from {len(line_times)} lines: "
+                f"{len(transcript)} chars",
+                file=sys.stderr,
+            )
+
+        if per_line_mode and line_times:
+            # Opt-in: per-line CTC → word + phoneme alignment
             print(f"Per-line CTC alignment: {len(line_times)} lines", file=sys.stderr)
             return self._align_by_lines(waveform, line_times, refine_onsets)
         elif word_times:
             # Legacy: phoneme alignment within pre-established word boundaries
             print(f"Word-boundary alignment: {len(word_times)} words", file=sys.stderr)
             return self._align_with_word_boundaries(waveform, word_times, refine_onsets)
-        else:
-            # Fallback: full-file CTC word + phoneme alignment
-            print("Full-file CTC alignment", file=sys.stderr)
+        elif transcript.strip():
+            # Preferred: full-file CTC word + phoneme alignment
+            print(f"Full-file CTC alignment: {len(transcript)} chars", file=sys.stderr)
             return self._align_full_ctc(waveform, transcript, refine_onsets)
+        else:
+            return json.dumps({
+                "words": [],
+                "error": "No transcript or line_timestamps provided",
+            })
 
     # ── Per-line CTC alignment (preferred path) ──────────────────────
 
@@ -594,15 +627,16 @@ class Predictor(BasePredictor):
             print(f"CTC phoneme alignment failed: {e}", file=sys.stderr)
             return self._distribute_evenly(phonemes_arpabet, offset_s, word_end_s)
 
-    # ── Full-file CTC alignment (no line timestamps) ─────────────────
+    # ── Full-file CTC alignment (preferred path) ────────────────────
 
     def _align_full_ctc(self, waveform, transcript, refine_onsets=True):
-        """Full-file CTC word + phoneme alignment without line boundaries.
+        """Full-file CTC word + phoneme alignment (preferred path).
 
         Runs one forward pass, aligns the entire transcript to the audio,
         then does per-word phoneme alignment using the same emissions.
-        Better than Whisper (can't hallucinate) but less precise than
-        per-line alignment for repetitive lyrics.
+        Lets CTC place word boundaries naturally across the full audio
+        without per-line compression artifacts.  Duration caps prevent
+        held-note drift where a single vowel absorbs seconds of audio.
         """
         audio_duration_s = waveform.shape[1] / self.sample_rate
 
@@ -613,7 +647,13 @@ class Predictor(BasePredictor):
         total_frames = full_emission.shape[0]
         frame_duration_s = audio_duration_s / total_frames
 
-        # CTC-align the full transcript to get word boundaries
+        print(
+            f"Audio: {audio_duration_s:.1f}s, {total_frames} frames, "
+            f"{frame_duration_s*1000:.1f}ms/frame",
+            file=sys.stderr,
+        )
+
+        # Phase 1: CTC-align the full transcript to get word boundaries
         word_spans = self._ctc_align_words(
             full_emission, transcript, 0.0, frame_duration_s
         )
@@ -621,7 +661,10 @@ class Predictor(BasePredictor):
         if not word_spans:
             return json.dumps({"words": [], "error": "CTC alignment failed"})
 
-        # For each word, do phoneme-level CTC alignment
+        # Phase 2: Cap extreme word durations before phoneme alignment
+        word_spans = self._cap_word_spans(word_spans)
+
+        # Phase 3: For each word, do phoneme-level CTC alignment
         results = []
         for word_text, word_start_s, word_end_s in word_spans:
             ws_frame = max(0, int(word_start_s / frame_duration_s))
@@ -1272,6 +1315,52 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
         return start, end
+
+    # ── Duration safety caps ─────────────────────────────────────────
+
+    @staticmethod
+    def _cap_word_spans(word_spans, max_word_s=2.0, min_word_s=0.04):
+        """Safety caps on word durations to prevent CTC drift artifacts.
+
+        In singing, held notes cause CTC to assign excessive duration to
+        one word (especially vowels sustaining over reverb tails) while
+        crushing its neighbors.  This caps extreme durations and enforces
+        a minimum floor BEFORE phoneme alignment, so phonemes are
+        distributed within reasonable word windows.
+
+        Strategy:
+          - Cap from end: onset timing is more accurate than offset, so
+            we trust word_start and trim word_end to start + max_word_s.
+          - Floor by extending end: don't overlap the next word.
+        """
+        capped_count = 0
+        floored_count = 0
+        result = []
+
+        for i, (word, start, end) in enumerate(word_spans):
+            dur = end - start
+
+            if dur > max_word_s:
+                end = start + max_word_s
+                capped_count += 1
+            elif dur < min_word_s:
+                desired_end = start + min_word_s
+                # Don't overlap next word
+                if i + 1 < len(word_spans):
+                    desired_end = min(desired_end, word_spans[i + 1][1])
+                end = max(end, desired_end)
+                floored_count += 1
+
+            result.append((word, round(start, 4), round(end, 4)))
+
+        if capped_count or floored_count:
+            print(
+                f"Duration caps: {capped_count} words capped at {max_word_s}s, "
+                f"{floored_count} words floored at {min_word_s*1000:.0f}ms",
+                file=sys.stderr,
+            )
+
+        return result
 
     # ── Shared helpers ────────────────────────────────────────────────
 
