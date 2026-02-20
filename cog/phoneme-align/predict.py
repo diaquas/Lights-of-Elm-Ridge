@@ -31,8 +31,10 @@ import torch  # noqa: E402
 import torchaudio  # noqa: E402
 from cog import BasePredictor, Input, Path  # noqa: E402
 
-# Lazy-import librosa at module level (heavy import, loaded once).
-import librosa  # noqa: E402
+# Lazy-import librosa only when onset refinement is needed.
+# Importing at module level pulls in numba + scipy + llvmlite at startup,
+# adding ~200MB RSS before setup() even runs — risks OOM on constrained workers.
+librosa = None  # noqa: E402
 
 # CMU Pronouncing Dictionary — maps lowercase words to ARPAbet.
 CMU_DICT_URL = (
@@ -44,7 +46,7 @@ def _load_cmu_dict():
     """Load CMU dictionary from bundled file or download."""
     import urllib.request
 
-    cmu_path = "/tmp/cmudict.dict"  # noqa: S108 — temp path in container
+    cmu_path = "/opt/cmudict.dict"  # Persistent path — survives tmpfs on /tmp
     if not os.path.exists(cmu_path):
         urllib.request.urlretrieve(CMU_DICT_URL, cmu_path)
 
@@ -173,17 +175,30 @@ ARPABET_TO_CHARS = {
 class Predictor(BasePredictor):
     def setup(self):
         """Load models on cold start — wav2vec2 + CMU dictionary."""
+        print("phoneme-align setup: starting", file=sys.stderr)
+
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"phoneme-align setup: device={self.device}", file=sys.stderr)
 
-        bundle = torchaudio.pipelines.WAV2VEC2_ASR_LARGE_960H
-        self.model = bundle.get_model().to(self.device)
-        self.labels = bundle.get_labels()
-        self.sample_rate = bundle.sample_rate  # 16000
+        try:
+            bundle = torchaudio.pipelines.WAV2VEC2_ASR_LARGE_960H
+            self.model = bundle.get_model().to(self.device)
+            self.labels = bundle.get_labels()
+            self.sample_rate = bundle.sample_rate  # 16000
+            self.label_to_idx = {label: i for i, label in enumerate(self.labels)}
+            print(f"phoneme-align setup: wav2vec2 loaded ({len(self.labels)} labels)", file=sys.stderr)
+        except Exception as e:
+            print(f"phoneme-align setup: FAILED loading wav2vec2: {e}", file=sys.stderr)
+            raise
 
-        self.label_to_idx = {label: i for i, label in enumerate(self.labels)}
+        try:
+            self.cmu_dict = _load_cmu_dict()
+            print(f"phoneme-align setup: CMU dictionary loaded ({len(self.cmu_dict)} entries)", file=sys.stderr)
+        except Exception as e:
+            print(f"phoneme-align setup: FAILED loading CMU dict: {e}", file=sys.stderr)
+            raise
 
-        self.cmu_dict = _load_cmu_dict()
-        print(f"Loaded CMU dictionary: {len(self.cmu_dict)} entries", file=sys.stderr)
+        print("phoneme-align setup: complete", file=sys.stderr)
 
     def predict(
         self,
@@ -693,6 +708,11 @@ class Predictor(BasePredictor):
 
     def _refine_with_onsets_impl(self, waveform, results):
         """Inner implementation of onset refinement (wrapped by try/except)."""
+        global librosa  # noqa: PLW0603
+        if librosa is None:
+            import librosa as _librosa
+            librosa = _librosa
+
         waveform_np = waveform.squeeze(0).numpy()
         sr = self.sample_rate
 
