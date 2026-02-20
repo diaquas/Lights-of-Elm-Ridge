@@ -56,33 +56,13 @@ DRUM_BANDS = {
 
 class Predictor(BasePredictor):
     def setup(self):
-        """Pre-create Essentia algorithm objects on cold start.
+        """Warm up — no persistent algorithm state.
 
-        Essentia C++ algorithms allocate internal buffers on construction.
-        Creating them once here avoids repeated allocation on every predict().
+        Essentia C++ algorithms are stateful (internal buffers carry state
+        between calls). They must be created fresh for each predict() call
+        to avoid cross-prediction contamination.
         """
-        # Core signal processing (reused by all onset detection calls)
-        self._windowing = es.Windowing(type="hann")
-        self._fft = es.FFT()
-        self._c2p = es.CartesianToPolar()
-
-        # One OnsetDetection per method — covers all stem types
-        self._onset_detectors = {
-            "hfc": es.OnsetDetection(method="hfc"),
-            "complex": es.OnsetDetection(method="complex"),
-            "melflux": es.OnsetDetection(method="melflux"),
-        }
-
-        # Rhythm extraction
-        self._rhythm = es.RhythmExtractor2013(method="multifeature")
-
-        # Section detection (chroma analysis)
-        self._sec_windowing = es.Windowing(type="blackmanharris62")
-        self._sec_spectrum = es.Spectrum()
-        self._sec_peaks = es.SpectralPeaks(
-            sampleRate=44100, maxPeaks=60, magnitudeThreshold=0.001
-        )
-        self._sec_hpcp = es.HPCP(size=12, sampleRate=44100)
+        pass
 
     def predict(
         self,
@@ -130,7 +110,7 @@ class Predictor(BasePredictor):
                 )
 
         # --- Beat / BPM Detection ---
-        rhythm = self._rhythm(audio_data)
+        rhythm = es.RhythmExtractor2013(method="multifeature")(audio_data)
         results["bpm"] = round(float(rhythm[0]), 1)
         results["beats"] = [round(float(t), 4) for t in rhythm[1]]
         results["beat_confidence"] = round(float(rhythm[2]), 3)
@@ -144,10 +124,10 @@ class Predictor(BasePredictor):
 
     def _detect_onsets(self, audio_data, method, threshold):
         """Run frame-by-frame onset detection and return onset times (seconds)."""
-        od = self._onset_detectors[method]
-        w = self._windowing
-        fft = self._fft
-        c2p = self._c2p
+        od = es.OnsetDetection(method=method)
+        w = es.Windowing(type="hann")
+        fft = es.FFT()
+        c2p = es.CartesianToPolar()
 
         onset_features = []
         for frame in es.FrameGenerator(audio_data, frameSize=1024, hopSize=512):
@@ -182,11 +162,13 @@ class Predictor(BasePredictor):
         sr = 44100
         hop = 4096  # ~93ms per frame — good resolution for structure
 
-        # Compute chroma (HPCP) features per frame (using cached algorithms)
-        w = self._sec_windowing
-        spec = self._sec_spectrum
-        peaks = self._sec_peaks
-        hpcp = self._sec_hpcp
+        # Compute chroma (HPCP) features per frame
+        w = es.Windowing(type="blackmanharris62")
+        spec = es.Spectrum()
+        peaks = es.SpectralPeaks(
+            sampleRate=44100, maxPeaks=60, magnitudeThreshold=0.001
+        )
+        hpcp = es.HPCP(size=12, sampleRate=44100)
 
         chroma_frames = []
         for frame in es.FrameGenerator(
