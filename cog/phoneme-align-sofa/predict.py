@@ -290,10 +290,9 @@ class Predictor(BasePredictor):
         ),
         per_line_mode: bool = Input(
             description=(
-                "When True and line_timestamps are provided, uses per-line "
-                "alignment (constrains alignment to LRCLIB line windows). "
-                "Default False: full-file alignment produces more natural "
-                "word durations."
+                "Legacy flag — per-line alignment is now automatic when "
+                "line_timestamps are provided. Only set False to force "
+                "full-file alignment with line-aware chunking instead."
             ),
             default=False,
         ),
@@ -318,7 +317,13 @@ class Predictor(BasePredictor):
                 file=sys.stderr,
             )
 
-        if per_line_mode and line_times:
+        # When line timestamps are available, per-line alignment is the
+        # best path: each line's audio window constrains SOFA so it can't
+        # drift across structural boundaries (choruses, bridges).
+        # per_line_mode=False only disables this when explicitly overridden.
+        use_per_line = line_times and (per_line_mode or not word_times)
+
+        if use_per_line:
             print(f"Per-line SOFA alignment: {len(line_times)} lines", file=sys.stderr)
             return self._align_by_lines(waveform, line_times)
         elif word_times:
@@ -392,6 +397,7 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
 
+        results = self._extend_held_notes(results)
         return json.dumps({"words": results})
 
     # ── VAD-based chunked alignment ────────────────────────────────
@@ -537,6 +543,7 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
 
+        all_results = self._extend_held_notes(all_results)
         return json.dumps({"words": all_results})
 
     # ── Silence detection ──────────────────────────────────────────
@@ -890,6 +897,7 @@ class Predictor(BasePredictor):
 
         print(f"Aligned {len(results)} words across {len(line_times)} lines", file=sys.stderr)
 
+        results = self._extend_held_notes(results)
         return json.dumps({"words": results})
 
     # ── Legacy: phoneme alignment within word boundaries ────────────
@@ -994,6 +1002,7 @@ class Predictor(BasePredictor):
                     ),
                 })
 
+        results = self._extend_held_notes(results)
         return json.dumps({"words": results})
 
     # ── Mel spectrogram preparation ─────────────────────────────────
@@ -1135,6 +1144,53 @@ class Predictor(BasePredictor):
                 "end": round(word_end, 4),
                 "phonemes": phonemes,
             })
+
+        return results
+
+    # ── Held-note end extension ──────────────────────────────────────
+
+    @staticmethod
+    def _extend_held_notes(results, max_extend_s=0.5):
+        """Extend word endings into silence gaps.
+
+        SOFA cuts word boundaries tightly around acoustic energy, but
+        singing sustains notes through silence gaps that precede the next
+        word. When the gap between consecutive words exceeds a threshold,
+        extend the current word's end (and its last phoneme) toward the
+        gap midpoint, capped at max_extend_s.
+
+        This only extends *endings* — start boundaries from SOFA are
+        trusted and never moved.
+        """
+        if len(results) < 2:
+            return results
+
+        MIN_GAP_S = 0.10  # Only extend if gap > 100ms
+        extended = 0
+
+        for i in range(len(results) - 1):
+            gap = results[i + 1]["start"] - results[i]["end"]
+            if gap <= MIN_GAP_S:
+                continue
+
+            # Extend to gap midpoint, capped at max_extend_s.
+            extension = min(gap / 2, max_extend_s)
+            new_end = round(results[i]["end"] + extension, 4)
+            results[i]["end"] = new_end
+
+            # Extend the last phoneme to match the new word end.
+            phonemes = results[i].get("phonemes", [])
+            if phonemes:
+                phonemes[-1]["end"] = new_end
+
+            extended += 1
+
+        if extended:
+            print(
+                f"Held-note extension: extended {extended} word endings "
+                f"into silence gaps (max {max_extend_s*1000:.0f}ms)",
+                file=sys.stderr,
+            )
 
         return results
 

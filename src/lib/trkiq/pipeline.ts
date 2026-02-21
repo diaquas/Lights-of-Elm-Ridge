@@ -183,12 +183,14 @@ export async function runPipeline(
     // synced version (the auto-fetch may have returned plain-only).
     if (!lyrics.syncedLines || lyrics.syncedLines.length === 0) {
       try {
-        // Try exact match and artist+title search for synced lines.
-        // Skip title-only search — it can return a completely different
-        // song that just happens to share the same title.
+        // Try progressively looser searches for synced lines.
+        // Title-only is risky for plain lyrics (wrong song) but acceptable
+        // here because we already HAVE the correct lyrics text and only
+        // need the synced timing — duration mismatch catches wrong songs.
         const candidates = [
           () => fetchLyrics(metadata.artist, metadata.title),
           () => searchLyrics(`${metadata.artist} ${metadata.title}`),
+          () => searchLyrics(metadata.title),
         ];
         for (const tryFetch of candidates) {
           const result = await tryFetch();
@@ -408,17 +410,21 @@ export async function runPipeline(
       );
 
       if (alignedWords && alignedWords.length > 0) {
-        // Try adding phoneme-level detail via SOFA word-boundary mode.
-        // This runs SOFA on each word's audio window independently —
-        // much cheaper than full-file and doesn't need chunking.
+        // Synthesize line timestamps from force-align word gaps, then
+        // re-run SOFA in per-line mode. This is dramatically better than
+        // word-boundary mode: SOFA sees full line context for each
+        // alignment window instead of isolated single words.
+        const synthLines = synthesizeLineTimestamps(alignedWords);
         appendLog(
           "lyrics",
-          `Word alignment complete (${alignedWords.length} words) — adding phonemes`,
+          `Word alignment complete (${alignedWords.length} words) → ` +
+            `synthesized ${synthLines.length} line anchors — re-running SOFA`,
         );
-        const phonemeEnriched = await runPhonemeAlign(
+
+        const phonemeEnriched = await runUnifiedAlign(
           stems.vocals,
           lyrics!,
-          alignedWords,
+          synthLines.length > 0 ? synthLines : undefined,
           (msg, phase) => {
             const sp = phase === "queued" ? 55 : 75;
             update("lyrics", "active", msg, phase, sp);
@@ -577,6 +583,55 @@ function getAudioDuration(file: File): Promise<number> {
 }
 
 /**
+ * Synthesize line-level timestamps from force-aligned word timestamps.
+ *
+ * When LRCLIB doesn't have synced lyrics, this bridges the gap: force-align
+ * gives us word-level timing from Whisper, and we group consecutive words
+ * into lines based on silence gaps. The resulting LineTimestamp[] can be
+ * fed to SOFA for per-line windowed alignment — dramatically better than
+ * full-file mode on songs >45s.
+ *
+ * Line break heuristic: a gap > LINE_GAP_MS between consecutive words
+ * indicates a phrase boundary (natural singing pause between lines).
+ */
+function synthesizeLineTimestamps(
+  words: AlignedWord[],
+): LineTimestamp[] {
+  if (words.length === 0) return [];
+
+  const LINE_GAP_MS = 400; // Gap > 400ms → new line
+  const lines: LineTimestamp[] = [];
+  let lineWords: string[] = [words[0].text];
+  let lineStartMs = words[0].startMs;
+
+  for (let i = 1; i < words.length; i++) {
+    const gap = words[i].startMs - words[i - 1].endMs;
+
+    if (gap > LINE_GAP_MS) {
+      // Close current line, start new one.
+      lines.push({
+        text: normalizeTranscript(lineWords.join(" ")),
+        startMs: lineStartMs,
+      });
+      lineWords = [words[i].text];
+      lineStartMs = words[i].startMs;
+    } else {
+      lineWords.push(words[i].text);
+    }
+  }
+
+  // Close final line.
+  if (lineWords.length > 0) {
+    lines.push({
+      text: normalizeTranscript(lineWords.join(" ")),
+      startMs: lineStartMs,
+    });
+  }
+
+  return lines.filter((l) => l.text.length > 0);
+}
+
+/**
  * Normalize lyrics text for force-alignment.
  *
  * Force-align works best with clean, predictable input. This strips
@@ -612,6 +667,13 @@ function normalizeTranscript(text: string): string {
       .replace(/\bsomthin'\b/gi, "something")
       .replace(/\bcomin'\b/gi, "coming")
       .replace(/\bgoin'\b/gi, "going")
+      // Strip vocalization words that confuse SOFA alignment — background
+      // vocals, ad-libs, and syllabic fillers the human annotator omits.
+      // Handles hyphenated compounds (whoa-oh-whoa-oh-oh) and standalone.
+      .replace(
+        /\b(?:(?:wh?oah?|o+h|ah+|na|la|da|hey|hm+|sh+|oo+h?)[-‐])*(?:wh?oah?|o+h|ah+|na|la|da|hey|hm+|sh+|oo+h?)\b/gi,
+        "",
+      )
       // Collapse multiple spaces / blank lines
       .replace(/[ \t]+/g, " ")
       .replace(/\n{3,}/g, "\n\n")
