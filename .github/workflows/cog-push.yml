@@ -222,7 +222,7 @@ jobs:
         working-directory: cog/phoneme-align-sofa
         run: |
           echo "Pushing to r8.im/diaquas/phoneme-align-sofa"
-          cog push "r8.im/diaquas/phoneme-align-sofa" --no-cache
+          cog push "r8.im/diaquas/phoneme-align-sofa"
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
 
