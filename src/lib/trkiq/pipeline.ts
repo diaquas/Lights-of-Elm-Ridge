@@ -612,6 +612,13 @@ function normalizeTranscript(text: string): string {
       .replace(/\bsomthin'\b/gi, "something")
       .replace(/\bcomin'\b/gi, "coming")
       .replace(/\bgoin'\b/gi, "going")
+      // Strip vocalization words that confuse SOFA alignment — background
+      // vocals, ad-libs, and syllabic fillers the human annotator omits.
+      // Handles hyphenated compounds (whoa-oh-whoa-oh-oh) and standalone.
+      .replace(
+        /\b(?:(?:wh?oah?|o+h|ah+|na|la|da|hey|hm+|sh+|oo+h?)[-‐])*(?:wh?oah?|o+h|ah+|na|la|da|hey|hm+|sh+|oo+h?)\b/gi,
+        "",
+      )
       // Collapse multiple spaces / blank lines
       .replace(/[ \t]+/g, " ")
       .replace(/\n{3,}/g, "\n\n")
