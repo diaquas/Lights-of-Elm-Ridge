@@ -1,0 +1,34 @@
+build:
+  gpu: true
+  python_version: "3.10"
+  python_packages:
+    - "numpy<2"
+    - "torch==2.5.1"
+    - "torchaudio==2.5.1"
+    - "lightning>=2.0,<3"
+    - "einops==0.6.1"
+    - "numba>=0.58"
+    - "librosa<0.10.0"
+    - "matplotlib>=3.7,<4"
+    - "pyyaml>=6.0"
+    - "textgrid"
+    - "chardet"
+    - "tqdm"
+    - "h5py"
+    - "pandas"
+    - "tensorboard"
+  run:
+    # Clone SOFA (Singing-Oriented Forced Aligner) into the image.
+    - "git clone --depth 1 https://github.com/qiuqiao/SOFA.git /opt/SOFA"
+    # Download English pretrained model (tgm_en_v100 by spicytigermeat, MIT license).
+    - "curl -L -o /opt/SOFA/tgm_en_v100.ckpt https://github.com/spicytigermeat/SOFA-Models/releases/download/v1.0.0_en/tgm_en_v100.ckpt"
+    # Download English SOFA dictionary (ARPAbet, tab-separated).
+    - "curl -L -o /opt/SOFA/tgm_sofa_dict.txt https://raw.githubusercontent.com/spicytigermeat/SOFA-Models/main/tgm_sofa_dict.txt"
+    # Pre-download CMU Pronouncing Dictionary as G2P fallback.
+    - "python -c \"import urllib.request; urllib.request.urlretrieve('https://raw.githubusercontent.com/cmusphinx/cmudict/master/cmudict.dict', '/opt/cmudict.dict')\""
+    # Warm up numba JIT so first inference isn't slow.
+    - "cd /opt/SOFA && python -c \"import numba; numba.jit(lambda: None)()\""
+  system_packages:
+    - "ffmpeg"
+    - "git"
+predict: "predict.py:Predictor"
