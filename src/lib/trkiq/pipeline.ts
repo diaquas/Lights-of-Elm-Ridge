@@ -179,7 +179,21 @@ export async function runPipeline(
   let lyrics: LyricsData | null = existingLyrics ?? null;
 
   if (lyrics && lyrics.plainText.trim().length > 0) {
-    // Already have lyrics — no fetch needed
+    // Have lyrics text — but if no synced lines, try LRCLIB for a
+    // synced version (the auto-fetch may have returned plain-only).
+    if (!lyrics.syncedLines || lyrics.syncedLines.length === 0) {
+      try {
+        const synced =
+          (await fetchLyrics(metadata.artist, metadata.title)) ||
+          (await searchLyrics(`${metadata.artist} ${metadata.title}`)) ||
+          (await searchLyrics(metadata.title));
+        if (synced?.syncedLines && synced.syncedLines.length > 0) {
+          lyrics = { ...lyrics, syncedLines: synced.syncedLines };
+        }
+      } catch {
+        // Synced lyrics fetch failed — continue with plain text
+      }
+    }
   } else {
     try {
       lyrics =
