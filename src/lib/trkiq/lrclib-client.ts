@@ -151,7 +151,9 @@ export async function searchLyrics(query: string): Promise<LyricsData | null> {
  * Example: [00:12.34]Hello world
  */
 export function parseLrc(lrc: string): SyncedLine[] {
-  const lines = lrc.split("\n");
+  // Normalize \r\n → \n before splitting (LRCLIB entries often have
+  // Windows line endings depending on how they were submitted).
+  const lines = lrc.replace(/\r\n?/g, "\n").split("\n");
   const result: SyncedLine[] = [];
 
   for (const line of lines) {

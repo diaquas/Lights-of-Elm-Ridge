@@ -78,5 +78,25 @@ describe("lrclib-client", () => {
       const result = parseLrc(lrc);
       expect(result[0].text).toBe("padded text");
     });
+
+    it("handles Windows \\r\\n line endings", () => {
+      const lrc = [
+        "[00:08.53]First line",
+        "[00:12.00]Second line",
+        "[00:21.71]Third line",
+      ].join("\r\n");
+
+      const result = parseLrc(lrc);
+      expect(result).toHaveLength(3);
+      expect(result[0]).toEqual({ timeMs: 8530, text: "First line" });
+      expect(result[1]).toEqual({ timeMs: 12000, text: "Second line" });
+      expect(result[2]).toEqual({ timeMs: 21710, text: "Third line" });
+    });
+
+    it("handles bare \\r line endings", () => {
+      const lrc = "[00:01.00]Line A\r[00:02.00]Line B";
+      const result = parseLrc(lrc);
+      expect(result).toHaveLength(2);
+    });
   });
 });
