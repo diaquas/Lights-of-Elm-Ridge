@@ -450,8 +450,8 @@ export default function UploadScreen({
                 onChange={(e) =>
                   onLyricsChange({
                     plainText: e.target.value,
-                    syncedLines: null,
-                    source: "user",
+                    syncedLines: lyrics?.syncedLines ?? null,
+                    source: lyrics?.source === "lrclib" ? "lrclib" : "user",
                   })
                 }
                 className="w-full bg-background border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-foreground/25 resize-none focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50"
