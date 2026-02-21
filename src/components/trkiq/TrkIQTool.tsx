@@ -89,24 +89,30 @@ export default function TrkIQTool() {
     // Auto-fetch lyrics from LRCLIB using the extracted metadata.
     // Chain: exact match → artist+title search → title-only search
     // (title-only catches covers where the artist doesn't match LRCLIB)
-    // We prefer results with synced lines — the exact /api/get match may
-    // return plain-only while search results have synced timestamps.
+    //
+    // The || chain short-circuits on the first truthy result, which ensures
+    // the exact match (most likely the correct song) wins even if it only
+    // has plain text.  We then try an artist+title search separately to
+    // upgrade to synced lines — but never a title-only search, which can
+    // return a completely different song.
     if (artist && title) {
       (async () => {
-        const sources = [
-          () => fetchLyrics(artist, title),
-          () => searchLyrics(`${artist} ${title}`),
-          () => searchLyrics(title),
-        ];
-        let result: LyricsData | null = null;
-        for (const tryFetch of sources) {
-          const candidate = await tryFetch();
-          if (candidate?.syncedLines && candidate.syncedLines.length > 0) {
-            result = candidate;
-            break;
-          }
-          if (!result && candidate) {
-            result = candidate;
+        let result =
+          (await fetchLyrics(artist, title)) ||
+          (await searchLyrics(`${artist} ${title}`)) ||
+          (await searchLyrics(title));
+
+        // If the primary result has no synced lines, try artist+title
+        // search for a synced version.  Skip title-only search here —
+        // it risks pulling synced lines from a different song entirely.
+        if (result && (!result.syncedLines || result.syncedLines.length === 0)) {
+          try {
+            const synced = await searchLyrics(`${artist} ${title}`);
+            if (synced?.syncedLines && synced.syncedLines.length > 0) {
+              result = { ...result, syncedLines: synced.syncedLines };
+            }
+          } catch {
+            // Synced upgrade failed — continue with plain text
           }
         }
 
