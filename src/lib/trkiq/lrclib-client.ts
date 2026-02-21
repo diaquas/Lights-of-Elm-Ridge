@@ -61,7 +61,7 @@ async function proxySearch(query: string): Promise<LrclibResponse | null> {
 
     if (error) return null;
     if (!data?.results || data.results.length === 0) return null;
-    return data.results[0] as LrclibResponse;
+    return pickBestResult(data.results as LrclibResponse[]);
   } catch {
     return null;
   }
@@ -92,7 +92,21 @@ async function directSearch(query: string): Promise<LrclibResponse | null> {
 
   const results: LrclibResponse[] = await response.json();
   if (results.length === 0) return null;
-  return results[0];
+  return pickBestResult(results);
+}
+
+/* ── Result ranking ───────────────────────────────────────────────── */
+
+/**
+ * Pick the best LRCLIB search result — strongly prefer entries with
+ * synced lyrics since line timestamps are critical for SOFA accuracy.
+ * Falls back to the first result if none have synced lyrics.
+ */
+function pickBestResult(results: LrclibResponse[]): LrclibResponse {
+  return (
+    results.find((r) => r.syncedLyrics && r.syncedLyrics.length > 0) ??
+    results[0]
+  );
 }
 
 /* ── Shared helpers ────────────────────────────────────────────────── */

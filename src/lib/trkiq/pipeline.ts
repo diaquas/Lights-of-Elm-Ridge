@@ -183,12 +183,14 @@ export async function runPipeline(
     // synced version (the auto-fetch may have returned plain-only).
     if (!lyrics.syncedLines || lyrics.syncedLines.length === 0) {
       try {
-        // Try exact match and artist+title search for synced lines.
-        // Skip title-only search — it can return a completely different
-        // song that just happens to share the same title.
+        // Try progressively looser searches for synced lines.
+        // Title-only is risky for plain lyrics (wrong song) but acceptable
+        // here because we already HAVE the correct lyrics text and only
+        // need the synced timing — duration mismatch catches wrong songs.
         const candidates = [
           () => fetchLyrics(metadata.artist, metadata.title),
           () => searchLyrics(`${metadata.artist} ${metadata.title}`),
+          () => searchLyrics(metadata.title),
         ];
         for (const tryFetch of candidates) {
           const result = await tryFetch();
