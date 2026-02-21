@@ -516,6 +516,16 @@ class Predictor(BasePredictor):
                     word_seq_pred, word_intervals_pred,
                     ph_seq_pred, ph_intervals_pred,
                 )
+
+                # Refine onsets per-chunk (not full-waveform) to avoid OOM.
+                if chunk_results:
+                    chunk_results = self._enforce_vowel_duration(chunk_results)
+                if refine_onsets and chunk_results:
+                    chunk_waveform = waveform[:, start_sample:end_sample]
+                    chunk_results = self._refine_with_onsets(
+                        chunk_waveform, chunk_results, time_offset=seg_start,
+                    )
+
                 all_results.extend(chunk_results)
 
                 print(
@@ -556,11 +566,6 @@ class Predictor(BasePredictor):
             f"Chunked alignment complete: {len(all_results)} words total",
             file=sys.stderr,
         )
-
-        if all_results:
-            all_results = self._enforce_vowel_duration(all_results)
-        if refine_onsets and all_results:
-            all_results = self._refine_with_onsets(waveform, all_results)
 
         return json.dumps({"words": all_results})
 
@@ -1330,18 +1335,24 @@ class Predictor(BasePredictor):
 
     # ── Onset refinement ────────────────────────────────────────────
 
-    def _refine_with_onsets(self, waveform, results):
+    def _refine_with_onsets(self, waveform, results, time_offset=0.0):
         """Post-process boundaries using spectral onset detection.
 
         Searches ±55ms around word boundaries and ±25ms around phoneme
         boundaries, snapping to the nearest spectral onset at ~8ms
         resolution via torch STFT spectral flux.
+
+        Args:
+            time_offset: absolute time (seconds) of waveform start.
+                Results carry absolute timestamps; this offset is
+                subtracted to convert to waveform-local time for
+                frame indexing, then added back to refined times.
         """
         if not results:
             return results
 
         try:
-            return self._refine_with_onsets_impl(waveform, results)
+            return self._refine_with_onsets_impl(waveform, results, time_offset)
         except Exception as e:
             print(
                 f"Onset refinement failed, returning raw results: {e}",
@@ -1349,11 +1360,11 @@ class Predictor(BasePredictor):
             )
             return results
 
-    def _refine_with_onsets_impl(self, waveform, results):
+    def _refine_with_onsets_impl(self, waveform, results, time_offset=0.0):
         """Inner implementation of onset refinement."""
         sr = self.sample_rate
 
-        HOP = max(1, sr // 2000)  # ~8ms frames at any sample rate
+        HOP = max(1, int(sr * 0.008))  # ~8ms frames at any sample rate
         N_FFT = min(2048, sr // 4) * 2  # reasonable FFT size
 
         mono = waveform.squeeze(0)
@@ -1376,10 +1387,11 @@ class Predictor(BasePredictor):
         min_peak_strength = onset_mean + 0.25 * onset_std
 
         def time_to_frame(t):
-            return min(max(0, int(t * sr / HOP)), total_onset_frames - 1)
+            local = t - time_offset
+            return min(max(0, int(local * sr / HOP)), total_onset_frames - 1)
 
         def frame_to_time(f):
-            return f * HOP / sr
+            return f * HOP / sr + time_offset
 
         WORD_RADIUS_S = 0.055
         PHONEME_RADIUS_S = 0.025

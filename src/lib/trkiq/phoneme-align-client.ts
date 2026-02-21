@@ -16,7 +16,7 @@ import type { PredictionStatus } from "./types";
 import type { ForceAlignWord } from "./force-align-client";
 
 const POLL_INTERVAL_MS = 2000;
-const MAX_POLL_ATTEMPTS = 150; // 5 minutes max
+const MAX_POLL_ATTEMPTS = 300; // 10 minutes max
 
 /** A single phoneme timestamp from the phoneme-align model */
 export interface PhonemeTimestamp {
