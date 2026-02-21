@@ -157,6 +157,16 @@ export default function AdminPage() {
             </h3>
             <p className="text-sm text-foreground/60">Content planner</p>
           </Link>
+          <Link
+            href="/admin/xtiming-compare"
+            className="bg-surface rounded-xl border border-border p-4 hover:border-accent/50 transition-colors group"
+          >
+            <div className="text-2xl mb-2">🎯</div>
+            <h3 className="font-semibold group-hover:text-accent transition-colors">
+              XTiming Compare
+            </h3>
+            <p className="text-sm text-foreground/60">Alignment accuracy</p>
+          </Link>
           <a
             href="https://vercel.com/dashboard"
             target="_blank"
