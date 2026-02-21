@@ -89,12 +89,26 @@ export default function TrkIQTool() {
     // Auto-fetch lyrics from LRCLIB using the extracted metadata.
     // Chain: exact match → artist+title search → title-only search
     // (title-only catches covers where the artist doesn't match LRCLIB)
+    // We prefer results with synced lines — the exact /api/get match may
+    // return plain-only while search results have synced timestamps.
     if (artist && title) {
       (async () => {
-        const result =
-          (await fetchLyrics(artist, title)) ||
-          (await searchLyrics(`${artist} ${title}`)) ||
-          (await searchLyrics(title));
+        const sources = [
+          () => fetchLyrics(artist, title),
+          () => searchLyrics(`${artist} ${title}`),
+          () => searchLyrics(title),
+        ];
+        let result: LyricsData | null = null;
+        for (const tryFetch of sources) {
+          const candidate = await tryFetch();
+          if (candidate?.syncedLines && candidate.syncedLines.length > 0) {
+            result = candidate;
+            break;
+          }
+          if (!result && candidate) {
+            result = candidate;
+          }
+        }
 
         setSession((prev) => {
           // Don't overwrite user-pasted lyrics
