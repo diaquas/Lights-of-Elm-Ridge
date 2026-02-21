@@ -44,36 +44,6 @@ import type { PhonemeAlignWord, LineTimestamp } from "./phoneme-align-client";
 import { analyzeStems } from "./essentia-onset-client";
 import type { EssentiaOnsetResult } from "./essentia-onset-client";
 
-/**
- * Fetch lyrics from LRCLIB, preferring results with synced lines.
- *
- * The naive `fetchLyrics() || searchLyrics()` chain short-circuits on the
- * first truthy result — which may have plain text but no synced lines.
- * This helper tries all sources and returns the first result that has synced
- * lines, falling back to any result with plain text.
- */
-async function fetchLyricsPreferSynced(
-  artist: string,
-  title: string,
-): Promise<LyricsData | null> {
-  const sources = [
-    () => fetchLyrics(artist, title),
-    () => searchLyrics(`${artist} ${title}`),
-    () => searchLyrics(title),
-  ];
-  let fallback: LyricsData | null = null;
-  for (const tryFetch of sources) {
-    const result = await tryFetch();
-    if (result?.syncedLines && result.syncedLines.length > 0) {
-      return result;
-    }
-    if (!fallback && result) {
-      fallback = result;
-    }
-  }
-  return fallback;
-}
-
 /** Callback for pipeline progress updates */
 export type ProgressCallback = (pipeline: PipelineProgress[]) => void;
 
@@ -213,14 +183,12 @@ export async function runPipeline(
     // synced version (the auto-fetch may have returned plain-only).
     if (!lyrics.syncedLines || lyrics.syncedLines.length === 0) {
       try {
-        // Try each source independently — the || chain would stop on the
-        // first truthy result even if it has no synced lines (the exact
-        // /api/get match may return plain-only while search results have
-        // synced lyrics from a different submission).
+        // Try exact match and artist+title search for synced lines.
+        // Skip title-only search — it can return a completely different
+        // song that just happens to share the same title.
         const candidates = [
           () => fetchLyrics(metadata.artist, metadata.title),
           () => searchLyrics(`${metadata.artist} ${metadata.title}`),
-          () => searchLyrics(metadata.title),
         ];
         for (const tryFetch of candidates) {
           const result = await tryFetch();
@@ -235,7 +203,21 @@ export async function runPipeline(
     }
   } else {
     try {
-      lyrics = await fetchLyricsPreferSynced(metadata.artist, metadata.title);
+      // Use || chain so the exact match (correct song) wins, then
+      // upgrade to synced lines separately if needed.
+      lyrics =
+        (await fetchLyrics(metadata.artist, metadata.title)) ||
+        (await searchLyrics(`${metadata.artist} ${metadata.title}`)) ||
+        (await searchLyrics(metadata.title));
+
+      if (lyrics && (!lyrics.syncedLines || lyrics.syncedLines.length === 0)) {
+        const synced = await searchLyrics(
+          `${metadata.artist} ${metadata.title}`,
+        );
+        if (synced?.syncedLines && synced.syncedLines.length > 0) {
+          lyrics = { ...lyrics, syncedLines: synced.syncedLines };
+        }
+      }
     } catch {
       // Lyrics fetch failed — not critical
     }
