@@ -421,30 +421,36 @@ class Predictor(BasePredictor):
 
         Pipeline:
           1. Detect silence regions via RMS energy envelope
-          2. Split audio at silence boundaries into ≤ _MAX_CHUNK_S segments
-          3. Distribute words to chunks:
-             a. Line-anchored (preferred): use LRCLIB line timestamps to
-                assign words to the chunk covering each line's start time.
-             b. Voiced-duration (fallback): proportional by non-silent
-                audio per chunk — blind guess, low confidence.
-          4. Run SOFA independently on each chunk
-          5. Offset timestamps to absolute time and stitch results
+          2. Build chunks:
+             a. Line-aware (preferred): group consecutive LRCLIB lines
+                into ≤ _MAX_CHUNK_S spans, splitting only at line
+                boundaries.  Words come directly from line texts —
+                no fabricated word positions.
+             b. Silence-based (fallback): split at silence centres,
+                distribute words proportionally by voiced duration.
+          3. Run SOFA independently on each chunk
+          4. Offset timestamps to absolute time and stitch results
         """
         mono_cpu = waveform.squeeze(0)
 
         silences = self._detect_silences(mono_cpu)
-        chunks = self._build_chunks(wav_length, silences)
 
         if line_times:
-            word_groups = self._distribute_words_by_lines(words, chunks, line_times)
-            dist_mode = "line-anchored"
+            line_chunks = self._build_line_aware_chunks(
+                line_times, wav_length, silences,
+            )
+            chunks = [{"start": c["start"], "end": c["end"]} for c in line_chunks]
+            word_groups = [c["words"] for c in line_chunks]
+            dist_mode = "line-aware"
         else:
+            chunks = self._build_chunks(wav_length, silences)
             word_groups = self._distribute_words_to_chunks(words, chunks, silences)
             dist_mode = "voiced-duration (no line timestamps)"
 
+        total_words = sum(len(g) for g in word_groups)
         print(
             f"Chunked alignment: {wav_length:.1f}s → {len(chunks)} chunks "
-            f"({len(silences)} silence gaps detected), {len(words)} words, "
+            f"({len(silences)} silence gaps detected), {total_words} words, "
             f"distribution={dist_mode}",
             file=sys.stderr,
         )
@@ -725,72 +731,89 @@ class Predictor(BasePredictor):
 
         return groups
 
-    # ── Line-anchored word distribution ────────────────────────────
+    # ── Line-aware chunk construction ──────────────────────────────
 
-    def _distribute_words_by_lines(self, words, chunks, line_times):
-        """Assign words to chunks using LRCLIB line timestamps.
+    def _build_line_aware_chunks(self, line_times, audio_duration_s, silences):
+        """Build chunks aligned to LRCLIB line boundaries.
 
-        Each synced line has a start time and text.  We flatten all line
-        words into a timeline, then proportionally map transcript words
-        (which may differ slightly due to normalization) to that timeline.
-        Each word is assigned to the chunk that covers its estimated time.
+        Groups consecutive lines into chunks where the span from the
+        first line's start to the last line's end stays ≤ _MAX_CHUNK_S.
+        Each chunk carries the complete words for its lines — no
+        fabricated word positions, no mid-line splits.
 
-        This is dramatically more accurate than the voiced-duration
-        heuristic, which has no information about *which* words are in
-        *which* part of the audio.
+        Line "end" is the next line's startMs.  For the final line,
+        uses the first silence gap detected after the line, falling
+        back to audio_duration_s.
+
+        Returns:
+            List of dicts: {"start", "end", "words"} for each chunk.
         """
-        # Build a word→time mapping from line timestamps.
-        # Distribute each line's words evenly within its duration window.
-        word_times = []
+        if not line_times:
+            return []
+
+        # Pre-compute per-line bounds and words.
+        line_bounds = []
         for i, lt in enumerate(line_times):
-            line_start_s = lt["startMs"] / 1000
-            line_words = lt["text"].strip().split()
-            n = len(line_words)
-            if n == 0:
+            start_s = lt["startMs"] / 1000
+            words = lt["text"].strip().split()
+            if not words:
                 continue
-            # Line end: next line's start, or +5s for the last line.
+
             if i + 1 < len(line_times):
-                line_end_s = line_times[i + 1]["startMs"] / 1000
+                end_s = line_times[i + 1]["startMs"] / 1000
             else:
-                line_end_s = line_start_s + 5.0
-            line_dur = max(line_end_s - line_start_s, 0.1)
-            for j in range(n):
-                t = line_start_s + (j / n) * line_dur
-                word_times.append(t)
+                # Last line: use first silence gap after line starts.
+                end_s = audio_duration_s
+                for s in silences:
+                    if s["start"] > start_s + 0.5:
+                        end_s = s["start"]
+                        break
 
-        n_words = len(words)
-        n_times = len(word_times)
+            line_bounds.append({
+                "start": start_s,
+                "end": end_s,
+                "words": words,
+            })
 
-        if n_times == 0:
-            # No usable line timestamps — one group with all words.
-            return [list(words)] + [[] for _ in chunks[1:]]
+        if not line_bounds:
+            return []
 
-        groups = [[] for _ in chunks]
+        # Greedily group lines into chunks ≤ _MAX_CHUNK_S.
+        chunks = []
+        group_start = 0
 
-        for wi, word in enumerate(words):
-            # Map transcript word index to timeline index proportionally.
-            # Handles word count mismatches from normalization differences.
-            ti = min(int(wi * n_times / n_words), n_times - 1)
-            t = word_times[ti]
+        for i in range(1, len(line_bounds)):
+            span = line_bounds[i]["end"] - line_bounds[group_start]["start"]
+            if span > _MAX_CHUNK_S:
+                # Close current group: lines group_start .. i-1.
+                chunk_words = []
+                for j in range(group_start, i):
+                    chunk_words.extend(line_bounds[j]["words"])
+                chunks.append({
+                    "start": line_bounds[group_start]["start"],
+                    "end": line_bounds[i - 1]["end"],
+                    "words": chunk_words,
+                })
+                group_start = i
 
-            # Assign to the chunk covering this time.
-            assigned = False
-            for ci, chunk in enumerate(chunks):
-                if t < chunk["end"] or ci == len(chunks) - 1:
-                    groups[ci].append(word)
-                    assigned = True
-                    break
-            if not assigned:
-                groups[-1].append(word)
+        # Final group.
+        chunk_words = []
+        for j in range(group_start, len(line_bounds)):
+            chunk_words.extend(line_bounds[j]["words"])
+        chunks.append({
+            "start": line_bounds[group_start]["start"],
+            "end": line_bounds[-1]["end"],
+            "words": chunk_words,
+        })
 
-        line_dist = [len(g) for g in groups]
+        line_dist = [len(c["words"]) for c in chunks]
         print(
-            f"  Line-anchored distribution: {line_dist} "
-            f"(from {n_times} line words → {n_words} transcript words)",
+            f"  Line-aware chunks: {line_dist} words across {len(chunks)} chunks "
+            f"(from {len(line_bounds)} lines)",
             file=sys.stderr,
         )
 
-        return groups
+        return chunks
 
     # ── Per-line SOFA alignment ─────────────────────────────────────
 
