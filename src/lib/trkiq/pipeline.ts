@@ -270,7 +270,7 @@ export async function runPipeline(
     }
   }
 
-  /** Run lyrics alignment: CTC forced alignment on Replicate → fallback */
+  /** Run lyrics alignment: SOFA → force-align + SOFA phonemes → word-only → synced lines */
   async function processLyricsStep(
     stemsAvailable: boolean,
   ): Promise<LyricsResult> {
@@ -355,11 +355,12 @@ export async function runPipeline(
       return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
     }
 
-    // Fallback path: try legacy force-align → phoneme-align pipeline
+    // Fallback: force-align (word timestamps) → SOFA phoneme pass.
+    // At worst this matches AutoLyrics quality (word-level forced
+    // alignment); at best it adds real phoneme timestamps on top.
     if (stemsAvailable && stems?.vocals) {
-      let alignedWords: AlignedWord[] | null = null;
       let loggedRunning = false;
-      alignedWords = await runForceAlign(
+      const alignedWords = await runForceAlign(
         stems.vocals,
         lyrics!,
         (msg, phase) => {
@@ -368,18 +369,58 @@ export async function runPipeline(
           update("lyrics", "active", msg, phase, sp);
           if (phase === "running" && !loggedRunning) {
             loggedRunning = true;
-            appendLog("lyrics", "Falling back to Whisper alignment");
+            appendLog("lyrics", "Falling back to Whisper word alignment");
           }
         },
         durationMs,
       );
 
       if (alignedWords && alignedWords.length > 0) {
+        // Try adding phoneme-level detail via SOFA word-boundary mode.
+        // This runs SOFA on each word's audio window independently —
+        // much cheaper than full-file and doesn't need chunking.
+        appendLog(
+          "lyrics",
+          `Word alignment complete (${alignedWords.length} words) — adding phonemes`,
+        );
+        const phonemeEnriched = await runPhonemeAlign(
+          stems.vocals,
+          lyrics!,
+          alignedWords,
+          (msg, phase) => {
+            const sp = phase === "queued" ? 55 : 75;
+            update("lyrics", "active", msg, phase, sp);
+          },
+        );
+
+        if (phonemeEnriched && phonemeEnriched.length > 0) {
+          // FALLBACK 1A: force-align words + SOFA phonemes.
+          update(
+            "lyrics",
+            "active",
+            "Building singing face timing (word + phoneme aligned)...",
+          );
+          const leadTrack = processPhonemeAlignedWords(phonemeEnriched, "lead");
+          leadTrack.source = "ai";
+          leadTrack.confidenceRange = [0.7, 0.85];
+          const vTracks = [leadTrack];
+          appendLog(
+            "lyrics",
+            `\u2713 Lyric sync complete \u2014 ${phonemeEnriched.length} words with phonemes`,
+          );
+          update("lyrics", "done");
+          return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
+        }
+
+        // FALLBACK 1B: force-align word-only (phoneme pass failed).
+        // Still matches AutoLyrics quality — xLights does CMU phoneme
+        // breakdown on import via its built-in dictionary.
         update(
           "lyrics",
           "active",
           "Building singing face timing (word-aligned)...",
         );
+        appendLog("lyrics", "Phoneme pass unavailable — shipping word timing");
         const leadTrack = processAlignedWords(
           alignedWords,
           "lead",
@@ -397,7 +438,7 @@ export async function runPipeline(
         const vTracks = [leadTrack];
         appendLog(
           "lyrics",
-          `\u2713 Lyric sync complete \u2014 ${alignedWords.length} cue points`,
+          `\u2713 Lyric sync complete \u2014 ${alignedWords.length} cue points (word-level)`,
         );
         update("lyrics", "done");
         return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
@@ -708,7 +749,7 @@ async function runUnifiedAlign(
 /**
  * Run phoneme-level alignment on the vocals stem.
  * Uses word-level timestamps from force-align to constrain
- * wav2vec2 CTC alignment within each word's audio window.
+ * SOFA alignment within each word's audio window.
  * Returns null if phoneme alignment fails (word-level fallback is fine).
  */
 async function runPhonemeAlign(
