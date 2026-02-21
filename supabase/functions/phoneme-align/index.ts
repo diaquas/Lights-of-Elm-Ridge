@@ -36,7 +36,8 @@ const REPLICATE_API = "https://api.replicate.com/v1";
 // diaquas/phoneme-align-sofa — SOFA singing-oriented forced aligner
 // Pinned version hash — auto-updated by cog-push workflow after each push.
 const PHONEME_ALIGN_MODEL = "diaquas/phoneme-align-sofa";
-const PHONEME_ALIGN_VERSION = "PENDING_FIRST_SOFA_PUSH";
+const PHONEME_ALIGN_VERSION =
+  "74d8b7cef733cdc3c19c777ba41265a9238dfb17c8f083e61ed0e081935cb7a3";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
