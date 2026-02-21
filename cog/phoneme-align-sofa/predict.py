@@ -84,6 +84,18 @@ _VOWELS = {
     "IH", "IY", "OW", "OY", "UH", "UW",
 }
 
+# ── VAD-based chunking constants ─────────────────────────────────
+#
+# SOFA's tgm_en_v100 checkpoint degrades noticeably on inputs longer
+# than ~45 s (confidence drops, boundary drift on held notes).
+# When audio exceeds _CHUNK_THRESHOLD_S we split at silence
+# boundaries so each chunk stays ≤ _MAX_CHUNK_S.
+
+_CHUNK_THRESHOLD_S = 45.0   # trigger chunking above this duration
+_MAX_CHUNK_S = 30.0          # target maximum chunk length
+_MIN_SILENCE_S = 0.25        # minimum gap to consider as split point
+_CHUNK_PADDING_S = 0.5       # audio padding on each side of chunk
+
 
 # ── Dictionary loaders ──────────────────────────────────────────────
 
@@ -339,20 +351,32 @@ class Predictor(BasePredictor):
     # ── Full-file SOFA alignment (preferred path) ───────────────────
 
     def _align_full(self, waveform, transcript, refine_onsets=True):
-        """Full-file SOFA alignment — single pass over the entire audio."""
-        mono = waveform.squeeze(0).to(self.device)
-        wav_length = mono.shape[0] / self.sample_rate
+        """Full-file SOFA alignment — with automatic chunking for long audio.
+
+        For audio ≤ _CHUNK_THRESHOLD_S: single-pass alignment (original path).
+        For longer audio: VAD-based chunking → per-chunk alignment → stitch.
+        """
+        mono_cpu = waveform.squeeze(0)
+        wav_length = mono_cpu.shape[0] / self.sample_rate
 
         words = transcript.strip().split()
         if not words:
             return json.dumps({"words": [], "error": "Empty transcript"})
+
+        # Long audio → chunked path.
+        if wav_length > _CHUNK_THRESHOLD_S:
+            return self._align_full_chunked(
+                waveform, words, wav_length, refine_onsets,
+            )
+
+        # ── Short audio: single-pass (original behaviour) ─────────
+        mono = mono_cpu.to(self.device)
 
         ph_seq, word_seq, ph_idx_to_word_idx = self._build_phoneme_sequence(words)
 
         if len(ph_seq) < 2:
             return json.dumps({"words": [], "error": "No valid phonemes found"})
 
-        # Validate phonemes against model vocab.
         ph_seq, ph_idx_to_word_idx = self._filter_vocab(ph_seq, ph_idx_to_word_idx)
 
         melspec = self._prepare_melspec(mono)
@@ -387,6 +411,296 @@ class Predictor(BasePredictor):
             results = self._refine_with_onsets(waveform, results)
 
         return json.dumps({"words": results})
+
+    # ── VAD-based chunked alignment ────────────────────────────────
+
+    def _align_full_chunked(self, waveform, words, wav_length, refine_onsets):
+        """Chunked SOFA alignment for audio exceeding _CHUNK_THRESHOLD_S.
+
+        Pipeline:
+          1. Detect silence regions via RMS energy envelope
+          2. Split audio at silence boundaries into ≤ _MAX_CHUNK_S segments
+          3. Distribute words proportionally by voiced duration per chunk
+          4. Run SOFA independently on each chunk
+          5. Offset timestamps to absolute time and stitch results
+        """
+        mono_cpu = waveform.squeeze(0)
+
+        silences = self._detect_silences(mono_cpu)
+        chunks = self._build_chunks(wav_length, silences)
+        word_groups = self._distribute_words_to_chunks(words, chunks, silences)
+
+        print(
+            f"Chunked alignment: {wav_length:.1f}s → {len(chunks)} chunks "
+            f"({len(silences)} silence gaps detected), {len(words)} words",
+            file=sys.stderr,
+        )
+
+        all_results = []
+
+        for i, (chunk, chunk_words) in enumerate(zip(chunks, word_groups)):
+            if not chunk_words:
+                print(
+                    f"  Chunk {i + 1}/{len(chunks)}: skipped (no words)",
+                    file=sys.stderr,
+                )
+                continue
+
+            # Extract segment with padding so edge words aren't clipped.
+            seg_start = max(0.0, chunk["start"] - _CHUNK_PADDING_S)
+            seg_end = min(wav_length, chunk["end"] + _CHUNK_PADDING_S)
+            start_sample = int(seg_start * self.sample_rate)
+            end_sample = min(
+                int(seg_end * self.sample_rate), mono_cpu.shape[0],
+            )
+
+            if end_sample <= start_sample + self.sample_rate // 10:
+                continue
+
+            segment = mono_cpu[start_sample:end_sample].to(self.device)
+            seg_length = segment.shape[0] / self.sample_rate
+
+            ph_seq, word_seq, ph_idx_to_word_idx = (
+                self._build_phoneme_sequence(chunk_words)
+            )
+            if len(ph_seq) < 2:
+                continue
+            ph_seq, ph_idx_to_word_idx = self._filter_vocab(
+                ph_seq, ph_idx_to_word_idx,
+            )
+
+            try:
+                melspec = self._prepare_melspec(segment)
+
+                with torch.inference_mode():
+                    (
+                        ph_seq_pred, ph_intervals_pred,
+                        word_seq_pred, word_intervals_pred,
+                        confidence, _, _,
+                    ) = self.model._infer_once(
+                        melspec, seg_length,
+                        ph_seq, word_seq, ph_idx_to_word_idx,
+                    )
+
+                # Offset intervals to absolute time.
+                if len(ph_intervals_pred) > 0:
+                    ph_intervals_pred = ph_intervals_pred + seg_start
+                if len(word_intervals_pred) > 0:
+                    word_intervals_pred = word_intervals_pred + seg_start
+
+                chunk_results = self._sofa_to_json(
+                    word_seq_pred, word_intervals_pred,
+                    ph_seq_pred, ph_intervals_pred,
+                )
+                all_results.extend(chunk_results)
+
+                print(
+                    f"  Chunk {i + 1}/{len(chunks)}: {len(chunk_words)} words, "
+                    f"{chunk['end'] - chunk['start']:.1f}s "
+                    f"(padded {seg_length:.1f}s), "
+                    f"confidence={confidence:.3f}",
+                    file=sys.stderr,
+                )
+
+            except Exception as e:
+                print(
+                    f"  Chunk {i + 1}/{len(chunks)} failed: {e} — "
+                    f"falling back to even distribution",
+                    file=sys.stderr,
+                )
+                chunk_dur = chunk["end"] - chunk["start"]
+                n = len(chunk_words)
+                for j, w in enumerate(chunk_words):
+                    ws = chunk["start"] + (j / n) * chunk_dur
+                    we = chunk["start"] + ((j + 1) / n) * chunk_dur
+                    phonemes = self._lookup_phonemes_sofa(w)
+                    all_results.append({
+                        "word": w,
+                        "start": round(ws, 4),
+                        "end": round(we, 4),
+                        "phonemes": self._distribute_evenly(
+                            phonemes, ws, we,
+                        ),
+                    })
+
+        print(
+            f"Chunked alignment complete: {len(all_results)} words total",
+            file=sys.stderr,
+        )
+
+        if all_results:
+            all_results = self._enforce_vowel_duration(all_results)
+        if refine_onsets and all_results:
+            all_results = self._refine_with_onsets(waveform, all_results)
+
+        return json.dumps({"words": all_results})
+
+    # ── Silence detection ──────────────────────────────────────────
+
+    def _detect_silences(self, waveform_1d):
+        """Detect silence regions via RMS energy envelope.
+
+        Uses vectorised frame extraction (torch.unfold) for speed.
+        Returns a list of dicts with start/end/center/duration for each
+        silence gap ≥ _MIN_SILENCE_S.
+        """
+        sr = self.sample_rate
+        frame_size = int(0.025 * sr)   # 25 ms frames
+        hop = int(0.010 * sr)          # 10 ms hop
+
+        wav = waveform_1d.float()
+        if wav.device.type != "cpu":
+            wav = wav.cpu()
+
+        # Vectorised RMS: unfold into (n_frames, frame_size), then RMS.
+        frames = wav.unfold(0, frame_size, hop)
+        energies = torch.sqrt(torch.mean(frames ** 2, dim=1)).numpy()
+
+        # Adaptive threshold.  The 15th-percentile captures the noise
+        # floor; 3× that catches inter-phrase dips.  Clamped to
+        # [0.5 %, 2 %] of peak energy so it works across dynamics.
+        noise_floor = float(np.percentile(energies, 15))
+        peak = float(np.max(energies)) if len(energies) else 1.0
+        threshold = np.clip(noise_floor * 3.0, peak * 0.005, peak * 0.02)
+
+        is_silent = energies < threshold
+
+        silences = []
+        in_silence = False
+        silence_start_frame = 0
+
+        for i in range(len(is_silent)):
+            if is_silent[i] and not in_silence:
+                silence_start_frame = i
+                in_silence = True
+            elif not is_silent[i] and in_silence:
+                start_s = silence_start_frame * hop / sr
+                end_s = i * hop / sr
+                duration = end_s - start_s
+                if duration >= _MIN_SILENCE_S:
+                    silences.append({
+                        "start": start_s,
+                        "end": end_s,
+                        "center": (start_s + end_s) / 2,
+                        "duration": duration,
+                    })
+                in_silence = False
+
+        # Trailing silence.
+        if in_silence:
+            start_s = silence_start_frame * hop / sr
+            end_s = waveform_1d.shape[0] / sr
+            duration = end_s - start_s
+            if duration >= _MIN_SILENCE_S:
+                silences.append({
+                    "start": start_s,
+                    "end": end_s,
+                    "center": (start_s + end_s) / 2,
+                    "duration": duration,
+                })
+
+        return silences
+
+    # ── Chunk construction ─────────────────────────────────────────
+
+    def _build_chunks(self, audio_duration_s, silences):
+        """Split audio into chunks ≤ _MAX_CHUNK_S at silence boundaries.
+
+        Greedy: walk forward from 0, always picking the *latest* silence
+        centre that keeps the chunk within budget.  Falls back to even
+        splitting if no silences are available.
+        """
+        max_s = _MAX_CHUNK_S
+
+        if not silences:
+            n = max(1, int(np.ceil(audio_duration_s / max_s)))
+            step = audio_duration_s / n
+            return [
+                {"start": round(i * step, 4), "end": round((i + 1) * step, 4)}
+                for i in range(n)
+            ]
+
+        split_points = sorted(set(round(s["center"], 4) for s in silences))
+
+        chunks = []
+        chunk_start = 0.0
+
+        while chunk_start < audio_duration_s - 0.1:
+            limit = chunk_start + max_s
+
+            if limit >= audio_duration_s:
+                chunks.append({
+                    "start": round(chunk_start, 4),
+                    "end": round(audio_duration_s, 4),
+                })
+                break
+
+            # Latest split point within budget.
+            best = None
+            for sp in split_points:
+                if sp <= chunk_start:
+                    continue
+                if sp > limit:
+                    break
+                best = sp
+
+            if best is not None:
+                chunks.append({
+                    "start": round(chunk_start, 4),
+                    "end": round(best, 4),
+                })
+                chunk_start = best
+            else:
+                # No silence in range — force split at limit.
+                chunks.append({
+                    "start": round(chunk_start, 4),
+                    "end": round(limit, 4),
+                })
+                chunk_start = limit
+
+        return chunks if chunks else [{"start": 0.0, "end": audio_duration_s}]
+
+    # ── Word distribution across chunks ────────────────────────────
+
+    def _distribute_words_to_chunks(self, words, chunks, silences):
+        """Assign words to chunks proportionally by voiced duration.
+
+        Chunks with more silence overlap (instrumental breaks, etc.)
+        receive proportionally fewer words.  Uses cumulative rounding
+        so every word is assigned exactly once.
+        """
+        # Voiced duration per chunk = total − silence overlap.
+        voiced_per_chunk = []
+        for chunk in chunks:
+            total = chunk["end"] - chunk["start"]
+            silence_overlap = 0.0
+            for s in silences:
+                ov_start = max(s["start"], chunk["start"])
+                ov_end = min(s["end"], chunk["end"])
+                if ov_end > ov_start:
+                    silence_overlap += ov_end - ov_start
+            voiced_per_chunk.append(max(total - silence_overlap, 0.01))
+
+        total_voiced = sum(voiced_per_chunk)
+        if total_voiced <= 0:
+            total_voiced = sum(c["end"] - c["start"] for c in chunks)
+
+        # Cumulative proportional assignment avoids rounding drift.
+        groups = []
+        cursor = 0
+        cum_share = 0.0
+
+        for i, voiced in enumerate(voiced_per_chunk):
+            cum_share += voiced / total_voiced
+            if i == len(chunks) - 1:
+                target = len(words)
+            else:
+                target = round(cum_share * len(words))
+            n = max(0, target - cursor)
+            groups.append(list(words[cursor : cursor + n]))
+            cursor += n
+
+        return groups
 
     # ── Per-line SOFA alignment ─────────────────────────────────────
 
