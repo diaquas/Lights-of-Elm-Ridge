@@ -249,6 +249,8 @@ jobs:
     needs: detect
     if: needs.detect.outputs.phonemealignsofa == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.hash }}
     steps:
       - uses: actions/checkout@v4
 
@@ -289,6 +291,21 @@ jobs:
         run: |
           echo "Pushing to r8.im/diaquas/phoneme-align-sofa"
           cog push "r8.im/diaquas/phoneme-align-sofa" --no-cache
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
+      - name: Get latest version hash from Replicate
+        id: version
+        run: |
+          HASH=$(curl -sf -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
+            "https://api.replicate.com/v1/models/diaquas/phoneme-align-sofa/versions" \
+            | jq -r '.results[0].id')
+          if [ -z "$HASH" ] || [ "$HASH" = "null" ]; then
+            echo "::error::Failed to fetch phoneme-align-sofa version hash"
+            exit 1
+          fi
+          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
+          echo "New phoneme-align-sofa version: $HASH"
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
 
@@ -338,10 +355,10 @@ jobs:
           fi
           grep -A1 "FORCE_ALIGN_VERSION" "$FILE"
 
-      - name: Update phoneme-align version hash
-        if: needs.push-phonemealign.result == 'success'
+      - name: Update phoneme-align version hash (SOFA)
+        if: needs.push-phonemealignsofa.result == 'success'
         run: |
-          NEW_HASH="${{ needs.push-phonemealign.outputs.version }}"
+          NEW_HASH="${{ needs.push-phonemealignsofa.outputs.version }}"
           FILE="supabase/functions/phoneme-align/index.ts"
           # Match line containing PHONEME_ALIGN_VERSION, then replace hash on the next line.
           # No end-of-line anchor — avoids silent failure from trailing whitespace.
@@ -387,9 +404,9 @@ jobs:
             supabase functions deploy force-align --no-verify-jwt
             echo "Deployed force-align"
           fi
-          if [ "${{ needs.push-phonemealign.result }}" = "success" ]; then
+          if [ "${{ needs.push-phonemealignsofa.result }}" = "success" ]; then
             supabase functions deploy phoneme-align --no-verify-jwt
-            echo "Deployed phoneme-align"
+            echo "Deployed phoneme-align (SOFA)"
           fi
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

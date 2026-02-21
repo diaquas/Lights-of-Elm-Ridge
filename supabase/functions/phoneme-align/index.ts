@@ -1,6 +1,7 @@
 // Supabase Edge Function: phoneme-align
 // Proxies phoneme-level forced alignment requests to Replicate
-// (diaquas/phoneme-align — wav2vec2 CTC, per-phoneme timestamps).
+// (diaquas/phoneme-align-sofa — SOFA singing-oriented forced aligner,
+//  per-word + per-phoneme timestamps with CMUdict stress weighting).
 //
 // Actions:
 //   start  — Submit vocals URL + transcript + word timestamps, create prediction
@@ -32,11 +33,10 @@ function getCorsHeaders(req: Request): Record<string, string> {
 
 const REPLICATE_API = "https://api.replicate.com/v1";
 
-// diaquas/phoneme-align — wav2vec2 CTC phoneme-level alignment
-// Pinned version hash — update after each cog push.
-const PHONEME_ALIGN_MODEL = "diaquas/phoneme-align";
-const PHONEME_ALIGN_VERSION =
-  "13cbe8b6d01c419f6d4c0a4d609ee24e281ed3660cdd453fa625eb09335ce011";
+// diaquas/phoneme-align-sofa — SOFA singing-oriented forced aligner
+// Pinned version hash — auto-updated by cog-push workflow after each push.
+const PHONEME_ALIGN_MODEL = "diaquas/phoneme-align-sofa";
+const PHONEME_ALIGN_VERSION = "PENDING_FIRST_SOFA_PUSH";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
