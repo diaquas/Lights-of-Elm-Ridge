@@ -92,7 +92,7 @@ _VOWELS = {
 # boundaries so each chunk stays ≤ _MAX_CHUNK_S.
 
 _CHUNK_THRESHOLD_S = 45.0   # trigger chunking above this duration
-_MAX_CHUNK_S = 30.0          # target maximum chunk length
+_MAX_CHUNK_S = 20.0          # target maximum chunk length (T4 16 GB OOMs above ~25 s)
 _MIN_SILENCE_S = 0.25        # minimum gap to consider as split point
 _CHUNK_PADDING_S = 0.5       # audio padding on each side of chunk
 
@@ -482,6 +482,11 @@ class Predictor(BasePredictor):
                         ph_seq, word_seq, ph_idx_to_word_idx,
                     )
 
+                # Free GPU memory before next chunk.
+                del segment, melspec
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+
                 # Offset intervals to absolute time.
                 if len(ph_intervals_pred) > 0:
                     ph_intervals_pred = ph_intervals_pred + seg_start
@@ -503,6 +508,11 @@ class Predictor(BasePredictor):
                 )
 
             except Exception as e:
+                # Ensure GPU memory is freed even on failure.
+                segment = None
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+
                 print(
                     f"  Chunk {i + 1}/{len(chunks)} failed: {e} — "
                     f"falling back to even distribution",
