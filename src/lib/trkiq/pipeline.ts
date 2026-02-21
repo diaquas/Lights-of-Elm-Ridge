@@ -12,6 +12,7 @@ import type {
   TrkiqPipelineStep,
   TrkiqStats,
   SyncedLine,
+  WordTimestamp,
 } from "./types";
 import type { BeatTrack, BeatiqStats, LabeledMark } from "@/lib/beatiq/types";
 import type { VocalTrack, LyriqStats } from "@/lib/lyriq/types";
@@ -36,6 +37,7 @@ import type {
 
 // API clients — all Replicate processing goes through Edge Functions
 import { fetchLyrics, searchLyrics } from "./lrclib-client";
+import { fetchMusixmatchRichSync } from "./musixmatch-client";
 import { separateStems, checkDemucsAvailable } from "./replicate-client";
 import { forceAlignLyrics } from "./force-align-client";
 import type { ForceAlignWord, AlignSection } from "./force-align-client";
@@ -176,18 +178,36 @@ export async function runPipeline(
   }
 
   // ── Fetch lyrics (can start right after we have metadata) ─────────
+  // Priority: Musixmatch Rich Sync (word-level timing, curated) > LRCLIB.
+  // When Rich Sync is available, SOFA skips word alignment entirely and
+  // does phoneme-only alignment within the curated word windows.
   let lyrics: LyricsData | null = existingLyrics ?? null;
 
   if (lyrics && lyrics.plainText.trim().length > 0) {
     // Already have lyrics — no fetch needed
   } else {
     try {
-      lyrics =
-        (await fetchLyrics(metadata.artist, metadata.title)) ||
-        (await searchLyrics(`${metadata.artist} ${metadata.title}`)) ||
-        (await searchLyrics(metadata.title));
+      // Try Musixmatch Rich Sync first — gives us word-level timestamps.
+      lyrics = await fetchMusixmatchRichSync(metadata.artist, metadata.title);
+      if (lyrics) {
+        appendLog(
+          "lyrics",
+          `Musixmatch Rich Sync: ${lyrics.wordTimestamps?.length ?? 0} word timestamps`,
+        );
+      }
     } catch {
-      // Lyrics fetch failed — not critical
+      // Musixmatch failed or not configured — not critical.
+    }
+
+    if (!lyrics) {
+      try {
+        lyrics =
+          (await fetchLyrics(metadata.artist, metadata.title)) ||
+          (await searchLyrics(`${metadata.artist} ${metadata.title}`)) ||
+          (await searchLyrics(metadata.title));
+      } catch {
+        // Lyrics fetch failed — not critical
+      }
     }
   }
 
@@ -302,18 +322,35 @@ export async function runPipeline(
       );
     }
 
+    // Check for Musixmatch Rich Sync word timestamps — curated, trusted.
+    const hasWordTimestamps = !!(
+      lyrics!.wordTimestamps && lyrics!.wordTimestamps.length > 0
+    );
+
     // Try CTC alignment if stems are available
     let phonemeAlignedWords: PhonemeAlignedWord[] | null = null;
     let alignError = "";
     if (stemsAvailable && stems?.vocals) {
       update("lyrics", "active", "Aligning words to audio\u2026", "queued", 10);
       appendLog("lyrics", "Pulling lyrics");
-      appendLog(
-        "lyrics",
-        hasSyncedLines
-          ? `Matching ${lineTimestamps!.length} lyric lines to vocal layer`
-          : "Matching words to vocal layer",
-      );
+
+      if (hasWordTimestamps) {
+        appendLog(
+          "lyrics",
+          `Musixmatch Rich Sync: ${lyrics!.wordTimestamps!.length} curated word timestamps`,
+        );
+        appendLog(
+          "lyrics",
+          "Phoneme-only alignment within curated word windows",
+        );
+      } else {
+        appendLog(
+          "lyrics",
+          hasSyncedLines
+            ? `Matching ${lineTimestamps!.length} lyric lines to vocal layer`
+            : "Matching words to vocal layer",
+        );
+      }
 
       phonemeAlignedWords = await runUnifiedAlign(
         stems.vocals,
@@ -324,6 +361,7 @@ export async function runPipeline(
           const sp = phase === "queued" ? 15 : 60;
           update("lyrics", "active", msg, phase, sp);
         },
+        hasWordTimestamps ? lyrics!.wordTimestamps : undefined,
       );
 
       if (phonemeAlignedWords) {
@@ -335,21 +373,27 @@ export async function runPipeline(
     }
 
     if (phonemeAlignedWords && phonemeAlignedWords.length > 0) {
+      const alignDesc = hasWordTimestamps
+        ? "Musixmatch + SOFA phonemes"
+        : "CTC-aligned";
       update(
         "lyrics",
         "active",
-        "Building singing face timing (CTC-aligned)...",
+        `Building singing face timing (${alignDesc})...`,
       );
       // All words go into a single phrase — matches human-correct xtiming
       // structure and avoids LRCLIB line-based fragmentation.
       const leadTrack = processPhonemeAlignedWords(phonemeAlignedWords, "lead");
 
       leadTrack.source = "ai";
-      leadTrack.confidenceRange = [0.8, 0.9];
+      // Musixmatch word timing is curated → higher confidence floor.
+      leadTrack.confidenceRange = hasWordTimestamps ? [0.9, 0.95] : [0.8, 0.9];
       const vTracks = [leadTrack];
       appendLog(
         "lyrics",
-        `\u2713 Lyric sync complete \u2014 ${phonemeAlignedWords.length} cue points`,
+        hasWordTimestamps
+          ? `\u2713 Lyric sync complete \u2014 ${phonemeAlignedWords.length} words (Musixmatch + SOFA)`
+          : `\u2713 Lyric sync complete \u2014 ${phonemeAlignedWords.length} cue points`,
       );
       update("lyrics", "done");
       return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
@@ -657,8 +701,10 @@ async function runForceAlign(
 
 /**
  * Run unified CTC alignment: word + phoneme boundaries in one call.
- * When line timestamps are available, uses per-line CTC alignment
- * (no Whisper, no hallucination). Falls back to full-file CTC.
+ * When word timestamps are available (Musixmatch Rich Sync), passes
+ * them to SOFA for phoneme-only alignment within curated windows.
+ * When line timestamps are available, uses per-line CTC alignment.
+ * Falls back to full-file CTC.
  * Returns null if alignment fails.
  */
 async function runUnifiedAlign(
@@ -666,19 +712,35 @@ async function runUnifiedAlign(
   lyrics: LyricsData,
   lineTimestamps: LineTimestamp[] | undefined,
   onStatusUpdate: (msg: string, phase?: "queued" | "running") => void,
+  curatedWordTimestamps?: WordTimestamp[],
 ): Promise<PhonemeAlignedWord[] | null> {
   if (!vocalsUrl) return null;
 
   try {
     const transcript = normalizeTranscript(lyrics.plainText);
 
-    onStatusUpdate("Running CTC forced alignment on vocals...");
+    // When Musixmatch Rich Sync provides curated word timestamps,
+    // pass them to SOFA so it runs phoneme-only alignment within
+    // each word's time window instead of doing full word alignment.
+    let wordTimestampsForModel: ForceAlignWord[] | undefined;
+    if (curatedWordTimestamps && curatedWordTimestamps.length > 0) {
+      onStatusUpdate("Running phoneme alignment with Musixmatch timing...");
+      wordTimestampsForModel = curatedWordTimestamps.map((w) => ({
+        word: w.word,
+        start: w.start,
+        end: w.end,
+        probability: 1.0,
+      }));
+    } else {
+      onStatusUpdate("Running CTC forced alignment on vocals...");
+    }
+
     const phonemeWords = await phonemeAlignLyrics(
       vocalsUrl,
       transcript,
       onStatusUpdate,
-      undefined, // no word timestamps — CTC does word alignment itself
-      lineTimestamps,
+      wordTimestampsForModel,
+      wordTimestampsForModel ? undefined : lineTimestamps,
     );
 
     if (!phonemeWords || phonemeWords.length === 0) return null;
