@@ -12,7 +12,10 @@ export {
 
 export type { ParsedModel, ParsedLayout } from "./rgbeffects-parser";
 
+export { parseNetworksXml } from "./networks-parser";
+
+export { parseStartChannel, resolvePortBindings } from "./port-resolver";
+
 // Future exports:
 // export { parseRgbEffectsXml } from './rgbeffects-parser';
-// export { parseNetworks } from './networks-parser';
 // export { parseXModel } from './xmodel-parser';

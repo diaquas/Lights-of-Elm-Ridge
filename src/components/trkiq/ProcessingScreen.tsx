@@ -17,7 +17,7 @@ interface ProcessingScreenProps {
   metadata: SongMetadata | null;
   albumArtUrl: string | null;
   completionStats: CompletionStats | null;
-  onDownload?: () => void;
+  onReviewDownload?: () => void;
   onNewSong?: () => void;
 }
 
@@ -50,8 +50,7 @@ const STEP_CONFIG: Record<TrkiqPipelineStep, StepConfig> = {
   },
   stems: {
     title: "Separating instruments",
-    description:
-      "AI isolates vocals, drums, bass, and melody into separate layers",
+    description: "AI isolates vocals, drums, bass, guitar, and piano into separate layers",
     icon: (
       <svg
         width="18"
@@ -138,46 +137,16 @@ const STEP_CONFIG: Record<TrkiqPipelineStep, StepConfig> = {
 /* ── Insight Copy (from spec) ────────────────────────────────────── */
 
 const INSIGHTS = [
-  {
-    text: "Demucs is an AI model by Meta that can listen to a full mix and pull apart vocals, drums, bass, and melody \u2014 like unmixing paint.",
-    bold: "Demucs",
-  },
-  {
-    text: "Your track is split into 6 overlapping chunks so the AI can process each section carefully and blend them together seamlessly.",
-    bold: "6 overlapping chunks",
-  },
-  {
-    text: "Essentia is an open-source audio intelligence toolkit \u2014 it analyzes over 40 different characteristics of your track to nail down tempo, key, and rhythm.",
-    bold: "Essentia",
-  },
-  {
-    text: "Beat confidence of 96% means TRK:IQ is almost certain about the tempo \u2014 accurate enough to skip manual tapping for most tracks.",
-    bold: "96%",
-  },
-  {
-    text: "Each word in the lyrics is placed within ~50 milliseconds of when it\u2019s actually sung \u2014 that\u2019s more precise than a single frame of video.",
-    bold: "~50 milliseconds",
-  },
-  {
-    text: "Your finished file contains 5 separate timing tracks you can layer in xLights \u2014 beats, downbeats, phrases, vocals, and energy peaks.",
-    bold: "5 separate timing tracks",
-  },
-  {
-    text: "Most light sequences need 800\u20132,000 timing marks. By hand, that\u2019s hours of clicking. TRK:IQ does it in about a minute.",
-    bold: "800\u20132,000 timing marks",
-  },
-  {
-    text: "Lyrics are synced by comparing the shape of the singer\u2019s voice against a pronunciation model \u2014 like audio fingerprinting for every word.",
-    bold: "shape of the singer\u2019s voice",
-  },
-  {
-    text: "Energy peaks mark the loudest, most intense moments in your track \u2014 perfect for triggering your biggest lighting effects.",
-    bold: "triggering your biggest lighting effects",
-  },
-  {
-    text: "The beat grid is verified by comparing each detected hit against a virtual metronome \u2014 ensuring your lights land right on the beat, not a fraction off.",
-    bold: "virtual metronome",
-  },
+  { text: "Demucs is an AI model by Meta that can listen to a full mix and pull apart vocals, drums, bass, guitar, and piano \u2014 like unmixing paint.", bold: "Demucs" },
+  { text: "Your track is split into 6 overlapping chunks so the AI can process each section carefully and blend them together seamlessly.", bold: "6 overlapping chunks" },
+  { text: "Essentia is an open-source audio intelligence toolkit \u2014 it analyzes over 40 different characteristics of your track to nail down tempo, key, and rhythm.", bold: "Essentia" },
+  { text: "Beat confidence of 96% means TRK:IQ is almost certain about the tempo \u2014 accurate enough to skip manual tapping for most tracks.", bold: "96%" },
+  { text: "Each word in the lyrics is placed within ~50 milliseconds of when it\u2019s actually sung \u2014 that\u2019s more precise than a single frame of video.", bold: "~50 milliseconds" },
+  { text: "Your finished file can contain up to 8 timing tracks \u2014 Drums (kick, snare, hi-hat), Vocals, Bass, Guitar, Piano, Beats, Bars, and Song Segments.", bold: "8 timing tracks" },
+  { text: "Most light sequences need 800\u20132,000 timing marks. By hand, that\u2019s hours of clicking. TRK:IQ does it in about a minute.", bold: "800\u20132,000 timing marks" },
+  { text: "Lyrics are synced by comparing the shape of the singer\u2019s voice against a pronunciation model \u2014 like audio fingerprinting for every word.", bold: "shape of the singer\u2019s voice" },
+  { text: "Song Segments detect chorus, verse, bridge, and other sections \u2014 letting you program different lighting moods for each part of the song.", bold: "Song Segments" },
+  { text: "The beat grid is verified by comparing each detected hit against a virtual metronome \u2014 ensuring your lights land right on the beat, not a fraction off.", bold: "virtual metronome" },
 ];
 
 /* ── Overall Progress Calculation ────────────────────────────────── */
@@ -210,7 +179,7 @@ export default function ProcessingScreen({
   metadata,
   albumArtUrl,
   completionStats,
-  onDownload,
+  onReviewDownload,
   onNewSong,
 }: ProcessingScreenProps) {
   const [now, setNow] = useState(() => Date.now());
@@ -631,14 +600,12 @@ export default function ProcessingScreen({
           <div className="text-center space-y-1 pb-4">
             <div className="flex items-center justify-center gap-6 text-sm font-mono tabular-nums text-foreground/25">
               <span>Elapsed: {formatElapsed(totalElapsed)}</span>
-              <span>Est. total: ~1:30</span>
+              <span>Est. total: ~5:30</span>
             </div>
             <p className="text-xs text-foreground/15">
               Manual sequencing would take{" "}
-              <span className="text-green-500/70 font-semibold">
-                ~2.5 hours
-              </span>{" "}
-              &mdash; you&rsquo;re saving 99% of that.
+              <span className="text-green-500/70 font-semibold">4&ndash;6 hours</span>
+              {" "}&mdash; you&rsquo;re saving 99% of that.
             </p>
           </div>
         )}
@@ -692,11 +659,11 @@ export default function ProcessingScreen({
               />
             </div>
 
-            {/* Download button */}
-            {onDownload && (
+            {/* Review & Download button */}
+            {onReviewDownload && (
               <div className="flex justify-center">
                 <button
-                  onClick={onDownload}
+                  onClick={onReviewDownload}
                   className="group flex items-center gap-2.5 px-8 py-3.5 rounded-xl font-display font-semibold text-[15px] text-white transition-all duration-300 hover:-translate-y-0.5"
                   style={{
                     background:
@@ -704,22 +671,12 @@ export default function ProcessingScreen({
                     boxShadow: "0 4px 20px rgba(230, 51, 51, 0.3)",
                   }}
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"
-                    />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5a2 2 0 012-2h2a2 2 0 012 2M9 5h6" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 14l2 2 4-4" />
                   </svg>
-                  Download .xtiming
+                  Review &amp; Download
                 </button>
               </div>
             )}
