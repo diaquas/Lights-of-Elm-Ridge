@@ -1037,12 +1037,54 @@ class Predictor(BasePredictor):
 
     # ── Duration sanity check ───────────────────────────────────────
 
+    def _get_vowel_stress_pattern(self, word_text):
+        """Look up CMUdict stress digits for each vowel in a word.
+
+        Returns a list of stress levels (0=unstressed, 1=primary, 2=secondary)
+        for each vowel phoneme, in order.  Falls back to a heuristic if the
+        word isn't in CMUdict: first vowel gets primary stress (1), rest get
+        unstressed (0).
+        """
+        clean = word_text.lower().strip(".,!?;:'\"()-")
+        if not clean:
+            return []
+
+        # CMUdict stores stress digits on vowels: AA1, EH0, IY2, etc.
+        if clean in self.cmu_dict:
+            stresses = []
+            for ph in self.cmu_dict[clean]:
+                if ph and ph[-1] in "012":
+                    stresses.append(int(ph[-1]))
+            return stresses
+
+        # SOFA dict doesn't carry stress — fall back to first-vowel heuristic.
+        phonemes = self._lookup_phonemes_sofa(clean)
+        vowel_count = sum(
+            1 for ph in phonemes
+            if SOFA_TO_ARPABET.get(ph, ph.upper()) in _VOWELS
+        )
+        if vowel_count == 0:
+            return []
+        # First vowel primary, rest unstressed.
+        return [1] + [0] * (vowel_count - 1)
+
+    # ── Stress-to-weight mapping ───────────────────────────────────
+    # Primary-stress vowels carry the sung pitch and get the most time.
+    # Secondary stress gets moderate weight. Unstressed vowels (schwas,
+    # reduced vowels) are naturally shorter in singing.
+    _STRESS_WEIGHTS = {1: 1.6, 2: 1.2, 0: 0.7}
+
     def _enforce_vowel_duration(self, results):
         """Ensure vowels get proportional duration in singing.
 
         SOFA is better than CTC at vowel placement, but can still
         compress vowels on fast passages. This redistributes time
-        using linguistic priors when vowels get < 35% of word duration.
+        using CMUdict stress markers to weight vowel durations:
+          - Primary stress (1) → 1.6× weight (carries the sung pitch)
+          - Secondary stress (2) → 1.2× weight
+          - Unstressed (0) → 0.7× weight (reduced vowels, schwas)
+
+        Only fires when vowels get < 35% of word duration.
         """
         MIN_VOWEL_SHARE = 0.35
         fixed_count = 0
@@ -1108,8 +1150,17 @@ class Predictor(BasePredictor):
                 total_cons = sum(cons_durations[idx] for idx in consonant_idxs)
 
             vowel_total = word_dur - total_cons
-            weights = [1.5 if j == 0 else 1.0 for j in range(len(vowel_idxs))]
-            total_weight = sum(weights)
+
+            # Use CMUdict stress markers to weight vowel durations.
+            stress_pattern = self._get_vowel_stress_pattern(word.get("word", ""))
+            weights = []
+            for j in range(len(vowel_idxs)):
+                if j < len(stress_pattern):
+                    weights.append(self._STRESS_WEIGHTS.get(stress_pattern[j], 1.0))
+                else:
+                    # No stress info for this vowel — neutral weight.
+                    weights.append(1.0)
+            total_weight = sum(weights) or 1.0
 
             vowel_durations = {}
             for j, idx in enumerate(vowel_idxs):
@@ -1133,7 +1184,7 @@ class Predictor(BasePredictor):
         if fixed_count:
             print(
                 f"Duration sanity: redistributed {fixed_count} words "
-                f"where vowels were compressed",
+                f"where vowels were compressed (CMUdict stress-weighted)",
                 file=sys.stderr,
             )
 

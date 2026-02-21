@@ -657,8 +657,8 @@ async function runForceAlign(
 
 /**
  * Run unified CTC alignment: word + phoneme boundaries in one call.
- * When line timestamps are available, uses per-line CTC alignment
- * (no Whisper, no hallucination). Falls back to full-file CTC.
+ * When line timestamps are available, uses per-line CTC alignment.
+ * Falls back to full-file CTC.
  * Returns null if alignment fails.
  */
 async function runUnifiedAlign(
@@ -673,11 +673,12 @@ async function runUnifiedAlign(
     const transcript = normalizeTranscript(lyrics.plainText);
 
     onStatusUpdate("Running CTC forced alignment on vocals...");
+
     const phonemeWords = await phonemeAlignLyrics(
       vocalsUrl,
       transcript,
       onStatusUpdate,
-      undefined, // no word timestamps — CTC does word alignment itself
+      undefined,
       lineTimestamps,
     );
 
