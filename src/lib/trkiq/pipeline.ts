@@ -410,17 +410,21 @@ export async function runPipeline(
       );
 
       if (alignedWords && alignedWords.length > 0) {
-        // Try adding phoneme-level detail via SOFA word-boundary mode.
-        // This runs SOFA on each word's audio window independently —
-        // much cheaper than full-file and doesn't need chunking.
+        // Synthesize line timestamps from force-align word gaps, then
+        // re-run SOFA in per-line mode. This is dramatically better than
+        // word-boundary mode: SOFA sees full line context for each
+        // alignment window instead of isolated single words.
+        const synthLines = synthesizeLineTimestamps(alignedWords);
         appendLog(
           "lyrics",
-          `Word alignment complete (${alignedWords.length} words) — adding phonemes`,
+          `Word alignment complete (${alignedWords.length} words) → ` +
+            `synthesized ${synthLines.length} line anchors — re-running SOFA`,
         );
-        const phonemeEnriched = await runPhonemeAlign(
+
+        const phonemeEnriched = await runUnifiedAlign(
           stems.vocals,
           lyrics!,
-          alignedWords,
+          synthLines.length > 0 ? synthLines : undefined,
           (msg, phase) => {
             const sp = phase === "queued" ? 55 : 75;
             update("lyrics", "active", msg, phase, sp);
@@ -576,6 +580,55 @@ function getAudioDuration(file: File): Promise<number> {
 
     audio.src = objectUrl;
   });
+}
+
+/**
+ * Synthesize line-level timestamps from force-aligned word timestamps.
+ *
+ * When LRCLIB doesn't have synced lyrics, this bridges the gap: force-align
+ * gives us word-level timing from Whisper, and we group consecutive words
+ * into lines based on silence gaps. The resulting LineTimestamp[] can be
+ * fed to SOFA for per-line windowed alignment — dramatically better than
+ * full-file mode on songs >45s.
+ *
+ * Line break heuristic: a gap > LINE_GAP_MS between consecutive words
+ * indicates a phrase boundary (natural singing pause between lines).
+ */
+function synthesizeLineTimestamps(
+  words: AlignedWord[],
+): LineTimestamp[] {
+  if (words.length === 0) return [];
+
+  const LINE_GAP_MS = 400; // Gap > 400ms → new line
+  const lines: LineTimestamp[] = [];
+  let lineWords: string[] = [words[0].text];
+  let lineStartMs = words[0].startMs;
+
+  for (let i = 1; i < words.length; i++) {
+    const gap = words[i].startMs - words[i - 1].endMs;
+
+    if (gap > LINE_GAP_MS) {
+      // Close current line, start new one.
+      lines.push({
+        text: normalizeTranscript(lineWords.join(" ")),
+        startMs: lineStartMs,
+      });
+      lineWords = [words[i].text];
+      lineStartMs = words[i].startMs;
+    } else {
+      lineWords.push(words[i].text);
+    }
+  }
+
+  // Close final line.
+  if (lineWords.length > 0) {
+    lines.push({
+      text: normalizeTranscript(lineWords.join(" ")),
+      startMs: lineStartMs,
+    });
+  }
+
+  return lines.filter((l) => l.text.length > 0);
 }
 
 /**
