@@ -78,12 +78,6 @@ SOFA_TO_ARPABET = {
     "v": "V", "w": "W", "y": "Y", "z": "Z", "zh": "ZH",
 }
 
-# Set of vowel phonemes (uppercase) for duration sanity checks.
-_VOWELS = {
-    "AA", "AE", "AH", "AO", "AW", "AY", "EH", "ER", "EY",
-    "IH", "IY", "OW", "OY", "UH", "UW",
-}
-
 # ── VAD-based chunking constants ─────────────────────────────────
 #
 # SOFA's tgm_en_v100 checkpoint degrades noticeably on inputs longer
@@ -294,15 +288,6 @@ class Predictor(BasePredictor):
             ),
             default="",
         ),
-        refine_onsets: bool = Input(
-            description=(
-                "Post-process boundaries with spectral onset detection. "
-                "Searches ±55ms around each word boundary and ±25ms around "
-                "each phoneme boundary, snapping to the nearest spectral "
-                "onset at ~8ms resolution."
-            ),
-            default=True,
-        ),
         per_line_mode: bool = Input(
             description=(
                 "When True and line_timestamps are provided, uses per-line "
@@ -335,13 +320,13 @@ class Predictor(BasePredictor):
 
         if per_line_mode and line_times:
             print(f"Per-line SOFA alignment: {len(line_times)} lines", file=sys.stderr)
-            return self._align_by_lines(waveform, line_times, refine_onsets)
+            return self._align_by_lines(waveform, line_times)
         elif word_times:
             print(f"Word-boundary alignment: {len(word_times)} words", file=sys.stderr)
-            return self._align_with_word_boundaries(waveform, word_times, refine_onsets)
+            return self._align_with_word_boundaries(waveform, word_times)
         elif transcript.strip():
             print(f"Full-file SOFA alignment: {len(transcript)} chars", file=sys.stderr)
-            return self._align_full(waveform, transcript, refine_onsets, line_times)
+            return self._align_full(waveform, transcript, line_times)
         else:
             return json.dumps({
                 "words": [],
@@ -350,7 +335,7 @@ class Predictor(BasePredictor):
 
     # ── Full-file SOFA alignment (preferred path) ───────────────────
 
-    def _align_full(self, waveform, transcript, refine_onsets=True, line_times=None):
+    def _align_full(self, waveform, transcript, line_times=None):
         """Full-file SOFA alignment — with automatic chunking for long audio.
 
         For audio ≤ _CHUNK_THRESHOLD_S: single-pass alignment (original path).
@@ -368,7 +353,7 @@ class Predictor(BasePredictor):
         # Long audio → chunked path.
         if wav_length > _CHUNK_THRESHOLD_S:
             return self._align_full_chunked(
-                waveform, words, wav_length, refine_onsets, line_times,
+                waveform, words, wav_length, line_times,
             )
 
         # ── Short audio: single-pass (original behaviour) ─────────
@@ -407,16 +392,11 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
 
-        if results:
-            results = self._enforce_vowel_duration(results)
-        if refine_onsets and results:
-            results = self._refine_with_onsets(waveform, results)
-
         return json.dumps({"words": results})
 
     # ── VAD-based chunked alignment ────────────────────────────────
 
-    def _align_full_chunked(self, waveform, words, wav_length, refine_onsets, line_times=None):
+    def _align_full_chunked(self, waveform, words, wav_length, line_times=None):
         """Chunked SOFA alignment for audio exceeding _CHUNK_THRESHOLD_S.
 
         Pipeline:
@@ -516,16 +496,6 @@ class Predictor(BasePredictor):
                     word_seq_pred, word_intervals_pred,
                     ph_seq_pred, ph_intervals_pred,
                 )
-
-                # Refine onsets per-chunk (not full-waveform) to avoid OOM.
-                if chunk_results:
-                    chunk_results = self._enforce_vowel_duration(chunk_results)
-                if refine_onsets and chunk_results:
-                    chunk_waveform = waveform[:, start_sample:end_sample]
-                    chunk_results = self._refine_with_onsets(
-                        chunk_waveform, chunk_results, time_offset=seg_start,
-                    )
-
                 all_results.extend(chunk_results)
 
                 print(
@@ -822,7 +792,7 @@ class Predictor(BasePredictor):
 
     # ── Per-line SOFA alignment ─────────────────────────────────────
 
-    def _align_by_lines(self, waveform, line_times, refine_onsets=True):
+    def _align_by_lines(self, waveform, line_times):
         """Per-line SOFA alignment using LRCLIB line windows."""
         audio_duration_s = waveform.shape[1] / self.sample_rate
         results = []
@@ -920,16 +890,11 @@ class Predictor(BasePredictor):
 
         print(f"Aligned {len(results)} words across {len(line_times)} lines", file=sys.stderr)
 
-        if results:
-            results = self._enforce_vowel_duration(results)
-        if refine_onsets and results:
-            results = self._refine_with_onsets(waveform, results)
-
         return json.dumps({"words": results})
 
     # ── Legacy: phoneme alignment within word boundaries ────────────
 
-    def _align_with_word_boundaries(self, waveform, word_times, refine_onsets=True):
+    def _align_with_word_boundaries(self, waveform, word_times):
         """Align phonemes within pre-established word boundaries."""
         results = []
 
@@ -1028,11 +993,6 @@ class Predictor(BasePredictor):
                         phonemes_sofa, word_start_s, word_end_s
                     ),
                 })
-
-        if results:
-            results = self._enforce_vowel_duration(results)
-        if refine_onsets and results:
-            results = self._refine_with_onsets(waveform, results)
 
         return json.dumps({"words": results})
 
@@ -1176,311 +1136,6 @@ class Predictor(BasePredictor):
                 "phonemes": phonemes,
             })
 
-        return results
-
-    # ── Duration sanity check ───────────────────────────────────────
-
-    def _get_vowel_stress_pattern(self, word_text):
-        """Look up CMUdict stress digits for each vowel in a word.
-
-        Returns a list of stress levels (0=unstressed, 1=primary, 2=secondary)
-        for each vowel phoneme, in order.  Falls back to a heuristic if the
-        word isn't in CMUdict: first vowel gets primary stress (1), rest get
-        unstressed (0).
-        """
-        clean = word_text.lower().strip(".,!?;:'\"()-")
-        if not clean:
-            return []
-
-        # CMUdict stores stress digits on vowels: AA1, EH0, IY2, etc.
-        if clean in self.cmu_dict:
-            stresses = []
-            for ph in self.cmu_dict[clean]:
-                if ph and ph[-1] in "012":
-                    stresses.append(int(ph[-1]))
-            return stresses
-
-        # SOFA dict doesn't carry stress — fall back to first-vowel heuristic.
-        phonemes = self._lookup_phonemes_sofa(clean)
-        vowel_count = sum(
-            1 for ph in phonemes
-            if SOFA_TO_ARPABET.get(ph, ph.upper()) in _VOWELS
-        )
-        if vowel_count == 0:
-            return []
-        # First vowel primary, rest unstressed.
-        return [1] + [0] * (vowel_count - 1)
-
-    # ── Stress-to-weight mapping ───────────────────────────────────
-    # Primary-stress vowels carry the sung pitch and get the most time.
-    # Secondary stress gets moderate weight. Unstressed vowels (schwas,
-    # reduced vowels) are naturally shorter in singing.
-    _STRESS_WEIGHTS = {1: 1.6, 2: 1.2, 0: 0.7}
-
-    def _enforce_vowel_duration(self, results):
-        """Ensure vowels get proportional duration in singing.
-
-        SOFA is better than CTC at vowel placement, but can still
-        compress vowels on fast passages. This redistributes time
-        using CMUdict stress markers to weight vowel durations:
-          - Primary stress (1) → 1.6× weight (carries the sung pitch)
-          - Secondary stress (2) → 1.2× weight
-          - Unstressed (0) → 0.7× weight (reduced vowels, schwas)
-
-        Only fires when vowels get < 35% of word duration.
-        """
-        MIN_VOWEL_SHARE = 0.35
-        fixed_count = 0
-
-        for word in results:
-            phonemes = word.get("phonemes", [])
-            if len(phonemes) < 2:
-                continue
-
-            word_dur = word["end"] - word["start"]
-            if word_dur <= 0.01:
-                continue
-
-            vowel_idxs = []
-            consonant_idxs = []
-            for idx, p in enumerate(phonemes):
-                if p["phoneme"] in _VOWELS:
-                    vowel_idxs.append(idx)
-                else:
-                    consonant_idxs.append(idx)
-
-            if not vowel_idxs or not consonant_idxs:
-                continue
-
-            vowel_time = sum(
-                phonemes[idx]["end"] - phonemes[idx]["start"] for idx in vowel_idxs
-            )
-            vowel_share = vowel_time / word_dur
-
-            if vowel_share >= MIN_VOWEL_SHARE:
-                continue
-
-            # Consonant base durations (seconds).
-            CONS_BASE = {
-                "plosive": 0.055, "fricative": 0.070, "liquid": 0.065,
-                "glide": 0.060, "nasal": 0.060, "stop": 0.045,
-            }
-            PLOSIVES = {"B", "P"}
-            FRICATIVES = {"F", "V", "S", "Z", "SH", "ZH", "TH", "DH", "HH"}
-            LIQUIDS = {"L", "R"}
-            GLIDES = {"W", "WH", "Y"}
-            NASALS = {"M", "N", "NG"}
-
-            def _cons_category(ph):
-                if ph in PLOSIVES: return "plosive"
-                if ph in FRICATIVES: return "fricative"
-                if ph in LIQUIDS: return "liquid"
-                if ph in GLIDES: return "glide"
-                if ph in NASALS: return "nasal"
-                return "stop"
-
-            cons_durations = {}
-            total_cons = 0.0
-            for idx in consonant_idxs:
-                base = CONS_BASE[_cons_category(phonemes[idx]["phoneme"])]
-                cons_durations[idx] = base
-                total_cons += base
-
-            if total_cons >= word_dur * 0.65:
-                scale = (word_dur * 0.55) / total_cons
-                for idx in consonant_idxs:
-                    cons_durations[idx] *= scale
-                total_cons = sum(cons_durations[idx] for idx in consonant_idxs)
-
-            vowel_total = word_dur - total_cons
-
-            # Use CMUdict stress markers to weight vowel durations.
-            stress_pattern = self._get_vowel_stress_pattern(word.get("word", ""))
-            weights = []
-            for j in range(len(vowel_idxs)):
-                if j < len(stress_pattern):
-                    weights.append(self._STRESS_WEIGHTS.get(stress_pattern[j], 1.0))
-                else:
-                    # No stress info for this vowel — neutral weight.
-                    weights.append(1.0)
-            total_weight = sum(weights) or 1.0
-
-            vowel_durations = {}
-            for j, idx in enumerate(vowel_idxs):
-                vowel_durations[idx] = vowel_total * weights[j] / total_weight
-
-            cursor = word["start"]
-            for idx in range(len(phonemes)):
-                if idx in cons_durations:
-                    dur = cons_durations[idx]
-                elif idx in vowel_durations:
-                    dur = vowel_durations[idx]
-                else:
-                    dur = phonemes[idx]["end"] - phonemes[idx]["start"]
-                phonemes[idx]["start"] = round(cursor, 4)
-                phonemes[idx]["end"] = round(cursor + dur, 4)
-                cursor += dur
-
-            phonemes[-1]["end"] = word["end"]
-            fixed_count += 1
-
-        if fixed_count:
-            print(
-                f"Duration sanity: redistributed {fixed_count} words "
-                f"where vowels were compressed (CMUdict stress-weighted)",
-                file=sys.stderr,
-            )
-
-        return results
-
-    # ── Onset refinement ────────────────────────────────────────────
-
-    def _refine_with_onsets(self, waveform, results, time_offset=0.0):
-        """Post-process boundaries using spectral onset detection.
-
-        Searches ±55ms around word boundaries and ±25ms around phoneme
-        boundaries, snapping to the nearest spectral onset at ~8ms
-        resolution via torch STFT spectral flux.
-
-        Args:
-            time_offset: absolute time (seconds) of waveform start.
-                Results carry absolute timestamps; this offset is
-                subtracted to convert to waveform-local time for
-                frame indexing, then added back to refined times.
-        """
-        if not results:
-            return results
-
-        try:
-            return self._refine_with_onsets_impl(waveform, results, time_offset)
-        except Exception as e:
-            print(
-                f"Onset refinement failed, returning raw results: {e}",
-                file=sys.stderr,
-            )
-            return results
-
-    def _refine_with_onsets_impl(self, waveform, results, time_offset=0.0):
-        """Inner implementation of onset refinement."""
-        sr = self.sample_rate
-
-        HOP = max(1, int(sr * 0.008))  # ~8ms frames at any sample rate
-        N_FFT = min(2048, sr // 4) * 2  # reasonable FFT size
-
-        mono = waveform.squeeze(0)
-        window = torch.hann_window(N_FFT, device=mono.device)
-        stft = torch.stft(
-            mono, n_fft=N_FFT, hop_length=HOP, window=window,
-            return_complex=True,
-        )
-        mag = stft.abs()
-        flux = torch.diff(mag, dim=-1)
-        flux = torch.clamp(flux, min=0)
-        onset_env = flux.median(dim=0).values.cpu().numpy()
-        del stft, mag, flux
-        total_onset_frames = len(onset_env)
-        if total_onset_frames < 10:
-            return results
-
-        onset_mean = float(np.mean(onset_env))
-        onset_std = float(np.std(onset_env))
-        min_peak_strength = onset_mean + 0.25 * onset_std
-
-        def time_to_frame(t):
-            local = t - time_offset
-            return min(max(0, int(local * sr / HOP)), total_onset_frames - 1)
-
-        def frame_to_time(f):
-            return f * HOP / sr + time_offset
-
-        WORD_RADIUS_S = 0.055
-        PHONEME_RADIUS_S = 0.025
-
-        # Phase 1: Refine word START boundaries.
-        total_delta_ms = 0.0
-        refined_count = 0
-
-        for word in results:
-            original_start = word["start"]
-            center = time_to_frame(original_start)
-            radius = max(1, int(WORD_RADIUS_S * sr / HOP))
-            lo = max(0, center - radius)
-            hi = min(total_onset_frames, center + radius + 1)
-
-            if hi - lo < 3:
-                continue
-
-            win = onset_env[lo:hi]
-            peak_local = int(np.argmax(win))
-
-            if win[peak_local] >= min_peak_strength:
-                refined_start = frame_to_time(lo + peak_local)
-                word["start"] = round(refined_start, 4)
-                total_delta_ms += abs(refined_start - original_start) * 1000
-                refined_count += 1
-
-        # Phase 2: Prevent overlaps but preserve natural gaps.
-        results.sort(key=lambda w: w["start"])
-
-        for i in range(len(results) - 1):
-            if results[i]["end"] > results[i + 1]["start"]:
-                results[i]["end"] = results[i + 1]["start"]
-
-        for word in results:
-            if word["end"] <= word["start"]:
-                word["end"] = round(word["start"] + 0.05, 4)
-
-        # Phase 3: Refine phoneme boundaries within each word.
-        phoneme_refined = 0
-
-        for word in results:
-            phonemes = word.get("phonemes", [])
-            if not phonemes:
-                continue
-
-            word_start = word["start"]
-            word_end = word["end"]
-
-            if len(phonemes) == 1:
-                phonemes[0]["start"] = word_start
-                phonemes[0]["end"] = word_end
-                continue
-
-            phonemes[0]["start"] = word_start
-
-            for j in range(1, len(phonemes)):
-                ctc_boundary = phonemes[j]["start"]
-                center = time_to_frame(ctc_boundary)
-                radius = max(1, int(PHONEME_RADIUS_S * sr / HOP))
-                lo = max(0, center - radius)
-                hi = min(total_onset_frames, center + radius + 1)
-
-                if hi - lo < 2:
-                    continue
-
-                win = onset_env[lo:hi]
-                peak_local = int(np.argmax(win))
-
-                if win[peak_local] >= min_peak_strength * 0.5:
-                    candidate = frame_to_time(lo + peak_local)
-                    min_start = phonemes[j - 1]["start"] + 0.005
-                    remaining = len(phonemes) - j
-                    max_start = word_end - remaining * 0.005
-                    candidate = max(min_start, min(candidate, max_start))
-                    phonemes[j]["start"] = round(candidate, 4)
-                    phoneme_refined += 1
-
-            for j in range(len(phonemes) - 1):
-                phonemes[j]["end"] = phonemes[j + 1]["start"]
-            phonemes[-1]["end"] = word_end
-
-        avg_delta = total_delta_ms / refined_count if refined_count else 0
-        print(
-            f"Onset refinement: {refined_count}/{len(results)} word boundaries "
-            f"shifted (avg {avg_delta:.1f}ms), "
-            f"{phoneme_refined} phoneme boundaries refined",
-            file=sys.stderr,
-        )
         return results
 
     # ── Shared helpers ──────────────────────────────────────────────

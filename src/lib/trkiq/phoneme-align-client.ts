@@ -7,8 +7,7 @@
 /*  trained on singing voice data — better accuracy on held notes,    */
 /*  melisma, and diphthongs vs speech-trained models.                 */
 /*                                                                    */
-/*  Features: VAD-based chunking for long audio, CMUdict stress-      */
-/*  weighted vowel duration, spectral onset boundary refinement.      */
+/*  Features: line-aware chunking for long audio.                     */
 /* ------------------------------------------------------------------ */
 
 import { createClient } from "@/lib/supabase/client";
