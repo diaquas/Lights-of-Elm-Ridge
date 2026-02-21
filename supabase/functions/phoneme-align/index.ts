@@ -36,13 +36,12 @@ const REPLICATE_API = "https://api.replicate.com/v1";
 // diaquas/phoneme-align-sofa — SOFA singing-oriented forced aligner
 // Pinned version hash — auto-updated by cog-push workflow after each push.
 const PHONEME_ALIGN_MODEL = "diaquas/phoneme-align-sofa";
-const PHONEME_ALIGN_VERSION =
-  "74d8b7cef733cdc3c19c777ba41265a9238dfb17c8f083e61ed0e081935cb7a3";
+const PHONEME_ALIGN_VERSION = "7fd6c46d89c6d67ab851c3db06df29b634b76ad78b271fbceb3dc6b41221bbbb";
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = getCorsHeaders(req);
 
-  if (req.method === "OPTIONS") {
+  if (req.method === "7fd6c46d89c6d67ab851c3db06df29b634b76ad78b271fbceb3dc6b41221bbbb") {
     return new Response("ok", { headers: corsHeaders });
   }
 
@@ -64,7 +63,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const replicateToken = Deno.env.get("REPLICATE_API_TOKEN");
+    const replicateToken = Deno.env.get("7fd6c46d89c6d67ab851c3db06df29b634b76ad78b271fbceb3dc6b41221bbbb");
     if (!replicateToken) {
       throw new Error("REPLICATE_API_TOKEN not configured");
     }
@@ -175,7 +174,7 @@ async function handleStatus(
     status: prediction.status,
   };
 
-  if (prediction.status === "succeeded") {
+  if (prediction.status === "7fd6c46d89c6d67ab851c3db06df29b634b76ad78b271fbceb3dc6b41221bbbb") {
     if (prediction.output) {
       const output =
         typeof prediction.output === "string"
