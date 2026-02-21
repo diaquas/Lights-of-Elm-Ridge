@@ -72,7 +72,7 @@ export interface DemucsResponse {
 /* -- Lyrics -------------------------------------------------------- */
 
 /** Source of lyrics data */
-export type LyricsSource = "lrclib" | "musixmatch" | "user" | "none";
+export type LyricsSource = "lrclib" | "user" | "none";
 
 /** LRCLIB synced lyrics line */
 export interface SyncedLine {
@@ -82,17 +82,7 @@ export interface SyncedLine {
   text: string;
 }
 
-/** Curated word-level timestamp (e.g. Musixmatch Rich Sync) */
-export interface WordTimestamp {
-  /** Word text */
-  word: string;
-  /** Start time in seconds */
-  start: number;
-  /** End time in seconds */
-  end: number;
-}
-
-/** Lyrics data from LRCLIB, Musixmatch, or user input */
+/** Lyrics data from LRCLIB or user input */
 export interface LyricsData {
   /** Plain lyrics text */
   plainText: string;
@@ -102,8 +92,6 @@ export interface LyricsData {
   source: LyricsSource;
   /** Original track duration in seconds (from LRCLIB), used to detect edited songs */
   originalDurationSec?: number;
-  /** Curated word-level timestamps from Musixmatch Rich Sync — trusted as-is */
-  wordTimestamps?: WordTimestamp[];
 }
 
 /* -- Pipeline ------------------------------------------------------ */

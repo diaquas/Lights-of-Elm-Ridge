@@ -14,7 +14,6 @@ This document outlines all external services and infrastructure used by the proj
 | Stripe           | Payments            | 2.9% + $0.30 | [dashboard.stripe.com](https://dashboard.stripe.com)         |
 | Replicate        | AI Stem Separation  | ~$0.05/song  | [replicate.com](https://replicate.com)                       |
 | LRCLIB           | Lyrics API          | Free         | [lrclib.net](https://lrclib.net)                             |
-| Musixmatch       | Rich Sync Lyrics    | API key req. | [developer.musixmatch.com](https://developer.musixmatch.com) |
 | GitHub           | Source code         | Free         | [github.com](https://github.com)                             |
 
 ---
@@ -247,7 +246,6 @@ Set these in GitHub → Settings → Secrets → Actions:
 | YouTube API      | 10,000 units/day           | ~100/day      | $0            |
 | Replicate        | Pay-per-use                | Not active    | ~$0.05/song   |
 | LRCLIB           | Unlimited                  | 0             | $0            |
-| Musixmatch       | API key required           | Not active    | TBD           |
 | Stripe           | No monthly fee             | Not active    | $0 + fees     |
 | **Total**        |                            |               | **~$0/month** |
 
@@ -282,28 +280,6 @@ REPLICATE_API_TOKEN=r8_...
 **Setup:** No API key needed — public endpoint at `https://lrclib.net/api/`
 
 **Cost:** Free
-
----
-
-## Musixmatch (Rich Sync Lyrics)
-
-**Purpose:** Word-level synced lyrics (Rich Sync) for TRK:IQ — curated timestamps trusted as-is, SOFA runs phoneme-only alignment within those word windows
-
-**Setup:**
-
-- API key from [developer.musixmatch.com](https://developer.musixmatch.com)
-- Rich Sync endpoint (`track.richsync.get`) requires a commercial plan
-- Called via Supabase Edge Function `musixmatch-proxy` (browser never sees the API key)
-
-**Priority:** Tried before LRCLIB in the lyrics fetch step. When Rich Sync is available, the pipeline skips word alignment entirely — SOFA only resolves phonemes within each curated word window.
-
-**Edge Function Secrets:**
-
-```
-MUSIXMATCH_API_KEY=your-musixmatch-api-key
-```
-
-**Function URL:** `https://bzmpcgsloptensafzfle.supabase.co/functions/v1/musixmatch-proxy`
 
 ---
 
