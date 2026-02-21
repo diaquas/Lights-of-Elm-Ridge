@@ -855,6 +855,11 @@ class Predictor(BasePredictor):
                 if len(word_intervals_pred) > 0:
                     word_intervals_pred = word_intervals_pred + win_start_s
 
+                # Free GPU memory before next line.
+                del mono, melspec
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+
                 line_results = self._sofa_to_json(
                     word_seq_pred, word_intervals_pred,
                     ph_seq_pred, ph_intervals_pred,
@@ -862,6 +867,10 @@ class Predictor(BasePredictor):
                 results.extend(line_results)
 
             except Exception as e:
+                # Ensure GPU memory is freed even on failure.
+                mono = None
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
                 print(
                     f"  Line {i} alignment failed: {e} — "
                     f"falling back to even distribution",
@@ -950,10 +959,17 @@ class Predictor(BasePredictor):
                         melspec, seg_length, ph_seq, word_seq, ph_idx_to_word_idx,
                     )
 
+                # Free GPU memory before next word.
+                del mono, melspec
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
+
                 # Offset to absolute time and build phoneme list.
                 phoneme_timings = []
                 for j in range(len(ph_seq_pred)):
                     ph = str(ph_seq_pred[j])
+                    if ph == "SP":
+                        continue
                     arpabet = SOFA_TO_ARPABET.get(ph, ph.upper())
                     ph_start = float(ph_intervals_pred[j][0]) + word_start_s
                     ph_end = float(ph_intervals_pred[j][1]) + word_start_s
@@ -971,6 +987,10 @@ class Predictor(BasePredictor):
                 })
 
             except Exception as e:
+                # Ensure GPU memory is freed even on failure.
+                mono = None
+                if self.device == "cuda":
+                    torch.cuda.empty_cache()
                 print(f"Word alignment failed for '{word_text}': {e}", file=sys.stderr)
                 results.append({
                     "word": word_text,
@@ -1107,6 +1127,12 @@ class Predictor(BasePredictor):
 
                 ph = str(ph_seq[ph_cursor])
                 ph_end = float(ph_intervals[ph_cursor][1])
+                ph_cursor += 1
+
+                # Skip silence markers — SP is not a valid ARPAbet phoneme.
+                if ph == "SP":
+                    continue
+
                 arpabet = SOFA_TO_ARPABET.get(ph, ph.upper())
 
                 phonemes.append({
@@ -1114,7 +1140,6 @@ class Predictor(BasePredictor):
                     "start": round(ph_start, 4),
                     "end": round(min(ph_end, word_end), 4),
                 })
-                ph_cursor += 1
 
             results.append({
                 "word": str(word_seq[i]),
