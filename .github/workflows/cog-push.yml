@@ -292,9 +292,12 @@ jobs:
         run: |
           NEW_HASH="${{ needs.push-phonemealignsofa.outputs.version }}"
           FILE="supabase/functions/phoneme-align/index.ts"
-          # Replace the quoted value after PHONEME_ALIGN_VERSION =
-          # Handles both same-line (`= "hash"`) and next-line (`=\n  "hash"`) formats.
-          sed -i "/PHONEME_ALIGN_VERSION/,/\"[A-Za-z0-9_]\{1,\}\"/s/\"[A-Za-z0-9_]\{1,\}\"/\"${NEW_HASH}\"/" "$FILE"
+          # Replace the version hash after PHONEME_ALIGN_VERSION.
+          # Two patterns: same-line (`= "hash"`) and next-line (`=\n  "hash"`).
+          # Each targets ONLY the PHONEME_ALIGN_VERSION line (no range patterns
+          # that could corrupt other strings in the file).
+          sed -i '/const PHONEME_ALIGN_VERSION *= *"/{s/"[^"]*"/"'"${NEW_HASH}"'"/}' "$FILE"
+          sed -i '/const PHONEME_ALIGN_VERSION *=$/{n;s/"[^"]*"/"'"${NEW_HASH}"'"/}' "$FILE"
           # Verify the substitution actually happened
           if grep -q "$NEW_HASH" "$FILE"; then
             echo "Updated PHONEME_ALIGN_VERSION to $NEW_HASH"

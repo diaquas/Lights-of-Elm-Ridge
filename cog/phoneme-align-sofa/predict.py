@@ -341,7 +341,7 @@ class Predictor(BasePredictor):
             return self._align_with_word_boundaries(waveform, word_times, refine_onsets)
         elif transcript.strip():
             print(f"Full-file SOFA alignment: {len(transcript)} chars", file=sys.stderr)
-            return self._align_full(waveform, transcript, refine_onsets)
+            return self._align_full(waveform, transcript, refine_onsets, line_times)
         else:
             return json.dumps({
                 "words": [],
@@ -350,11 +350,13 @@ class Predictor(BasePredictor):
 
     # ── Full-file SOFA alignment (preferred path) ───────────────────
 
-    def _align_full(self, waveform, transcript, refine_onsets=True):
+    def _align_full(self, waveform, transcript, refine_onsets=True, line_times=None):
         """Full-file SOFA alignment — with automatic chunking for long audio.
 
         For audio ≤ _CHUNK_THRESHOLD_S: single-pass alignment (original path).
         For longer audio: VAD-based chunking → per-chunk alignment → stitch.
+        When line_times are available, word distribution uses known line
+        positions instead of the voiced-duration heuristic.
         """
         mono_cpu = waveform.squeeze(0)
         wav_length = mono_cpu.shape[0] / self.sample_rate
@@ -366,7 +368,7 @@ class Predictor(BasePredictor):
         # Long audio → chunked path.
         if wav_length > _CHUNK_THRESHOLD_S:
             return self._align_full_chunked(
-                waveform, words, wav_length, refine_onsets,
+                waveform, words, wav_length, refine_onsets, line_times,
             )
 
         # ── Short audio: single-pass (original behaviour) ─────────
@@ -414,13 +416,17 @@ class Predictor(BasePredictor):
 
     # ── VAD-based chunked alignment ────────────────────────────────
 
-    def _align_full_chunked(self, waveform, words, wav_length, refine_onsets):
+    def _align_full_chunked(self, waveform, words, wav_length, refine_onsets, line_times=None):
         """Chunked SOFA alignment for audio exceeding _CHUNK_THRESHOLD_S.
 
         Pipeline:
           1. Detect silence regions via RMS energy envelope
           2. Split audio at silence boundaries into ≤ _MAX_CHUNK_S segments
-          3. Distribute words proportionally by voiced duration per chunk
+          3. Distribute words to chunks:
+             a. Line-anchored (preferred): use LRCLIB line timestamps to
+                assign words to the chunk covering each line's start time.
+             b. Voiced-duration (fallback): proportional by non-silent
+                audio per chunk — blind guess, low confidence.
           4. Run SOFA independently on each chunk
           5. Offset timestamps to absolute time and stitch results
         """
@@ -428,11 +434,18 @@ class Predictor(BasePredictor):
 
         silences = self._detect_silences(mono_cpu)
         chunks = self._build_chunks(wav_length, silences)
-        word_groups = self._distribute_words_to_chunks(words, chunks, silences)
+
+        if line_times:
+            word_groups = self._distribute_words_by_lines(words, chunks, line_times)
+            dist_mode = "line-anchored"
+        else:
+            word_groups = self._distribute_words_to_chunks(words, chunks, silences)
+            dist_mode = "voiced-duration (no line timestamps)"
 
         print(
             f"Chunked alignment: {wav_length:.1f}s → {len(chunks)} chunks "
-            f"({len(silences)} silence gaps detected), {len(words)} words",
+            f"({len(silences)} silence gaps detected), {len(words)} words, "
+            f"distribution={dist_mode}",
             file=sys.stderr,
         )
 
@@ -709,6 +722,73 @@ class Predictor(BasePredictor):
             n = max(0, target - cursor)
             groups.append(list(words[cursor : cursor + n]))
             cursor += n
+
+        return groups
+
+    # ── Line-anchored word distribution ────────────────────────────
+
+    def _distribute_words_by_lines(self, words, chunks, line_times):
+        """Assign words to chunks using LRCLIB line timestamps.
+
+        Each synced line has a start time and text.  We flatten all line
+        words into a timeline, then proportionally map transcript words
+        (which may differ slightly due to normalization) to that timeline.
+        Each word is assigned to the chunk that covers its estimated time.
+
+        This is dramatically more accurate than the voiced-duration
+        heuristic, which has no information about *which* words are in
+        *which* part of the audio.
+        """
+        # Build a word→time mapping from line timestamps.
+        # Distribute each line's words evenly within its duration window.
+        word_times = []
+        for i, lt in enumerate(line_times):
+            line_start_s = lt["startMs"] / 1000
+            line_words = lt["text"].strip().split()
+            n = len(line_words)
+            if n == 0:
+                continue
+            # Line end: next line's start, or +5s for the last line.
+            if i + 1 < len(line_times):
+                line_end_s = line_times[i + 1]["startMs"] / 1000
+            else:
+                line_end_s = line_start_s + 5.0
+            line_dur = max(line_end_s - line_start_s, 0.1)
+            for j in range(n):
+                t = line_start_s + (j / n) * line_dur
+                word_times.append(t)
+
+        n_words = len(words)
+        n_times = len(word_times)
+
+        if n_times == 0:
+            # No usable line timestamps — one group with all words.
+            return [list(words)] + [[] for _ in chunks[1:]]
+
+        groups = [[] for _ in chunks]
+
+        for wi, word in enumerate(words):
+            # Map transcript word index to timeline index proportionally.
+            # Handles word count mismatches from normalization differences.
+            ti = min(int(wi * n_times / n_words), n_times - 1)
+            t = word_times[ti]
+
+            # Assign to the chunk covering this time.
+            assigned = False
+            for ci, chunk in enumerate(chunks):
+                if t < chunk["end"] or ci == len(chunks) - 1:
+                    groups[ci].append(word)
+                    assigned = True
+                    break
+            if not assigned:
+                groups[-1].append(word)
+
+        line_dist = [len(g) for g in groups]
+        print(
+            f"  Line-anchored distribution: {line_dist} "
+            f"(from {n_times} line words → {n_words} transcript words)",
+            file=sys.stderr,
+        )
 
         return groups
 
