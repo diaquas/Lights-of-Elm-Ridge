@@ -1,14 +1,14 @@
 /* ------------------------------------------------------------------ */
 /*  TRK:IQ — Phoneme-Align Client (browser-side)                     */
-/*  Calls diaquas/phoneme-align on Replicate via Edge Function        */
-/*  to get word + phoneme timestamps from wav2vec2 CTC alignment.     */
+/*  Calls diaquas/phoneme-align-sofa on Replicate via Edge Function   */
+/*  to get word + phoneme timestamps from SOFA forced alignment.      */
 /*                                                                    */
-/*  Preferred mode (line_timestamps):                                 */
-/*    LRCLIB synced lines → per-line CTC word + phoneme alignment     */
-/*    No Whisper needed. Zero hallucination.                          */
+/*  SOFA (Singing-Oriented Forced Aligner) uses a UNet backbone       */
+/*  trained on singing voice data — better accuracy on held notes,    */
+/*  melisma, and diphthongs vs speech-trained models.                 */
 /*                                                                    */
-/*  Legacy mode (word_timestamps):                                    */
-/*    Pre-established word boundaries → phoneme-only CTC alignment    */
+/*  Features: VAD-based chunking for long audio, CMUdict stress-      */
+/*  weighted vowel duration, spectral onset boundary refinement.      */
 /* ------------------------------------------------------------------ */
 
 import { createClient } from "@/lib/supabase/client";

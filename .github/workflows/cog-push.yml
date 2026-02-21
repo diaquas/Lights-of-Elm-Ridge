@@ -12,7 +12,6 @@ on:
           - all
           - essentia-onset
           - force-align
-          - phoneme-align
           - phoneme-align-sofa
 
   # Auto-push when cog model files change on dev or main
@@ -32,7 +31,6 @@ jobs:
     outputs:
       essentia: ${{ steps.changes.outputs.essentia }}
       forcealign: ${{ steps.changes.outputs.forcealign }}
-      phonemealign: ${{ steps.changes.outputs.phonemealign }}
       phonemealignsofa: ${{ steps.changes.outputs.phonemealignsofa }}
     steps:
       - uses: actions/checkout@v4
@@ -44,12 +42,10 @@ jobs:
             MODEL="${{ github.event.inputs.model }}"
             echo "essentia=$( [ "$MODEL" = 'essentia-onset' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
             echo "forcealign=$( [ "$MODEL" = 'force-align' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
-            echo "phonemealign=$( [ "$MODEL" = 'phoneme-align' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
             echo "phonemealignsofa=$( [ "$MODEL" = 'phoneme-align-sofa' ] || [ "$MODEL" = 'all' ] && echo true || echo false )" >> "$GITHUB_OUTPUT"
           else
             echo "essentia=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/essentia-onset/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
             echo "forcealign=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/force-align/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
-            echo "phonemealign=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/phoneme-align/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
             echo "phonemealignsofa=$(git diff --name-only HEAD~1 HEAD | grep -q 'cog/phoneme-align-sofa/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
           fi
 
@@ -181,70 +177,6 @@ jobs:
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
 
-  push-phonemealign:
-    needs: detect
-    if: needs.detect.outputs.phonemealign == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.hash }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Free disk space for CUDA base image
-        run: |
-          echo "=== Before cleanup ==="
-          df -h /
-          docker system prune -af --volumes
-          sudo rm -rf \
-            /usr/local/lib/android \
-            /usr/share/dotnet \
-            /opt/ghc \
-            /opt/hostedtoolcache \
-            /usr/local/.ghcup \
-            /usr/share/swift \
-            /usr/local/graalvm
-          sudo swapoff -a
-          sudo rm -f /swapfile
-          echo "=== After cleanup ==="
-          df -h /
-
-      - name: Install Cog
-        run: |
-          sudo curl -o /usr/local/bin/cog -L \
-            https://github.com/replicate/cog/releases/latest/download/cog_Linux_x86_64
-          sudo chmod +x /usr/local/bin/cog
-          cog --version
-
-      - name: Authenticate with Replicate registry
-        uses: docker/login-action@v3
-        with:
-          registry: r8.im
-          username: diaquas
-          password: ${{ secrets.REPLICATE_API_TOKEN }}
-
-      - name: Build and push phoneme-align
-        working-directory: cog/phoneme-align
-        run: |
-          echo "Pushing to r8.im/diaquas/phoneme-align"
-          cog push "r8.im/diaquas/phoneme-align"
-        env:
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-
-      - name: Get latest version hash from Replicate
-        id: version
-        run: |
-          HASH=$(curl -sf -H "Authorization: Bearer $REPLICATE_API_TOKEN" \
-            "https://api.replicate.com/v1/models/diaquas/phoneme-align/versions" \
-            | jq -r '.results[0].id')
-          if [ -z "$HASH" ] || [ "$HASH" = "null" ]; then
-            echo "::error::Failed to fetch phoneme-align version hash"
-            exit 1
-          fi
-          echo "hash=$HASH" >> "$GITHUB_OUTPUT"
-          echo "New phoneme-align version: $HASH"
-        env:
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-
   push-phonemealignsofa:
     needs: detect
     if: needs.detect.outputs.phonemealignsofa == 'true'
@@ -313,8 +245,8 @@ jobs:
   # and deploy edge functions directly (GITHUB_TOKEN commits don't trigger
   # other workflows, so we deploy inline instead of relying on the chain).
   update-versions:
-    needs: [push-essentia, push-forcealign, push-phonemealign, push-phonemealignsofa]
-    if: always() && (needs.push-essentia.result == 'success' || needs.push-forcealign.result == 'success' || needs.push-phonemealign.result == 'success' || needs.push-phonemealignsofa.result == 'success')
+    needs: [push-essentia, push-forcealign, push-phonemealignsofa]
+    if: always() && (needs.push-essentia.result == 'success' || needs.push-forcealign.result == 'success' || needs.push-phonemealignsofa.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
