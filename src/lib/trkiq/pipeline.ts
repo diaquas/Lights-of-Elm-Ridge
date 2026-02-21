@@ -304,7 +304,7 @@ export async function runPipeline(
     }
   }
 
-  /** Run lyrics alignment: SOFA → force-align + SOFA phonemes → word-only → synced lines */
+  /** Run lyrics alignment: force-align (Whisper) → SOFA per-line → word-only → synced lines */
   async function processLyricsStep(
     stemsAvailable: boolean,
   ): Promise<LyricsResult> {
@@ -336,129 +336,117 @@ export async function runPipeline(
       );
     }
 
-    // Try CTC alignment if stems are available
-    let phonemeAlignedWords: PhonemeAlignedWord[] | null = null;
+    // ── Multi-pass alignment pipeline ────────────────────────────────
+    //
+    // Pass 1 (Whisper): force-align → rough word positions.
+    //   Fast, robust to noise, great at "where are the words?"
+    //
+    // Pass 2 (SOFA): per-line windowed alignment → precise phoneme timing.
+    //   Uses LRCLIB line timestamps (preferred) OR synthetic lines built
+    //   from force-align word gaps. SOFA is the precision tool — but it
+    //   needs tight windows to avoid cross-boundary drift.
+    //
+    // This "double pass" approach plays to each model's strengths:
+    //   Whisper = word discovery, SOFA = phoneme precision.
+
     let alignError = "";
+
     if (stemsAvailable && stems?.vocals) {
-      update("lyrics", "active", "Aligning words to audio\u2026", "queued", 10);
+      // ── Pass 1: Force-align (Whisper) for rough word positions ──
+      update("lyrics", "active", "Pass 1: Whisper word alignment\u2026", "queued", 10);
       appendLog("lyrics", "Pulling lyrics");
       appendLog(
         "lyrics",
-        hasSyncedLines
-          ? `Matching ${lineTimestamps!.length} lyric lines to vocal layer`
-          : "Matching words to vocal layer",
+        "Pass 1: Whisper forced alignment on vocal stem",
       );
 
-      phonemeAlignedWords = await runUnifiedAlign(
-        stems.vocals,
-        lyrics!,
-        lineTimestamps,
-        (msg, phase) => {
-          alignError = msg;
-          const sp = phase === "queued" ? 15 : 60;
-          update("lyrics", "active", msg, phase, sp);
-        },
-      );
-
-      if (phonemeAlignedWords) {
-        appendLog(
-          "lyrics",
-          `Placing ${phonemeAlignedWords.length} words at timestamps`,
-        );
-      }
-    }
-
-    if (phonemeAlignedWords && phonemeAlignedWords.length > 0) {
-      update(
-        "lyrics",
-        "active",
-        "Building singing face timing (CTC-aligned)...",
-      );
-      // All words go into a single phrase — matches human-correct xtiming
-      // structure and avoids LRCLIB line-based fragmentation.
-      const leadTrack = processPhonemeAlignedWords(phonemeAlignedWords, "lead");
-
-      leadTrack.source = "ai";
-      leadTrack.confidenceRange = [0.8, 0.9];
-      const vTracks = [leadTrack];
-      appendLog(
-        "lyrics",
-        `\u2713 Lyric sync complete \u2014 ${phonemeAlignedWords.length} cue points`,
-      );
-      update("lyrics", "done");
-      return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
-    }
-
-    // Fallback: force-align (word timestamps) → SOFA phoneme pass.
-    // At worst this matches AutoLyrics quality (word-level forced
-    // alignment); at best it adds real phoneme timestamps on top.
-    if (stemsAvailable && stems?.vocals) {
       let loggedRunning = false;
       const alignedWords = await runForceAlign(
         stems.vocals,
         lyrics!,
         (msg, phase) => {
           alignError = msg;
-          const sp = phase === "queued" ? 15 : 50;
+          const sp = phase === "queued" ? 15 : 40;
           update("lyrics", "active", msg, phase, sp);
           if (phase === "running" && !loggedRunning) {
             loggedRunning = true;
-            appendLog("lyrics", "Falling back to Whisper word alignment");
+            appendLog("lyrics", "Whisper model loaded — aligning words");
           }
         },
         durationMs,
       );
 
       if (alignedWords && alignedWords.length > 0) {
-        // Synthesize line timestamps from force-align word gaps, then
-        // re-run SOFA in per-line mode. This is dramatically better than
-        // word-boundary mode: SOFA sees full line context for each
-        // alignment window instead of isolated single words.
-        const synthLines = synthesizeLineTimestamps(alignedWords);
         appendLog(
           "lyrics",
-          `Word alignment complete (${alignedWords.length} words) → ` +
-            `synthesized ${synthLines.length} line anchors — re-running SOFA`,
+          `Pass 1 done: ${alignedWords.length} word positions from Whisper`,
         );
 
-        const phonemeEnriched = await runUnifiedAlign(
+        // ── Build line anchors for Pass 2 ──
+        // Prefer LRCLIB synced lines (human-curated timing) over
+        // synthetic lines from force-align gaps.
+        let sofaLines: LineTimestamp[] | undefined = lineTimestamps;
+
+        if (!sofaLines || sofaLines.length === 0) {
+          // No LRCLIB synced lines — synthesize from force-align gaps.
+          const synthLines = synthesizeLineTimestamps(alignedWords);
+          if (synthLines.length > 0) {
+            sofaLines = synthLines;
+            appendLog(
+              "lyrics",
+              `Synthesized ${synthLines.length} line anchors from word gaps`,
+            );
+          }
+        } else {
+          appendLog(
+            "lyrics",
+            `Using ${sofaLines.length} LRCLIB synced line anchors`,
+          );
+        }
+
+        // ── Pass 2: SOFA per-line for precise phoneme timing ──
+        update("lyrics", "active", "Pass 2: SOFA phoneme alignment\u2026", "queued", 45);
+        appendLog("lyrics", "Pass 2: SOFA phoneme alignment within line windows");
+
+        const phonemeWords = await runUnifiedAlign(
           stems.vocals,
           lyrics!,
-          synthLines.length > 0 ? synthLines : undefined,
+          sofaLines,
           (msg, phase) => {
-            const sp = phase === "queued" ? 55 : 75;
+            const sp = phase === "queued" ? 50 : 75;
             update("lyrics", "active", msg, phase, sp);
           },
         );
 
-        if (phonemeEnriched && phonemeEnriched.length > 0) {
-          // FALLBACK 1A: force-align words + SOFA phonemes.
+        if (phonemeWords && phonemeWords.length > 0) {
           update(
             "lyrics",
             "active",
-            "Building singing face timing (word + phoneme aligned)...",
+            "Building singing face timing (double-pass aligned)...",
           );
-          const leadTrack = processPhonemeAlignedWords(phonemeEnriched, "lead");
+          const leadTrack = processPhonemeAlignedWords(phonemeWords, "lead");
           leadTrack.source = "ai";
-          leadTrack.confidenceRange = [0.7, 0.85];
+          leadTrack.confidenceRange = sofaLines === lineTimestamps
+            ? [0.8, 0.95]   // LRCLIB lines → highest confidence
+            : [0.7, 0.90];  // Synthetic lines → still very good
           const vTracks = [leadTrack];
           appendLog(
             "lyrics",
-            `\u2713 Lyric sync complete \u2014 ${phonemeEnriched.length} words with phonemes`,
+            `\u2713 Lyric sync complete \u2014 ${phonemeWords.length} words (Whisper + SOFA)`,
           );
           update("lyrics", "done");
           return { tracks: vTracks, stats: computeLyriqStats(vTracks) };
         }
 
-        // FALLBACK 1B: force-align word-only (phoneme pass failed).
-        // Still matches AutoLyrics quality — xLights does CMU phoneme
-        // breakdown on import via its built-in dictionary.
+        // Pass 2 failed — fall back to force-align word-only.
+        // xLights does CMU phoneme breakdown on import via its built-in
+        // dictionary, so word-level timing is still usable.
         update(
           "lyrics",
           "active",
           "Building singing face timing (word-aligned)...",
         );
-        appendLog("lyrics", "Phoneme pass unavailable — shipping word timing");
+        appendLog("lyrics", "SOFA pass unavailable \u2014 shipping Whisper word timing");
         const leadTrack = processAlignedWords(
           alignedWords,
           "lead",

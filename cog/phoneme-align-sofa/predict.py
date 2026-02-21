@@ -80,15 +80,17 @@ SOFA_TO_ARPABET = {
 
 # ── VAD-based chunking constants ─────────────────────────────────
 #
-# SOFA's tgm_en_v100 checkpoint degrades noticeably on inputs longer
-# than ~45 s (confidence drops, boundary drift on held notes).
-# When audio exceeds _CHUNK_THRESHOLD_S we split at silence
-# boundaries so each chunk stays ≤ _MAX_CHUNK_S.
+# Larger chunks give SOFA more context to resolve boundaries that are
+# far apart in the audio. Previous 20 s chunks forced unrelated words
+# next to each other, hurting accuracy.  60 s balances context vs GPU
+# memory (T4 16 GB handles ~70 s safely; A10G much more).
+#
+# Audio shorter than _CHUNK_THRESHOLD_S is aligned in a single pass.
 
-_CHUNK_THRESHOLD_S = 45.0   # trigger chunking above this duration
-_MAX_CHUNK_S = 20.0          # target maximum chunk length (T4 16 GB OOMs above ~25 s)
+_CHUNK_THRESHOLD_S = 60.0   # single-pass below this; chunk above
+_MAX_CHUNK_S = 60.0          # target maximum chunk length
 _MIN_SILENCE_S = 0.25        # minimum gap to consider as split point
-_CHUNK_PADDING_S = 0.5       # audio padding on each side of chunk
+_CHUNK_PADDING_S = 0.75      # audio padding on each side of chunk
 
 
 # ── Dictionary loaders ──────────────────────────────────────────────
@@ -397,7 +399,6 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
 
-        results = self._extend_held_notes(results)
         return json.dumps({"words": results})
 
     # ── VAD-based chunked alignment ────────────────────────────────
@@ -543,7 +544,6 @@ class Predictor(BasePredictor):
             file=sys.stderr,
         )
 
-        all_results = self._extend_held_notes(all_results)
         return json.dumps({"words": all_results})
 
     # ── Silence detection ──────────────────────────────────────────
@@ -897,7 +897,6 @@ class Predictor(BasePredictor):
 
         print(f"Aligned {len(results)} words across {len(line_times)} lines", file=sys.stderr)
 
-        results = self._extend_held_notes(results)
         return json.dumps({"words": results})
 
     # ── Legacy: phoneme alignment within word boundaries ────────────
@@ -1002,7 +1001,6 @@ class Predictor(BasePredictor):
                     ),
                 })
 
-        results = self._extend_held_notes(results)
         return json.dumps({"words": results})
 
     # ── Mel spectrogram preparation ─────────────────────────────────
@@ -1144,53 +1142,6 @@ class Predictor(BasePredictor):
                 "end": round(word_end, 4),
                 "phonemes": phonemes,
             })
-
-        return results
-
-    # ── Held-note end extension ──────────────────────────────────────
-
-    @staticmethod
-    def _extend_held_notes(results, max_extend_s=0.5):
-        """Extend word endings into silence gaps.
-
-        SOFA cuts word boundaries tightly around acoustic energy, but
-        singing sustains notes through silence gaps that precede the next
-        word. When the gap between consecutive words exceeds a threshold,
-        extend the current word's end (and its last phoneme) toward the
-        gap midpoint, capped at max_extend_s.
-
-        This only extends *endings* — start boundaries from SOFA are
-        trusted and never moved.
-        """
-        if len(results) < 2:
-            return results
-
-        MIN_GAP_S = 0.10  # Only extend if gap > 100ms
-        extended = 0
-
-        for i in range(len(results) - 1):
-            gap = results[i + 1]["start"] - results[i]["end"]
-            if gap <= MIN_GAP_S:
-                continue
-
-            # Extend to gap midpoint, capped at max_extend_s.
-            extension = min(gap / 2, max_extend_s)
-            new_end = round(results[i]["end"] + extension, 4)
-            results[i]["end"] = new_end
-
-            # Extend the last phoneme to match the new word end.
-            phonemes = results[i].get("phonemes", [])
-            if phonemes:
-                phonemes[-1]["end"] = new_end
-
-            extended += 1
-
-        if extended:
-            print(
-                f"Held-note extension: extended {extended} word endings "
-                f"into silence gaps (max {max_extend_s*1000:.0f}ms)",
-                file=sys.stderr,
-            )
 
         return results
 

@@ -128,17 +128,38 @@ function responseToLyricsData(data: LrclibResponse): LyricsData | null {
 
 /**
  * Fetch lyrics from LRCLIB by artist and track name.
- * Tries edge function proxy first, falls back to direct browser fetch.
+ *
+ * Strategy: exact match first, then search fallback.  If the exact match
+ * returns plain-only lyrics but a search result has synced lyrics, we
+ * merge the synced lines onto the exact match's plain text — this way
+ * we always prefer the correct song text but upgrade to synced timing
+ * whenever LRCLIB has it under any entry variant.
  */
 export async function fetchLyrics(
   artist: string,
   title: string,
 ): Promise<LyricsData | null> {
   try {
-    const data =
-      (await proxyGet(artist, title)) || (await directGet(artist, title));
-    if (!data) return null;
-    return responseToLyricsData(data);
+    // Normalize input — collapse whitespace, trim
+    const a = artist.replace(/\s+/g, " ").trim();
+    const t = title.replace(/\s+/g, " ").trim();
+
+    const data = (await proxyGet(a, t)) || (await directGet(a, t));
+    const result = data ? responseToLyricsData(data) : null;
+
+    // If we got lyrics but NO synced lines, try search for a synced version.
+    if (result && (!result.syncedLines || result.syncedLines.length === 0)) {
+      const searchData =
+        (await proxySearch(`${a} ${t}`)) || (await directSearch(`${a} ${t}`));
+      if (searchData?.syncedLyrics && searchData.syncedLyrics.length > 0) {
+        const syncedLines = parseLrc(searchData.syncedLyrics);
+        if (syncedLines.length > 0) {
+          return { ...result, syncedLines };
+        }
+      }
+    }
+
+    return result;
   } catch {
     return null;
   }
@@ -147,10 +168,12 @@ export async function fetchLyrics(
 /**
  * Search LRCLIB for lyrics by query string.
  * Tries edge function proxy first, falls back to direct browser fetch.
+ * Always prefers results that have synced lyrics.
  */
 export async function searchLyrics(query: string): Promise<LyricsData | null> {
   try {
-    const data = (await proxySearch(query)) || (await directSearch(query));
+    const q = query.replace(/\s+/g, " ").trim();
+    const data = (await proxySearch(q)) || (await directSearch(q));
     if (!data) return null;
     return responseToLyricsData(data);
   } catch {
